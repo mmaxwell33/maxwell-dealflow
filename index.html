@@ -58,18 +58,18 @@
 
   <!-- TOP BAR -->
   <div id="topbar">
-    <div class="topbar-brand">eXp Realty</div>
-    <div class="topbar-avatar" id="topbar-avatar">MD</div>
-    <div>
-      <div class="topbar-agent" id="topbar-name">Maxwell Delali Midodzi</div>
-      <div class="topbar-brokerage" id="topbar-brokerage">eXp Realty</div>
+    <div class="tb-brand">eXp Realty</div>
+    <div class="tb-avatar" id="topbar-avatar">MD</div>
+    <div class="tb-info">
+      <div class="tb-name" id="topbar-name">Maxwell Delali Midodzi</div>
+      <div class="tb-role" id="topbar-brokerage">eXp Realty</div>
     </div>
-    <div id="pending-badge" class="topbar-badge" style="display:none;">0 Pending</div>
-    <div class="topbar-actions">
-      <button class="topbar-btn btn-topbar-outline" onclick="App.switchTab('viewings')">📅 Schedule Viewing</button>
-      <button class="topbar-btn btn-topbar-purple" onclick="App.toggleAI()">🤖 Ask AI</button>
-      <button class="topbar-btn btn-topbar-green" onclick="App.switchTab('pipeline')">🚀 Pipeline</button>
-      <button class="topbar-btn btn-topbar-blue" onclick="Clients.openAdd()">➕ Add Client</button>
+    <div id="pending-badge" class="tb-badge" style="display:none;">0 Pending</div>
+    <div class="tb-actions">
+      <button class="tb-btn tb-btn-grey" onclick="App.switchTab('viewings')">📅 Schedule Viewing</button>
+      <button class="tb-btn tb-btn-purple" onclick="App.toggleAI()">🤖 Ask AI</button>
+      <button class="tb-btn tb-btn-green" onclick="App.switchTab('pipeline')">🚀 Pipeline</button>
+      <button class="tb-btn tb-btn-blue" onclick="Clients.openAdd()">➕ Add Client</button>
     </div>
   </div>
 
@@ -95,7 +95,7 @@
         <div class="stat-card stat-purple"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total Clients</div></div>
         <div class="stat-card stat-green"><div class="stat-num" id="stat-viewings">—</div><div class="stat-label">Viewings Booked</div></div>
         <div class="stat-card stat-red" id="followup-card" onclick="App.switchTab('clients')"><div class="stat-num" id="stat-followup">—</div><div class="stat-label">Needs Follow-Up</div></div>
-        <div class="stat-card stat-accent"><div class="stat-num" id="stat-pipeline">—</div><div class="stat-label">In Pipeline</div></div>
+        <div class="stat-card stat-cyan"><div class="stat-num" id="stat-pipeline">—</div><div class="stat-label">In Pipeline</div></div>
         <div class="stat-card stat-gold"><div class="stat-num" id="stat-closed">—</div><div class="stat-label">Closed Deals</div></div>
       </div>
 
