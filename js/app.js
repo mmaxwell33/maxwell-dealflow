@@ -273,4 +273,37 @@ const App = {
 };
 
 // Boot
-document.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener('DOMContentLoaded', () => {
+  App.init();
+  App.startLockScreen();
+});
+
+// Lock screen clock + slideshow
+App.startLockScreen = function() {
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    const t = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const d = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    const cl = document.getElementById('lock-clock');
+    const dl = document.getElementById('lock-date');
+    if(cl) cl.textContent = t;
+    if(dl) dl.textContent = d;
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // Slideshow
+  let si = 0;
+  const slides = document.querySelectorAll('.lock-slide');
+  const dots = document.querySelectorAll('.lock-dot');
+  if(slides.length > 1) {
+    setInterval(() => {
+      slides[si].classList.remove('active');
+      dots[si].classList.remove('active');
+      si = (si + 1) % slides.length;
+      slides[si].classList.add('active');
+      dots[si].classList.add('active');
+    }, 5000);
+  }
+};

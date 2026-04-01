@@ -14,19 +14,42 @@
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- LOCK SCREEN -->
 <div id="auth-screen">
-  <div class="auth-logo">🏠</div>
-  <div class="auth-title">Maxwell DealFlow</div>
-  <div class="auth-sub">eXp Realty · CRM & Deal Manager</div>
-  <div class="auth-form">
-    <input id="auth-email" class="auth-input" type="email" placeholder="Email address" autocomplete="email">
-    <input id="auth-password" class="auth-input" type="password" placeholder="Password" autocomplete="current-password">
-    <button class="auth-btn" onclick="App.signIn()">Sign In</button>
-    <div id="auth-error" class="auth-error"></div>
-    <div style="text-align:center;margin-top:16px;font-size:13px;color:#4a5568;">
-      First time? <span style="color:#3b82f6;cursor:pointer;" onclick="App.showSignUp()">Create account</span>
-    </div>
+  <!-- Sliding house backgrounds -->
+  <div class="lock-slides">
+    <div class="lock-slide active" style="background-image:url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80')"></div>
+    <div class="lock-slide" style="background-image:url('https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1200&q=80')"></div>
+    <div class="lock-slide" style="background-image:url('https://images.unsplash.com/photo-1605146769289-440113cc3d00?w=1200&q=80')"></div>
+  </div>
+  <div class="lock-overlay"></div>
+
+  <!-- Clock -->
+  <div class="lock-clock" id="lock-clock">1:25 PM</div>
+  <div class="lock-date" id="lock-date">Wednesday, April 1</div>
+
+  <!-- Slide dots -->
+  <div class="lock-dots">
+    <div class="lock-dot active"></div>
+    <div class="lock-dot"></div>
+    <div class="lock-dot"></div>
+  </div>
+
+  <!-- Agent photo + name -->
+  <div class="lock-agent">
+    <img class="lock-photo" src="https://i.imgur.com/placeholder.jpg" onerror="this.style.display='none';document.getElementById('lock-initials').style.display='flex';" alt="">
+    <div class="lock-photo lock-initials" id="lock-initials">MD</div>
+    <div class="lock-name">Maxwell Delali Midodzi</div>
+  </div>
+
+  <!-- Password box -->
+  <div class="lock-box">
+    <div class="lock-box-title">🔒 MAXWELL DELALI MIDODZI | EXP REALTY</div>
+    <input id="auth-email" class="lock-input" type="email" placeholder="Email address" autocomplete="email">
+    <input id="auth-password" class="lock-input" type="password" placeholder="Enter password..." autocomplete="current-password">
+    <button class="lock-btn" onclick="App.signIn()">Unlock</button>
+    <div id="auth-error" class="auth-error" style="color:#ff6b6b;text-align:center;margin-top:8px;font-size:13px;"></div>
+    <div class="lock-hint">Press Ctrl+L to lock anytime</div>
   </div>
 </div>
 
