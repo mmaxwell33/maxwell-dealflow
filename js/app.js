@@ -48,9 +48,11 @@ const App = {
     // Load agent profile
     const { data: agent } = await db.from('agents').select('*').eq('email', user.email).single();
     currentAgent = agent || { name: user.email, email: user.email, id: null };
-    // Update UI
+    // Update topbar with full agent info
     const initials = (currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('topbar-avatar').textContent = initials;
+    document.getElementById('topbar-name').textContent = currentAgent.name || 'Maxwell';
+    document.getElementById('topbar-brokerage').textContent = currentAgent.brokerage || 'eXp Realty';
     // Show app
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -97,52 +99,98 @@ const App = {
 
   async loadOverview() {
     if (!currentAgent?.id) return;
-    // Stats
-    const [{ count: cc }, { count: vc }, { count: pc }] = await Promise.all([
-      db.from('clients').select('*', { count:'exact', head:true }).eq('agent_id', currentAgent.id).eq('status','Active'),
-      db.from('viewings').select('*', { count:'exact', head:true }).eq('viewing_status','Scheduled'),
-      db.from('pipeline').select('*', { count:'exact', head:true }).eq('agent_id', currentAgent.id).eq('status','Active'),
+    const agentId = currentAgent.id;
+    const now = new Date();
+    const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
+
+    // Load all stats in parallel
+    const [
+      { count: activeCount },
+      { count: totalCount },
+      { count: viewingsCount },
+      { count: pipelineCount },
+      { count: closedCount },
+      { count: newCount },
+      { data: allClients },
+      { data: recent },
+      { data: deals }
+    ] = await Promise.all([
+      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
+      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
+      db.from('viewings').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('viewing_status','Scheduled'),
+      db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
+      db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('stage','Closed'),
+      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
+      db.from('clients').select('id,name,stage,updated_at').eq('agent_id',agentId).eq('status','Active'),
+      db.from('activity_log').select('*').eq('agent_id',agentId).order('created_at',{ascending:false}).limit(6),
+      db.from('pipeline').select('*').eq('agent_id',agentId).eq('status','Active').limit(3)
     ]);
-    document.getElementById('stat-clients').textContent = cc || 0;
-    document.getElementById('stat-viewings').textContent = vc || 0;
-    document.getElementById('stat-pipeline').textContent = pc || 0;
+
+    // Update stats
+    document.getElementById('stat-active').textContent = activeCount || 0;
+    document.getElementById('stat-total').textContent = totalCount || 0;
+    document.getElementById('stat-viewings').textContent = viewingsCount || 0;
+    document.getElementById('stat-pipeline').textContent = pipelineCount || 0;
+    document.getElementById('stat-closed').textContent = closedCount || 0;
+
+    // Needs follow-up: clients not updated in 7+ days
+    const followups = (allClients || []).filter(c => {
+      if (!c.updated_at) return true;
+      return (now - new Date(c.updated_at)) > 7*24*60*60*1000;
+    });
+    document.getElementById('stat-followup').textContent = followups.length;
+
+    // Show follow-up alert if any
+    const alertEl = document.getElementById('followup-alert');
+    if (followups.length > 0) {
+      alertEl.style.display = 'block';
+      document.getElementById('followup-count-badge').textContent = followups.length;
+      document.getElementById('followup-list').innerHTML = followups.slice(0,3).map(c => `
+        <div class="followup-item">
+          <div class="client-avatar" style="width:32px;height:32px;font-size:12px;background:${App.avatarColor(c.name)};">${App.initials(c.name)}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;">${c.name}</div>
+            <div style="font-size:11px;color:var(--text2);">${c.stage || 'No stage'} · Last update ${App.timeAgo(c.updated_at)}</div>
+          </div>
+        </div>`).join('');
+    } else {
+      alertEl.style.display = 'none';
+    }
 
     // Recent activity
-    const { data: recent } = await db.from('activity_log')
-      .select('*').eq('agent_id', currentAgent.id)
-      .order('created_at', { ascending: false }).limit(5);
-
     const actEl = document.getElementById('recent-activity');
     if (!recent?.length) {
       actEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No activity yet</div><div class="empty-sub">Start by adding a client</div></div>';
-      return;
+    } else {
+      actEl.innerHTML = recent.map(a => `
+        <div class="activity-row">
+          <div class="activity-icon" style="background:var(--bg2);">${App.activityIcon(a.activity_type)}</div>
+          <div>
+            <div class="activity-title">${a.description || a.activity_type}</div>
+            <div class="activity-meta">${a.client_name || ''} · ${App.timeAgo(a.created_at)}</div>
+          </div>
+        </div>`).join('');
     }
-    actEl.innerHTML = recent.map(a => `
-      <div class="activity-row">
-        <div class="activity-icon" style="background:var(--bg2);">${App.activityIcon(a.activity_type)}</div>
-        <div>
-          <div class="activity-title">${a.description || a.activity_type}</div>
-          <div class="activity-meta">${a.client_name || ''} · ${App.timeAgo(a.created_at)}</div>
-        </div>
-      </div>`).join('');
 
     // Pipeline snapshot
-    const { data: deals } = await db.from('pipeline')
-      .select('*').eq('agent_id', currentAgent.id).eq('status','Active').limit(3);
     const snapEl = document.getElementById('pipeline-snapshot');
-    if (!deals?.length) { snapEl.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">No active deals in pipeline.</div>'; return; }
-    snapEl.innerHTML = deals.map(d => `
-      <div class="card" style="margin-bottom:10px;">
-        <div class="fw-700">${d.client_name || 'Unknown'}</div>
-        <div class="text-muted" style="font-size:12px;margin:3px 0 8px;">${d.property_address || '—'}</div>
-        <div class="pipeline-bar">${['Accepted','Conditions','Closing','Closed'].map(s =>
-          `<div class="pipeline-step ${d.stage===s?'active':(['Accepted','Conditions','Closing','Closed'].indexOf(d.stage)>['Accepted','Conditions','Closing','Closed'].indexOf(s)?'done':'')}">`
-        ).join('')}</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;">
-          <span class="text-accent">${d.stage || 'Active'}</span>
-          <span class="text-muted">${d.closing_date ? 'Closes ' + App.fmtDate(d.closing_date) : ''}</span>
-        </div>
-      </div>`).join('');
+    if (!deals?.length) {
+      snapEl.innerHTML = '<div class="card text-muted" style="font-size:13px;text-align:center;padding:20px;">No active deals in pipeline.</div>';
+    } else {
+      const stages = ['Accepted','Conditions','Closing','Closed'];
+      snapEl.innerHTML = deals.map(d => {
+        const si = stages.indexOf(d.stage);
+        return `<div class="card" style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div class="fw-700">${d.client_name || 'Unknown'}</div>
+            <span class="stage-badge badge-accepted">${d.stage || 'Active'}</span>
+          </div>
+          <div class="text-muted" style="font-size:12px;margin-bottom:10px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
+          <div class="pipeline-bar">${stages.map((s,i)=>`<div class="pipeline-step ${i===si?'active':i<si?'done':''}"></div>`).join('')}</div>
+          <div style="font-size:11px;color:var(--text2);text-align:right;">${d.closing_date ? '🗓 Closes '+App.fmtDate(d.closing_date) : ''}</div>
+        </div>`;
+      }).join('');
+    }
   },
 
   openModal(html) {
