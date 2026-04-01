@@ -50,9 +50,13 @@ const ActivityLog = {
 
   async load() {
     if (!currentAgent?.id) return;
-    const { data } = await db.from('activity_log')
+    const { data, error } = await db.from('activity_log')
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false }).limit(100);
+    if (error) {
+      document.getElementById('activity-list').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No activity yet</div><div class="empty-sub">Actions you take will appear here</div></div>`;
+      return;
+    }
     ActivityLog.all = data || [];
     ActivityLog.render(ActivityLog.all);
   },
