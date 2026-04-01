@@ -1,0 +1,19 @@
+{
+  "name": "Maxwell DealFlow CRM",
+  "short_name": "DealFlow",
+  "description": "Maxwell Midodzi — Real Estate CRM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#1a56db",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    { "name": "Clients", "url": "/#clients", "description": "View all clients" },
+    { "name": "Add Client", "url": "/#add-client", "description": "Add a new client" }
+  ]
+}
