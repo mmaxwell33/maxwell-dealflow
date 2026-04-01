@@ -76,25 +76,18 @@ const App = {
 
   switchTab(tab) {
     currentTab = tab;
-    // Update screens
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screen = document.getElementById(`screen-${tab}`);
     if (screen) screen.classList.add('active');
-    // Update nav
-    document.querySelectorAll('.nav-item').forEach(n => {
+    // Update both bottom nav and tab nav
+    document.querySelectorAll('.nav-item, .tab-item').forEach(n => {
       n.classList.toggle('active', n.dataset.tab === tab);
     });
-    // Update topbar title
-    const titles = { overview:'Overview', clients:'Clients', viewings:'Viewings', offers:'Offers & Pipeline', pipeline:'Pipeline', ai:'AI Assistant' };
-    document.getElementById('topbar-title').textContent = titles[tab] || 'DealFlow';
-    // Scroll to top
     document.getElementById('main-content').scrollTop = 0;
   },
 
   toggleAI() {
     App.switchTab('ai');
-    // Update nav — AI isn't in nav so clear active
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   },
 
   async loadOverview() {

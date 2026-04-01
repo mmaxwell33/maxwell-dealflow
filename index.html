@@ -58,13 +58,29 @@
 
   <!-- TOP BAR -->
   <div id="topbar">
+    <div class="topbar-brand">eXp Realty</div>
     <div class="topbar-avatar" id="topbar-avatar">MD</div>
-    <div style="flex:1;min-width:0;">
+    <div>
       <div class="topbar-agent" id="topbar-name">Maxwell Delali Midodzi</div>
       <div class="topbar-brokerage" id="topbar-brokerage">eXp Realty</div>
     </div>
     <div id="pending-badge" class="topbar-badge" style="display:none;">0 Pending</div>
-    <button class="topbar-icon-btn" onclick="App.toggleAI()" title="AI Assistant">🤖</button>
+    <div class="topbar-actions">
+      <button class="topbar-btn btn-topbar-outline" onclick="App.switchTab('viewings')">📅 Schedule Viewing</button>
+      <button class="topbar-btn btn-topbar-purple" onclick="App.toggleAI()">🤖 Ask AI</button>
+      <button class="topbar-btn btn-topbar-green" onclick="App.switchTab('pipeline')">🚀 Pipeline</button>
+      <button class="topbar-btn btn-topbar-blue" onclick="Clients.openAdd()">➕ Add Client</button>
+    </div>
+  </div>
+
+  <!-- TAB NAVIGATION -->
+  <div id="tab-nav">
+    <button class="tab-item active" onclick="App.switchTab('overview')" data-tab="overview">🏠 Overview</button>
+    <button class="tab-item" onclick="App.switchTab('clients')" data-tab="clients">👥 Clients</button>
+    <button class="tab-item" onclick="App.switchTab('viewings')" data-tab="viewings">📅 Viewings</button>
+    <button class="tab-item" onclick="App.switchTab('offers')" data-tab="offers">📄 Offers</button>
+    <button class="tab-item" onclick="App.switchTab('pipeline')" data-tab="pipeline">🚀 Pipeline</button>
+    <button class="tab-item" onclick="App.toggleAI()" data-tab="ai">🤖 AI Assistant</button>
   </div>
 
   <!-- MAIN CONTENT -->
