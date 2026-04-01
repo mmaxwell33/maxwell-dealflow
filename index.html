@@ -76,10 +76,16 @@
   <!-- TAB NAVIGATION -->
   <div id="tab-nav">
     <button class="tab-item active" onclick="App.switchTab('overview')" data-tab="overview">🏠 Overview</button>
+    <button class="tab-item" onclick="App.switchTab('approvals')" data-tab="approvals">✅ Approvals <span class="tab-badge" id="approvals-badge" style="display:none;">0</span></button>
     <button class="tab-item" onclick="App.switchTab('clients')" data-tab="clients">👥 Clients</button>
     <button class="tab-item" onclick="App.switchTab('viewings')" data-tab="viewings">📅 Viewings</button>
     <button class="tab-item" onclick="App.switchTab('offers')" data-tab="offers">📄 Offers</button>
     <button class="tab-item" onclick="App.switchTab('pipeline')" data-tab="pipeline">🚀 Pipeline</button>
+    <button class="tab-item" onclick="App.switchTab('newbuilds')" data-tab="newbuilds">🏗️ New Builds</button>
+    <button class="tab-item" onclick="App.switchTab('commissions')" data-tab="commissions">💰 Commissions</button>
+    <button class="tab-item" onclick="App.switchTab('reports')" data-tab="reports">📊 Reports</button>
+    <button class="tab-item" onclick="App.switchTab('activity')" data-tab="activity">📋 Activity</button>
+    <button class="tab-item" onclick="App.switchTab('email')" data-tab="email">✉️ Send Email</button>
     <button class="tab-item" onclick="App.toggleAI()" data-tab="ai">🤖 AI Assistant</button>
   </div>
 
@@ -211,6 +217,112 @@
       </div>
     </div>
 
+    <!-- APPROVALS SCREEN -->
+    <div id="screen-approvals" class="screen">
+      <div class="section-header">
+        <div class="section-title">✅ Approvals</div>
+        <span class="text-muted" style="font-size:13px;">Viewing & offer requests awaiting your action</span>
+      </div>
+      <div id="approvals-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- NEW BUILDS SCREEN -->
+    <div id="screen-newbuilds" class="screen">
+      <div class="section-header">
+        <div class="section-title">🏗️ New Builds</div>
+        <button class="btn btn-primary btn-sm" onclick="NewBuilds.openAdd()">+ New Build</button>
+      </div>
+      <div id="newbuilds-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- COMMISSIONS SCREEN -->
+    <div id="screen-commissions" class="screen">
+      <div class="section-header">
+        <div class="section-title">💰 Commissions</div>
+        <button class="btn btn-primary btn-sm" onclick="Commission.openAdd()">+ Add</button>
+      </div>
+      <div id="commissions-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+      <div id="commissions-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- REPORTS SCREEN -->
+    <div id="screen-reports" class="screen">
+      <div class="section-header">
+        <div class="section-title">📊 Reports</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card">
+          <div class="fw-800" style="margin-bottom:12px;">📈 Pipeline Summary</div>
+          <div id="report-pipeline"></div>
+        </div>
+        <div class="card">
+          <div class="fw-800" style="margin-bottom:12px;">👥 Client Stages</div>
+          <div id="report-stages"></div>
+        </div>
+        <div class="card">
+          <div class="fw-800" style="margin-bottom:12px;">📅 Viewings This Month</div>
+          <div id="report-viewings"></div>
+        </div>
+        <div class="card">
+          <div class="fw-800" style="margin-bottom:12px;">💰 Commission Summary</div>
+          <div id="report-commissions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY SCREEN -->
+    <div id="screen-activity" class="screen">
+      <div class="section-header">
+        <div class="section-title">📋 Activity Log</div>
+        <span class="text-muted" style="font-size:13px;">All system & manual actions</span>
+      </div>
+      <div class="search-bar" style="max-width:400px;">
+        <span>🔍</span>
+        <input type="text" placeholder="Search activity..." id="activity-search" oninput="ActivityLog.search(this.value)">
+      </div>
+      <div class="card" id="activity-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- SEND EMAIL SCREEN -->
+    <div id="screen-email" class="screen">
+      <div class="section-header">
+        <div class="section-title">✉️ Send Email</div>
+      </div>
+      <div style="max-width:700px;">
+        <div class="card">
+          <div class="form-group">
+            <label class="form-label">To — Select Client</label>
+            <select class="form-input form-select" id="email-client"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Template</label>
+            <select class="form-input form-select" id="email-template" onchange="EmailSend.loadTemplate()">
+              <option value="">— Custom —</option>
+              <option value="viewing_scheduled">Viewing Scheduled</option>
+              <option value="offer_submitted">Offer Submitted</option>
+              <option value="offer_accepted">Offer Accepted 🎉</option>
+              <option value="conditions_met">Conditions Met</option>
+              <option value="property_report">Property Report</option>
+              <option value="follow_up">Follow-Up Check-In</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input class="form-input" id="email-subject" placeholder="Email subject...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea class="form-input" id="email-body" rows="8" placeholder="Type your message here..."></textarea>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-outline" onclick="EmailSend.preview()">👁 Preview</button>
+            <button class="btn btn-primary" onclick="EmailSend.send()">📨 Send Email</button>
+          </div>
+          <div id="email-status" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- AI SCREEN -->
     <div id="screen-ai" class="screen" style="padding:0;display:flex;flex-direction:column;height:calc(100vh - 130px);">
       <div style="padding:16px 16px 8px;border-bottom:1px solid var(--border);">
@@ -270,6 +382,7 @@
 <script src="js/clients.js"></script>
 <script src="js/viewings.js"></script>
 <script src="js/offers.js"></script>
+<script src="js/extras.js"></script>
 <script src="js/ai.js"></script>
 </body>
 </html>

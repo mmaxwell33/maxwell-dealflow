@@ -79,11 +79,17 @@ const App = {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screen = document.getElementById(`screen-${tab}`);
     if (screen) screen.classList.add('active');
-    // Update both bottom nav and tab nav
     document.querySelectorAll('.nav-item, .tab-item').forEach(n => {
       n.classList.toggle('active', n.dataset.tab === tab);
     });
     document.getElementById('main-content').scrollTop = 0;
+    // Lazy load modules
+    if (tab === 'approvals') Approvals.load();
+    if (tab === 'activity') ActivityLog.load();
+    if (tab === 'commissions') Commission.load();
+    if (tab === 'reports') Reports.load();
+    if (tab === 'newbuilds') NewBuilds.load();
+    if (tab === 'email') EmailSend.init();
   },
 
   toggleAI() {
