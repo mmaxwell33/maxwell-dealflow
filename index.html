@@ -86,6 +86,11 @@
     <button class="tab-item" onclick="App.switchTab('reports')" data-tab="reports">📊 Reports</button>
     <button class="tab-item" onclick="App.switchTab('activity')" data-tab="activity">📋 Activity</button>
     <button class="tab-item" onclick="App.switchTab('email')" data-tab="email">✉️ Send Email</button>
+    <button class="tab-item" onclick="App.switchTab('analytics')" data-tab="analytics">📈 Analytics</button>
+    <button class="tab-item" onclick="App.switchTab('tracker')" data-tab="tracker">👤 Tracker</button>
+    <button class="tab-item" onclick="App.switchTab('checklist')" data-tab="checklist">☑️ Checklist</button>
+    <button class="tab-item" onclick="App.switchTab('inbox')" data-tab="inbox">📬 Inbox</button>
+    <button class="tab-item" onclick="App.switchTab('formresponses')" data-tab="formresponses">📝 Form Responses</button>
     <button class="tab-item" onclick="App.toggleAI()" data-tab="ai">🤖 AI Assistant</button>
   </div>
 
@@ -284,35 +289,57 @@
     </div>
 
     <!-- SEND EMAIL SCREEN -->
-    <div id="screen-email" class="screen">
-      <div class="section-header">
-        <div class="section-title">✉️ Send Email</div>
-      </div>
-      <div style="max-width:700px;">
-        <div class="card">
+    <div id="screen-email" class="screen" style="padding:16px;">
+      <div style="max-width:720px;margin:0 auto;">
+
+        <!-- Send to Client -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">✉️ Send Email to Client</div>
           <div class="form-group">
-            <label class="form-label">To — Select Client</label>
+            <label class="form-label">SELECT CLIENT</label>
             <select class="form-input form-select" id="email-client"></select>
           </div>
           <div class="form-group">
-            <label class="form-label">Template</label>
+            <label class="form-label">EMAIL TYPE</label>
             <select class="form-input form-select" id="email-template" onchange="EmailSend.loadTemplate()">
-              <option value="">— Custom —</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="">Custom</option>
               <option value="viewing_scheduled">Viewing Scheduled</option>
               <option value="offer_submitted">Offer Submitted</option>
               <option value="offer_accepted">Offer Accepted 🎉</option>
               <option value="conditions_met">Conditions Met</option>
               <option value="property_report">Property Report</option>
-              <option value="follow_up">Follow-Up Check-In</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Subject</label>
-            <input class="form-input" id="email-subject" placeholder="Email subject...">
+            <label class="form-label">SUBJECT</label>
+            <input class="form-input" id="email-subject" placeholder="Enter subject line">
           </div>
           <div class="form-group">
-            <label class="form-label">Message</label>
-            <textarea class="form-input" id="email-body" rows="8" placeholder="Type your message here..."></textarea>
+            <label class="form-label">MESSAGE</label>
+            <div class="rte-toolbar">
+              <select class="rte-format" onchange="EmailSend.formatBlock(this.value,'email-body');this.value='p'">
+                <option value="p">Normal</option>
+                <option value="h2">Heading 1</option>
+                <option value="h3">Heading 2</option>
+              </select>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>B</b></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('italic')"><i>I</i></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')"><u>U</u></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('insertOrderedList')">1.</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('insertUnorderedList')">•</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="EmailSend.insertLink('email-body')">🔗</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')">Tx</button>
+            </div>
+            <div class="rte-editor" id="email-body" contenteditable="true" placeholder="Type your message here..."></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ATTACHMENT LINK (OPTIONAL)</label>
+            <input class="form-input" id="email-attachment" placeholder="Paste Google Drive link (optional)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">UPLOAD FILE (OPTIONAL)</label>
+            <input type="file" id="email-file" class="form-input" style="padding:8px;cursor:pointer;">
           </div>
           <div style="display:flex;gap:10px;">
             <button class="btn btn-outline" onclick="EmailSend.preview()">👁 Preview</button>
@@ -320,6 +347,161 @@
           </div>
           <div id="email-status" style="margin-top:10px;font-size:13px;"></div>
         </div>
+
+        <!-- Send External Email -->
+        <div class="card">
+          <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🌐 Send External Email</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Send to anyone outside your client list (listing agents, lawyers, mortgage brokers, etc.). Previously used contacts will appear as suggestions when you start typing.</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">RECIPIENT NAME</label>
+              <input class="form-input" id="ext-name" placeholder="Jane Smith">
+            </div>
+            <div class="form-group">
+              <label class="form-label">RECIPIENT EMAIL</label>
+              <input class="form-input" id="ext-email" type="email" placeholder="jane@example.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">SUBJECT</label>
+            <input class="form-input" id="ext-subject" placeholder="Enter subject line">
+          </div>
+          <div class="form-group">
+            <label class="form-label">MESSAGE</label>
+            <div class="rte-toolbar">
+              <select class="rte-format" onchange="EmailSend.formatBlock(this.value,'ext-body');this.value='p'">
+                <option value="p">Normal</option>
+                <option value="h2">Heading 1</option>
+                <option value="h3">Heading 2</option>
+              </select>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>B</b></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('italic')"><i>I</i></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('underline')"><u>U</u></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('insertOrderedList')">1.</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('insertUnorderedList')">•</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="EmailSend.insertLink('ext-body')">🔗</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')">Tx</button>
+            </div>
+            <div class="rte-editor" id="ext-body" contenteditable="true" placeholder="Type your message..."></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ADDITIONAL EMAILS (CC — COMMA SEPARATED, OPTIONAL)</label>
+            <input class="form-input" id="ext-cc" placeholder="person1@email.com, person2@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ATTACHMENT LINK (OPTIONAL)</label>
+            <input class="form-input" id="ext-attachment" placeholder="Paste Google Drive link (optional)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">UPLOAD FILE (OPTIONAL)</label>
+            <div class="drop-zone" id="ext-drop-zone"
+              onclick="document.getElementById('ext-file').click()"
+              ondragover="event.preventDefault()"
+              ondrop="EmailSend.handleDrop(event)">
+              🔗 Drag &amp; Drop Files Here or Click to Add
+              <input type="file" id="ext-file" style="display:none;" onchange="EmailSend.showDropFile(this)">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="EmailSend.sendExternal()">📨 Send External Email</button>
+          <div id="ext-status" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ANALYTICS SCREEN -->
+    <div id="screen-analytics" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:20px;font-weight:800;">Analytics</div>
+        <button class="btn btn-outline btn-sm" onclick="Analytics.load()">🔄 Refresh</button>
+      </div>
+      <div class="stats-row-2" id="analytics-stats">
+        <div class="loading" style="grid-column:1/-1;"><div class="spinner"></div> Loading...</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">PIPELINE BREAKDOWN</div>
+          <canvas id="chart-pipeline-breakdown"></canvas>
+        </div>
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">CLIENTS BY CITY</div>
+          <canvas id="chart-clients-city"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWINGS OVER TIME</div>
+        <div class="analytics-chart-tall"><canvas id="chart-viewings-time"></canvas></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWINGS PER CLIENT</div>
+          <canvas id="chart-viewings-client"></canvas>
+        </div>
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">STAGE DISTRIBUTION</div>
+          <canvas id="chart-stage-dist"></canvas>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">BUDGET DISTRIBUTION</div>
+          <canvas id="chart-budget-dist"></canvas>
+        </div>
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWING STATUS</div>
+          <canvas id="chart-viewing-status"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRACKER SCREEN -->
+    <div id="screen-tracker" class="screen" style="padding:16px;">
+      <div class="section-header">
+        <div class="section-title">👤 Client Tracker</div>
+      </div>
+      <div class="search-bar" style="margin-bottom:14px;">
+        <span>🔍</span>
+        <input type="text" placeholder="Search tracker..." id="tracker-search" oninput="Tracker.search(this.value)">
+      </div>
+      <div id="tracker-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST SCREEN -->
+    <div id="screen-checklist" class="screen" style="padding:16px;">
+      <div class="section-header">
+        <div class="section-title">☑️ Checklist</div>
+        <button class="btn btn-primary btn-sm" onclick="Checklist.openAdd()">+ Task</button>
+      </div>
+      <div class="checklist-filters">
+        <button class="btn btn-primary btn-sm filter-btn" onclick="Checklist.filter('all',this)">All</button>
+        <button class="btn btn-outline btn-sm filter-btn" onclick="Checklist.filter('pending',this)">Pending</button>
+        <button class="btn btn-outline btn-sm filter-btn" onclick="Checklist.filter('done',this)">Done</button>
+      </div>
+      <div id="checklist-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- INBOX SCREEN -->
+    <div id="screen-inbox" class="screen" style="padding:16px;">
+      <div class="section-header">
+        <div class="section-title">📬 Inbox</div>
+        <button class="btn btn-primary btn-sm" onclick="Inbox.openCompose()">+ Compose</button>
+      </div>
+      <div id="inbox-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- FORM RESPONSES SCREEN -->
+    <div id="screen-formresponses" class="screen" style="padding:16px;">
+      <div class="section-header">
+        <div class="section-title">📝 Form Responses</div>
+      </div>
+      <div id="formresponses-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
       </div>
     </div>
 
@@ -377,12 +559,15 @@
 
 <!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script src="js/clients.js"></script>
 <script src="js/viewings.js"></script>
 <script src="js/offers.js"></script>
 <script src="js/extras.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/tracker.js"></script>
 <script src="js/ai.js"></script>
 </body>
 </html>

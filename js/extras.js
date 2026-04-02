@@ -364,9 +364,11 @@ const EmailSend = {
     const sel = document.getElementById('email-client');
     if (!sel) return;
     if (window.Clients?.all?.length) {
-      sel.innerHTML = '<option value="">— Select client —</option>' +
-        Clients.all.map(c => `<option value="${c.id}" data-name="${c.full_name}" data-email="${c.email}">${c.full_name} — ${c.email || 'no email'}</option>`).join('');
+      sel.innerHTML = '<option value="">— Choose a client —</option>' +
+        Clients.all.map(c => `<option value="${c.id}" data-name="${c.full_name}" data-email="${c.email || ''}">${c.full_name} — ${c.email || 'no email'}</option>`).join('');
     }
+    // Pre-load follow-up template
+    EmailSend.loadTemplate();
   },
 
   loadTemplate() {
@@ -376,19 +378,43 @@ const EmailSend = {
     document.getElementById('email-subject').value = t.subject;
     const clientSel = document.getElementById('email-client');
     const clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || 'there';
-    document.getElementById('email-body').value = t.body.replace('[CLIENT_NAME]', clientName);
+    const body = document.getElementById('email-body');
+    if (body) body.innerHTML = t.body.replace('[CLIENT_NAME]', clientName).replace(/\n/g, '<br>');
+  },
+
+  formatBlock(tag, editorId) {
+    const el = document.getElementById(editorId);
+    if (el) el.focus();
+    document.execCommand('formatBlock', false, tag);
+  },
+
+  insertLink(editorId) {
+    const el = document.getElementById(editorId);
+    if (el) el.focus();
+    const url = prompt('Enter URL:');
+    if (url) document.execCommand('createLink', false, url);
+  },
+
+  getBodyText(editorId) {
+    const el = document.getElementById(editorId);
+    return el ? el.innerText.trim() : '';
+  },
+
+  getBodyHtml(editorId) {
+    const el = document.getElementById(editorId);
+    return el ? el.innerHTML.trim() : '';
   },
 
   preview() {
     const subject = document.getElementById('email-subject').value;
-    const body = document.getElementById('email-body').value;
+    const body = EmailSend.getBodyHtml('email-body');
     App.openModal(`
       <div class="modal-title">👁 Email Preview</div>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;">
         <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">SUBJECT</div>
         <div class="fw-700">${subject || '(no subject)'}</div>
       </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">${body || '(no content)'}</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:13px;line-height:1.6;">${body || '(no content)'}</div>
     `);
   },
 
@@ -398,13 +424,71 @@ const EmailSend = {
     const opt = clientSel.options[clientSel.selectedIndex];
     if (!opt?.value) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Please select a client'; return; }
     const subject = document.getElementById('email-subject').value.trim();
-    const body = document.getElementById('email-body').value.trim();
+    const bodyText = EmailSend.getBodyText('email-body');
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
-    const mailto = `mailto:${opt.dataset.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailto);
+    const attachment = document.getElementById('email-attachment').value.trim();
+    const fullBody = bodyText + (attachment ? `\n\nAttachment: ${attachment}` : '');
+    window.open(`mailto:${opt.dataset.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`);
     App.toast('📨 Email client opened!');
     App.logActivity('EMAIL_SENT', opt.dataset.name, opt.dataset.email, `Email sent: ${subject}`);
     st.style.color = 'var(--green)';
     st.textContent = '✅ Email opened in your mail app!';
+    // Log to inbox
+    if (currentAgent?.id) {
+      db.from('email_inbox').insert({
+        agent_id: currentAgent.id,
+        direction: 'sent',
+        recipient_name: opt.dataset.name,
+        recipient_email: opt.dataset.email,
+        subject,
+        body: bodyText
+      }).then(() => {});
+    }
+  },
+
+  sendExternal() {
+    const st = document.getElementById('ext-status');
+    const toEmail = document.getElementById('ext-email').value.trim();
+    const toName = document.getElementById('ext-name').value.trim();
+    const subject = document.getElementById('ext-subject').value.trim();
+    const bodyText = EmailSend.getBodyText('ext-body');
+    const cc = document.getElementById('ext-cc').value.trim();
+    const attachment = document.getElementById('ext-attachment').value.trim();
+    if (!toEmail) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Recipient email is required'; return; }
+    if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
+    const fullBody = bodyText + (attachment ? `\n\nAttachment: ${attachment}` : '');
+    let mailto = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
+    if (cc) mailto += `&cc=${encodeURIComponent(cc)}`;
+    window.open(mailto);
+    App.toast('📨 External email client opened!');
+    st.style.color = 'var(--green)';
+    st.textContent = '✅ Email opened in your mail app!';
+    // Log to inbox
+    if (currentAgent?.id) {
+      db.from('email_inbox').insert({
+        agent_id: currentAgent.id,
+        direction: 'sent',
+        recipient_name: toName,
+        recipient_email: toEmail,
+        subject,
+        body: bodyText
+      }).then(() => {});
+    }
+  },
+
+  handleDrop(event) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    if (files.length) {
+      const dz = document.getElementById('ext-drop-zone');
+      dz.textContent = `📎 ${files[0].name} (${(files[0].size/1024).toFixed(1)} KB) — attached`;
+    }
+  },
+
+  showDropFile(input) {
+    if (input.files.length) {
+      const dz = document.getElementById('ext-drop-zone');
+      dz.textContent = `📎 ${input.files[0].name} — ready to attach`;
+    }
   }
 };

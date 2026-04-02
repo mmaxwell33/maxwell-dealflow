@@ -90,6 +90,11 @@ const App = {
     if (tab === 'reports') Reports.load();
     if (tab === 'newbuilds') NewBuilds.load();
     if (tab === 'email') EmailSend.init();
+    if (tab === 'analytics') Analytics.load();
+    if (tab === 'tracker') Tracker.load();
+    if (tab === 'checklist') Checklist.load();
+    if (tab === 'inbox') Inbox.load();
+    if (tab === 'formresponses') FormResponses.load();
   },
 
   toggleAI() {

@@ -273,3 +273,26 @@ input,select,textarea{font-family:inherit;outline:none;}
   .modal-overlay{align-items:flex-end;padding:0;}
   .modal{border-radius:16px 16px 0 0;max-width:100%;}
 }
+
+/* ── RICH TEXT EDITOR ── */
+.rte-toolbar{display:flex;align-items:center;gap:3px;padding:6px 8px;background:var(--bg);border:1.5px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;flex-wrap:wrap;}
+.rte-format{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font-size:12px;cursor:pointer;}
+.rte-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 9px;font-size:13px;cursor:pointer;min-width:28px;line-height:1.4;}
+.rte-btn:hover{background:var(--border);}
+.rte-editor{min-height:160px;background:var(--bg);border:1.5px solid var(--border);border-radius:0 0 8px 8px;padding:12px;color:var(--text);font-size:14px;line-height:1.7;outline:none;overflow-y:auto;}
+.rte-editor:empty::before{content:attr(placeholder);color:var(--text3);pointer-events:none;}
+.rte-editor:focus{border-color:var(--accent2);}
+
+/* ── DROP ZONE ── */
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--text2);font-size:13px;cursor:pointer;transition:border-color 0.2s,background 0.2s;}
+.drop-zone:hover{border-color:var(--accent2);background:rgba(59,130,246,0.04);}
+
+/* ── ANALYTICS STAT YELLOW ── */
+.stat-yellow{border-top:3px solid var(--yellow);}
+.stat-yellow .stat-num{color:var(--yellow);}
+
+/* ── ANALYTICS CHARTS ── */
+.analytics-chart-tall{height:180px;position:relative;}
+
+/* ── CHECKLIST FILTER BTNS ── */
+.checklist-filters{display:flex;gap:8px;margin-bottom:12px;}
