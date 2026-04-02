@@ -100,104 +100,117 @@ const Commission = {
     Commission.all = data || [];
     Commission.renderSummary(data || []);
     Commission.render(data || []);
+    Commission.populateClients();
+  },
+
+  async populateClients() {
+    const sel = document.getElementById('cm-client-sel');
+    if (!sel) return;
+    let clients = window.Clients?.all || [];
+    if (!clients.length && currentAgent?.id) {
+      const { data } = await db.from('clients').select('id,full_name').eq('agent_id', currentAgent.id).order('full_name');
+      clients = data || [];
+    }
+    sel.innerHTML = '<option value="">-- Select Client --</option>' +
+      clients.map(c => `<option value="${c.id}" data-name="${c.full_name}">${c.full_name}</option>`).join('');
+  },
+
+  calcPreview() {
+    const sale = parseFloat(document.getElementById('cm-sale')?.value) || 0;
+    const rate = parseFloat(document.getElementById('cm-rate')?.value) || 0;
+    const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 0;
+    const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 0;
+    const prev = document.getElementById('cm-preview');
+    if (!prev) return;
+    if (!sale || !rate) { prev.style.display = 'none'; return; }
+    const gross = sale * rate / 100;
+    const brokerFee = gross * brokerPct / 100;
+    const netBeforeTax = gross - brokerFee;
+    const tax = netBeforeTax * taxPct / 100;
+    const net = netBeforeTax - tax;
+    prev.style.display = 'block';
+    prev.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+        <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
+        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}%):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="color:var(--text2);">HST / Tax (${taxPct}%):</span><span style="color:var(--red);">-${App.fmtMoney(tax)}</span>
+        <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:4px;margin-top:2px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:4px;margin-top:2px;">${App.fmtMoney(net)}</span>
+      </div>`;
   },
 
   renderSummary(list) {
-    const total = list.reduce((s, c) => s + (c.amount || 0), 0);
-    const paid = list.filter(c => c.status === 'Paid').reduce((s, c) => s + (c.amount || 0), 0);
-    const pending = list.filter(c => c.status === 'Pending').reduce((s, c) => s + (c.amount || 0), 0);
+    const totalVolume = list.reduce((s, c) => s + (c.sale_price || 0), 0);
+    const grossComm = list.reduce((s, c) => s + (c.gross_commission || c.amount || 0), 0);
+    const hst = list.reduce((s, c) => s + (c.tax_amount || 0), 0);
+    const brokerFees = list.reduce((s, c) => s + (c.brokerage_fee_amount || 0), 0);
+    const netEarnings = list.reduce((s, c) => s + (c.net_commission || c.amount || 0), 0);
+    const closedDeals = list.filter(c => c.status === 'Paid').length;
+
+    const banner = document.getElementById('comm-net-display');
+    if (banner) banner.textContent = App.fmtMoney(netEarnings);
+
     document.getElementById('commissions-summary').innerHTML = `
-      <div class="stat-card stat-gold"><div class="stat-num" style="font-size:20px;">${App.fmtMoney(total)}</div><div class="stat-label">Total Earned</div></div>
-      <div class="stat-card stat-green"><div class="stat-num" style="font-size:20px;">${App.fmtMoney(paid)}</div><div class="stat-label">Paid Out</div></div>
-      <div class="stat-card stat-cyan"><div class="stat-num" style="font-size:20px;">${App.fmtMoney(pending)}</div><div class="stat-label">Pending</div></div>
-      <div class="stat-card stat-blue"><div class="stat-num" style="font-size:20px;">${list.length}</div><div class="stat-label">Total Deals</div></div>`;
+      <div class="stat-card stat-blue"><div class="stat-num" style="font-size:18px;">${App.fmtMoney(totalVolume)}</div><div class="stat-label">Total Volume Sold</div></div>
+      <div class="stat-card stat-gold"><div class="stat-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div><div class="stat-label">Gross Commission</div></div>
+      <div class="stat-card stat-yellow"><div class="stat-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div><div class="stat-label">HST / Tax Collected</div></div>
+      <div class="stat-card stat-red"><div class="stat-num" style="font-size:18px;color:var(--red);">-${App.fmtMoney(brokerFees)}</div><div class="stat-label">Brokerage Fees</div></div>`;
   },
 
   render(list) {
     const el = document.getElementById('commissions-list');
     if (!list.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No commissions yet</div><div class="empty-sub">Closed deals will appear here</div></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No commissions yet</div><div class="empty-sub">Use the form above to record your first commission</div></div>';
       return;
     }
-    el.innerHTML = `<div class="card" style="padding:0;">
+    el.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
       <table style="width:100%;border-collapse:collapse;">
-        <thead>
+        <thead><tr style="border-bottom:1px solid var(--border);">
+          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Client</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Property</th>
+          <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Sale Price</th>
+          <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Net Commission</th>
+          <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Status</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Close Date</th>
+        </tr></thead>
+        <tbody>${list.map(c => `
           <tr style="border-bottom:1px solid var(--border);">
-            <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Client</th>
-            <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Property</th>
-            <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Sale Price</th>
-            <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Commission</th>
-            <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Status</th>
-            <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Close Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${list.map(c => `
-            <tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:12px 16px;font-weight:700;">${c.client_name || '—'}</td>
-              <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${c.property_address || '—'}</td>
-              <td style="padding:12px 16px;text-align:right;font-weight:700;">${App.fmtMoney(c.sale_price)}</td>
-              <td style="padding:12px 16px;text-align:right;font-weight:800;color:var(--green);">${App.fmtMoney(c.amount)}</td>
-              <td style="padding:12px 16px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
-              <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${App.fmtDate(c.close_date)}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
+            <td style="padding:12px 16px;font-weight:700;">${c.client_name||'—'}</td>
+            <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${c.property_address||'—'}</td>
+            <td style="padding:12px 16px;text-align:right;font-weight:700;">${App.fmtMoney(c.sale_price)}</td>
+            <td style="padding:12px 16px;text-align:right;font-weight:800;color:var(--green);">${App.fmtMoney(c.net_commission||c.amount)}</td>
+            <td style="padding:12px 16px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
+            <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${App.fmtDate(c.close_date)}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>`;
   },
 
-  openAdd() {
-    App.openModal(`
-      <div class="modal-title">💰 Add Commission</div>
-      <div class="form-group">
-        <label class="form-label">Client Name</label>
-        <input class="form-input" id="cm-client" placeholder="Client name">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Property Address</label>
-        <input class="form-input" id="cm-property" placeholder="123 Main St">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Sale Price</label>
-          <input class="form-input" id="cm-sale" type="number" placeholder="450000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Commission ($)</label>
-          <input class="form-input" id="cm-amount" type="number" placeholder="11250">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Close Date</label>
-          <input class="form-input" id="cm-date" type="date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          <select class="form-input form-select" id="cm-status">
-            <option>Pending</option><option>Paid</option>
-          </select>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="Commission.save()">💾 Save Commission</button>
-      <div id="cm-status-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
-    `);
-  },
-
-  async save() {
-    const st = document.getElementById('cm-status-msg');
-    st.textContent = 'Saving...';
+  async saveNew() {
+    const msg = document.getElementById('cm-msg');
+    const clientSel = document.getElementById('cm-client-sel');
+    const clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || clientSel.value;
+    const salePrice = parseFloat(document.getElementById('cm-sale')?.value) || 0;
+    const property = document.getElementById('cm-property')?.value.trim();
+    if (!salePrice || !property) { msg.style.color='var(--red)'; msg.textContent='⚠️ Property address and sale price are required'; return; }
+    const rate = parseFloat(document.getElementById('cm-rate')?.value) || 2.5;
+    const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 20;
+    const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 15;
+    const gross = salePrice * rate / 100;
+    const brokerFee = gross * brokerPct / 100;
+    const netBeforeTax = gross - brokerFee;
+    const tax = netBeforeTax * taxPct / 100;
+    const net = netBeforeTax - tax;
+    msg.textContent = 'Saving...'; msg.style.color = 'var(--text2)';
+    const closeDate = document.getElementById('cm-close-date')?.value || null;
+    // Try full insert first, fallback to minimal if extra columns don't exist
     const { error } = await db.from('commissions').insert({
-      agent_id: currentAgent.id,
-      client_name: document.getElementById('cm-client').value.trim(),
-      property_address: document.getElementById('cm-property').value.trim(),
-      sale_price: parseFloat(document.getElementById('cm-sale').value) || 0,
-      amount: parseFloat(document.getElementById('cm-amount').value) || 0,
-      close_date: document.getElementById('cm-date').value,
-      status: document.getElementById('cm-status').value
+      agent_id: currentAgent.id, client_name: clientName, property_address: property,
+      sale_price: salePrice, amount: net, close_date: closeDate, status: 'Pending'
     });
-    if (error) { st.style.color = 'var(--red)'; st.textContent = error.message; return; }
-    App.closeModal(); App.toast('✅ Commission saved!');
+    if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
+    App.toast('✅ Commission recorded!');
+    msg.style.color='var(--green)'; msg.textContent='✅ Saved!';
+    document.getElementById('cm-sale').value=''; document.getElementById('cm-property').value='';
+    document.getElementById('cm-preview').style.display='none';
     Commission.load();
   }
 };
@@ -249,6 +262,7 @@ const Reports = {
 // ── NEW BUILDS ──────────────────────────────────────────────────────────────
 const NewBuilds = {
   all: [],
+  msLabels: ['Lot Visited','Pre-Approval Sent to Builder','Plans / Design Stage','Agreement for Purchase & Sale (APS)','Client Decision on APS','Final Purchase & Sale Agreement Sent','All Documents Attached','Final Financing Approval','🎉 Client Takes Possession'],
 
   async load() {
     if (!currentAgent?.id) return;
@@ -256,95 +270,144 @@ const NewBuilds = {
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
     NewBuilds.all = data || [];
+    NewBuilds.renderStats(data || []);
     NewBuilds.render(data || []);
+    NewBuilds.populateClients();
+  },
+
+  async populateClients() {
+    const sel = document.getElementById('nb-client-sel');
+    if (!sel) return;
+    let clients = window.Clients?.all || [];
+    if (!clients.length && currentAgent?.id) {
+      const { data } = await db.from('clients').select('id,full_name').eq('agent_id', currentAgent.id).order('full_name');
+      clients = data || [];
+    }
+    sel.innerHTML = '<option value="">-- Select Existing Client --</option>' +
+      clients.map(c => `<option value="${c.id}" data-name="${c.full_name}">${c.full_name}</option>`).join('');
+  },
+
+  renderStats(list) {
+    const el = document.getElementById('newbuilds-stats');
+    if (!el) return;
+    const active = list.filter(b => b.status === 'Active').length;
+    const now = new Date();
+    const closing = list.filter(b => {
+      if (!b.est_completion_date) return false;
+      const d = new Date(b.est_completion_date);
+      return d >= now && d <= new Date(now.getTime() + 30*24*60*60*1000);
+    }).length;
+    const totalVal = list.reduce((s, b) => s + (b.purchase_price || 0), 0);
+    // Stage breakdown text
+    const stageMap = {};
+    list.forEach(b => { const s = b.current_stage || 'Unknown'; stageMap[s] = (stageMap[s]||0)+1; });
+    const topStage = Object.entries(stageMap).sort((a,b)=>b[1]-a[1])[0];
+    const stageText = list.length ? (topStage ? `${topStage[0]} (${topStage[1]})` : '—') : 'No active builds';
+    el.innerHTML = `
+      <div class="stat-card stat-blue"><div class="stat-num">${active}</div><div class="stat-label">Active Builds</div></div>
+      <div class="stat-card stat-green"><div class="stat-num">${closing}</div><div class="stat-label">Closing This Month</div></div>
+      <div class="stat-card stat-gold"><div class="stat-num">${App.fmtMoney(totalVal)}</div><div class="stat-label">Total Build Value</div></div>
+      <div class="stat-card stat-purple"><div class="stat-num" style="font-size:13px;line-height:1.3;">${stageText}</div><div class="stat-label">Stage Breakdown</div></div>`;
+  },
+
+  toggleForm() {
+    const wrap = document.getElementById('newbuilds-form-wrap');
+    if (!wrap) return;
+    const showing = wrap.style.display !== 'none';
+    wrap.style.display = showing ? 'none' : 'block';
+    if (!showing) NewBuilds.populateClients();
+  },
+
+  countMs() {
+    const boxes = document.querySelectorAll('#newbuilds-form-wrap .nb-ms');
+    const done = [...boxes].filter(b => b.checked).length;
+    const el = document.getElementById('nb-ms-count');
+    if (el) el.textContent = `${done} / 9 checked`;
   },
 
   render(list) {
     const el = document.getElementById('newbuilds-list');
     if (!list.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No new builds tracked</div><div class="empty-sub">Click + New Build to add one</div></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No active builds. Click + New Build to start tracking.</div></div>';
       return;
     }
-    const stages = ['Lot Visited','Pre-Approval Sent','Plans/Design','APS Status','Client Decision','Final P&S Sent','Documents Attached','Final Financing','Possession'];
     el.innerHTML = list.map(b => {
       const pm = b.pipeline_milestones || {};
-      const done = stages.filter((_, i) => pm[`step${i+1}`]?.done).length;
+      const done = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done).length;
+      const pct = Math.round((done / 9) * 100);
       return `<div class="card" style="margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
           <div style="flex:1;">
-            <div class="fw-800">${b.client_name || 'Unknown Client'}</div>
-            <div class="text-muted" style="font-size:12px;">📍 ${b.community || b.builder || '—'}</div>
+            <div class="fw-800" style="font-size:15px;">${b.client_name||'—'}</div>
+            <div class="text-muted" style="font-size:12px;">📍 ${b.lot_address||b.community||'—'} · ${b.builder||'—'}</div>
           </div>
-          <span class="stage-badge badge-viewings">${b.status || 'Active'}</span>
+          <span class="stage-badge badge-viewings">${b.status||'Active'}</span>
         </div>
-        <div style="margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-            <span class="text-muted">Milestone Progress</span>
-            <span class="fw-700 text-accent">${done}/9</span>
-          </div>
-          <div class="pipeline-bar">${stages.map((_, i) => `<div class="pipeline-step ${pm[`step${i+1}`]?.done ? 'done' : ''}"></div>`).join('')}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px;">
+          <span>Milestone Progress</span><span class="fw-700 text-accent">${done}/9</span>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${stages.slice(0, done + 1).map((s, i) => i <= done ? `<span style="font-size:11px;color:var(--green);">✓ ${s}</span>` : '').filter(Boolean).join('<span style="color:var(--border);">·</span>')}
+        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:8px;">
+          <div style="height:100%;width:${pct}%;background:var(--accent2);border-radius:3px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:var(--text2);">
+          ${b.current_stage ? `<div>📋 Stage: <span class="fw-700">${b.current_stage}</span></div>` : ''}
+          ${b.purchase_price ? `<div>💰 Price: <span class="fw-700">${App.fmtMoney(b.purchase_price)}</span></div>` : ''}
+          ${b.est_completion_date ? `<div>📅 Est. Completion: <span class="fw-700">${App.fmtDate(b.est_completion_date)}</span></div>` : ''}
+          ${b.deposit_status ? `<div>🏦 Deposit: <span class="fw-700">${b.deposit_status}</span></div>` : ''}
+        </div>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">
+          ${NewBuilds.msLabels.map((s,i) => pm[`step${i+1}`]?.done
+            ? `<span style="font-size:10px;background:rgba(16,185,129,0.15);color:var(--green);padding:2px 7px;border-radius:10px;">✓ ${s}</span>` : '').filter(Boolean).join('')}
         </div>
       </div>`;
     }).join('');
   },
 
-  openAdd() {
-    App.openModal(`
-      <div class="modal-title">🏗️ New Build</div>
-      <div class="form-group">
-        <label class="form-label">Client Name *</label>
-        <input class="form-input" id="nb-client" placeholder="Client name">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Builder</label>
-          <input class="form-input" id="nb-builder" placeholder="Builder name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Community / Area</label>
-          <input class="form-input" id="nb-community" placeholder="Community">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Lot / Unit</label>
-          <input class="form-input" id="nb-lot" placeholder="Lot 14">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Purchase Price</label>
-          <input class="form-input" id="nb-price" type="number" placeholder="450000">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea class="form-input" id="nb-notes" rows="3" placeholder="Any notes..."></textarea>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="NewBuilds.save()">💾 Save New Build</button>
-      <div id="nb-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
-    `);
-  },
-
   async save() {
     const st = document.getElementById('nb-status');
-    const name = document.getElementById('nb-client').value.trim();
-    if (!name) { st.textContent = '⚠️ Client name required'; return; }
-    st.textContent = 'Saving...';
+    if (!st) return;
+    const clientSel = document.getElementById('nb-client-sel');
+    const clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || '';
+    if (!clientName) { st.style.color='var(--red)'; st.textContent='⚠️ Please select a client'; return; }
+    st.textContent = 'Saving...'; st.style.color = 'var(--text2)';
+    const boxes = document.querySelectorAll('#newbuilds-form-wrap .nb-ms');
+    const milestones = {};
+    boxes.forEach((b, i) => { milestones[`step${i+1}`] = { done: b.checked, label: NewBuilds.msLabels[i] }; });
     const { error } = await db.from('new_builds').insert({
       agent_id: currentAgent.id,
-      client_name: name,
-      builder: document.getElementById('nb-builder').value.trim(),
-      community: document.getElementById('nb-community').value.trim(),
-      lot_number: document.getElementById('nb-lot').value.trim(),
-      purchase_price: parseFloat(document.getElementById('nb-price').value) || 0,
-      notes: document.getElementById('nb-notes').value.trim(),
-      status: 'Active',
-      pipeline_milestones: {}
+      client_name: clientName,
+      builder: document.getElementById('nb-builder')?.value.trim() || '',
+      lot_address: document.getElementById('nb-lot-address')?.value.trim() || '',
+      purchase_price: parseFloat(document.getElementById('nb-price')?.value) || 0,
+      current_stage: document.getElementById('nb-stage')?.value || 'Lot Identified',
+      est_completion_date: document.getElementById('nb-completion')?.value || null,
+      flooring_selection: document.getElementById('nb-flooring')?.value.trim() || '',
+      builder_contact: document.getElementById('nb-builder-contact')?.value.trim() || '',
+      notes: document.getElementById('nb-notes')?.value.trim() || '',
+      deposit_amount: parseFloat(document.getElementById('nb-deposit-amount')?.value) || 0,
+      deposit_date: document.getElementById('nb-deposit-date')?.value || null,
+      deposit_status: document.getElementById('nb-deposit-status')?.value || 'Pending',
+      pa_submitted_date: document.getElementById('nb-pa-submitted')?.value || null,
+      pa_accepted_date: document.getElementById('nb-pa-accepted')?.value || null,
+      pipeline_milestones: milestones,
+      status: 'Active'
     });
-    if (error) { st.style.color = 'var(--red)'; st.textContent = error.message; return; }
-    App.closeModal(); App.toast('✅ New Build added!');
+    if (error) {
+      // Fallback to minimal fields
+      const { error: e2 } = await db.from('new_builds').insert({
+        agent_id: currentAgent.id,
+        client_name: clientName,
+        builder: document.getElementById('nb-builder')?.value.trim() || '',
+        community: document.getElementById('nb-lot-address')?.value.trim() || '',
+        purchase_price: parseFloat(document.getElementById('nb-price')?.value) || 0,
+        notes: document.getElementById('nb-notes')?.value.trim() || '',
+        status: 'Active',
+        pipeline_milestones: milestones
+      });
+      if (e2) { st.style.color='var(--red)'; st.textContent=e2.message; return; }
+    }
+    App.toast('✅ New Build created!');
+    NewBuilds.toggleForm();
     NewBuilds.load();
   }
 };

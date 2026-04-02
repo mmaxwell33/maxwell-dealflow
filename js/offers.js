@@ -246,78 +246,145 @@ const Pipeline = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div><div class="empty-sub">Accepted offers will appear here</div></div>`;
       return;
     }
-    const stages = ['Accepted','Conditions','Closing','Closed'];
-    const stageColor = { Accepted:'var(--accent2)', Conditions:'var(--yellow)', Closing:'var(--purple)', Closed:'var(--green)' };
-    el.innerHTML = list.map(d => {
-      const si = stages.indexOf(d.stage);
-      return `
-        <div class="card" onclick="Pipeline.openDetail('${d.id}')" style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-            <div>
-              <div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div>
-              <div class="text-muted" style="font-size:12px;margin-top:2px;">${d.property_address||'—'}</div>
-            </div>
-            <span style="font-size:11px;font-weight:700;color:${stageColor[d.stage]||'var(--text2)'};">${d.stage}</span>
-          </div>
-          <div class="pipeline-bar">
-            ${stages.map((s,i) => `<div class="pipeline-step ${i<si?'done':i===si?'active':''}"></div>`).join('')}
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;">
-            <span class="text-accent fw-700">${App.fmtMoney(d.offer_amount)}</span>
-            <span class="text-muted">${d.closing_date ? '🏠 Closes ' + App.fmtDate(d.closing_date) : 'No close date'}</span>
-          </div>
-        </div>`;
-    }).join('');
+    const active = list.filter(d => !['Closed','Fell Through'].includes(d.stage));
+    const closed = list.filter(d => d.stage === 'Closed');
+    const fell = list.filter(d => d.stage === 'Fell Through');
+
+    const card = (d) => {
+      const isClosed = d.stage === 'Closed';
+      const isFell = d.stage === 'Fell Through';
+      const steps = ['Accepted','Conditions','Closing','Closed'];
+      const si = steps.indexOf(d.stage);
+      const pct = isClosed ? 100 : isFell ? 0 : Math.max(10, Math.round((Math.max(0,si) / (steps.length-1)) * 100));
+      const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'var(--accent2)';
+      const badge = isClosed ? 'badge-accepted' : isFell ? 'badge-rejected' : si>=2?'badge-viewings':'badge-conditions';
+      const statusLine = isClosed ? '<span style="color:var(--green);">✅ Deal Complete</span>' : isFell ? '<span style="color:var(--red);">❌ Deal Fell Through</span>' : `<span style="color:var(--text2);">📋 Stage: ${d.stage}</span>`;
+      return `<div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
+          <span class="stage-badge ${badge}">${d.stage}</span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:8px;">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
+        </div>
+        <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
+        <div style="font-size:13px;margin-bottom:10px;">💰 Offer: <strong>${App.fmtMoney(d.offer_amount)}</strong>${d.deposit_paid?' · 📥 Deposit: Yes':' · 📥 Deposit: No'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">✅ Acceptance</div><input class="form-input" type="date" id="pl-acc-${d.id}" value="${d.acceptance_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🏦 Financing</div><input class="form-input" type="date" id="pl-fin-${d.id}" value="${d.financing_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🔍 Inspection</div><input class="form-input" type="date" id="pl-ins-${d.id}" value="${d.inspection_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🚶 Walkthrough</div><input class="form-input" type="date" id="pl-walk-${d.id}" value="${d.walkthrough_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">📅 Closing</div><input class="form-input" type="date" id="pl-close-${d.id}" value="${d.closing_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">💾 Save Dates</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${isClosed ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
+          ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>` : ''}
+          ${!isClosed && !isFell ? `
+            <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
+            <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
+            <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;">Updated: ${d.updated_at ? new Date(d.updated_at).toLocaleString() : '—'}</div>
+      </div>`;
+    };
+
+    let html = active.map(d => card(d)).join('');
+
+    if (closed.length) {
+      html += `<div style="margin:16px 0 8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="Pipeline.toggleSection(this)">
+        <span style="color:var(--green);font-size:16px;">🟢</span>
+        <span class="fw-800" style="font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Closed Deals (${closed.length})</span>
+        <span style="margin-left:auto;color:var(--text3);">▲</span>
+      </div><div>${closed.map(d => card(d)).join('')}</div>`;
+    }
+    if (fell.length) {
+      html += `<div style="margin:16px 0 8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="Pipeline.toggleSection(this)">
+        <span style="color:var(--red);font-size:16px;">🔴</span>
+        <span class="fw-800" style="font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Fell Through (${fell.length})</span>
+        <span style="margin-left:auto;color:var(--text3);">▲</span>
+      </div><div>${fell.map(d => card(d)).join('')}</div>`;
+    }
+
+    el.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div></div>`;
   },
 
-  async openDetail(id) {
+  toggleSection(hdr) {
+    const section = hdr.nextElementSibling;
+    if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  },
+
+  async saveDates(id) {
+    const acc = document.getElementById(`pl-acc-${id}`)?.value;
+    const fin = document.getElementById(`pl-fin-${id}`)?.value;
+    const ins = document.getElementById(`pl-ins-${id}`)?.value;
+    const walk = document.getElementById(`pl-walk-${id}`)?.value;
+    const close = document.getElementById(`pl-close-${id}`)?.value;
+    const updates = { updated_at: new Date().toISOString() };
+    if (acc) updates.acceptance_date = acc;
+    if (close) updates.closing_date = close;
+    if (fin) updates.financing_date = fin;
+    if (ins) updates.inspection_date = ins;
+    if (walk) updates.walkthrough_date = walk;
+    const { error } = await db.from('pipeline').update(updates).eq('id', id);
+    if (error) {
+      // Fallback: save only known columns
+      await db.from('pipeline').update({ updated_at: updates.updated_at, acceptance_date: acc||undefined, closing_date: close||undefined }).eq('id', id);
+    }
+    App.toast('💾 Dates saved!');
+    Pipeline.load();
+  },
+
+  async closeDeal(id) {
+    const close = document.getElementById(`pl-close-${id}`)?.value || new Date().toISOString().slice(0,10);
+    await db.from('pipeline').update({ stage: 'Closed', closing_date: close, updated_at: new Date().toISOString() }).eq('id', id);
+    const d = Pipeline.all.find(x => x.id === id);
+    await App.logActivity('DEAL_CLOSED', d?.client_name, d?.client_email, `Deal closed: ${d?.property_address}`, d?.client_id);
+    App.toast('✅ Deal marked Closed!');
+    Pipeline.load(); App.loadOverview();
+  },
+
+  async markFellThrough(id) {
+    await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast('❌ Deal marked Fell Through');
+    Pipeline.load();
+  },
+
+  async reactivate(id) {
+    await db.from('pipeline').update({ stage: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast('🔄 Deal reactivated!');
+    Pipeline.load();
+  },
+
+  async revertClose(id) {
+    await db.from('pipeline').update({ stage: 'Closing', updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast('🔄 Deal reverted to Closing');
+    Pipeline.load();
+  },
+
+  openStageModal(id) {
     const d = Pipeline.all.find(x => x.id === id);
     if (!d) return;
-    const stages = ['Accepted','Conditions','Closing','Closed'];
+    const stages = ['Accepted','Conditions','Closing'];
     App.openModal(`
-      <div class="fw-800" style="font-size:17px;margin-bottom:2px;">${d.client_name}</div>
-      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">${d.property_address}</div>
-      <div class="pipeline-bar" style="height:10px;margin-bottom:8px;">
-        ${stages.map((s,i) => `<div class="pipeline-step ${stages.indexOf(d.stage)>i?'done':d.stage===s?'active':''}"></div>`).join('')}
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:16px;">
-        ${stages.map(s => `<span style="font-size:10px;color:${d.stage===s?'var(--accent2)':'var(--text3)'};">${s}</span>`).join('')}
-      </div>
-      <div class="card-sm" style="margin-bottom:12px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Offer Price</div><div class="fw-800 text-green">${App.fmtMoney(d.offer_amount)}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Stage</div><div class="fw-700">${d.stage}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Accepted</div><div class="fw-700">${App.fmtDate(d.acceptance_date)}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Closing</div><div class="fw-700">${App.fmtDate(d.closing_date)}</div></div>
-        </div>
-      </div>
+      <div class="modal-title">📋 Update Stage</div>
+      <div class="fw-700" style="margin-bottom:12px;">${d.client_name} — ${d.property_address}</div>
       <div class="form-group">
-        <label class="form-label">Advance Stage To</label>
+        <label class="form-label">Current Stage</label>
         <select class="form-input form-select" id="ps-stage">
-          <option value="">-- Select --</option>
           ${stages.map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Closing Date</label>
-        <input class="form-input" id="ps-close" type="date" value="${d.closing_date||''}">
-      </div>
-      <button class="btn btn-primary btn-block" onclick="Pipeline.updateDeal('${d.id}')">💾 Update Deal</button>
+      <button class="btn btn-primary btn-block" onclick="Pipeline.updateStage('${d.id}')">💾 Update Stage</button>
     `);
   },
 
-  async updateDeal(id) {
+  async updateStage(id) {
     const stage = document.getElementById('ps-stage').value;
-    const closeDate = document.getElementById('ps-close').value;
-    const updates = { updated_at: new Date().toISOString() };
-    if (stage) updates.stage = stage;
-    if (closeDate) updates.closing_date = closeDate;
-    await db.from('pipeline').update(updates).eq('id', id);
+    await db.from('pipeline').update({ stage, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
-    await App.logActivity('PIPELINE_UPDATED', d?.client_name, d?.client_email,
-      `Deal stage updated to: ${stage || d?.stage}`, d?.client_id);
-    App.closeModal();
-    App.toast('✅ Deal updated!');
+    await App.logActivity('PIPELINE_UPDATED', d?.client_name, d?.client_email, `Stage → ${stage}`, d?.client_id);
+    App.closeModal(); App.toast('✅ Stage updated!');
     Pipeline.load(); App.loadOverview();
   }
 };

@@ -214,12 +214,11 @@
 
     <!-- PIPELINE SCREEN -->
     <div id="screen-pipeline" class="screen" style="padding:16px;">
-      <div class="section-header">
-        <div class="section-title">Deal Pipeline</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:20px;font-weight:800;">📋 Deal Pipeline</div>
+        <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">🔄 Refresh</button>
       </div>
-      <div id="pipeline-list">
-        <div class="loading"><div class="spinner"></div> Loading...</div>
-      </div>
+      <div id="pipeline-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
     <!-- APPROVALS SCREEN -->
@@ -232,21 +231,94 @@
     </div>
 
     <!-- NEW BUILDS SCREEN -->
-    <div id="screen-newbuilds" class="screen">
-      <div class="section-header">
-        <div class="section-title">🏗️ New Builds</div>
-        <button class="btn btn-primary btn-sm" onclick="NewBuilds.openAdd()">+ New Build</button>
+    <div id="screen-newbuilds" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:20px;font-weight:800;">🏗️ New Build Tracker</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.load()">🔄 Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="NewBuilds.toggleForm()">+ New Build</button>
+        </div>
+      </div>
+      <div class="stats-row-2" id="newbuilds-stats" style="margin-bottom:16px;"></div>
+      <div id="newbuilds-form-wrap" style="display:none;margin-bottom:16px;">
+        <div class="card">
+          <div style="font-size:15px;font-weight:800;margin-bottom:16px;">+ Start a New Build</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">CLIENT</label><select class="form-input form-select" id="nb-client-sel"></select></div>
+            <div class="form-group"><label class="form-label">BUILDER NAME</label><input class="form-input" id="nb-builder" placeholder="e.g. New Victorian Homes"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">LOT ADDRESS</label><input class="form-input" id="nb-lot-address" placeholder="e.g. Lot 14 — 47 Sprucewood Cres"></div>
+            <div class="form-group"><label class="form-label">LOT / PURCHASE PRICE ($)</label><input class="form-input" id="nb-price" type="number" placeholder="e.g. 489000"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">CURRENT STAGE</label><select class="form-input form-select" id="nb-stage"><option>Lot Identified</option><option>Pre-Approval</option><option>Plans / Design</option><option>APS Stage</option><option>Client Decision</option><option>Final P&amp;S Agreement</option><option>Documents</option><option>Final Financing</option><option>Possession</option></select></div>
+            <div class="form-group"><label class="form-label">EST. COMPLETION DATE</label><input class="form-input" id="nb-completion" type="date"></div>
+            <div class="form-group"><label class="form-label">FLOORING SELECTION</label><input class="form-input" id="nb-flooring" placeholder="e.g. Hardwood / Tile"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">BUILDER CONTACT</label><input class="form-input" id="nb-builder-contact" placeholder="e.g. Lauren Mills"></div>
+            <div class="form-group"><label class="form-label">NOTES</label><input class="form-input" id="nb-notes" placeholder="Upgrades, special requests..."></div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--yellow);margin:14px 0 10px;">💰 Deposit &amp; Purchase Agreement</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">DEPOSIT AMOUNT ($)</label><input class="form-input" id="nb-deposit-amount" type="number" placeholder="e.g. 10000"></div>
+            <div class="form-group"><label class="form-label">DEPOSIT DATE</label><input class="form-input" id="nb-deposit-date" type="date"></div>
+            <div class="form-group"><label class="form-label">DEPOSIT STATUS</label><select class="form-input form-select" id="nb-deposit-status"><option>Pending</option><option>Paid</option><option>Waived</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">PURCHASE AGREEMENT SUBMITTED</label><input class="form-input" id="nb-pa-submitted" type="date"></div>
+            <div class="form-group"><label class="form-label">PURCHASE AGREEMENT ACCEPTED / SIGNED</label><input class="form-input" id="nb-pa-accepted" type="date"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;">
+            <span>📋 Build Progress Milestones</span><span id="nb-ms-count" style="color:var(--accent2);">0 / 9 checked</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 1. Lot Visited</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Site Visit</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 2. Pre-Approval Sent to Builder</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Financing</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 3. Plans / Design Stage</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Design</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 4. Agreement for Purchase &amp; Sale (APS)</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Legal</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 5. Client Decision on APS</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Client</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 6. Final Purchase &amp; Sale Agreement Sent</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Legal</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 7. All Documents Attached</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Documents</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 8. Final Financing Approval</label><span style="font-size:10px;color:var(--accent2);background:var(--bg2);padding:2px 8px;border-radius:10px;">Financing</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="checkbox" class="nb-ms" onchange="NewBuilds.countMs()" style="width:16px;height:16px;"> 9. 🎉 Client Takes Possession</label><span style="font-size:10px;color:var(--green);background:var(--bg2);padding:2px 8px;border-radius:10px;">Complete</span></div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button class="btn btn-outline" onclick="NewBuilds.toggleForm()">Cancel</button>
+            <button class="btn btn-primary" onclick="NewBuilds.save()">📐 Create New Build</button>
+          </div>
+          <div id="nb-status" style="margin-top:8px;font-size:13px;text-align:center;"></div>
+        </div>
       </div>
       <div id="newbuilds-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
     <!-- COMMISSIONS SCREEN -->
-    <div id="screen-commissions" class="screen">
-      <div class="section-header">
-        <div class="section-title">💰 Commissions</div>
-        <button class="btn btn-primary btn-sm" onclick="Commission.openAdd()">+ Add</button>
+    <div id="screen-commissions" class="screen" style="padding:16px;">
+      <div id="comm-banner" style="background:linear-gradient(135deg,#059669,#10b981);border-radius:14px;padding:28px;text-align:center;margin-bottom:16px;">
+        <div id="comm-net-display" style="font-size:36px;font-weight:900;color:#fff;line-height:1;">$0</div>
+        <div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:6px;letter-spacing:0.5px;text-transform:uppercase;">Total Net Earnings</div>
       </div>
-      <div id="commissions-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+      <div id="commissions-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:800;margin-bottom:16px;">💰 Record New Commission</div>
+        <div class="form-group">
+          <label class="form-label">CLIENT</label>
+          <select class="form-input form-select" id="cm-client-sel"><option value="">-- Select Client --</option></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">PROPERTY ADDRESS</label><input class="form-input" id="cm-property" placeholder="123 Main St"></div>
+          <div class="form-group"><label class="form-label">SALE PRICE</label><input class="form-input" id="cm-sale" type="number" placeholder="450000" oninput="Commission.calcPreview()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">COMMISSION RATE (%)</label><input class="form-input" id="cm-rate" type="number" value="2.5" step="0.1" oninput="Commission.calcPreview()"></div>
+          <div class="form-group"><label class="form-label">BROKERAGE FEE (%)</label><input class="form-input" id="cm-broker" type="number" value="20" step="1" oninput="Commission.calcPreview()"></div>
+          <div class="form-group"><label class="form-label">TAX RATE / HST (%)</label><input class="form-input" id="cm-tax" type="number" value="15" step="1" oninput="Commission.calcPreview()"></div>
+        </div>
+        <div class="form-group"><label class="form-label">CLOSING DATE</label><input class="form-input" id="cm-close-date" type="date"></div>
+        <div id="cm-preview" style="display:none;background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.8;border:1px solid var(--border);"></div>
+        <button class="btn btn-primary" onclick="Commission.saveNew()">💰 Record Commission</button>
+        <div id="cm-msg" style="margin-top:8px;font-size:13px;text-align:center;"></div>
+      </div>
       <div id="commissions-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
