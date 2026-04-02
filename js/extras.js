@@ -360,13 +360,18 @@ const EmailSend = {
     follow_up: { subject: 'Checking In — How Are Things Going? 👋', body: `Hi [CLIENT_NAME],\n\nI just wanted to check in and see how your home search is going. The market has some great options right now and I'd love to help you find the right fit.\n\nAre there any properties you'd like to view, or any questions I can answer for you?\n\nLooking forward to hearing from you!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` }
   },
 
-  init() {
+  async init() {
     const sel = document.getElementById('email-client');
     if (!sel) return;
-    if (window.Clients?.all?.length) {
-      sel.innerHTML = '<option value="">— Choose a client —</option>' +
-        Clients.all.map(c => `<option value="${c.id}" data-name="${c.full_name}" data-email="${c.email || ''}">${c.full_name} — ${c.email || 'no email'}</option>`).join('');
+    // Use cached clients or fetch fresh from DB
+    let clients = window.Clients?.all || [];
+    if (!clients.length && currentAgent?.id) {
+      const { data } = await db.from('clients')
+        .select('id,full_name,email').eq('agent_id', currentAgent.id).order('full_name');
+      clients = data || [];
     }
+    sel.innerHTML = '<option value="">— Choose a client —</option>' +
+      clients.map(c => `<option value="${c.id}" data-name="${c.full_name}" data-email="${c.email || ''}">${c.full_name} — ${c.email || 'no email'}</option>`).join('');
     // Pre-load follow-up template
     EmailSend.loadTemplate();
   },

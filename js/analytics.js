@@ -60,6 +60,9 @@ const Analytics = {
     Analytics.renderStageDistribution(cl);
     Analytics.renderBudgetDistribution(cl);
     Analytics.renderViewingStatus(vi);
+    Analytics.renderTopLeads(cl);
+    Analytics.renderNeedsFollowUp(cl);
+    Analytics.renderViewingsData(cl, vi);
   },
 
   destroy(id) {
@@ -232,5 +235,86 @@ const Analytics = {
         plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } } }
       }
     });
+  },
+
+  renderTopLeads(clients) {
+    const stageScore = { 'Closed': 100, 'In Offer': 60, 'Under Contract': 50, 'Active Search': 35, 'Active': 35, 'New/Viewing': 10, 'Lost': 5 };
+    const scored = clients
+      .map(c => ({ ...c, score: stageScore[c.stage] || 5 }))
+      .sort((a, b) => b.score - a.score);
+    const el = document.getElementById('analytics-top-leads');
+    if (!el) return;
+    if (!scored.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;">No clients</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">CLIENT</th>
+        <th style="text-align:left;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">STAGE</th>
+        <th style="text-align:right;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">SCORE</th>
+      </tr></thead>
+      <tbody>${scored.slice(0, 10).map(c => {
+        const color = c.score >= 60 ? '#10b981' : c.score >= 30 ? '#f59e0b' : '#ef4444';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 0;font-weight:600;color:var(--accent2);">${c.full_name}</td>
+          <td style="padding:8px 0;color:var(--text2);">${c.stage || '—'}</td>
+          <td style="padding:8px 0;text-align:right;">
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+              <div style="width:70px;height:5px;background:var(--border);border-radius:3px;">
+                <div style="width:${c.score}%;height:100%;background:${color};border-radius:3px;"></div>
+              </div>
+              <span style="font-weight:800;color:${color};min-width:22px;text-align:right;">${c.score}</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  },
+
+  renderNeedsFollowUp(clients) {
+    const now = new Date();
+    const overdue = clients
+      .filter(c => c.status === 'Active')
+      .map(c => ({ ...c, days: c.updated_at ? Math.floor((now - new Date(c.updated_at)) / 86400000) : 999 }))
+      .filter(c => c.days >= 7)
+      .sort((a, b) => b.days - a.days);
+    const el = document.getElementById('analytics-followup');
+    if (!el) return;
+    if (!overdue.length) { el.innerHTML = '<div style="font-size:13px;color:var(--green);">✅ All clients up to date</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">CLIENT</th>
+        <th style="text-align:left;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">STAGE</th>
+        <th style="text-align:right;padding:6px 0;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;">DAYS SINCE CONTACT</th>
+      </tr></thead>
+      <tbody>${overdue.slice(0, 8).map(c => `
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 0;font-weight:600;color:var(--accent2);">${c.full_name}</td>
+          <td style="padding:8px 0;color:var(--text2);">${c.stage || '—'}</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:var(--red);">${c.days} days</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+  },
+
+  renderViewingsData(clients, viewings) {
+    const viewingMap = {};
+    viewings.forEach(v => { if (v.client_name) viewingMap[v.client_name] = (viewingMap[v.client_name] || 0) + 1; });
+    const emailMap = {};
+    clients.forEach(c => { emailMap[c.full_name] = c.email || '—'; });
+    const rows = Object.entries(viewingMap).sort((a, b) => b[1] - a[1]);
+    const el = document.getElementById('analytics-viewings-data');
+    if (!el) return;
+    if (!rows.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;">No viewings data</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:10px 0;color:var(--text2);font-size:11px;font-weight:700;text-transform:uppercase;">CLIENT</th>
+        <th style="text-align:left;padding:10px 0;color:var(--text2);font-size:11px;font-weight:700;text-transform:uppercase;">EMAIL</th>
+        <th style="text-align:right;padding:10px 0;color:var(--text2);font-size:11px;font-weight:700;text-transform:uppercase;">VIEWINGS</th>
+      </tr></thead>
+      <tbody>${rows.map(([name, count]) => `
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px 0;font-weight:600;color:var(--accent2);">${name}</td>
+          <td style="padding:10px 0;color:var(--text2);">${emailMap[name] || '—'}</td>
+          <td style="padding:10px 0;text-align:right;font-weight:800;">${count}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
   }
 };
