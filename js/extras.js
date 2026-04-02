@@ -271,8 +271,8 @@ const NewBuilds = {
       .order('created_at', { ascending: false });
     NewBuilds.all = data || [];
     NewBuilds.renderStats(data || []);
+    await NewBuilds.populateClients();
     NewBuilds.render(data || []);
-    NewBuilds.populateClients();
   },
 
   async populateClients() {
@@ -315,7 +315,10 @@ const NewBuilds = {
     if (!wrap) return;
     const showing = wrap.style.display !== 'none';
     wrap.style.display = showing ? 'none' : 'block';
-    if (!showing) NewBuilds.populateClients();
+    if (!showing) {
+      NewBuilds.populateClients();
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   },
 
   countMs() {
@@ -336,7 +339,7 @@ const NewBuilds = {
   render(list) {
     const el = document.getElementById('newbuilds-list');
     if (!list.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No active builds. Click + New Build to start tracking.</div></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No active builds yet</div><div class="empty-sub">Fill in the form above and click 📐 Create New Build — your build cards with milestone tracking and pipeline sync will appear here.</div></div>';
       return;
     }
     el.innerHTML = list.map(b => {
