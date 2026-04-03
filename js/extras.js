@@ -124,23 +124,24 @@ const Commission = {
     if (!prev) return;
     if (!sale || !rate) { prev.style.display = 'none'; return; }
     const gross = sale * rate / 100;
+    const hst = gross * taxPct / 100;
+    const grossPlusTax = gross + hst;
     const brokerFee = gross * brokerPct / 100;
-    const netBeforeTax = gross - brokerFee;
-    const tax = netBeforeTax * taxPct / 100;
-    const net = netBeforeTax - tax;
+    const net = grossPlusTax - brokerFee;
     prev.style.display = 'block';
     prev.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
         <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
-        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}%):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
-        <span style="color:var(--text2);">HST / Tax (${taxPct}%):</span><span style="color:var(--red);">-${App.fmtMoney(tax)}</span>
-        <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:4px;margin-top:2px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:4px;margin-top:2px;">${App.fmtMoney(net)}</span>
+        <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
+        <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
+        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
       </div>`;
   },
 
   renderSummary(list) {
     const totalVolume = list.reduce((s, c) => s + (c.sale_price || 0), 0);
-    const grossComm = list.reduce((s, c) => s + (c.gross_commission || c.amount || 0), 0);
+    const grossComm = list.reduce((s, c) => s + (c.gross_commission || 0), 0);
     const hst = list.reduce((s, c) => s + (c.tax_amount || 0), 0);
     const brokerFees = list.reduce((s, c) => s + (c.brokerage_fee_amount || 0), 0);
     const netEarnings = list.reduce((s, c) => s + (c.net_commission || c.amount || 0), 0);
@@ -150,10 +151,11 @@ const Commission = {
     if (banner) banner.textContent = App.fmtMoney(netEarnings);
 
     document.getElementById('commissions-summary').innerHTML = `
-      <div class="stat-card stat-blue"><div class="stat-num" style="font-size:18px;">${App.fmtMoney(totalVolume)}</div><div class="stat-label">Total Volume Sold</div></div>
-      <div class="stat-card stat-gold"><div class="stat-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div><div class="stat-label">Gross Commission</div></div>
-      <div class="stat-card stat-yellow"><div class="stat-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div><div class="stat-label">HST / Tax Collected</div></div>
-      <div class="stat-card stat-red"><div class="stat-num" style="font-size:18px;color:var(--red);">-${App.fmtMoney(brokerFees)}</div><div class="stat-label">Brokerage Fees</div></div>`;
+      <div class="stat-card stat-blue"><div class="stat-num" style="font-size:16px;">${App.fmtMoney(totalVolume)}</div><div class="stat-label">Total Volume Sold</div></div>
+      <div class="stat-card stat-gold"><div class="stat-num" style="font-size:16px;">${App.fmtMoney(grossComm)}</div><div class="stat-label">Gross Commission</div></div>
+      <div class="stat-card stat-yellow"><div class="stat-num" style="font-size:16px;color:var(--yellow);">${App.fmtMoney(hst)}</div><div class="stat-label">HST / Tax</div></div>
+      <div class="stat-card stat-red"><div class="stat-num" style="font-size:16px;color:var(--red);">-${App.fmtMoney(brokerFees)}</div><div class="stat-label">Brokerage Fees</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--green);"><div class="stat-num" style="font-size:22px;color:var(--green);">${closedDeals}</div><div class="stat-label">Closed Deals</div></div>`;
   },
 
   render(list) {
@@ -162,26 +164,33 @@ const Commission = {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No commissions yet</div><div class="empty-sub">Use the form above to record your first commission</div></div>';
       return;
     }
-    el.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr style="border-bottom:1px solid var(--border);">
-          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Client</th>
-          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Property</th>
-          <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Sale Price</th>
-          <th style="padding:12px 16px;text-align:right;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Net Commission</th>
-          <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Status</th>
-          <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;">Close Date</th>
-        </tr></thead>
-        <tbody>${list.map(c => `
-          <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:12px 16px;font-weight:700;">${c.client_name||'—'}</td>
-            <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${c.property_address||'—'}</td>
-            <td style="padding:12px 16px;text-align:right;font-weight:700;">${App.fmtMoney(c.sale_price)}</td>
-            <td style="padding:12px 16px;text-align:right;font-weight:800;color:var(--green);">${App.fmtMoney(c.net_commission||c.amount)}</td>
-            <td style="padding:12px 16px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
-            <td style="padding:12px 16px;font-size:13px;color:var(--text2);">${App.fmtDate(c.close_date)}</td>
-          </tr>`).join('')}</tbody>
-      </table></div>`;
+    const th = (label, align) => `<th style="padding:10px 14px;text-align:${align||'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">${label}</th>`;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">
+          📋 Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Commission.load()">🔄 Refresh</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:720px;">
+          <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
+            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}
+          </tr></thead>
+          <tbody>${list.map(c => `
+            <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+              <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
+              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${c.client_name||'—'}</td>
+              <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.property_address||'—'}</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
+              <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.tax_amount||0)}</td>
+              <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fee_amount||0)}</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.net_commission||c.amount||0)}</td>
+              <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
+              <td style="padding:11px 14px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
   },
 
   async saveNew() {
@@ -194,17 +203,19 @@ const Commission = {
     const rate = parseFloat(document.getElementById('cm-rate')?.value) || 2.5;
     const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 20;
     const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 15;
+    // Correct formula: HST adds to gross; brokerage is on gross only
     const gross = salePrice * rate / 100;
+    const hst = gross * taxPct / 100;
+    const grossPlusTax = gross + hst;
     const brokerFee = gross * brokerPct / 100;
-    const netBeforeTax = gross - brokerFee;
-    const tax = netBeforeTax * taxPct / 100;
-    const net = netBeforeTax - tax;
+    const net = grossPlusTax - brokerFee;
     msg.textContent = 'Saving...'; msg.style.color = 'var(--text2)';
     const closeDate = document.getElementById('cm-close-date')?.value || null;
-    // Try full insert first, fallback to minimal if extra columns don't exist
     const { error } = await db.from('commissions').insert({
       agent_id: currentAgent.id, client_name: clientName, property_address: property,
-      sale_price: salePrice, amount: net, close_date: closeDate, status: 'Pending'
+      sale_price: salePrice, gross_commission: gross, tax_amount: hst,
+      brokerage_fee_amount: brokerFee, net_commission: net,
+      amount: net, close_date: closeDate, status: 'Pending'
     });
     if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
     App.toast('✅ Commission recorded!');
@@ -219,43 +230,200 @@ const Commission = {
 const Reports = {
   async load() {
     if (!currentAgent?.id) return;
+    await Reports.populateClients();
     const [{ data: clients }, { data: pipeline }, { data: viewings }, { data: commissions }] = await Promise.all([
       db.from('clients').select('stage,status').eq('agent_id', currentAgent.id),
-      db.from('pipeline').select('stage,offer_amount').eq('agent_id', currentAgent.id),
-      db.from('viewings').select('viewing_status,viewing_date').eq('agent_id', currentAgent.id),
-      db.from('commissions').select('amount,status').eq('agent_id', currentAgent.id)
+      db.from('pipeline').select('stage').eq('agent_id', currentAgent.id),
+      db.from('viewings').select('viewing_status').eq('agent_id', currentAgent.id),
+      db.from('commissions').select('net_commission,amount,status').eq('agent_id', currentAgent.id)
     ]);
+    const activeClients = (clients||[]).filter(c => c.status !== 'Lost').length;
+    const closedDeals = (pipeline||[]).filter(p => p.stage === 'Closed').length;
+    const totalViewings = (viewings||[]).length;
+    const totalNet = (commissions||[]).reduce((s,c) => s + (c.net_commission||c.amount||0), 0);
+    const el = document.getElementById('rpt-quick-stats');
+    if (el) el.innerHTML = `
+      <div class="card"><div class="fw-800" style="margin-bottom:12px;">📈 Quick Overview</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Active Clients</span><span class="fw-700" style="color:var(--accent2);">${activeClients}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Closed Deals</span><span class="fw-700" style="color:var(--green);">${closedDeals}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Total Viewings</span><span class="fw-700" style="color:var(--accent2);">${totalViewings}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>Net Commissions</span><span class="fw-700" style="color:var(--green);">${App.fmtMoney(totalNet)}</span></div>
+      </div>
+      <div class="card"><div class="fw-800" style="margin-bottom:12px;">💡 How to Use</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8;">
+          1. Select a client from the dropdown<br>
+          2. Check the sections to include<br>
+          3. Add any agent notes<br>
+          4. Preview or send directly to client
+        </div>
+      </div>`;
+  },
 
-    // Pipeline summary
-    const pipelineStages = {};
-    (pipeline || []).forEach(p => { pipelineStages[p.stage] = (pipelineStages[p.stage] || 0) + 1; });
-    document.getElementById('report-pipeline').innerHTML = Object.entries(pipelineStages).map(([s,c]) =>
-      `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <span>${s}</span><span class="fw-700 text-accent">${c}</span>
-      </div>`).join('') || '<div class="text-muted" style="font-size:13px;">No pipeline data</div>';
+  async populateClients() {
+    const sel = document.getElementById('rpt-client-sel');
+    if (!sel) return;
+    let clients = window.Clients?.all || [];
+    if (!clients.length && currentAgent?.id) {
+      const { data } = await db.from('clients').select('id,full_name,email').eq('agent_id', currentAgent.id).order('full_name');
+      clients = data || [];
+    }
+    sel.innerHTML = '<option value="">-- Select Client --</option>' +
+      clients.map(c => `<option value="${c.id}" data-email="${c.email||''}">${c.full_name}</option>`).join('');
+  },
 
-    // Client stages
-    const stageCounts = {};
-    (clients || []).forEach(c => { stageCounts[c.stage||'Unknown'] = (stageCounts[c.stage||'Unknown'] || 0) + 1; });
-    document.getElementById('report-stages').innerHTML = Object.entries(stageCounts).map(([s,c]) =>
-      `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <span>${s}</span><span class="fw-700 text-accent">${c}</span>
-      </div>`).join('') || '<div class="text-muted" style="font-size:13px;">No clients</div>';
+  async buildReport(clientId) {
+    const { data: client } = await db.from('clients').select('*').eq('id', clientId).single();
+    if (!client) return null;
+    const [{ data: viewings }, { data: offers }] = await Promise.all([
+      db.from('viewings').select('*').eq('client_id', clientId).order('viewing_date', { ascending: false }),
+      db.from('pipeline').select('*').eq('agent_id', currentAgent.id)
+    ]);
+    const clientOffers = (offers||[]).filter(o => o.client_name === client.full_name);
+    const sections = {
+      info:      document.getElementById('rpt-sec-info')?.checked,
+      criteria:  document.getElementById('rpt-sec-criteria')?.checked,
+      viewings:  document.getElementById('rpt-sec-viewings')?.checked,
+      offers:    document.getElementById('rpt-sec-offers')?.checked,
+      stage:     document.getElementById('rpt-sec-stage')?.checked,
+      nextsteps: document.getElementById('rpt-sec-nextsteps')?.checked
+    };
+    const notes = document.getElementById('rpt-notes')?.value.trim();
+    const agentName = currentAgent.full_name || currentAgent.email || 'Your Agent';
+    const dateStr = new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' });
 
-    // Viewings
-    const vTotal = (viewings||[]).length;
-    const vDone = (viewings||[]).filter(v => v.viewing_status === 'Completed').length;
-    document.getElementById('report-viewings').innerHTML = `
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Total Viewings</span><span class="fw-700 text-accent">${vTotal}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Completed</span><span class="fw-700 text-green">${vDone}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>Scheduled</span><span class="fw-700 text-yellow">${vTotal - vDone}</span></div>`;
+    let html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1e293b;">
+      <h2 style="color:#0f172a;border-bottom:3px solid #0ea5e9;padding-bottom:12px;margin-bottom:4px;">📋 Client Report — ${client.full_name}</h2>
+      <p style="color:#64748b;font-size:12px;margin-top:0;">Generated ${dateStr} · Agent: ${agentName}</p>`;
 
-    // Commissions
-    const cTotal = (commissions||[]).reduce((s,c) => s + (c.amount||0), 0);
-    const cPaid = (commissions||[]).filter(c=>c.status==='Paid').reduce((s,c) => s + (c.amount||0), 0);
-    document.getElementById('report-commissions').innerHTML = `
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>Total</span><span class="fw-700 text-yellow">${App.fmtMoney(cTotal)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>Paid Out</span><span class="fw-700 text-green">${App.fmtMoney(cPaid)}</span></div>`;
+    if (sections.info) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">👤 Client Information</h3>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          ${client.email ? `<tr><td style="padding:5px 0;color:#64748b;width:150px;">Email</td><td>${client.email}</td></tr>` : ''}
+          ${client.phone ? `<tr><td style="padding:5px 0;color:#64748b;">Phone</td><td>${client.phone}</td></tr>` : ''}
+          ${client.stage ? `<tr><td style="padding:5px 0;color:#64748b;">Stage</td><td><strong>${client.stage}</strong></td></tr>` : ''}
+          ${client.status ? `<tr><td style="padding:5px 0;color:#64748b;">Status</td><td>${client.status}</td></tr>` : ''}
+        </table>`;
+    }
+
+    if (sections.criteria) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🔍 Search Criteria</h3>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          ${(client.budget_min||client.budget_max) ? `<tr><td style="padding:5px 0;color:#64748b;width:150px;">Budget</td><td>${App.fmtMoney(client.budget_min)} – ${App.fmtMoney(client.budget_max)}</td></tr>` : ''}
+          ${client.preferred_areas ? `<tr><td style="padding:5px 0;color:#64748b;">Areas</td><td>${client.preferred_areas}</td></tr>` : ''}
+          ${client.bedrooms ? `<tr><td style="padding:5px 0;color:#64748b;">Bedrooms</td><td>${client.bedrooms}+</td></tr>` : ''}
+          ${client.property_type ? `<tr><td style="padding:5px 0;color:#64748b;">Property Type</td><td>${client.property_type}</td></tr>` : ''}
+        </table>`;
+    }
+
+    if (sections.viewings) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🏠 Properties Viewed (${(viewings||[]).length})</h3>`;
+      if (!(viewings||[]).length) {
+        html += `<p style="font-size:13px;color:#64748b;">No viewings recorded yet.</p>`;
+      } else {
+        html += `<table style="width:100%;font-size:13px;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;">
+          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:left;">Date</th><th style="padding:8px 12px;text-align:left;">Status</th></tr></thead>
+          <tbody>${(viewings||[]).slice(0,10).map(v => `
+            <tr style="border-top:1px solid #e2e8f0;">
+              <td style="padding:8px 12px;">${v.property_address||'—'}</td>
+              <td style="padding:8px 12px;">${App.fmtDate(v.viewing_date)}</td>
+              <td style="padding:8px 12px;">${v.viewing_status||'—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+      }
+    }
+
+    if (sections.offers) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📝 Offers Made (${clientOffers.length})</h3>`;
+      if (!clientOffers.length) {
+        html += `<p style="font-size:13px;color:#64748b;">No offers recorded yet.</p>`;
+      } else {
+        html += `<table style="width:100%;font-size:13px;border-collapse:collapse;border:1px solid #e2e8f0;">
+          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:right;">Offer Amount</th><th style="padding:8px 12px;text-align:left;">Stage</th></tr></thead>
+          <tbody>${clientOffers.map(o => `
+            <tr style="border-top:1px solid #e2e8f0;">
+              <td style="padding:8px 12px;">${o.property_address||'—'}</td>
+              <td style="padding:8px 12px;text-align:right;font-weight:700;">${App.fmtMoney(o.offer_amount)}</td>
+              <td style="padding:8px 12px;">${o.stage||'—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+      }
+    }
+
+    if (sections.stage) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📍 Current Stage</h3>
+        <p style="font-size:13px;background:#f0fdf4;padding:12px;border-radius:6px;border-left:3px solid #10b981;">
+          <strong>${client.stage || 'Not set'}</strong>${client.status ? ` &nbsp;·&nbsp; ${client.status}` : ''}
+        </p>
+        ${client.notes ? `<p style="font-size:13px;color:#475569;background:#f8fafc;padding:10px;border-radius:6px;">${client.notes}</p>` : ''}`;
+    }
+
+    if (sections.nextsteps) {
+      const stageSteps = {
+        'New Lead': ['Schedule initial consultation','Understand search criteria & budget','Set up MLS listing alerts'],
+        'Active Search': ['Continue reviewing new listings','Schedule upcoming viewings','Refine search criteria based on feedback'],
+        'Viewing': ['Review all viewed properties together','Identify top choices','Prepare for offer process'],
+        'In Offer': ['Monitor offer status','Prepare conditions response','Keep client updated on timelines'],
+        'Under Contract': ['Track all condition deadlines','Coordinate with lawyer & lender','Prepare for walkthrough & closing'],
+        'Closed': ['Send post-closing follow-up','Request Google review or referral','Stay in touch for future needs']
+      };
+      const steps = stageSteps[client.stage] || ['Follow up within 7 days','Keep client updated on market activity','Schedule next check-in call'];
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🚀 Next Steps</h3>
+        <ul style="font-size:13px;color:#374151;line-height:2.2;padding-left:20px;">
+          ${steps.map(s => `<li>${s}</li>`).join('')}
+        </ul>`;
+    }
+
+    if (notes) {
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📌 Agent Notes</h3>
+        <p style="font-size:13px;color:#374151;background:#fffbeb;padding:14px;border-radius:6px;border-left:3px solid #f59e0b;">${notes}</p>`;
+    }
+
+    html += `<p style="font-size:11px;color:#94a3b8;margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;">
+      Generated by Maxwell DealFlow CRM &nbsp;·&nbsp; ${agentName}
+    </p></div>`;
+    return { client, html };
+  },
+
+  async preview() {
+    const sel = document.getElementById('rpt-client-sel');
+    const msg = document.getElementById('rpt-msg');
+    if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
+    msg.textContent = '⏳ Building preview...'; msg.style.color='var(--text2)';
+    const result = await Reports.buildReport(sel.value);
+    if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
+    msg.textContent = '';
+    App.openModal(`
+      <div class="modal-title" style="margin-bottom:12px;">👁 Report Preview — ${result.client.full_name}</div>
+      <div style="max-height:65vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff;">
+        ${result.html}
+      </div>
+    `);
+  },
+
+  async sendToClient() {
+    const sel = document.getElementById('rpt-client-sel');
+    const msg = document.getElementById('rpt-msg');
+    if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
+    msg.textContent = '⏳ Building report...'; msg.style.color='var(--text2)';
+    const result = await Reports.buildReport(sel.value);
+    if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
+    const { client, html } = result;
+    if (!client.email) { msg.style.color='var(--red)'; msg.textContent='⚠️ This client has no email on file'; return; }
+    App.switchTab('email');
+    setTimeout(() => {
+      const clientSel = document.getElementById('email-client');
+      if (clientSel) {
+        for (let i = 0; i < clientSel.options.length; i++) {
+          if (clientSel.options[i].value === client.id) { clientSel.selectedIndex = i; break; }
+        }
+        if (window.EmailSend?.onClientChange) EmailSend.onClientChange();
+      }
+      const subj = document.getElementById('email-subject');
+      const body = document.getElementById('email-body');
+      if (subj) subj.value = `Your Property Update — ${client.full_name}`;
+      if (body) body.innerHTML = html;
+    }, 350);
+    App.toast('📋 Report ready in Email tab — review & send!');
   }
 };
 

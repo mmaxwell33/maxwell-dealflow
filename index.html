@@ -298,7 +298,7 @@
         <div id="comm-net-display" style="font-size:36px;font-weight:900;color:#fff;line-height:1;">$0</div>
         <div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:6px;letter-spacing:0.5px;text-transform:uppercase;">Total Net Earnings</div>
       </div>
-      <div id="commissions-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div id="commissions-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:800;margin-bottom:16px;">💰 Record New Commission</div>
         <div class="form-group">
@@ -323,28 +323,46 @@
     </div>
 
     <!-- REPORTS SCREEN -->
-    <div id="screen-reports" class="screen">
-      <div class="section-header">
-        <div class="section-title">📊 Reports</div>
+    <div id="screen-reports" class="screen" style="padding:16px;">
+      <div class="section-header" style="margin-bottom:16px;">
+        <div class="section-title">📊 Generate Client Report <span style="font-size:12px;color:var(--accent2);font-weight:600;background:var(--bg);padding:2px 8px;border-radius:20px;margin-left:6px;">v3</span></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="card">
-          <div class="fw-800" style="margin-bottom:12px;">📈 Pipeline Summary</div>
-          <div id="report-pipeline"></div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:800;margin-bottom:16px;">📋 Build &amp; Send Report</div>
+        <div class="form-group">
+          <label class="form-label">SELECT CLIENT</label>
+          <select class="form-input form-select" id="rpt-client-sel"><option value="">-- Select Client --</option></select>
         </div>
-        <div class="card">
-          <div class="fw-800" style="margin-bottom:12px;">👥 Client Stages</div>
-          <div id="report-stages"></div>
+        <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;">📝 Sections to Include</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-info" checked style="width:16px;height:16px;flex-shrink:0;"> Client Information</label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-criteria" checked style="width:16px;height:16px;flex-shrink:0;"> Search Criteria</label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-viewings" checked style="width:16px;height:16px;flex-shrink:0;"> Properties Viewed</label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-offers" checked style="width:16px;height:16px;flex-shrink:0;"> Offers Made</label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-stage" checked style="width:16px;height:16px;flex-shrink:0;"> Current Stage</label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border);"><input type="checkbox" id="rpt-sec-nextsteps" checked style="width:16px;height:16px;flex-shrink:0;"> Next Steps</label>
         </div>
-        <div class="card">
-          <div class="fw-800" style="margin-bottom:12px;">📅 Viewings This Month</div>
-          <div id="report-viewings"></div>
+        <div class="form-group">
+          <label class="form-label">AGENT NOTES (optional)</label>
+          <textarea class="form-input" id="rpt-notes" rows="3" placeholder="Personal message or notes to include in the report..." style="resize:vertical;"></textarea>
         </div>
-        <div class="card">
-          <div class="fw-800" style="margin-bottom:12px;">💰 Commission Summary</div>
-          <div id="report-commissions"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">CC EMAIL (optional)</label>
+            <input class="form-input" id="rpt-cc" type="email" placeholder="colleague@brokerage.com">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px;">
+            <input type="checkbox" id="rpt-sendcopy" style="width:16px;height:16px;flex-shrink:0;">
+            <label for="rpt-sendcopy" style="font-size:13px;cursor:pointer;">Send me a copy</label>
+          </div>
         </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn btn-outline" onclick="Reports.preview()">👁 Preview Report</button>
+          <button class="btn btn-primary" onclick="Reports.sendToClient()">✉️ Send to Client</button>
+        </div>
+        <div id="rpt-msg" style="margin-top:8px;font-size:13px;text-align:center;"></div>
       </div>
+      <div id="rpt-quick-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"></div>
     </div>
 
     <!-- ACTIVITY SCREEN -->
