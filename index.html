@@ -56,9 +56,12 @@
 <!-- MAIN APP -->
 <div id="app" style="display:none;">
 
-  <!-- TOP BAR -->
+  <!-- TOP BAR (header only — no tabs) -->
   <div id="topbar">
-    <div class="tb-brand">eXp Realty</div>
+    <!-- Hamburger for mobile -->
+    <button class="tb-hamburger" onclick="App.toggleSidebar()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
     <div class="tb-avatar" id="topbar-avatar">MD</div>
     <div class="tb-info">
       <div class="tb-name" id="topbar-name">Maxwell Delali Midodzi</div>
@@ -73,29 +76,125 @@
     </div>
   </div>
 
-  <!-- TAB NAVIGATION -->
-  <div id="tab-nav">
-    <button class="tab-item active" onclick="App.switchTab('overview')" data-tab="overview">🏠 Overview</button>
-    <button class="tab-item" onclick="App.switchTab('approvals')" data-tab="approvals">✅ Approvals <span class="tab-badge" id="approvals-badge" style="display:none;">0</span></button>
-    <button class="tab-item" onclick="App.switchTab('clients')" data-tab="clients">👥 Clients</button>
-    <button class="tab-item" onclick="App.switchTab('viewings')" data-tab="viewings">📅 Viewings</button>
-    <button class="tab-item" onclick="App.switchTab('offers')" data-tab="offers">📄 Offers</button>
-    <button class="tab-item" onclick="App.switchTab('pipeline')" data-tab="pipeline">🚀 Pipeline</button>
-    <button class="tab-item" onclick="App.switchTab('newbuilds')" data-tab="newbuilds">🏗️ New Builds</button>
-    <button class="tab-item" onclick="App.switchTab('commissions')" data-tab="commissions">💰 Commissions</button>
-    <button class="tab-item" onclick="App.switchTab('reports')" data-tab="reports">📊 Reports</button>
-    <button class="tab-item" onclick="App.switchTab('activity')" data-tab="activity">📋 Activity</button>
-    <button class="tab-item" onclick="App.switchTab('email')" data-tab="email">✉️ Send Email</button>
-    <button class="tab-item" onclick="App.switchTab('analytics')" data-tab="analytics">📈 Analytics</button>
-    <button class="tab-item" onclick="App.switchTab('tracker')" data-tab="tracker">👤 Tracker</button>
-    <button class="tab-item" onclick="App.switchTab('checklist')" data-tab="checklist">☑️ Checklist</button>
-    <button class="tab-item" onclick="App.switchTab('inbox')" data-tab="inbox">📬 Inbox</button>
-    <button class="tab-item" onclick="App.switchTab('formresponses')" data-tab="formresponses">📝 Form Responses</button>
-    <button class="tab-item" onclick="App.switchTab('agentportal')" data-tab="agentportal">🚀 Agent Portal</button>
-    <button class="tab-item" onclick="App.switchTab('cleanup')" data-tab="cleanup">🧹 Cleanup</button>
-    <button class="tab-item" onclick="App.switchTab('system')" data-tab="system">🔒 System</button>
-    <button class="tab-item" onclick="App.toggleAI()" data-tab="ai">🤖 AI Assistant</button>
-  </div>
+  <!-- APP BODY: sidebar + content -->
+  <div id="app-body">
+
+    <!-- SIDEBAR OVERLAY (mobile) -->
+    <div id="sidebar-overlay" onclick="App.toggleSidebar()"></div>
+
+    <!-- LEFT SIDEBAR -->
+    <nav id="sidebar">
+
+      <!-- Brand -->
+      <div class="sb-brand">
+        <div class="sb-logo">MD</div>
+        <div>
+          <div class="sb-title">DealFlow</div>
+          <div class="sb-sub">Maxwell CRM</div>
+        </div>
+      </div>
+
+      <div class="sb-scroll">
+
+        <!-- MAIN -->
+        <div class="sb-section-label">Main</div>
+        <button class="nav-item active" data-tab="overview" onclick="App.switchTab('overview')">
+          <span class="nav-icon">🏠</span><span class="nav-label">Overview</span>
+        </button>
+        <button class="nav-item" data-tab="approvals" onclick="App.switchTab('approvals')">
+          <span class="nav-icon">✅</span><span class="nav-label">Approvals</span>
+          <span class="nav-badge" id="approvals-badge" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" data-tab="activity" onclick="App.switchTab('activity')">
+          <span class="nav-icon">📋</span><span class="nav-label">Activity</span>
+        </button>
+
+        <!-- CLIENTS -->
+        <div class="sb-section-label">Clients</div>
+        <button class="nav-item" data-tab="clients" onclick="App.switchTab('clients')">
+          <span class="nav-icon">👥</span><span class="nav-label">All Clients</span>
+        </button>
+        <button class="nav-item" data-tab="tracker" onclick="App.switchTab('tracker')">
+          <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
+        </button>
+        <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')">
+          <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
+        </button>
+
+        <!-- DEALS -->
+        <div class="sb-section-label">Deals</div>
+        <button class="nav-item" data-tab="viewings" onclick="App.switchTab('viewings')">
+          <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
+        </button>
+        <button class="nav-item" data-tab="offers" onclick="App.switchTab('offers')">
+          <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
+        </button>
+        <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
+          <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
+        </button>
+        <button class="nav-item" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
+          <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>
+        </button>
+        <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
+          <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
+        </button>
+
+        <!-- FINANCE -->
+        <div class="sb-section-label">Finance</div>
+        <button class="nav-item" data-tab="commissions" onclick="App.switchTab('commissions')">
+          <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
+        </button>
+        <button class="nav-item" data-tab="reports" onclick="App.switchTab('reports')">
+          <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+        </button>
+        <button class="nav-item" data-tab="analytics" onclick="App.switchTab('analytics')">
+          <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
+        </button>
+
+        <!-- COMMUNICATION -->
+        <div class="sb-section-label">Communication</div>
+        <button class="nav-item" data-tab="email" onclick="App.switchTab('email')">
+          <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
+        </button>
+        <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
+          <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
+        </button>
+        <button class="nav-item" data-tab="ai" onclick="App.toggleAI()">
+          <span class="nav-icon">🤖</span><span class="nav-label">AI Assistant</span>
+        </button>
+
+        <!-- ADMIN -->
+        <div class="sb-section-label">Admin</div>
+        <button class="nav-item" data-tab="agentportal" onclick="App.switchTab('agentportal')">
+          <span class="nav-icon">🚀</span><span class="nav-label">Agent Portal</span>
+        </button>
+        <button class="nav-item" data-tab="cleanup" onclick="App.switchTab('cleanup')">
+          <span class="nav-icon">🧹</span><span class="nav-label">Cleanup</span>
+        </button>
+        <button class="nav-item" data-tab="system" onclick="App.switchTab('system')">
+          <span class="nav-icon">⚙️</span><span class="nav-label">System</span>
+        </button>
+
+      </div><!-- /sb-scroll -->
+
+      <!-- BOTTOM: Settings + Logout -->
+      <div class="sb-footer">
+        <div class="sb-server-info">
+          <span style="opacity:0.5;font-size:10px;">Hosted on</span>
+          <span style="font-weight:700;color:var(--accent2);">GitHub Pages</span>
+          <span style="opacity:0.4;font-size:10px;">DB: Supabase</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="sb-footer-btn" onclick="SystemTools.openTheme()">
+            🎨 Theme
+          </button>
+          <button class="sb-footer-btn sb-footer-btn-red" onclick="App.confirmSignOut()">
+            🔓 Logout
+          </button>
+        </div>
+      </div>
+
+    </nav><!-- /sidebar -->
 
   <!-- MAIN CONTENT -->
   <div id="main-content">
@@ -916,24 +1015,7 @@
 
   </div><!-- /main-content -->
 
-  <!-- BOTTOM NAV -->
-  <nav id="bottom-nav">
-    <button class="nav-item active" onclick="App.switchTab('overview')" data-tab="overview">
-      <span class="nav-icon">🏠</span><span>Home</span>
-    </button>
-    <button class="nav-item" onclick="App.switchTab('clients')" data-tab="clients">
-      <span class="nav-icon">👥</span><span>Clients</span>
-    </button>
-    <button class="nav-item" onclick="App.switchTab('viewings')" data-tab="viewings">
-      <span class="nav-icon">📅</span><span>Viewings</span>
-    </button>
-    <button class="nav-item" onclick="App.switchTab('offers')" data-tab="offers">
-      <span class="nav-icon">📄</span><span>Offers</span>
-    </button>
-    <button class="nav-item" onclick="App.switchTab('pipeline')" data-tab="pipeline">
-      <span class="nav-icon">🚀</span><span>Pipeline</span>
-    </button>
-  </nav>
+  </div><!-- /app-body -->
 
 </div><!-- /app -->
 

@@ -74,8 +74,28 @@ const App = {
     App.showAuth();
   },
 
+  confirmSignOut() {
+    if (confirm('Log out of Maxwell DealFlow?')) App.signOut();
+  },
+
+  toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    if (!sb) return;
+    const open = sb.classList.toggle('open');
+    if (ov) ov.style.display = open ? 'block' : 'none';
+  },
+
+  closeSidebar() {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    if (sb) sb.classList.remove('open');
+    if (ov) ov.style.display = 'none';
+  },
+
   switchTab(tab) {
     currentTab = tab;
+    App.closeSidebar(); // close on mobile when tab selected
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screen = document.getElementById(`screen-${tab}`);
     if (screen) screen.classList.add('active');
