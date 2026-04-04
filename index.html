@@ -37,7 +37,7 @@
 
   <!-- Agent photo + name -->
   <div class="lock-agent">
-    <img class="lock-photo" src="https://i.imgur.com/placeholder.jpg" onerror="this.style.display='none';document.getElementById('lock-initials').style.display='flex';" alt="">
+    <img class="lock-photo" id="lock-photo" src="" onerror="this.style.display='none';document.getElementById('lock-initials').style.display='flex';" alt="" style="display:none;">
     <div class="lock-photo lock-initials" id="lock-initials">MD</div>
     <div class="lock-name">Maxwell Delali Midodzi</div>
   </div>
@@ -62,7 +62,10 @@
     <button class="tb-hamburger" onclick="App.toggleSidebar()" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
-    <div class="tb-avatar" id="topbar-avatar">MD</div>
+    <div class="tb-avatar" id="topbar-avatar" onclick="App.switchTab('settings')" style="cursor:pointer;overflow:hidden;" title="Click to edit profile">
+      <img id="topbar-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
+      <span id="topbar-initials">MD</span>
+    </div>
     <div class="tb-info">
       <div class="tb-name" id="topbar-name">Maxwell Delali Midodzi</div>
       <div class="tb-role" id="topbar-brokerage">eXp Realty</div>
@@ -215,7 +218,7 @@
       <div class="sb-footer">
         <div class="sb-server-info">
           <span style="opacity:0.5;font-size:10px;">Hosted on</span>
-          <span style="font-weight:700;color:var(--accent2);">GitHub Pages</span>
+          <span style="font-weight:700;color:var(--accent2);">Vercel</span>
           <span style="opacity:0.4;font-size:10px;">DB: Supabase</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
@@ -1106,11 +1109,20 @@
           <div class="settings-card-title">👤 Agent Profile</div>
           <div class="settings-card-sub">This information appears on reports and emails sent to clients.</div>
           <div style="display:flex;align-items:center;gap:16px;margin:16px 0;">
-            <div id="settings-avatar" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;">MD</div>
+            <!-- Avatar with photo upload -->
+            <div style="position:relative;flex-shrink:0;">
+              <div id="settings-avatar" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;overflow:hidden;cursor:pointer;" onclick="document.getElementById('photo-upload').click()" title="Click to upload photo">
+                <img id="settings-photo-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;">
+                <span id="settings-avatar-initials">MD</span>
+              </div>
+              <div onclick="document.getElementById('photo-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;border:2px solid var(--card);" title="Upload photo">📷</div>
+              <input type="file" id="photo-upload" accept="image/*" style="display:none;" onchange="Settings.uploadPhoto(this)">
+            </div>
             <div>
               <div style="font-weight:700;" id="settings-agent-name">Maxwell Delali Midodzi</div>
               <div style="font-size:12px;color:var(--text2);" id="settings-agent-email">—</div>
               <div style="font-size:11px;color:var(--accent2);margin-top:2px;" id="settings-agent-brokerage">eXp Realty</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Click the photo to change it</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">

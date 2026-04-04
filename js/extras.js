@@ -1888,3 +1888,57 @@ Settings.saveApiKey = function() {
   const s = document.getElementById('ai-key-status');
   if(s){s.textContent='🟢 Key active';s.style.color='var(--green)';}
 };
+
+// ── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
+Settings.uploadPhoto = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { App.toast('⚠️ Photo must be under 2MB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    // Save to localStorage
+    localStorage.setItem('mdf-agent-photo', dataUrl);
+    // Apply everywhere
+    Settings.applyPhoto(dataUrl);
+    App.toast('✅ Profile photo updated!');
+  };
+  reader.readAsDataURL(file);
+};
+
+Settings.applyPhoto = function(dataUrl) {
+  if (!dataUrl) return;
+  // Topbar
+  const tp = document.getElementById('topbar-photo');
+  const ti = document.getElementById('topbar-initials');
+  if (tp) { tp.src = dataUrl; tp.style.display = 'block'; }
+  if (ti) ti.style.display = 'none';
+  // Settings preview
+  const sp = document.getElementById('settings-photo-preview');
+  const si = document.getElementById('settings-avatar-initials');
+  if (sp) { sp.src = dataUrl; sp.style.display = 'block'; }
+  if (si) si.style.display = 'none';
+  // Lock screen
+  const lp = document.getElementById('lock-photo');
+  const li = document.getElementById('lock-initials');
+  if (lp) { lp.src = dataUrl; lp.style.display = 'block'; }
+  if (li) li.style.display = 'none';
+};
+
+Settings.removePhoto = function() {
+  localStorage.removeItem('mdf-agent-photo');
+  ['topbar-photo','settings-photo-preview','lock-photo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.src=''; el.style.display='none'; }
+  });
+  ['topbar-initials','settings-avatar-initials','lock-initials'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  App.toast('Photo removed');
+};
+
+Settings.loadSavedPhoto = function() {
+  const saved = localStorage.getItem('mdf-agent-photo');
+  if (saved) Settings.applyPhoto(saved);
+};

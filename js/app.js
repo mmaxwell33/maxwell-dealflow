@@ -50,7 +50,8 @@ const App = {
     currentAgent = agent || { name: user.email, email: user.email, id: null };
     // Update topbar with full agent info
     const initials = (currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
-    document.getElementById('topbar-avatar').textContent = initials;
+    const initialsEl = document.getElementById('topbar-initials');
+    if (initialsEl) initialsEl.textContent = initials;
     document.getElementById('topbar-name').textContent = currentAgent.name || 'Maxwell';
     document.getElementById('topbar-brokerage').textContent = currentAgent.brokerage || 'eXp Realty';
     // Show app
@@ -64,6 +65,7 @@ const App = {
     Pipeline.load();
     App.restoreGroupStates();
     setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
+    setTimeout(() => { if (window.Settings) Settings.loadSavedPhoto(); }, 500);
   },
 
   showAuth() {
