@@ -110,19 +110,17 @@
 
         <!-- CLIENTS (collapsible) -->
         <div class="sb-group" id="grp-clients">
-          <button class="sb-group-header open" onclick="App.toggleGroup('clients')">
-            <span class="sb-group-icon">👥</span>
-            <span class="sb-group-label">Clients</span>
-            <span class="sb-chevron">▾</span>
-          </button>
+          <div class="sb-section-label sb-collapsible open" onclick="App.toggleGroup('clients')">
+            Clients <span class="sb-chevron">▾</span>
+          </div>
           <div class="sb-group-items">
-            <button class="nav-item nav-sub" data-tab="clients" onclick="App.switchTab('clients')">
+            <button class="nav-item" data-tab="clients" onclick="App.switchTab('clients')">
               <span class="nav-icon">👥</span><span class="nav-label">All Clients</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="tracker" onclick="App.switchTab('tracker')">
+            <button class="nav-item" data-tab="tracker" onclick="App.switchTab('tracker')">
               <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="formresponses" onclick="App.switchTab('formresponses')">
+            <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')">
               <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
             </button>
           </div>
@@ -130,25 +128,23 @@
 
         <!-- DEALS (collapsible) -->
         <div class="sb-group" id="grp-deals">
-          <button class="sb-group-header open" onclick="App.toggleGroup('deals')">
-            <span class="sb-group-icon">🤝</span>
-            <span class="sb-group-label">Deals</span>
-            <span class="sb-chevron">▾</span>
-          </button>
+          <div class="sb-section-label sb-collapsible open" onclick="App.toggleGroup('deals')">
+            Deals <span class="sb-chevron">▾</span>
+          </div>
           <div class="sb-group-items">
-            <button class="nav-item nav-sub" data-tab="viewings" onclick="App.switchTab('viewings')">
+            <button class="nav-item" data-tab="viewings" onclick="App.switchTab('viewings')">
               <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="offers" onclick="App.switchTab('offers')">
+            <button class="nav-item" data-tab="offers" onclick="App.switchTab('offers')">
               <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="pipeline" onclick="App.switchTab('pipeline')">
+            <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
               <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
+            <button class="nav-item" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
               <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="checklist" onclick="App.switchTab('checklist')">
+            <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
               <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
             </button>
           </div>
@@ -156,19 +152,17 @@
 
         <!-- FINANCE (collapsible) -->
         <div class="sb-group" id="grp-finance">
-          <button class="sb-group-header open" onclick="App.toggleGroup('finance')">
-            <span class="sb-group-icon">💰</span>
-            <span class="sb-group-label">Finance</span>
-            <span class="sb-chevron">▾</span>
-          </button>
+          <div class="sb-section-label sb-collapsible open" onclick="App.toggleGroup('finance')">
+            Finance <span class="sb-chevron">▾</span>
+          </div>
           <div class="sb-group-items">
-            <button class="nav-item nav-sub" data-tab="commissions" onclick="App.switchTab('commissions')">
+            <button class="nav-item" data-tab="commissions" onclick="App.switchTab('commissions')">
               <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="reports" onclick="App.switchTab('reports')">
+            <button class="nav-item" data-tab="reports" onclick="App.switchTab('reports')">
               <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="analytics" onclick="App.switchTab('analytics')">
+            <button class="nav-item" data-tab="analytics" onclick="App.switchTab('analytics')">
               <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
             </button>
           </div>
@@ -176,39 +170,35 @@
 
         <!-- COMMUNICATION (collapsible) -->
         <div class="sb-group" id="grp-comms">
-          <button class="sb-group-header open" onclick="App.toggleGroup('comms')">
-            <span class="sb-group-icon">✉️</span>
-            <span class="sb-group-label">Communication</span>
-            <span class="sb-chevron">▾</span>
-          </button>
+          <div class="sb-section-label sb-collapsible open" onclick="App.toggleGroup('comms')">
+            Communication <span class="sb-chevron">▾</span>
+          </div>
           <div class="sb-group-items">
-            <button class="nav-item nav-sub" data-tab="email" onclick="App.switchTab('email')">
+            <button class="nav-item" data-tab="email" onclick="App.switchTab('email')">
               <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="inbox" onclick="App.switchTab('inbox')">
+            <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
               <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="ai" onclick="App.toggleAI()">
+            <button class="nav-item" data-tab="ai" onclick="App.toggleAI()">
               <span class="nav-icon">🤖</span><span class="nav-label">AI Assistant</span>
             </button>
           </div>
         </div>
 
-        <!-- ADMIN (collapsible) -->
+        <!-- ADMIN (collapsible, starts closed) -->
         <div class="sb-group" id="grp-admin">
-          <button class="sb-group-header" onclick="App.toggleGroup('admin')">
-            <span class="sb-group-icon">⚙️</span>
-            <span class="sb-group-label">Admin</span>
-            <span class="sb-chevron">▾</span>
-          </button>
+          <div class="sb-section-label sb-collapsible" onclick="App.toggleGroup('admin')">
+            Admin <span class="sb-chevron" style="transform:rotate(-90deg)">▾</span>
+          </div>
           <div class="sb-group-items" style="display:none;">
-            <button class="nav-item nav-sub" data-tab="agentportal" onclick="App.switchTab('agentportal')">
+            <button class="nav-item" data-tab="agentportal" onclick="App.switchTab('agentportal')">
               <span class="nav-icon">🚀</span><span class="nav-label">Agent Portal</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="cleanup" onclick="App.switchTab('cleanup')">
+            <button class="nav-item" data-tab="cleanup" onclick="App.switchTab('cleanup')">
               <span class="nav-icon">🧹</span><span class="nav-label">Cleanup</span>
             </button>
-            <button class="nav-item nav-sub" data-tab="system" onclick="App.switchTab('system')">
+            <button class="nav-item" data-tab="system" onclick="App.switchTab('system')">
               <span class="nav-icon">⚙️</span><span class="nav-label">System</span>
             </button>
           </div>

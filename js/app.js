@@ -98,14 +98,14 @@ const App = {
   toggleGroup(name) {
     const grp = document.getElementById(`grp-${name}`);
     if (!grp) return;
-    const hdr = grp.querySelector('.sb-group-header');
+    const lbl = grp.querySelector('.sb-collapsible');
     const items = grp.querySelector('.sb-group-items');
-    const isOpen = hdr.classList.contains('open');
+    const isOpen = lbl.classList.contains('open');
     if (isOpen) {
-      hdr.classList.remove('open');
+      lbl.classList.remove('open');
       items.style.display = 'none';
     } else {
-      hdr.classList.add('open');
+      lbl.classList.add('open');
       items.style.display = 'block';
     }
     try {
@@ -121,12 +121,12 @@ const App = {
       ['clients','deals','finance','comms','admin'].forEach(name => {
         const grp = document.getElementById(`grp-${name}`);
         if (!grp) return;
-        const hdr = grp.querySelector('.sb-group-header');
+        const lbl = grp.querySelector('.sb-collapsible');
         const items = grp.querySelector('.sb-group-items');
         const defaultOpen = (name !== 'admin');
         const open = s[name] !== undefined ? s[name] : defaultOpen;
-        if (open) { hdr.classList.add('open'); items.style.display = 'block'; }
-        else { hdr.classList.remove('open'); items.style.display = 'none'; }
+        if (open) { lbl.classList.add('open'); items.style.display = 'block'; }
+        else { lbl.classList.remove('open'); items.style.display = 'none'; }
       });
     } catch(e) {}
   },
