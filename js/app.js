@@ -93,7 +93,7 @@ const App = {
     if (tab === 'analytics') Analytics.load();
     if (tab === 'tracker') Tracker.load();
     if (tab === 'checklist') Checklist.load();
-    if (tab === 'inbox') Inbox.load();
+    if (tab === 'inbox') { /* Inbox loads on button click — instant tab open */ }
     if (tab === 'formresponses') FormResponses.load();
     if (tab === 'agentportal') AgentPortal.load();
     if (tab === 'cleanup') Cleanup.init();

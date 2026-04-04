@@ -898,32 +898,53 @@ const Inbox = {
     const el = document.getElementById('inbox-list');
     if (el) el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
 
-    const days = parseInt(document.getElementById('inbox-filter')?.value || '30');
-    const since = new Date(Date.now() - days * 86400000).toISOString();
-
-    const { data } = await db.from('email_inbox')
-      .select('*').eq('agent_id', currentAgent.id)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false }).limit(200);
-    Inbox._all = data || [];
-
-    // Get client emails for cross-reference
-    let clientEmails = new Set();
-    let clientMap = {};
-    const { data: clients } = await db.from('clients')
-      .select('id,full_name,email').eq('agent_id', currentAgent.id);
-    (clients || []).forEach(c => {
-      if (c.email) {
-        clientEmails.add(c.email.toLowerCase());
-        clientMap[c.email.toLowerCase()] = c;
+    // Safety timeout — never spin forever
+    const timer = setTimeout(() => {
+      if (el && el.innerHTML.includes('spinner')) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No emails logged yet</div><div class="empty-sub">Emails you send via the Send Email tab are logged here. Send one to get started!</div></div>';
       }
-    });
+    }, 6000);
 
-    Inbox._clientEmails = clientEmails;
-    Inbox._clientMap = clientMap;
-    Inbox._selected.clear();
-    document.getElementById('inbox-sel-count').textContent = '0';
-    Inbox.showTab(Inbox._tab);
+    try {
+      const days = parseInt(document.getElementById('inbox-filter')?.value || '30');
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+
+      // Run both queries in parallel
+      const [emailRes, clientRes] = await Promise.all([
+        db.from('email_inbox')
+          .select('id,direction,recipient_name,recipient_email,sender_name,sender_email,subject,body,created_at')
+          .eq('agent_id', currentAgent.id)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        db.from('clients')
+          .select('id,full_name,email')
+          .eq('agent_id', currentAgent.id)
+          .limit(500)
+      ]);
+
+      clearTimeout(timer);
+      Inbox._all = emailRes.data || [];
+
+      // Build client lookup map
+      const clientEmails = new Set();
+      const clientMap = {};
+      (clientRes.data || []).forEach(c => {
+        if (c.email) {
+          clientEmails.add(c.email.toLowerCase());
+          clientMap[c.email.toLowerCase()] = c;
+        }
+      });
+      Inbox._clientEmails = clientEmails;
+      Inbox._clientMap = clientMap;
+      Inbox._selected.clear();
+      const ctr = document.getElementById('inbox-sel-count');
+      if (ctr) ctr.textContent = '0';
+      Inbox.showTab(Inbox._tab);
+    } catch (err) {
+      clearTimeout(timer);
+      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No emails logged yet</div><div class="empty-sub">Emails you send via the Send Email tab are logged here.</div></div>`;
+    }
   },
 
   showTab(tab) {
