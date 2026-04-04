@@ -886,3 +886,361 @@ const EmailSend = {
     }
   }
 };
+
+// ── INBOX ────────────────────────────────────────────────────────────────────
+const Inbox = {
+  _all: [],
+  _tab: 'client',
+  _selected: new Set(),
+
+  async load() {
+    if (!currentAgent?.id) return;
+    const el = document.getElementById('inbox-list');
+    if (el) el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+
+    const days = parseInt(document.getElementById('inbox-filter')?.value || '30');
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    const { data } = await db.from('email_inbox')
+      .select('*').eq('agent_id', currentAgent.id)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false }).limit(200);
+    Inbox._all = data || [];
+
+    // Get client emails for cross-reference
+    let clientEmails = new Set();
+    let clientMap = {};
+    const { data: clients } = await db.from('clients')
+      .select('id,full_name,email').eq('agent_id', currentAgent.id);
+    (clients || []).forEach(c => {
+      if (c.email) {
+        clientEmails.add(c.email.toLowerCase());
+        clientMap[c.email.toLowerCase()] = c;
+      }
+    });
+
+    Inbox._clientEmails = clientEmails;
+    Inbox._clientMap = clientMap;
+    Inbox._selected.clear();
+    document.getElementById('inbox-sel-count').textContent = '0';
+    Inbox.showTab(Inbox._tab);
+  },
+
+  showTab(tab) {
+    Inbox._tab = tab;
+    const btnClient = document.getElementById('inbox-tab-client');
+    const btnExt = document.getElementById('inbox-tab-external');
+    if (btnClient) {
+      btnClient.style.background = tab === 'client' ? 'var(--accent)' : 'var(--card)';
+      btnClient.style.color = tab === 'client' ? '#fff' : 'var(--text2)';
+    }
+    if (btnExt) {
+      btnExt.style.background = tab === 'external' ? 'var(--accent)' : 'var(--card)';
+      btnExt.style.color = tab === 'external' ? '#fff' : 'var(--text2)';
+    }
+    const ce = Inbox._clientEmails || new Set();
+    const isClient = e => {
+      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
+      return ce.has(addr);
+    };
+    const filtered = Inbox._all.filter(e => tab === 'client' ? isClient(e) : !isClient(e));
+    Inbox.renderList(filtered);
+  },
+
+  renderList(list) {
+    const el = document.getElementById('inbox-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${Inbox._tab === 'client' ? '👤' : '🌐'}</div><div class="empty-text">No ${Inbox._tab === 'client' ? 'client' : 'external'} emails found</div><div class="empty-sub">Try a wider date range or click Load Inbox.</div></div>`;
+      return;
+    }
+    el.innerHTML = list.map(e => {
+      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
+      const client = Inbox._clientMap?.[addr];
+      const name = e.recipient_name || e.sender_name || addr;
+      const isSent = e.direction === 'sent';
+      return `<div class="card" style="margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;">
+        <input type="checkbox" style="margin-top:3px;" onchange="Inbox.toggleSelect('${e.id}',this.checked)">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div class="fw-700" style="font-size:13px;">${App.esc(name)}</div>
+            <div style="font-size:11px;color:var(--text2);">${isSent ? '↗ Sent' : '↙ Received'} · ${App.timeAgo(e.created_at)}</div>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:3px;">${App.esc(e.subject || '(no subject)')}</div>
+          <div style="font-size:12px;color:var(--text2);">${App.esc((e.body || '').slice(0,120))}${(e.body||'').length > 120 ? '…' : ''}</div>
+          ${client ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px;">👤 ${App.esc(client.full_name)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  toggleSelect(id, checked) {
+    if (checked) Inbox._selected.add(id); else Inbox._selected.delete(id);
+    document.getElementById('inbox-sel-count').textContent = Inbox._selected.size;
+  },
+
+  selectAll() {
+    const ce = Inbox._clientEmails || new Set();
+    const isClient = e => { const addr = (e.recipient_email || e.sender_email || '').toLowerCase(); return ce.has(addr); };
+    const filtered = Inbox._all.filter(e => Inbox._tab === 'client' ? isClient(e) : !isClient(e));
+    filtered.forEach(e => Inbox._selected.add(e.id));
+    document.getElementById('inbox-sel-count').textContent = Inbox._selected.size;
+    Inbox.renderList(filtered); // re-render to show checked state (simple approach)
+    App.toast(`☑️ ${Inbox._selected.size} selected`);
+  },
+
+  async trashSelected() {
+    if (!Inbox._selected.size) { App.toast('⚠️ Nothing selected'); return; }
+    if (!confirm(`Delete ${Inbox._selected.size} email(s) from the log? This cannot be undone.`)) return;
+    const ids = [...Inbox._selected];
+    await db.from('email_inbox').delete().in('id', ids);
+    App.toast(`🗑 ${ids.length} email(s) removed.`);
+    Inbox._selected.clear();
+    Inbox.load();
+  },
+
+  async cleanNonClients() {
+    if (!confirm('Remove all logged emails that are NOT from your clients? This cannot be undone.')) return;
+    const ce = Inbox._clientEmails || new Set();
+    const nonClientIds = Inbox._all.filter(e => {
+      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
+      return !ce.has(addr);
+    }).map(e => e.id);
+    if (!nonClientIds.length) { App.toast('✅ No non-client emails to clean.'); return; }
+    await db.from('email_inbox').delete().in('id', nonClientIds);
+    App.toast(`🧹 Removed ${nonClientIds.length} non-client email(s).`);
+    Inbox.load();
+  }
+};
+
+// ── AGENT PORTAL ─────────────────────────────────────────────────────────────
+const AgentPortal = {
+  async load() {
+    AgentPortal.loadAgents();
+  },
+
+  toggleGuide() {
+    const guide = document.getElementById('portal-guide');
+    const arrow = document.getElementById('guide-arrow');
+    if (!guide) return;
+    const open = guide.style.display !== 'none';
+    guide.style.display = open ? 'none' : 'block';
+    if (arrow) arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+  },
+
+  async deploy() {
+    const name = document.getElementById('ap-name')?.value.trim();
+    const email = document.getElementById('ap-email')?.value.trim();
+    const phone = document.getElementById('ap-phone')?.value.trim() || '';
+    const brokerage = document.getElementById('ap-brokerage')?.value.trim() || 'eXp Realty';
+    const title = document.getElementById('ap-title')?.value.trim() || 'Real Estate Agent';
+    const province = document.getElementById('ap-province')?.value || 'Newfoundland & Labrador';
+    const msg = document.getElementById('ap-msg');
+
+    if (!name || !email) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Name and email are required.'; } return; }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Deploying...'; }
+
+    // Insert into agents table
+    const { error } = await db.from('agents').insert({
+      full_name: name,
+      email,
+      phone,
+      brokerage,
+      title,
+      province,
+      created_by: currentAgent?.id || null,
+      created_at: new Date().toISOString()
+    });
+
+    if (error) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${error.message}`; }
+      return;
+    }
+
+    // Invite via Supabase Auth (requires admin key — attempt, may fail gracefully)
+    try {
+      await db.auth.admin?.inviteUserByEmail?.(email);
+    } catch (_) {}
+
+    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Agent portal deployed for ${name}! They'll receive an invite email.`; }
+    App.toast(`🚀 Agent portal deployed for ${name}`);
+    document.getElementById('ap-name').value = '';
+    document.getElementById('ap-email').value = '';
+    document.getElementById('ap-phone').value = '';
+    AgentPortal.loadAgents();
+  },
+
+  async loadAgents() {
+    const el = document.getElementById('ap-agents-list');
+    if (!el) return;
+    const { data } = await db.from('agents').select('*').order('created_at', { ascending: false });
+    // Exclude self
+    const list = (data || []).filter(a => a.id !== currentAgent?.id);
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No agents deployed yet</div></div>';
+      return;
+    }
+    el.innerHTML = list.map(a => `
+      <div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;">${(a.full_name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;">
+          <div class="fw-700">${App.esc(a.full_name||'Unknown')}</div>
+          <div style="font-size:12px;color:var(--text2);">${App.esc(a.email||'')} · ${App.esc(a.brokerage||'')} · ${App.esc(a.province||'')}</div>
+        </div>
+        <span class="stage-badge badge-accepted" style="font-size:11px;">Active</span>
+      </div>`).join('');
+  }
+};
+
+// ── CLEANUP ──────────────────────────────────────────────────────────────────
+const Cleanup = {
+  init() {
+    // Reset all panels on load
+    ['cleanup-duplicates','cleanup-testdata','cleanup-orphans','cleanup-stale'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.innerHTML.includes('spinner')) return; // already loading
+    });
+  },
+
+  async findDuplicates() {
+    const el = document.getElementById('cleanup-duplicates');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning...</div>';
+    const { data } = await db.from('clients').select('id,full_name,email').eq('agent_id', currentAgent.id);
+    const clients = data || [];
+    const nameMap = {}, emailMap = {};
+    clients.forEach(c => {
+      const n = (c.full_name||'').toLowerCase().trim();
+      if (n) { nameMap[n] = nameMap[n] || []; nameMap[n].push(c); }
+      const e = (c.email||'').toLowerCase().trim();
+      if (e) { emailMap[e] = emailMap[e] || []; emailMap[e].push(c); }
+    });
+    const dupes = new Map();
+    Object.values(nameMap).filter(g => g.length > 1).forEach(g => g.forEach(c => dupes.set(c.id, c)));
+    Object.values(emailMap).filter(g => g.length > 1).forEach(g => g.forEach(c => dupes.set(c.id, c)));
+    const list = [...dupes.values()];
+    if (!list.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">✅ No duplicates found!</div>'; return; }
+    el.innerHTML = `<div style="font-size:12px;color:var(--yellow);margin-bottom:8px;">⚠️ ${list.length} potential duplicate(s) found:</div>` +
+      list.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <input type="checkbox" id="dup-${c.id}">
+        <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${App.esc(c.email||'no email')}</span></div>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff;font-size:11px;" onclick="Cleanup.deleteClient('${c.id}','${App.esc(c.full_name)}')">Delete</button>
+      </div>`).join('') +
+      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('dup-')">🗑 Delete Checked</button>`;
+  },
+
+  async findTestData() {
+    const el = document.getElementById('cleanup-testdata');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning...</div>';
+    const { data } = await db.from('clients').select('id,full_name,email').eq('agent_id', currentAgent.id);
+    const test = (data || []).filter(c => /test|demo|sample|dummy|fake/i.test(c.full_name || ''));
+    if (!test.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">✅ No test data found!</div>'; return; }
+    el.innerHTML = `<div style="font-size:12px;color:var(--yellow);margin-bottom:8px;">⚠️ ${test.length} test record(s) found:</div>` +
+      test.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <input type="checkbox" id="tst-${c.id}" checked>
+        <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${App.esc(c.email||'no email')}</span></div>
+      </div>`).join('') +
+      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('tst-')">🗑 Delete Checked</button>`;
+  },
+
+  async deleteTestData() {
+    if (!confirm('Delete ALL clients with "test", "demo", "sample", "dummy", or "fake" in their name? This cannot be undone.')) return;
+    const { data } = await db.from('clients').select('id,full_name').eq('agent_id', currentAgent.id);
+    const testIds = (data || []).filter(c => /test|demo|sample|dummy|fake/i.test(c.full_name||'')).map(c => c.id);
+    if (!testIds.length) { App.toast('✅ No test data to delete.'); return; }
+    await db.from('clients').delete().in('id', testIds);
+    App.toast(`🗑 Deleted ${testIds.length} test client(s).`);
+    Cleanup.findTestData();
+  },
+
+  async findOrphans() {
+    const el = document.getElementById('cleanup-orphans');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning...</div>';
+    const { data: clients } = await db.from('clients').select('full_name').eq('agent_id', currentAgent.id);
+    const validNames = new Set((clients||[]).map(c => (c.full_name||'').toLowerCase().trim()));
+
+    const [vRes, pRes, cRes] = await Promise.all([
+      db.from('viewings').select('id,client_name').eq('agent_id', currentAgent.id),
+      db.from('pipeline').select('id,client_name').eq('agent_id', currentAgent.id),
+      db.from('commissions').select('id,client_name').eq('agent_id', currentAgent.id)
+    ]);
+
+    const orphans = [];
+    const check = (table, rows) => (rows||[]).forEach(r => {
+      if (!validNames.has((r.client_name||'').toLowerCase().trim())) orphans.push({ table, id: r.id, name: r.client_name });
+    });
+    check('viewings', vRes.data); check('pipeline', pRes.data); check('commissions', cRes.data);
+
+    if (!orphans.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">✅ No orphaned records found!</div>'; return; }
+    el.innerHTML = `<div style="font-size:12px;color:var(--yellow);margin-bottom:8px;">⚠️ ${orphans.length} orphaned record(s):</div>` +
+      orphans.map(o => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <input type="checkbox" id="orp-${o.table}-${o.id}">
+        <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(o.name||'Unknown')}</span> <span style="color:var(--text2);font-size:11px;">[${o.table}]</span></div>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff;font-size:11px;" onclick="Cleanup.deleteOrphan('${o.table}','${o.id}')">Delete</button>
+      </div>`).join('');
+  },
+
+  async findStale() {
+    const el = document.getElementById('cleanup-stale');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning...</div>';
+    const cutoff = new Date(Date.now() - 90*86400000).toISOString();
+    const { data } = await db.from('clients').select('id,full_name,email,stage,updated_at')
+      .eq('agent_id', currentAgent.id)
+      .lte('updated_at', cutoff)
+      .not('stage', 'in', '("Closed","Lost")');
+    const list = data || [];
+    if (!list.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">✅ No stale clients found!</div>'; return; }
+    el.innerHTML = `<div style="font-size:12px;color:var(--yellow);margin-bottom:8px;">⚠️ ${list.length} stale client(s) — no updates in 90+ days:</div>` +
+      list.map(c => {
+        const days = Math.floor((Date.now() - new Date(c.updated_at||c.created_at)) / 86400000);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <input type="checkbox" id="stl-${c.id}">
+          <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${c.stage||'—'} · ${days} days inactive</span></div>
+          <button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="Cleanup.markInactive('${c.id}')">Mark Lost</button>
+        </div>`;
+      }).join('') +
+      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('stl-')">🗑 Archive Checked</button>`;
+  },
+
+  async deleteClient(id, name) {
+    if (!confirm(`Delete client "${name}"? This cannot be undone.`)) return;
+    await db.from('clients').delete().eq('id', id);
+    App.toast(`🗑 Deleted: ${name}`);
+    Cleanup.findDuplicates();
+  },
+
+  async deleteOrphan(table, id) {
+    if (!confirm(`Delete this ${table} record?`)) return;
+    await db.from(table).delete().eq('id', id);
+    App.toast(`🗑 Orphan removed from ${table}.`);
+    Cleanup.findOrphans();
+  },
+
+  async markInactive(id) {
+    await db.from('clients').update({ stage: 'Lost', updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast('✅ Marked as Lost.');
+    Cleanup.findStale();
+  },
+
+  async deleteChecked(prefix) {
+    const checked = [...document.querySelectorAll(`[id^="${prefix}"]`)].filter(i => i.checked);
+    if (!checked.length) { App.toast('⚠️ Nothing checked.'); return; }
+    if (!confirm(`Delete ${checked.length} record(s)? This cannot be undone.`)) return;
+    for (const cb of checked) {
+      const parts = cb.id.replace(prefix, '').split('-');
+      if (prefix === 'dup-' || prefix === 'tst-' || prefix === 'stl-') {
+        await db.from('clients').delete().eq('id', parts.join('-'));
+      } else if (prefix === 'orp-') {
+        const table = parts[0]; const id = parts.slice(1).join('-');
+        await db.from(table).delete().eq('id', id);
+      }
+    }
+    App.toast(`🗑 ${checked.length} record(s) deleted.`);
+    // Reload relevant section
+    if (prefix === 'dup-') Cleanup.findDuplicates();
+    else if (prefix === 'tst-') Cleanup.findTestData();
+    else if (prefix === 'stl-') Cleanup.findStale();
+  }
+};

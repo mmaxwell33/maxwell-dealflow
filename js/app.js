@@ -95,6 +95,8 @@ const App = {
     if (tab === 'checklist') Checklist.load();
     if (tab === 'inbox') Inbox.load();
     if (tab === 'formresponses') FormResponses.load();
+    if (tab === 'agentportal') AgentPortal.load();
+    if (tab === 'cleanup') Cleanup.init();
   },
 
   toggleAI() {
@@ -264,6 +266,11 @@ const App = {
     const h = Math.floor(m/60);
     if (h < 24) return `${h}h ago`;
     return `${Math.floor(h/24)}d ago`;
+  },
+
+  esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   },
 
   async logActivity(type, clientName, clientEmail, desc, clientId = null) {
