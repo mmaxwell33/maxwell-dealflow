@@ -62,6 +62,8 @@ const App = {
     Viewings.load();
     Offers.load();
     Pipeline.load();
+    App.restoreGroupStates();
+    setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
   },
 
   showAuth() {
@@ -93,6 +95,42 @@ const App = {
     if (ov) ov.style.display = 'none';
   },
 
+  toggleGroup(name) {
+    const grp = document.getElementById(`grp-${name}`);
+    if (!grp) return;
+    const hdr = grp.querySelector('.sb-group-header');
+    const items = grp.querySelector('.sb-group-items');
+    const isOpen = hdr.classList.contains('open');
+    if (isOpen) {
+      hdr.classList.remove('open');
+      items.style.display = 'none';
+    } else {
+      hdr.classList.add('open');
+      items.style.display = 'block';
+    }
+    try {
+      const s = JSON.parse(localStorage.getItem('mdf-sb-groups') || '{}');
+      s[name] = !isOpen;
+      localStorage.setItem('mdf-sb-groups', JSON.stringify(s));
+    } catch(e) {}
+  },
+
+  restoreGroupStates() {
+    try {
+      const s = JSON.parse(localStorage.getItem('mdf-sb-groups') || '{}');
+      ['clients','deals','finance','comms','admin'].forEach(name => {
+        const grp = document.getElementById(`grp-${name}`);
+        if (!grp) return;
+        const hdr = grp.querySelector('.sb-group-header');
+        const items = grp.querySelector('.sb-group-items');
+        const defaultOpen = (name !== 'admin');
+        const open = s[name] !== undefined ? s[name] : defaultOpen;
+        if (open) { hdr.classList.add('open'); items.style.display = 'block'; }
+        else { hdr.classList.remove('open'); items.style.display = 'none'; }
+      });
+    } catch(e) {}
+  },
+
   switchTab(tab) {
     currentTab = tab;
     App.closeSidebar(); // close on mobile when tab selected
@@ -118,6 +156,7 @@ const App = {
     if (tab === 'agentportal') AgentPortal.load();
     if (tab === 'cleanup') Cleanup.init();
     if (tab === 'system') SystemTools.load();
+    if (tab === 'settings') Settings.load();
   },
 
   toggleAI() {

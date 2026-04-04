@@ -1673,3 +1673,205 @@ const SystemTools = {
     }
   }
 };
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+const Settings = {
+  load() {
+    Settings.fillProfile();
+    Settings.renderThemePresets();
+    Settings.loadNotifPrefs();
+    Settings.showSessionInfo();
+    Settings.showTab('profile', document.querySelector('.stab'));
+  },
+
+  showTab(name, btn) {
+    document.querySelectorAll('.stab-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById(`stab-${name}`);
+    if (panel) panel.style.display = 'block';
+    if (btn) btn.classList.add('active');
+    if (name === 'data') Settings.loadDbStats();
+  },
+
+  fillProfile() {
+    if (!currentAgent) return;
+    const a = currentAgent;
+    const initials = (a.full_name || a.name || 'MD').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const av = document.getElementById('settings-avatar');
+    if (av) av.textContent = initials;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    const txt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+    txt('settings-agent-name', a.full_name || a.name);
+    txt('settings-agent-email', a.email);
+    txt('settings-agent-brokerage', a.brokerage);
+    set('set-name', a.full_name || a.name);
+    set('set-email', a.email);
+    set('set-phone', a.phone);
+    set('set-brokerage', a.brokerage);
+    set('set-province', a.province);
+    set('set-license', a.license_number || a.license);
+    set('set-signature', a.email_signature || a.signature || `${a.full_name || a.name}\n${a.brokerage || ''}\n${a.phone || ''}`);
+  },
+
+  async saveProfile() {
+    const msg = document.getElementById('set-profile-msg');
+    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    const updates = {
+      full_name: document.getElementById('set-name')?.value.trim(),
+      phone: document.getElementById('set-phone')?.value.trim(),
+      brokerage: document.getElementById('set-brokerage')?.value.trim(),
+      province: document.getElementById('set-province')?.value.trim(),
+      license_number: document.getElementById('set-license')?.value.trim(),
+      email_signature: document.getElementById('set-signature')?.value.trim(),
+    };
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving...'; }
+    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
+    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
+    // Update local state
+    Object.assign(currentAgent, updates);
+    const initials = (updates.full_name || 'MD').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    ['topbar-avatar','settings-avatar'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=initials; });
+    ['topbar-name'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=updates.full_name||''; });
+    ['topbar-brokerage'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=updates.brokerage||''; });
+    if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Profile saved!'; }
+    App.toast('✅ Profile updated');
+  },
+
+  renderThemePresets() {
+    const el = document.getElementById('set-theme-presets');
+    if (!el) return;
+    const themes = [
+      { id:'midnight', name:'Midnight Blue', swatches:['#1a2236','#2c3e6b','#4a90d9','#e2e8f0'] },
+      { id:'ocean',    name:'Ocean',         swatches:['#0d4f6b','#1a7a8a','#2dd4bf','#e0f2fe'] },
+      { id:'emerald',  name:'Emerald',       swatches:['#166534','#14532d','#22c55e','#dcfce7'] },
+      { id:'purple',   name:'Royal Purple',  swatches:['#6d28d9','#4c1d95','#a78bfa','#ede9fe'] },
+      { id:'sunset',   name:'Sunset',        swatches:['#c2410c','#7c2d12','#fb923c','#fff7ed'] },
+      { id:'rose',     name:'Rose',          swatches:['#be123c','#881337','#fb7185','#fff1f2'] },
+      { id:'slate',    name:'Slate',         swatches:['#475569','#334155','#7dd3fc','#f8fafc'] },
+      { id:'white',    name:'Clean White',   swatches:['#4a80c4','#ffffff','#60a5fa','#1e293b'] },
+    ];
+    const saved = localStorage.getItem('mdf-theme') || 'midnight';
+    el.innerHTML = themes.map(t => `
+      <div class="theme-card${t.id===saved?' active':''}" onclick="SystemTools.applyPresetTheme('${t.id}',this);localStorage.setItem('mdf-theme','${t.id}');document.querySelectorAll('#set-theme-presets .theme-card').forEach(c=>c.classList.remove('active'));this.classList.add('active');">
+        <div class="theme-swatches">${t.swatches.map(c=>`<div class="theme-swatch" style="background:${c};width:20px;height:20px;border-radius:4px;border:1px solid rgba(255,255,255,.1);"></div>`).join('')}</div>
+        <div style="font-size:12px;font-weight:700;margin-top:6px;">${t.name}</div>
+      </div>`).join('');
+  },
+
+  applyCustom() {
+    const el = { hl: document.getElementById('set-th-hl'), hr: document.getElementById('set-th-hr'), cb: document.getElementById('set-th-cb'), ac: document.getElementById('set-th-ac') };
+    SystemTools.applyCustomTheme && SystemTools._applyThemeVars({
+      headerL: el.hl?.value, headerR: el.hr?.value, card: el.cb?.value, accent: el.ac?.value, bg: '#0f172a'
+    });
+    App.toast('🎨 Custom theme applied!');
+  },
+
+  applyCompact(on) {
+    document.documentElement.style.setProperty('--compact', on ? '1' : '0');
+    document.querySelectorAll('.screen').forEach(s => s.style.padding = on ? '12px 16px' : '');
+    localStorage.setItem('mdf-compact', on ? '1' : '0');
+    App.toast(on ? 'Compact mode on' : 'Compact mode off');
+  },
+
+  applySidebarPin(on) {
+    localStorage.setItem('mdf-sb-pin', on ? '1' : '0');
+    App.toast(on ? 'Sidebar always visible' : 'Sidebar auto-hides on small screens');
+  },
+
+  loadNotifPrefs() {
+    const prefs = JSON.parse(localStorage.getItem('mdf-notifs') || '{}');
+    ['form','followup','approval','deal','build'].forEach(k => {
+      const el = document.getElementById(`notif-${k}`);
+      if (el) el.checked = prefs[k] !== undefined ? prefs[k] : (k !== 'deal' && k !== 'build');
+    });
+  },
+
+  saveNotifs() {
+    const prefs = {};
+    ['form','followup','approval','deal','build'].forEach(k => {
+      const el = document.getElementById(`notif-${k}`);
+      if (el) prefs[k] = el.checked;
+    });
+    localStorage.setItem('mdf-notifs', JSON.stringify(prefs));
+    const msg = document.getElementById('set-notif-msg');
+    if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Preferences saved!'; }
+    App.toast('🔔 Notification preferences saved');
+  },
+
+  async loadDbStats() {
+    const el = document.getElementById('set-db-stats');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    const tables = ['clients','viewings','pipeline','commissions','approval_queue','new_builds','email_inbox','checklist_items'];
+    const results = await Promise.all(tables.map(t =>
+      db.from(t).select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id)
+        .then(({ count }) => ({ t, count: count || 0 }))
+        .catch(() => ({ t, count: '—' }))
+    ));
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">` +
+      results.map(r => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${r.count}</div>
+        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;margin-top:2px;">${r.t.replace(/_/g,' ')}</div>
+      </div>`).join('') + `</div>`;
+  },
+
+  async exportCSV(table) {
+    App.toast(`📥 Exporting ${table}...`);
+    const { data, error } = await db.from(table).select('*').eq('agent_id', currentAgent.id).limit(2000);
+    if (error || !data?.length) { App.toast('No data to export'); return; }
+    const keys = Object.keys(data[0]);
+    const csv = [keys.join(','), ...data.map(row => keys.map(k => {
+      const v = row[k] == null ? '' : String(row[k]).replace(/"/g, '""');
+      return `"${v}"`;
+    }).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${table}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    App.toast(`✅ ${table} exported!`);
+  },
+
+  clearCache() {
+    if (!confirm('Clear app cache and local settings? This will not delete your data.')) return;
+    localStorage.removeItem('mdf-theme');
+    localStorage.removeItem('mdf-theme-custom');
+    localStorage.removeItem('mdf-compact');
+    localStorage.removeItem('mdf-sb-groups');
+    localStorage.removeItem('mdf-notifs');
+    App.toast('🗑️ Cache cleared — reloading...');
+    setTimeout(() => location.reload(), 1000);
+  },
+
+  resetTheme() {
+    localStorage.removeItem('mdf-theme');
+    localStorage.removeItem('mdf-theme-custom');
+    document.documentElement.removeAttribute('style');
+    App.toast('🔄 Theme reset to default');
+  },
+
+  async changePassword() {
+    const np = document.getElementById('set-new-pass')?.value;
+    const cp = document.getElementById('set-confirm-pass')?.value;
+    const msg = document.getElementById('set-pass-msg');
+    if (!np || np.length < 8) { if(msg){msg.style.color='var(--red)';msg.textContent='Password must be at least 8 characters.';} return; }
+    if (np !== cp) { if(msg){msg.style.color='var(--red)';msg.textContent='Passwords do not match.';} return; }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Updating...'; }
+    const { error } = await db.auth.updateUser({ password: np });
+    if (error) { if(msg){msg.style.color='var(--red)';msg.textContent=error.message;} return; }
+    if(msg){msg.style.color='var(--green)';msg.textContent='✅ Password updated! Signing you out...';}
+    setTimeout(() => App.signOut(), 2000);
+  },
+
+  showSessionInfo() {
+    const el = document.getElementById('set-session-info');
+    if (!el || !currentAgent) return;
+    el.innerHTML = `
+      <div>👤 <strong>Signed in as:</strong> ${App.esc(currentAgent.email || '—')}</div>
+      <div>🏢 <strong>Brokerage:</strong> ${App.esc(currentAgent.brokerage || '—')}</div>
+      <div>🆔 <strong>Agent ID:</strong> <span style="font-size:11px;opacity:0.5;">${currentAgent.id || '—'}</span></div>
+      <div>🌐 <strong>Host:</strong> GitHub Pages + Supabase</div>
+      <div>📦 <strong>Version:</strong> Maxwell DealFlow v2.0</div>
+    `;
+  }
+};

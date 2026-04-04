@@ -96,8 +96,7 @@
 
       <div class="sb-scroll">
 
-        <!-- MAIN -->
-        <div class="sb-section-label">Main</div>
+        <!-- MAIN (always visible, not collapsible) -->
         <button class="nav-item active" data-tab="overview" onclick="App.switchTab('overview')">
           <span class="nav-icon">🏠</span><span class="nav-label">Overview</span>
         </button>
@@ -109,75 +108,120 @@
           <span class="nav-icon">📋</span><span class="nav-label">Activity</span>
         </button>
 
-        <!-- CLIENTS -->
-        <div class="sb-section-label">Clients</div>
-        <button class="nav-item" data-tab="clients" onclick="App.switchTab('clients')">
-          <span class="nav-icon">👥</span><span class="nav-label">All Clients</span>
-        </button>
-        <button class="nav-item" data-tab="tracker" onclick="App.switchTab('tracker')">
-          <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
-        </button>
-        <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')">
-          <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
-        </button>
+        <!-- CLIENTS (collapsible) -->
+        <div class="sb-group" id="grp-clients">
+          <button class="sb-group-header open" onclick="App.toggleGroup('clients')">
+            <span class="sb-group-icon">👥</span>
+            <span class="sb-group-label">Clients</span>
+            <span class="sb-chevron">▾</span>
+          </button>
+          <div class="sb-group-items">
+            <button class="nav-item nav-sub" data-tab="clients" onclick="App.switchTab('clients')">
+              <span class="nav-icon">👥</span><span class="nav-label">All Clients</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="tracker" onclick="App.switchTab('tracker')">
+              <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="formresponses" onclick="App.switchTab('formresponses')">
+              <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
+            </button>
+          </div>
+        </div>
 
-        <!-- DEALS -->
-        <div class="sb-section-label">Deals</div>
-        <button class="nav-item" data-tab="viewings" onclick="App.switchTab('viewings')">
-          <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
-        </button>
-        <button class="nav-item" data-tab="offers" onclick="App.switchTab('offers')">
-          <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
-        </button>
-        <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
-          <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
-        </button>
-        <button class="nav-item" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
-          <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>
-        </button>
-        <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
-          <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
-        </button>
+        <!-- DEALS (collapsible) -->
+        <div class="sb-group" id="grp-deals">
+          <button class="sb-group-header open" onclick="App.toggleGroup('deals')">
+            <span class="sb-group-icon">🤝</span>
+            <span class="sb-group-label">Deals</span>
+            <span class="sb-chevron">▾</span>
+          </button>
+          <div class="sb-group-items">
+            <button class="nav-item nav-sub" data-tab="viewings" onclick="App.switchTab('viewings')">
+              <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="offers" onclick="App.switchTab('offers')">
+              <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="pipeline" onclick="App.switchTab('pipeline')">
+              <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
+              <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="checklist" onclick="App.switchTab('checklist')">
+              <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
+            </button>
+          </div>
+        </div>
 
-        <!-- FINANCE -->
-        <div class="sb-section-label">Finance</div>
-        <button class="nav-item" data-tab="commissions" onclick="App.switchTab('commissions')">
-          <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
-        </button>
-        <button class="nav-item" data-tab="reports" onclick="App.switchTab('reports')">
-          <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
-        </button>
-        <button class="nav-item" data-tab="analytics" onclick="App.switchTab('analytics')">
-          <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
-        </button>
+        <!-- FINANCE (collapsible) -->
+        <div class="sb-group" id="grp-finance">
+          <button class="sb-group-header open" onclick="App.toggleGroup('finance')">
+            <span class="sb-group-icon">💰</span>
+            <span class="sb-group-label">Finance</span>
+            <span class="sb-chevron">▾</span>
+          </button>
+          <div class="sb-group-items">
+            <button class="nav-item nav-sub" data-tab="commissions" onclick="App.switchTab('commissions')">
+              <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="reports" onclick="App.switchTab('reports')">
+              <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="analytics" onclick="App.switchTab('analytics')">
+              <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
+            </button>
+          </div>
+        </div>
 
-        <!-- COMMUNICATION -->
-        <div class="sb-section-label">Communication</div>
-        <button class="nav-item" data-tab="email" onclick="App.switchTab('email')">
-          <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
-        </button>
-        <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
-          <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
-        </button>
-        <button class="nav-item" data-tab="ai" onclick="App.toggleAI()">
-          <span class="nav-icon">🤖</span><span class="nav-label">AI Assistant</span>
-        </button>
+        <!-- COMMUNICATION (collapsible) -->
+        <div class="sb-group" id="grp-comms">
+          <button class="sb-group-header open" onclick="App.toggleGroup('comms')">
+            <span class="sb-group-icon">✉️</span>
+            <span class="sb-group-label">Communication</span>
+            <span class="sb-chevron">▾</span>
+          </button>
+          <div class="sb-group-items">
+            <button class="nav-item nav-sub" data-tab="email" onclick="App.switchTab('email')">
+              <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="inbox" onclick="App.switchTab('inbox')">
+              <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="ai" onclick="App.toggleAI()">
+              <span class="nav-icon">🤖</span><span class="nav-label">AI Assistant</span>
+            </button>
+          </div>
+        </div>
 
-        <!-- ADMIN -->
-        <div class="sb-section-label">Admin</div>
-        <button class="nav-item" data-tab="agentportal" onclick="App.switchTab('agentportal')">
-          <span class="nav-icon">🚀</span><span class="nav-label">Agent Portal</span>
-        </button>
-        <button class="nav-item" data-tab="cleanup" onclick="App.switchTab('cleanup')">
-          <span class="nav-icon">🧹</span><span class="nav-label">Cleanup</span>
-        </button>
-        <button class="nav-item" data-tab="system" onclick="App.switchTab('system')">
-          <span class="nav-icon">⚙️</span><span class="nav-label">System</span>
+        <!-- ADMIN (collapsible) -->
+        <div class="sb-group" id="grp-admin">
+          <button class="sb-group-header" onclick="App.toggleGroup('admin')">
+            <span class="sb-group-icon">⚙️</span>
+            <span class="sb-group-label">Admin</span>
+            <span class="sb-chevron">▾</span>
+          </button>
+          <div class="sb-group-items" style="display:none;">
+            <button class="nav-item nav-sub" data-tab="agentportal" onclick="App.switchTab('agentportal')">
+              <span class="nav-icon">🚀</span><span class="nav-label">Agent Portal</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="cleanup" onclick="App.switchTab('cleanup')">
+              <span class="nav-icon">🧹</span><span class="nav-label">Cleanup</span>
+            </button>
+            <button class="nav-item nav-sub" data-tab="system" onclick="App.switchTab('system')">
+              <span class="nav-icon">⚙️</span><span class="nav-label">System</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <button class="nav-item" data-tab="settings" onclick="App.switchTab('settings')" style="margin-top:4px;">
+          <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
         </button>
 
       </div><!-- /sb-scroll -->
 
-      <!-- BOTTOM: Settings + Logout -->
+      <!-- BOTTOM: Server info + Logout -->
       <div class="sb-footer">
         <div class="sb-server-info">
           <span style="opacity:0.5;font-size:10px;">Hosted on</span>
@@ -185,8 +229,8 @@
           <span style="opacity:0.4;font-size:10px;">DB: Supabase</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="sb-footer-btn" onclick="SystemTools.openTheme()">
-            🎨 Theme
+          <button class="sb-footer-btn" onclick="App.switchTab('settings')">
+            ⚙️ Settings
           </button>
           <button class="sb-footer-btn sb-footer-btn-red" onclick="App.confirmSignOut()">
             🔓 Logout
@@ -1012,6 +1056,199 @@
         <button id="ai-send" onclick="AI.send()" style="width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none;">➤</button>
       </div>
     </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SETTINGS SCREEN
+    ══════════════════════════════════════════════════════════ -->
+    <div id="screen-settings" class="screen" style="padding:24px 28px;max-width:860px;">
+
+      <!-- Header -->
+      <div style="margin-bottom:24px;">
+        <h1 style="font-size:22px;font-weight:800;margin-bottom:4px;">⚙️ Settings</h1>
+        <div style="font-size:13px;color:var(--text2);">Manage your profile, preferences, and account.</div>
+      </div>
+
+      <!-- Settings Tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0;" id="settings-tabs">
+        <button class="stab active" onclick="Settings.showTab('profile',this)">👤 Profile</button>
+        <button class="stab" onclick="Settings.showTab('appearance',this)">🎨 Appearance</button>
+        <button class="stab" onclick="Settings.showTab('notifications',this)">🔔 Notifications</button>
+        <button class="stab" onclick="Settings.showTab('data',this)">🗄️ Data</button>
+        <button class="stab" onclick="Settings.showTab('security',this)">🔒 Security</button>
+      </div>
+
+      <!-- PROFILE TAB -->
+      <div id="stab-profile" class="stab-panel">
+        <div class="settings-card">
+          <div class="settings-card-title">👤 Agent Profile</div>
+          <div class="settings-card-sub">This information appears on reports and emails sent to clients.</div>
+          <div style="display:flex;align-items:center;gap:16px;margin:16px 0;">
+            <div id="settings-avatar" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;">MD</div>
+            <div>
+              <div style="font-weight:700;" id="settings-agent-name">Maxwell Delali Midodzi</div>
+              <div style="font-size:12px;color:var(--text2);" id="settings-agent-email">—</div>
+              <div style="font-size:11px;color:var(--accent2);margin-top:2px;" id="settings-agent-brokerage">eXp Realty</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Full Name</label>
+              <input class="form-input" id="set-name" placeholder="Your full name">
+            </div>
+            <div>
+              <label class="form-label">Email</label>
+              <input class="form-input" id="set-email" type="email" placeholder="your@email.com" disabled style="opacity:0.6;">
+            </div>
+            <div>
+              <label class="form-label">Phone</label>
+              <input class="form-input" id="set-phone" placeholder="+1 (000) 000-0000">
+            </div>
+            <div>
+              <label class="form-label">Brokerage</label>
+              <input class="form-input" id="set-brokerage" placeholder="Brokerage name">
+            </div>
+            <div>
+              <label class="form-label">Province / State</label>
+              <input class="form-input" id="set-province" placeholder="e.g. Ontario">
+            </div>
+            <div>
+              <label class="form-label">License #</label>
+              <input class="form-input" id="set-license" placeholder="Real estate license number">
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <label class="form-label">Email Signature</label>
+            <textarea class="form-input" id="set-signature" rows="3" placeholder="Your email sign-off (appears at the bottom of sent emails)"></textarea>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveProfile()">💾 Save Profile</button>
+          <div id="set-profile-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- APPEARANCE TAB -->
+      <div id="stab-appearance" class="stab-panel" style="display:none;">
+        <div class="settings-card">
+          <div class="settings-card-title">🎨 Dashboard Theme</div>
+          <div class="settings-card-sub">Choose a colour palette for the entire app.</div>
+          <div id="set-theme-presets" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0;"></div>
+        </div>
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title">🎯 Custom Theme</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+            <div><label class="form-label">Header Left</label><input type="color" class="form-input" id="set-th-hl" style="height:40px;padding:4px;" value="#1a2236"></div>
+            <div><label class="form-label">Header Right</label><input type="color" class="form-input" id="set-th-hr" style="height:40px;padding:4px;" value="#2b4a8c"></div>
+            <div><label class="form-label">Card Background</label><input type="color" class="form-input" id="set-th-cb" style="height:40px;padding:4px;" value="#1e293b"></div>
+            <div><label class="form-label">Accent Colour</label><input type="color" class="form-input" id="set-th-ac" style="height:40px;padding:4px;" value="#4a90d9"></div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="Settings.applyCustom()">Apply Custom Theme</button>
+        </div>
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title">📐 Layout</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+              <div>
+                <div style="font-weight:600;font-size:14px;">Compact Mode</div>
+                <div style="font-size:12px;color:var(--text2);">Reduce padding in cards and screens</div>
+              </div>
+              <input type="checkbox" id="set-compact" onchange="Settings.applyCompact(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+            </label>
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+              <div>
+                <div style="font-weight:600;font-size:14px;">Always Show Sidebar</div>
+                <div style="font-size:12px;color:var(--text2);">Keep sidebar open on desktop (default: on)</div>
+              </div>
+              <input type="checkbox" id="set-sidebar-pin" checked onchange="Settings.applySidebarPin(this.checked)" style="width:18px;height:18px;cursor:pointer;">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATIONS TAB -->
+      <div id="stab-notifications" class="stab-panel" style="display:none;">
+        <div class="settings-card">
+          <div class="settings-card-title">🔔 Notification Preferences</div>
+          <div class="settings-card-sub">Control what you get alerted about in the app.</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">New Form Response</div><div class="set-toggle-sub">When a client submits the intake form</div></div>
+              <input type="checkbox" class="set-toggle" id="notif-form" checked>
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Follow-Up Reminder</div><div class="set-toggle-sub">When a client hasn't been contacted in 7+ days</div></div>
+              <input type="checkbox" class="set-toggle" id="notif-followup" checked>
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Approval Queue Alert</div><div class="set-toggle-sub">When new items are added to the approval queue</div></div>
+              <input type="checkbox" class="set-toggle" id="notif-approval" checked>
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Deal Stage Change</div><div class="set-toggle-sub">When a pipeline deal changes stage</div></div>
+              <input type="checkbox" class="set-toggle" id="notif-deal">
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">New Build Milestone</div><div class="set-toggle-sub">When a build milestone is marked complete</div></div>
+              <input type="checkbox" class="set-toggle" id="notif-build">
+            </label>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;" onclick="Settings.saveNotifs()">💾 Save Preferences</button>
+          <div id="set-notif-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- DATA TAB -->
+      <div id="stab-data" class="stab-panel" style="display:none;">
+        <div class="settings-card">
+          <div class="settings-card-title">📤 Export Data</div>
+          <div class="settings-card-sub">Download your CRM data as CSV files.</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;">
+            <button class="btn btn-outline" onclick="Settings.exportCSV('clients')">📥 Export Clients</button>
+            <button class="btn btn-outline" onclick="Settings.exportCSV('viewings')">📥 Export Viewings</button>
+            <button class="btn btn-outline" onclick="Settings.exportCSV('pipeline')">📥 Export Pipeline</button>
+            <button class="btn btn-outline" onclick="Settings.exportCSV('commissions')">📥 Export Commissions</button>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title">📊 Database Stats</div>
+          <div id="set-db-stats" style="margin-top:10px;color:var(--text2);font-size:13px;">Click to load stats.</div>
+          <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="Settings.loadDbStats()">🔄 Load Stats</button>
+        </div>
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title" style="color:var(--red);">⚠️ Danger Zone</div>
+          <div class="settings-card-sub">These actions cannot be undone.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+            <button class="btn" style="background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3);" onclick="Settings.clearCache()">🗑️ Clear App Cache</button>
+            <button class="btn" style="background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3);" onclick="Settings.resetTheme()">🔄 Reset Theme to Default</button>
+          </div>
+          <div id="set-data-msg" style="font-size:13px;margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <!-- SECURITY TAB -->
+      <div id="stab-security" class="stab-panel" style="display:none;">
+        <div class="settings-card">
+          <div class="settings-card-title">🔑 Change Password</div>
+          <div class="settings-card-sub">You will be signed out after changing your password.</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px;max-width:380px;">
+            <div>
+              <label class="form-label">New Password</label>
+              <input class="form-input" id="set-new-pass" type="password" placeholder="At least 8 characters">
+            </div>
+            <div>
+              <label class="form-label">Confirm New Password</label>
+              <input class="form-input" id="set-confirm-pass" type="password" placeholder="Repeat password">
+            </div>
+            <button class="btn btn-primary" style="width:fit-content;" onclick="Settings.changePassword()">🔐 Update Password</button>
+            <div id="set-pass-msg" style="font-size:13px;"></div>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title">📱 Active Session</div>
+          <div style="font-size:13px;color:var(--text2);line-height:2;margin-top:8px;" id="set-session-info">Loading...</div>
+          <button class="btn" style="margin-top:12px;background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3);" onclick="App.confirmSignOut()">🔓 Sign Out Now</button>
+        </div>
+      </div>
+
+    </div><!-- /screen-settings -->
 
   </div><!-- /main-content -->
 
