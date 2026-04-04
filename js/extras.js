@@ -1875,3 +1875,16 @@ const Settings = {
     `;
   }
 };
+
+// patch saveApiKey into Settings
+Settings.saveApiKey = function() {
+  const val = document.getElementById('set-claude-key')?.value.trim();
+  const msg = document.getElementById('set-key-msg');
+  if (!val || val.startsWith('•')) { if(msg){msg.style.color='var(--red)';msg.textContent='Please enter a valid key.';} return; }
+  AI.setApiKey(val);
+  if(msg){msg.style.color='var(--green)';msg.textContent='✅ API key saved! AI Assistant is now fully active.';}
+  document.getElementById('set-claude-key').value = '••••••••' + val.slice(-8);
+  // Show key status in AI screen
+  const s = document.getElementById('ai-key-status');
+  if(s){s.textContent='🟢 Key active';s.style.color='var(--green)';}
+};
