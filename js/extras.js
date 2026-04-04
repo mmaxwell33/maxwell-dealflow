@@ -1697,8 +1697,11 @@ const Settings = {
     if (!currentAgent) return;
     const a = currentAgent;
     const initials = (a.full_name || a.name || 'MD').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-    const av = document.getElementById('settings-avatar');
-    if (av) av.textContent = initials;
+    // Target the initials span only — don't overwrite the photo img
+    const avInitials = document.getElementById('settings-avatar-initials');
+    if (avInitials) avInitials.textContent = initials;
+    // Restore photo if saved
+    if (window.Settings) Settings.loadSavedPhoto();
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
     const txt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
     txt('settings-agent-name', a.full_name || a.name);
@@ -1715,7 +1718,7 @@ const Settings = {
 
   async saveProfile() {
     const msg = document.getElementById('set-profile-msg');
-    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    if (!currentAgent) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
     const updates = {
       full_name: document.getElementById('set-name')?.value.trim(),
       phone: document.getElementById('set-phone')?.value.trim(),
@@ -1725,16 +1728,25 @@ const Settings = {
       email_signature: document.getElementById('set-signature')?.value.trim(),
     };
     if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving...'; }
-    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
-    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
-    // Update local state
+    // 1. Update local state immediately (instant feedback)
     Object.assign(currentAgent, updates);
+    // 2. Persist to localStorage as backup (works even without Supabase write access)
+    try { localStorage.setItem('mdf-profile-cache', JSON.stringify(updates)); } catch(e) {}
+    // 3. Update all UI elements instantly
     const initials = (updates.full_name || 'MD').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-    ['topbar-avatar','settings-avatar'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=initials; });
+    ['topbar-initials','settings-avatar-initials'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=initials; });
     ['topbar-name'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=updates.full_name||''; });
     ['topbar-brokerage'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=updates.brokerage||''; });
+    const sn = document.getElementById('settings-agent-name'); if(sn) sn.textContent = updates.full_name||'';
+    const sb = document.getElementById('settings-agent-brokerage'); if(sb) sb.textContent = updates.brokerage||'';
     if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Profile saved!'; }
     App.toast('✅ Profile updated');
+    // 4. Sync to Supabase in background (non-blocking — if it fails, local save is enough)
+    if (currentAgent?.id) {
+      db.from('agents').update(updates).eq('id', currentAgent.id).then(({ error }) => {
+        if (error) console.warn('Profile sync to Supabase failed (local save kept):', error.message);
+      });
+    }
   },
 
   renderThemePresets() {

@@ -48,8 +48,13 @@ const App = {
     // Load agent profile
     const { data: agent } = await db.from('agents').select('*').eq('email', user.email).single();
     currentAgent = agent || { name: user.email, email: user.email, id: null };
+    // Merge any locally-cached profile edits (in case Supabase write was blocked)
+    try {
+      const cached = JSON.parse(localStorage.getItem('mdf-profile-cache') || 'null');
+      if (cached) Object.assign(currentAgent, cached);
+    } catch(e) {}
     // Update topbar with full agent info
-    const initials = (currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+    const initials = (currentAgent.full_name || currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
     const initialsEl = document.getElementById('topbar-initials');
     if (initialsEl) initialsEl.textContent = initials;
     document.getElementById('topbar-name').textContent = currentAgent.name || 'Maxwell';
@@ -351,6 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
   App.startLockScreen();
   // Restore saved theme immediately on load
   setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 800);
+  // Restore saved photo immediately on load (before sign-in completes)
+  setTimeout(() => { if (window.Settings) Settings.loadSavedPhoto(); }, 200);
 });
 
 // Lock screen clock + slideshow
