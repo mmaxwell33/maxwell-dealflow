@@ -57,11 +57,13 @@ const App = {
     const initials = (currentAgent.full_name || currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
     const initialsEl = document.getElementById('topbar-initials');
     if (initialsEl) initialsEl.textContent = initials;
-    document.getElementById('topbar-name').textContent = currentAgent.name || 'Maxwell';
+    document.getElementById('topbar-name').textContent = currentAgent.full_name || currentAgent.name || 'Maxwell';
     document.getElementById('topbar-brokerage').textContent = currentAgent.brokerage || 'eXp Realty';
     // Show app
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
+    // Apply saved photo IMMEDIATELY after app becomes visible (no delay)
+    if (window.Settings) Settings.loadSavedPhoto();
     // Load initial data
     await App.loadOverview();
     Clients.load();
@@ -70,7 +72,6 @@ const App = {
     Pipeline.load();
     App.restoreGroupStates();
     setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
-    setTimeout(() => { if (window.Settings) Settings.loadSavedPhoto(); }, 500);
   },
 
   showAuth() {
@@ -352,12 +353,24 @@ const App = {
 
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
+  // Apply saved photo IMMEDIATELY — before anything else loads
+  try {
+    const savedPhoto = localStorage.getItem('mdf-agent-photo');
+    if (savedPhoto) {
+      const tp = document.getElementById('topbar-photo');
+      const ti = document.getElementById('topbar-initials');
+      const lp = document.getElementById('lock-photo');
+      const li = document.getElementById('lock-initials');
+      if (tp) { tp.src = savedPhoto; tp.style.display = 'block'; }
+      if (ti) ti.style.display = 'none';
+      if (lp) { lp.src = savedPhoto; lp.style.display = 'block'; }
+      if (li) li.style.display = 'none';
+    }
+  } catch(e) {}
   App.init();
   App.startLockScreen();
   // Restore saved theme immediately on load
   setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 800);
-  // Restore saved photo immediately on load (before sign-in completes)
-  setTimeout(() => { if (window.Settings) Settings.loadSavedPhoto(); }, 200);
 });
 
 // Lock screen clock + slideshow
