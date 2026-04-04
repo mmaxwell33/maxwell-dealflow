@@ -155,7 +155,12 @@ const Analytics = {
 
   renderViewingsPerClient(viewings) {
     const clientMap = {};
-    viewings.forEach(v => { const n = v.client_name || 'Unknown'; clientMap[n] = (clientMap[n] || 0) + 1; });
+    viewings.forEach(v => {
+      const n = v.client_name || '';
+      // Skip blank, timestamp-like, or non-name entries
+      if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
+      clientMap[n] = (clientMap[n] || 0) + 1;
+    });
     const sorted = Object.entries(clientMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
     Analytics.destroy('viewings-client');
     const ctx = document.getElementById('chart-viewings-client');
@@ -200,19 +205,32 @@ const Analytics = {
     const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
     const counts = [0, 0, 0, 0, 0];
     clients.forEach(c => {
-      const b = c.budget_max || c.budget_min || 0;
+      // Only use real numeric budget values — skip nulls, zeros, strings, flags
+      const raw = c.budget_max || c.budget_min;
+      const b = parseFloat(raw);
+      if (!raw || isNaN(b) || b <= 0) return; // skip invalid / missing budgets
       if (b < 200000) counts[0]++;
       else if (b < 400000) counts[1]++;
       else if (b < 600000) counts[2]++;
       else if (b < 800000) counts[3]++;
       else counts[4]++;
     });
+    // Only show ranges that have at least 1 client
+    const filtered = ranges.map((r, i) => ({ r, c: counts[i], col: colors[i] })).filter(x => x.c > 0);
     Analytics.destroy('budget-dist');
     const ctx = document.getElementById('chart-budget-dist');
     if (!ctx) return;
+    if (!filtered.length) {
+      // No valid budgets — show placeholder message
+      ctx.parentElement.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;font-size:13px;">No budget data yet</div>';
+      return;
+    }
     Analytics.charts['budget-dist'] = new Chart(ctx.getContext('2d'), {
       type: 'pie',
-      data: { labels: ranges, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0 }] },
+      data: {
+        labels: filtered.map(x => x.r),
+        datasets: [{ data: filtered.map(x => x.c), backgroundColor: filtered.map(x => x.col), borderWidth: 0 }]
+      },
       options: {
         responsive: true, maintainAspectRatio: true,
         plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } } }
@@ -296,7 +314,11 @@ const Analytics = {
 
   renderViewingsData(clients, viewings) {
     const viewingMap = {};
-    viewings.forEach(v => { if (v.client_name) viewingMap[v.client_name] = (viewingMap[v.client_name] || 0) + 1; });
+    viewings.forEach(v => {
+      const n = v.client_name || '';
+      if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
+      viewingMap[n] = (viewingMap[n] || 0) + 1;
+    });
     const emailMap = {};
     clients.forEach(c => { emailMap[c.full_name] = c.email || '—'; });
     const rows = Object.entries(viewingMap).sort((a, b) => b[1] - a[1]);
