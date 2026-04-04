@@ -3,10 +3,29 @@ const Tracker = {
   all: [],
 
   async load() {
-    if (!currentAgent?.id) return;
-    const { data } = await db.from('clients')
-      .select('*').eq('agent_id', currentAgent.id)
-      .order('updated_at', { ascending: false });
+    if (!currentAgent?.id) {
+      const el = document.getElementById('tracker-list');
+      if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-text">Not logged in</div></div>';
+      return;
+    }
+    // Safety timeout — show error if DB takes >8s
+    const timeout = setTimeout(() => {
+      const el = document.getElementById('tracker-list');
+      if (el && el.innerHTML.includes('spinner')) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Load timed out</div><div class="empty-sub">Check your connection and try refreshing.</div></div>';
+      }
+    }, 8000);
+    const { data, error } = await db.from('clients')
+      .select('id,full_name,email,phone,stage,status,budget_min,budget_max,preferred_areas,city,notes,updated_at,created_at')
+      .eq('agent_id', currentAgent.id)
+      .order('updated_at', { ascending: false })
+      .limit(100);
+    clearTimeout(timeout);
+    if (error) {
+      const el = document.getElementById('tracker-list');
+      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error loading clients</div><div class="empty-sub">${error.message}</div></div>`;
+      return;
+    }
     Tracker.all = data || [];
     Tracker.render(Tracker.all);
   },
@@ -172,127 +191,4 @@ const Checklist = {
   }
 };
 
-// ── INBOX ────────────────────────────────────────────────────────────────────
-const Inbox = {
-  all: [],
-
-  async load() {
-    if (!currentAgent?.id) return;
-    const { data } = await db.from('email_inbox')
-      .select('*').eq('agent_id', currentAgent.id)
-      .order('created_at', { ascending: false }).limit(50);
-    Inbox.all = data || [];
-    Inbox.render(Inbox.all);
-  },
-
-  render(list) {
-    const el = document.getElementById('inbox-list');
-    if (!list.length) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">📬</div>
-        <div class="empty-text">Your inbox is empty</div>
-        <div class="empty-sub">Emails you send to clients are logged here</div>
-      </div>`;
-      return;
-    }
-    el.innerHTML = list.map(e => `
-      <div class="card" style="margin-bottom:8px;cursor:pointer;" onclick="Inbox.view('${e.id}')">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:22px;">${e.direction === 'sent' ? '📤' : '📥'}</div>
-          <div style="flex:1;min-width:0;">
-            <div class="fw-700" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.subject || '(no subject)'}</div>
-            <div class="text-muted" style="font-size:12px;">
-              ${e.direction === 'sent'
-                ? `To: ${e.recipient_name || e.recipient_email || '—'}`
-                : `From: ${e.sender_name || e.sender_email || '—'}`}
-              · ${App.timeAgo(e.created_at)}
-            </div>
-          </div>
-          <span class="stage-badge ${e.direction === 'sent' ? 'badge-accepted' : 'badge-viewings'}" style="font-size:10px;">${e.direction || 'sent'}</span>
-        </div>
-      </div>`).join('');
-  },
-
-  view(id) {
-    const e = Inbox.all.find(x => x.id === id);
-    if (!e) return;
-    App.openModal(`
-      <div class="modal-title">📧 ${e.subject || '(no subject)'}</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
-        ${e.direction === 'sent'
-          ? `To: ${e.recipient_name || ''} &lt;${e.recipient_email || ''}&gt;`
-          : `From: ${e.sender_name || ''} &lt;${e.sender_email || ''}&gt;`}
-        · ${App.fmtDate(e.created_at)}
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">${e.body || '(no content)'}</div>
-    `);
-  },
-
-  openCompose() {
-    App.switchTab('email');
-  }
-};
-
-// ── FORM RESPONSES ───────────────────────────────────────────────────────────
-const FormResponses = {
-  all: [],
-
-  async load() {
-    if (!currentAgent?.id) return;
-    const { data } = await db.from('form_responses')
-      .select('*').eq('agent_id', currentAgent.id)
-      .order('created_at', { ascending: false }).limit(50);
-    FormResponses.all = data || [];
-    FormResponses.render(FormResponses.all);
-  },
-
-  render(list) {
-    const el = document.getElementById('formresponses-list');
-    if (!list.length) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">📝</div>
-        <div class="empty-text">No form responses yet</div>
-        <div class="empty-sub">Client inquiries submitted via your web form will appear here</div>
-      </div>`;
-      return;
-    }
-    el.innerHTML = list.map(r => `
-      <div class="card" style="margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <div class="client-avatar" style="background:${App.avatarColor(r.name || 'U')};width:36px;height:36px;font-size:13px;">${App.initials(r.name || 'U')}</div>
-          <div style="flex:1;">
-            <div class="fw-700">${r.name || 'Unknown'}</div>
-            <div class="text-muted" style="font-size:12px;">${r.email || ''} · ${App.timeAgo(r.created_at)}</div>
-          </div>
-          <span class="stage-badge ${r.status === 'New' ? 'badge-pending' : 'badge-accepted'}">${r.status || 'New'}</span>
-        </div>
-        ${r.message ? `<div style="font-size:13px;color:var(--text2);padding:8px;background:var(--bg);border-radius:6px;margin-bottom:8px;line-height:1.5;">${r.message}</div>` : ''}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${r.email ? `<a href="mailto:${r.email}" class="btn btn-outline btn-sm">✉️ Reply</a>` : ''}
-          <button class="btn btn-primary btn-sm" onclick="FormResponses.addAsClient('${r.id}')">➕ Add as Client</button>
-          <button class="btn btn-outline btn-sm" onclick="FormResponses.markRead('${r.id}')">✓ Mark Read</button>
-        </div>
-      </div>`).join('');
-  },
-
-  addAsClient(id) {
-    const r = FormResponses.all.find(x => x.id === id);
-    if (!r) return;
-    App.toast('📝 Opening Add Client — prefill name/email from form');
-    Clients.openAdd();
-    setTimeout(() => {
-      const nameEl = document.getElementById('cl-name');
-      const emailEl = document.getElementById('cl-email');
-      if (nameEl && r.name) nameEl.value = r.name;
-      if (emailEl && r.email) emailEl.value = r.email;
-    }, 200);
-  },
-
-  async markRead(id) {
-    await db.from('form_responses').update({ status: 'Read' }).eq('id', id);
-    const r = FormResponses.all.find(x => x.id === id);
-    if (r) r.status = 'Read';
-    FormResponses.render(FormResponses.all);
-    App.toast('✓ Marked as read');
-  }
-};
+// Inbox and FormResponses are defined in extras.js — no duplicate needed here.
