@@ -16,7 +16,7 @@ const Tracker = {
       }
     }, 8000);
     const { data, error } = await db.from('clients')
-      .select('id,full_name,email,phone,stage,status,budget_min,budget_max,preferred_areas,city,notes,updated_at,created_at')
+      .select('id,full_name,email,phone,stage,status,preferred_areas,city,notes,updated_at,created_at')
       .eq('agent_id', currentAgent.id)
       .order('updated_at', { ascending: false })
       .limit(100);
@@ -62,7 +62,7 @@ const Tracker = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--text2);margin-bottom:10px;">
             ${c.email ? `<div>✉️ ${c.email}</div>` : ''}
             ${c.phone ? `<div>📞 ${c.phone}</div>` : ''}
-            ${(c.budget_min || c.budget_max) ? `<div>💰 ${App.fmtMoney(c.budget_min)} – ${App.fmtMoney(c.budget_max)}</div>` : ''}
+            ${c.city ? `<div>📍 ${App.esc(c.city)}</div>` : ''}
             ${c.preferred_areas ? `<div>📍 ${c.preferred_areas}</div>` : (c.city ? `<div>📍 ${c.city}</div>` : '')}
           </div>
           ${c.notes ? `<div style="font-size:12px;color:var(--text2);padding:8px;background:var(--bg);border-radius:6px;margin-bottom:10px;line-height:1.5;">${c.notes}</div>` : ''}

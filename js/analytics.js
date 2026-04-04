@@ -230,10 +230,15 @@ const Analytics = {
     const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
     const counts = [0, 0, 0, 0, 0];
     clients.forEach(c => {
-      // Only use real numeric budget values — skip nulls, zeros, strings, flags
-      const raw = c.budget_max || c.budget_min;
-      const b = parseFloat(raw);
-      if (!raw || isNaN(b) || b <= 0) return; // skip invalid / missing budgets
+      // Parse price_range text like "$400K-$600K", "$750,000", "800000" etc.
+      const raw = c.price_range || '';
+      if (!raw) return;
+      // Extract largest number from the string
+      const nums = raw.replace(/,/g,'').match(/\d+(?:\.\d+)?/g);
+      if (!nums) return;
+      let b = parseFloat(nums[nums.length - 1]); // take upper bound
+      if (b < 10000) b *= 1000; // handle shorthand like "400" meaning 400000
+      if (isNaN(b) || b <= 0) return;
       if (b < 200000) counts[0]++;
       else if (b < 400000) counts[1]++;
       else if (b < 600000) counts[2]++;

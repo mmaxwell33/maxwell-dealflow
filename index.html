@@ -761,37 +761,6 @@
         <div id="cleanup-email-msg" style="margin-top:8px;font-size:13px;color:var(--text2);"></div>
       </div>
 
-      <!-- Drive Folder Cleanup -->
-      <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div class="fw-800">📁 Drive Folder Cleanup</div>
-          <button class="btn btn-outline btn-sm" onclick="Cleanup.scanFolders()">🔍 Scan Folders</button>
-        </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Scans your CRM client folder in Google Drive and identifies folders that don't match any active client. Orphaned folders (test clients, deleted clients) can be safely moved to trash.</div>
-        <div id="cleanup-folders">
-          <div style="text-align:center;padding:30px 0;">
-            <div style="font-size:48px;margin-bottom:8px;">📁</div>
-            <div class="fw-700" style="margin-bottom:4px;">Scan Your Drive</div>
-            <div style="font-size:13px;color:var(--text2);">Click "Scan Folders" to find unused client folders.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gmail Label Cleanup -->
-      <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div class="fw-800">🏷️ Gmail Label Cleanup</div>
-          <button class="btn btn-outline btn-sm" onclick="Cleanup.scanLabels()">🔍 Scan Labels</button>
-        </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Scans your CRM/* Gmail labels and identifies labels that don't match any active client. Deleting a label removes the tag only — your emails are NOT deleted.</div>
-        <div id="cleanup-gmail-labels">
-          <div style="text-align:center;padding:30px 0;">
-            <div style="font-size:48px;margin-bottom:8px;">🏷️</div>
-            <div class="fw-700" style="margin-bottom:4px;">Scan Your Labels</div>
-            <div style="font-size:13px;color:var(--text2);">Click "Scan Labels" to find unused CRM inbox labels.</div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- SYSTEM SCREEN -->
@@ -806,7 +775,7 @@
       <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
         <div class="sys-menu-item" onclick="SystemTools.refreshDashboard()"><span class="sys-menu-icon">🔄</span> Refresh Dashboard &amp; Analytics</div>
         <div class="sys-menu-item" onclick="SystemTools.buildCharts()"><span class="sys-menu-icon">📊</span> Build Analytics Charts</div>
-        <div class="sys-menu-item" onclick="SystemTools.openTheme()"><span class="sys-menu-icon">🎨</span> Fix Sheet Colors / Dashboard Theme</div>
+        <div class="sys-menu-item" onclick="SystemTools.openTheme()"><span class="sys-menu-icon">🎨</span> Dashboard Theme</div>
       </div>
 
       <!-- CLIENT MANAGEMENT -->
@@ -828,7 +797,6 @@
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">Email Management</div>
       <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
         <div class="sys-menu-item" onclick="SystemTools.organizeEmails()"><span class="sys-menu-icon">📧</span> Organize Client Emails</div>
-        <div class="sys-menu-item" onclick="SystemTools.labelTestEmails()"><span class="sys-menu-icon">🏷️</span> Label Test Emails</div>
         <div class="sys-menu-item" onclick="SystemTools.trashInactiveEmails()"><span class="sys-menu-icon">🗑️</span> Trash Inactive Client Emails</div>
         <div class="sys-menu-item" onclick="SystemTools.resendWelcomeModal()"><span class="sys-menu-icon">📨</span> Resend Welcome Email</div>
       </div>
@@ -836,13 +804,9 @@
       <!-- SYSTEM -->
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">System</div>
       <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
-        <div class="sys-menu-item" onclick="SystemTools.setupTriggers()"><span class="sys-menu-icon">⚙️</span> Setup All Triggers</div>
-        <div class="sys-menu-item" onclick="SystemTools.verifyTriggers()"><span class="sys-menu-icon">✅</span> Verify Triggers</div>
         <div class="sys-menu-item" onclick="SystemTools.runDiagnostics()"><span class="sys-menu-icon">🏥</span> Health Check</div>
         <div class="sys-menu-item" onclick="SystemTools.sendMorningSummary()"><span class="sys-menu-icon">☀️</span> Send Morning Summary</div>
-        <div class="sys-menu-item" onclick="SystemTools.initConfig()"><span class="sys-menu-icon">🔧</span> Initialize Config</div>
         <div class="sys-menu-item" onclick="SystemTools.manualOfferUpdate()"><span class="sys-menu-icon">📝</span> Manual Offer Update</div>
-        <div class="sys-menu-item" onclick="SystemTools.setWebAppUrl()"><span class="sys-menu-icon">🌐</span> Set Web App URL</div>
       </div>
 
       <!-- DB Stats + Diagnostics (collapsed cards) -->
