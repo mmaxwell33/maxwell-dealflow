@@ -97,6 +97,7 @@ const App = {
     if (tab === 'formresponses') FormResponses.load();
     if (tab === 'agentportal') AgentPortal.load();
     if (tab === 'cleanup') Cleanup.init();
+    if (tab === 'system') SystemTools.load();
   },
 
   toggleAI() {

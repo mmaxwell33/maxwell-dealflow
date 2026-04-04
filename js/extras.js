@@ -1263,5 +1263,197 @@ const Cleanup = {
     if (prefix === 'dup-') Cleanup.findDuplicates();
     else if (prefix === 'tst-') Cleanup.findTestData();
     else if (prefix === 'stl-') Cleanup.findStale();
+  },
+
+  // ── NEW CLEANUP SECTIONS ──────────────────────────────────────────────────
+
+  findOldLabels() {
+    const el = document.getElementById('cleanup-labels');
+    if (!el) return;
+    // In a PWA context, "labels" = client tags/stages. Show all clients with no stage set.
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Scanning...</div>';
+    setTimeout(async () => {
+      const { data } = await db.from('clients').select('id,full_name,stage').eq('agent_id', currentAgent.id);
+      const noLabel = (data || []).filter(c => !c.stage || c.stage.trim() === '');
+      if (!noLabel.length) { el.innerHTML = '<div class="text-muted" style="font-size:13px;padding:8px 0;">✅ All clients have a stage/label set.</div>'; return; }
+      el.innerHTML = `<div style="font-size:12px;color:var(--yellow);margin-bottom:8px;">⚠️ ${noLabel.length} client(s) with no label/stage:</div>` +
+        noLabel.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <input type="checkbox" id="lbl-${c.id}">
+          <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);">— no stage</span></div>
+          <button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="Cleanup.setStage('${c.id}')">Set Stage</button>
+        </div>`).join('') +
+        `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('lbl-')">🗑 Delete Checked</button>`;
+    }, 100);
+  },
+
+  async setStage(id) {
+    const stage = prompt('Enter stage for this client (e.g. New/Viewing, Active Search, Closed):');
+    if (!stage) return;
+    await db.from('clients').update({ stage, updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast(`✅ Stage set to: ${stage}`);
+    Cleanup.findOldLabels();
+  },
+
+  async trashTestEmails() {
+    const el = document.getElementById('cleanup-email-msg');
+    if (el) el.textContent = 'Scanning...';
+    const { data } = await db.from('email_inbox').select('id,recipient_name,recipient_email,subject').eq('agent_id', currentAgent.id);
+    const testEmails = (data || []).filter(e =>
+      /test|demo|sample|dummy|fake/i.test(e.recipient_name || '') ||
+      /test|demo|sample|dummy|fake/i.test(e.subject || '') ||
+      /test|demo/i.test(e.recipient_email || '')
+    );
+    if (!testEmails.length) { if (el) { el.style.color = 'var(--green)'; el.textContent = '✅ No test emails found.'; } return; }
+    if (!confirm(`Remove ${testEmails.length} test email(s) from the log?`)) return;
+    await db.from('email_inbox').delete().in('id', testEmails.map(e => e.id));
+    if (el) { el.style.color = 'var(--green)'; el.textContent = `✅ Removed ${testEmails.length} test email(s).`; }
+    App.toast(`🧹 Removed ${testEmails.length} test email(s).`);
+  },
+
+  async trashInactiveEmails() {
+    const el = document.getElementById('cleanup-email-msg');
+    if (el) el.textContent = 'Scanning...';
+    // Get inactive (Lost/Closed) client emails
+    const { data: clients } = await db.from('clients').select('email,stage').eq('agent_id', currentAgent.id);
+    const inactiveEmails = new Set((clients || [])
+      .filter(c => /lost|closed/i.test(c.stage || ''))
+      .map(c => (c.email || '').toLowerCase()).filter(Boolean));
+    if (!inactiveEmails.size) { if (el) { el.style.color = 'var(--green)'; el.textContent = '✅ No inactive clients found.'; } return; }
+    const { data: emails } = await db.from('email_inbox').select('id,recipient_email').eq('agent_id', currentAgent.id);
+    const toDelete = (emails || []).filter(e => inactiveEmails.has((e.recipient_email || '').toLowerCase()));
+    if (!toDelete.length) { if (el) { el.style.color = 'var(--green)'; el.textContent = '✅ No emails from inactive clients.'; } return; }
+    if (!confirm(`Remove ${toDelete.length} email(s) from inactive/closed clients?`)) return;
+    await db.from('email_inbox').delete().in('id', toDelete.map(e => e.id));
+    if (el) { el.style.color = 'var(--green)'; el.textContent = `✅ Removed ${toDelete.length} email(s).`; }
+    App.toast(`📭 Removed ${toDelete.length} inactive client email(s).`);
+  },
+
+  scanFolders() {
+    const el = document.getElementById('cleanup-folders');
+    if (!el) return;
+    el.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:12px;background:var(--bg);border-radius:8px;line-height:1.8;">ℹ️ <strong>Drive Folder Cleanup</strong> is a Google Apps Script feature that scans your Google Drive.<br><br>In this PWA, your client data is stored in Supabase — not Google Drive folders. Use the <strong>Orphaned Records</strong> scan above to find unlinked data, or use the Cleanup tab in your Google Sheets CRM to manage Drive folders.</div>';
+  },
+
+  scanLabels() {
+    const el = document.getElementById('cleanup-gmail-labels');
+    if (!el) return;
+    el.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:12px;background:var(--bg);border-radius:8px;line-height:1.8;">ℹ️ <strong>Gmail Label Cleanup</strong> is a Google Apps Script feature that reads your Gmail labels.<br><br>In this PWA, emails are logged in Supabase — not Gmail labels. Use the <strong>Email Cleanup</strong> section above to clean the logged email inbox, or use your Google Sheets CRM to manage Gmail labels.</div>';
+  }
+};
+
+// ── SYSTEM TOOLS ─────────────────────────────────────────────────────────────
+const SystemTools = {
+  async load() {
+    SystemTools.populateClients();
+    SystemTools.showAccountInfo();
+  },
+
+  async populateClients() {
+    const sel = document.getElementById('sys-welcome-client');
+    if (!sel || !currentAgent?.id) return;
+    const { data } = await db.from('clients').select('id,full_name,email').eq('agent_id', currentAgent.id).order('full_name');
+    sel.innerHTML = '<option value="">-- Choose a client --</option>' +
+      (data || []).map(c => `<option value="${c.id}" data-name="${App.esc(c.full_name)}" data-email="${App.esc(c.email||'')}">${App.esc(c.full_name)} — ${c.email || 'no email'}</option>`).join('');
+  },
+
+  async resendWelcome() {
+    const sel = document.getElementById('sys-welcome-client');
+    const msg = document.getElementById('sys-welcome-msg');
+    const opt = sel?.options[sel.selectedIndex];
+    if (!opt?.value) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client.'; } return; }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Adding to approval queue...'; }
+    const { error } = await db.from('approval_queue').insert({
+      agent_id: currentAgent.id,
+      client_name: opt.dataset.name,
+      action_type: 'Welcome Email',
+      details: `Resend welcome email to ${opt.dataset.name} (${opt.dataset.email})`,
+      status: 'Pending',
+      created_at: new Date().toISOString()
+    });
+    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
+    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Welcome email queued for ${opt.dataset.name}! Check Approvals to send.`; }
+    App.toast(`📨 Welcome email queued for ${opt.dataset.name}`);
+  },
+
+  async runDiagnostics() {
+    const el = document.getElementById('sys-diagnostics');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Running diagnostics...</div>';
+    const issues = [];
+    const ok = [];
+
+    try {
+      // Check clients table
+      const { data: cl, error: clErr } = await db.from('clients').select('id,full_name,stage,email').eq('agent_id', currentAgent.id);
+      if (clErr) { issues.push(`❌ Cannot read clients table: ${clErr.message}`); }
+      else {
+        ok.push(`✅ Clients table: ${cl.length} records`);
+        const noStage = cl.filter(c => !c.stage).length;
+        const noEmail = cl.filter(c => !c.email).length;
+        if (noStage > 0) issues.push(`⚠️ ${noStage} client(s) have no stage set`);
+        if (noEmail > 0) issues.push(`⚠️ ${noEmail} client(s) have no email address`);
+      }
+
+      // Check viewings table
+      const { data: vi, error: viErr } = await db.from('viewings').select('id').eq('agent_id', currentAgent.id);
+      if (viErr) issues.push(`❌ Cannot read viewings table: ${viErr.message}`);
+      else ok.push(`✅ Viewings table: ${vi.length} records`);
+
+      // Check pipeline
+      const { data: pi, error: piErr } = await db.from('pipeline').select('id').eq('agent_id', currentAgent.id);
+      if (piErr) issues.push(`❌ Cannot read pipeline table: ${piErr.message}`);
+      else ok.push(`✅ Pipeline table: ${pi.length} records`);
+
+      // Check commissions
+      const { data: co, error: coErr } = await db.from('commissions').select('id').eq('agent_id', currentAgent.id);
+      if (coErr) issues.push(`❌ Cannot read commissions table: ${coErr.message}`);
+      else ok.push(`✅ Commissions table: ${co.length} records`);
+
+      // Check approval queue
+      const { data: aq, error: aqErr } = await db.from('approval_queue').select('id').eq('agent_id', currentAgent.id).eq('status','Pending');
+      if (aqErr) issues.push(`⚠️ Cannot read approval queue: ${aqErr.message}`);
+      else if (aq.length > 0) issues.push(`⚠️ ${aq.length} pending approval(s) waiting for action`);
+      else ok.push(`✅ No pending approvals`);
+
+    } catch (e) {
+      issues.push(`❌ Diagnostic error: ${e.message}`);
+    }
+
+    const allGood = issues.length === 0;
+    el.innerHTML = `
+      <div style="font-size:13px;margin-bottom:10px;font-weight:700;color:${allGood ? 'var(--green)' : 'var(--yellow)'};">${allGood ? '✅ All systems healthy!' : `⚠️ ${issues.length} issue(s) found`}</div>
+      ${issues.map(i => `<div style="padding:6px 10px;background:rgba(239,68,68,0.1);border-left:3px solid var(--red);border-radius:4px;font-size:13px;margin-bottom:6px;">${i}</div>`).join('')}
+      ${ok.map(i => `<div style="padding:6px 10px;background:rgba(16,185,129,0.08);border-left:3px solid var(--green);border-radius:4px;font-size:13px;margin-bottom:6px;">${i}</div>`).join('')}
+    `;
+  },
+
+  async loadStats() {
+    const el = document.getElementById('sys-db-stats');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    const tables = ['clients','viewings','pipeline','commissions','approval_queue','activity_log','new_builds','email_inbox','checklist_items'];
+    const results = await Promise.all(tables.map(t =>
+      db.from(t).select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id)
+        .then(({ count }) => ({ t, count: count || 0 }))
+        .catch(() => ({ t, count: '—' }))
+    ));
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">` +
+      results.map(r => `<div class="stat-card" style="text-align:center;padding:12px;">
+        <div style="font-size:18px;font-weight:800;color:var(--accent2);">${r.count}</div>
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">${r.t.replace(/_/g,' ')}</div>
+      </div>`).join('') + `</div>`;
+  },
+
+  showAccountInfo() {
+    const el = document.getElementById('sys-account-info');
+    if (!el || !currentAgent) return;
+    el.innerHTML = `
+      <div>👤 <strong>Name:</strong> ${App.esc(currentAgent.full_name || '—')}</div>
+      <div>✉️ <strong>Email:</strong> ${App.esc(currentAgent.email || '—')}</div>
+      <div>🏢 <strong>Brokerage:</strong> ${App.esc(currentAgent.brokerage || '—')}</div>
+      <div>📍 <strong>Province:</strong> ${App.esc(currentAgent.province || '—')}</div>
+      <div>🆔 <strong>Agent ID:</strong> <span style="font-size:11px;opacity:0.6;">${currentAgent.id}</span></div>
+      <div>🔒 <strong>PWA Version:</strong> Maxwell DealFlow v2.0</div>
+    `;
   }
 };
