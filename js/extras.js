@@ -1455,5 +1455,221 @@ const SystemTools = {
       <div>🆔 <strong>Agent ID:</strong> <span style="font-size:11px;opacity:0.6;">${currentAgent.id}</span></div>
       <div>🔒 <strong>PWA Version:</strong> Maxwell DealFlow v2.0</div>
     `;
+  },
+
+  // ── NEW SYSTEM MENU ACTIONS ──────────────────────────────────────────
+
+  resendWelcomeModal() {
+    SystemTools.populateClients();
+    const m = document.getElementById('sys-welcome-modal');
+    if (m) { m.style.display = 'flex'; }
+  },
+
+  refreshDashboard() {
+    App.toast('🔄 Refreshing dashboard & analytics...');
+    if (window.Analytics) Analytics.load();
+    App.switchTab('analytics');
+  },
+
+  buildCharts() {
+    App.toast('📊 Building analytics charts...');
+    if (window.Analytics) Analytics.load();
+    App.switchTab('analytics');
+  },
+
+  openTheme() {
+    const m = document.getElementById('sys-theme-modal');
+    if (!m) return;
+    SystemTools.renderThemePresets();
+    m.style.display = 'flex';
+  },
+
+  renderThemePresets() {
+    const el = document.getElementById('theme-presets');
+    if (!el) return;
+    const themes = [
+      { id:'midnight', name:'Midnight Blue', desc:'Deep navy & sky blue', swatches:['#1a2236','#2c3e6b','#4a90d9','#e2e8f0'] },
+      { id:'ocean',    name:'Ocean',         desc:'Teal & aqua vibes',   swatches:['#0d4f6b','#1a7a8a','#2dd4bf','#e0f2fe'] },
+      { id:'emerald',  name:'Emerald',       desc:'Rich green forest',   swatches:['#166534','#14532d','#22c55e','#dcfce7'] },
+      { id:'purple',   name:'Royal Purple',  desc:'Luxurious violet',    swatches:['#6d28d9','#4c1d95','#a78bfa','#ede9fe'] },
+      { id:'sunset',   name:'Sunset',        desc:'Warm orange glow',    swatches:['#c2410c','#7c2d12','#fb923c','#fff7ed'] },
+      { id:'rose',     name:'Rose',          desc:'Elegant pink & crimson',swatches:['#be123c','#881337','#fb7185','#fff1f2'] },
+      { id:'slate',    name:'Slate',         desc:'Clean & minimal',     swatches:['#475569','#334155','#7dd3fc','#f8fafc'] },
+      { id:'white',    name:'Clean White',   desc:'Light & bright',      swatches:['#4a80c4','#ffffff','#60a5fa','#1e293b'] },
+    ];
+    const saved = localStorage.getItem('mdf-theme') || 'midnight';
+    el.innerHTML = themes.map(t => `
+      <div class="theme-card${t.id===saved?' active':''}" onclick="SystemTools.applyPresetTheme('${t.id}',this)">
+        <div class="theme-swatches">
+          ${t.swatches.map(c=>`<div class="theme-swatch" style="background:${c};"></div>`).join('')}
+        </div>
+        <div class="theme-name">${t.name}</div>
+        <div class="theme-desc">${t.desc}</div>
+      </div>`).join('');
+  },
+
+  applyPresetTheme(id, el) {
+    document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const map = {
+      midnight: { bg:'#0f172a', card:'#1e293b', accent:'#4a90d9', headerL:'#1a2236', headerR:'#2b4a8c' },
+      ocean:    { bg:'#0a2a38', card:'#0d3a4f', accent:'#2dd4bf', headerL:'#0d4f6b', headerR:'#1a7a8a' },
+      emerald:  { bg:'#052e16', card:'#14532d', accent:'#22c55e', headerL:'#166534', headerR:'#15803d' },
+      purple:   { bg:'#1e1b4b', card:'#2e1b6e', accent:'#a78bfa', headerL:'#4c1d95', headerR:'#6d28d9' },
+      sunset:   { bg:'#1c0a00', card:'#431407', accent:'#fb923c', headerL:'#7c2d12', headerR:'#c2410c' },
+      rose:     { bg:'#1a0009', card:'#4c0519', accent:'#fb7185', headerL:'#881337', headerR:'#be123c' },
+      slate:    { bg:'#0f172a', card:'#1e293b', accent:'#7dd3fc', headerL:'#334155', headerR:'#475569' },
+      white:    { bg:'#f1f5f9', card:'#ffffff', accent:'#3b82f6', headerL:'#4a80c4', headerR:'#2563eb' },
+    };
+    const t = map[id];
+    if (!t) return;
+    SystemTools._applyThemeVars(t);
+    localStorage.setItem('mdf-theme', id);
+    localStorage.setItem('mdf-theme-custom', JSON.stringify(t));
+    App.toast('🎨 Theme applied!');
+  },
+
+  applyCustomTheme() {
+    const t = {
+      headerL: document.getElementById('th-header-left')?.value || '#1a2236',
+      headerR: document.getElementById('th-header-right')?.value || '#2b4a8c',
+      card:    document.getElementById('th-card-bg')?.value || '#1e293b',
+      accent:  document.getElementById('th-accent')?.value || '#4a90d9',
+      bg:      '#0f172a'
+    };
+    document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('active'));
+    SystemTools._applyThemeVars(t);
+    localStorage.setItem('mdf-theme', 'custom');
+    localStorage.setItem('mdf-theme-custom', JSON.stringify(t));
+    App.toast('🎨 Custom theme applied!');
+  },
+
+  _applyThemeVars(t) {
+    const r = document.documentElement.style;
+    if (t.bg)      r.setProperty('--bg', t.bg);
+    if (t.card)    r.setProperty('--card', t.card);
+    if (t.accent)  r.setProperty('--accent2', t.accent);
+    if (t.headerL) r.setProperty('--header-left', t.headerL);
+    if (t.headerR) r.setProperty('--header-right', t.headerR);
+    // Also update header gradient if it exists
+    const hdr = document.querySelector('.top-header, header, .app-header');
+    if (hdr && t.headerL) hdr.style.background = `linear-gradient(135deg,${t.headerL},${t.headerR||t.headerL})`;
+  },
+
+  loadSavedTheme() {
+    const saved = localStorage.getItem('mdf-theme-custom');
+    if (saved) { try { SystemTools._applyThemeVars(JSON.parse(saved)); } catch(e){} }
+  },
+
+  updateOfferStatus() {
+    App.switchTab('pipeline');
+    App.toast('📝 Update offer status in Pipeline tab');
+  },
+
+  reverseAcceptedOffer() {
+    App.switchTab('pipeline');
+    App.toast('🔃 Use Revert Close buttons in Pipeline tab');
+  },
+
+  dealProgress() {
+    App.switchTab('pipeline');
+    App.toast('📈 Deal progress shown in Pipeline tab');
+  },
+
+  dealChecklist() {
+    App.switchTab('checklist');
+    App.toast('📋 Opening Deal Checklist tab...');
+  },
+
+  rescheduleViewing() {
+    App.switchTab('viewings');
+    App.toast('🔃 Reschedule viewings in the Viewings tab');
+  },
+
+  manageLifecycle() {
+    App.switchTab('clients');
+    App.toast('👤 Manage client lifecycle in Clients tab');
+  },
+
+  deleteClient() {
+    App.switchTab('clients');
+    App.toast('🗑️ Select a client to delete in Clients tab');
+  },
+
+  restoreClient() {
+    App.switchTab('clients');
+    App.toast('♻️ Find and restore archived clients in Clients tab');
+  },
+
+  permanentDelete() {
+    if (!confirm('⚠️ Permanent Delete: This will hard-delete selected records. Continue?')) return;
+    App.switchTab('cleanup');
+    App.toast('⚠️ Use Cleanup tools for permanent deletions');
+  },
+
+  organizeEmails() {
+    App.switchTab('inbox');
+    App.toast('📧 Opening Inbox to organize client emails...');
+  },
+
+  labelTestEmails() {
+    App.switchTab('inbox');
+    App.toast('🏷️ Use Email Cleanup in Cleanup tab to label/trash test emails');
+  },
+
+  trashInactiveEmails() {
+    App.switchTab('cleanup');
+    App.toast('🗑️ Use Email Cleanup section in Cleanup tab');
+  },
+
+  setupTriggers() {
+    App.toast('⚙️ Triggers are automated — Supabase handles real-time updates. No manual setup needed in PWA.');
+  },
+
+  verifyTriggers() {
+    SystemTools.runDiagnostics();
+    // Show the diagnostics card
+    const d = document.getElementById('sys-diagnostics');
+    if (d) d.parentElement.querySelector('button')?.click();
+  },
+
+  async sendMorningSummary() {
+    App.toast('☀️ Building morning summary...');
+    const { data: clients } = await db.from('clients').select('full_name,stage,updated_at').eq('agent_id', currentAgent.id).limit(50);
+    if (!clients?.length) { App.toast('No clients found.'); return; }
+    const needsFollowUp = clients.filter(c => {
+      if (!c.updated_at) return true;
+      const days = Math.floor((Date.now() - new Date(c.updated_at)) / 86400000);
+      return days >= 3;
+    });
+    const summary = `Good morning! Here's your Maxwell DealFlow summary for ${new Date().toLocaleDateString('en-CA')}:\n\n`
+      + `📊 Total Active Clients: ${clients.length}\n`
+      + `⏰ Needs Follow-Up (3+ days): ${needsFollowUp.length}\n\n`
+      + (needsFollowUp.slice(0,5).map(c=>`• ${c.full_name} — ${c.stage||'No stage'}`).join('\n'))
+      + `\n\nHave a great day! — Maxwell DealFlow`;
+    App.switchTab('email');
+    setTimeout(() => {
+      const subj = document.getElementById('email-subject');
+      const body = document.getElementById('email-body');
+      if (subj) subj.value = `☀️ Morning Summary — ${new Date().toLocaleDateString('en-CA')}`;
+      if (body) body.innerHTML = summary.replace(/\n/g,'<br>');
+    }, 400);
+  },
+
+  initConfig() {
+    App.toast('🔧 Configuration is managed via Supabase. Open your Supabase dashboard to update settings.');
+  },
+
+  manualOfferUpdate() {
+    App.switchTab('offers');
+    App.toast('📝 Update offer details in the Offers tab');
+  },
+
+  setWebAppUrl() {
+    const url = prompt('Enter your Web App URL (leave blank to use current):', window.location.href);
+    if (url) {
+      localStorage.setItem('mdf-webapp-url', url);
+      App.toast('🌐 Web App URL saved: ' + url);
+    }
   }
 };

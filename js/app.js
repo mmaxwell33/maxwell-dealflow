@@ -288,6 +288,8 @@ const App = {
 document.addEventListener('DOMContentLoaded', () => {
   App.init();
   App.startLockScreen();
+  // Restore saved theme immediately on load
+  setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 800);
 });
 
 // Lock screen clock + slideshow

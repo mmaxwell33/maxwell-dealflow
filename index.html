@@ -798,57 +798,127 @@
     <div id="screen-system" class="screen" style="padding:16px;">
       <div class="section-header" style="margin-bottom:16px;">
         <div class="section-title">🔒 System</div>
+        <button class="btn btn-outline btn-sm" onclick="SystemTools.openTheme()">🎨 Dashboard Theme</button>
       </div>
 
-      <!-- Resend Welcome Email -->
-      <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div class="fw-800">📧 Resend Welcome Email</div>
-        </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send the styled welcome email to an existing client without them refilling the form. Goes to your approval queue first.</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:200px;">
-            <label class="form-label">Select Client</label>
-            <select class="form-input form-select" id="sys-welcome-client">
-              <option value="">-- Choose a client --</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" style="margin-top:18px;" onclick="SystemTools.resendWelcome()">📨 Send to Queue</button>
-        </div>
-        <div id="sys-welcome-msg" style="margin-top:8px;font-size:13px;"></div>
+      <!-- DATA & ANALYTICS -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">Data &amp; Analytics</div>
+      <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+        <div class="sys-menu-item" onclick="SystemTools.refreshDashboard()"><span class="sys-menu-icon">🔄</span> Refresh Dashboard &amp; Analytics</div>
+        <div class="sys-menu-item" onclick="SystemTools.buildCharts()"><span class="sys-menu-icon">📊</span> Build Analytics Charts</div>
+        <div class="sys-menu-item" onclick="SystemTools.openTheme()"><span class="sys-menu-icon">🎨</span> Fix Sheet Colors / Dashboard Theme</div>
       </div>
 
-      <!-- System Diagnostics -->
-      <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div class="fw-800">🩺 System Diagnostics</div>
-          <button class="btn btn-outline btn-sm" onclick="SystemTools.runDiagnostics()">🔍 Run Diagnostics</button>
-        </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Automatically detects issues and recommends fixes. Click "Run Diagnostics" to scan your system.</div>
-        <div id="sys-diagnostics">
-          <div style="text-align:center;padding:30px 0;">
-            <div style="font-size:48px;margin-bottom:8px;">🩺</div>
-            <div class="fw-700" style="margin-bottom:4px;">Run a Diagnostic Scan</div>
-            <div style="font-size:13px;color:var(--text2);">Click the button above to check for system issues.</div>
-          </div>
-        </div>
+      <!-- CLIENT MANAGEMENT -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">Client Management</div>
+      <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+        <div class="sys-menu-item" onclick="SystemTools.updateOfferStatus()"><span class="sys-menu-icon">📝</span> Update Offer Status</div>
+        <div class="sys-menu-item" onclick="SystemTools.reverseAcceptedOffer()"><span class="sys-menu-icon">🔃</span> Reverse Accepted Offer</div>
+        <div class="sys-menu-item" onclick="SystemTools.dealProgress()"><span class="sys-menu-icon">📈</span> Deal Progress</div>
+        <div class="sys-menu-item" onclick="SystemTools.dealChecklist()"><span class="sys-menu-icon">📋</span> Deal Checklist</div>
+        <div class="sys-menu-item" onclick="SystemTools.rescheduleViewing()"><span class="sys-menu-icon">🔃</span> Reschedule Viewing</div>
+        <div class="sys-menu-item" onclick="App.switchTab('clients')"><span class="sys-menu-icon">➕</span> Add Client Manually</div>
+        <div class="sys-menu-item" onclick="SystemTools.manageLifecycle()"><span class="sys-menu-icon">👤</span> Manage Client Lifecycle</div>
+        <div class="sys-menu-item" onclick="SystemTools.deleteClient()"><span class="sys-menu-icon">🗑️</span> Delete Client</div>
+        <div class="sys-menu-item" onclick="SystemTools.restoreClient()"><span class="sys-menu-icon">♻️</span> Restore Client</div>
+        <div class="sys-menu-item sys-menu-danger" onclick="SystemTools.permanentDelete()"><span class="sys-menu-icon">⚠️</span> Permanent Delete</div>
       </div>
 
-      <!-- DB Stats -->
+      <!-- EMAIL MANAGEMENT -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">Email Management</div>
+      <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+        <div class="sys-menu-item" onclick="SystemTools.organizeEmails()"><span class="sys-menu-icon">📧</span> Organize Client Emails</div>
+        <div class="sys-menu-item" onclick="SystemTools.labelTestEmails()"><span class="sys-menu-icon">🏷️</span> Label Test Emails</div>
+        <div class="sys-menu-item" onclick="SystemTools.trashInactiveEmails()"><span class="sys-menu-icon">🗑️</span> Trash Inactive Client Emails</div>
+        <div class="sys-menu-item" onclick="SystemTools.resendWelcomeModal()"><span class="sys-menu-icon">📨</span> Resend Welcome Email</div>
+      </div>
+
+      <!-- SYSTEM -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">System</div>
+      <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;">
+        <div class="sys-menu-item" onclick="SystemTools.setupTriggers()"><span class="sys-menu-icon">⚙️</span> Setup All Triggers</div>
+        <div class="sys-menu-item" onclick="SystemTools.verifyTriggers()"><span class="sys-menu-icon">✅</span> Verify Triggers</div>
+        <div class="sys-menu-item" onclick="SystemTools.runDiagnostics()"><span class="sys-menu-icon">🏥</span> Health Check</div>
+        <div class="sys-menu-item" onclick="SystemTools.sendMorningSummary()"><span class="sys-menu-icon">☀️</span> Send Morning Summary</div>
+        <div class="sys-menu-item" onclick="SystemTools.initConfig()"><span class="sys-menu-icon">🔧</span> Initialize Config</div>
+        <div class="sys-menu-item" onclick="SystemTools.manualOfferUpdate()"><span class="sys-menu-icon">📝</span> Manual Offer Update</div>
+        <div class="sys-menu-item" onclick="SystemTools.setWebAppUrl()"><span class="sys-menu-icon">🌐</span> Set Web App URL</div>
+      </div>
+
+      <!-- DB Stats + Diagnostics (collapsed cards) -->
       <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
           <div class="fw-800">📊 Database Stats</div>
-          <button class="btn btn-outline btn-sm" onclick="SystemTools.loadStats()">🔄 Refresh</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();SystemTools.loadStats()">🔄 Refresh</button>
         </div>
-        <div id="sys-db-stats">
+        <div id="sys-db-stats" style="margin-top:10px;display:none;">
           <div class="text-muted" style="font-size:13px;">Click Refresh to load.</div>
         </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="fw-800">🩺 System Diagnostics</div>
+          <button class="btn btn-outline btn-sm" onclick="SystemTools.runDiagnostics()">🔍 Run</button>
+        </div>
+        <div id="sys-diagnostics" style="margin-top:10px;font-size:13px;color:var(--text2);">Click Run to scan.</div>
       </div>
 
       <!-- Account Info -->
       <div class="card">
         <div class="fw-800" style="margin-bottom:10px;">👤 Account Info</div>
         <div id="sys-account-info" style="font-size:13px;color:var(--text2);line-height:2;">Loading...</div>
+      </div>
+
+      <!-- Resend Welcome Email Modal -->
+      <div id="sys-welcome-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center;">
+        <div style="background:var(--card);border-radius:16px;padding:24px;width:min(90vw,420px);">
+          <div class="fw-800" style="font-size:16px;margin-bottom:12px;">📧 Resend Welcome Email</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send styled welcome email to an existing client. Goes to approval queue first.</div>
+          <label class="form-label">Select Client</label>
+          <select class="form-input form-select" id="sys-welcome-client" style="margin-bottom:12px;">
+            <option value="">-- Choose a client --</option>
+          </select>
+          <div id="sys-welcome-msg" style="font-size:13px;margin-bottom:10px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn btn-outline" onclick="document.getElementById('sys-welcome-modal').style.display='none'">Cancel</button>
+            <button class="btn btn-primary" onclick="SystemTools.resendWelcome()">📨 Send to Queue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme Picker Modal -->
+      <div id="sys-theme-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 0;">
+        <div style="background:var(--card);border-radius:16px;padding:24px;width:min(95vw,520px);margin:auto;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div class="fw-800" style="font-size:18px;">🎨 Dashboard Theme</div>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sys-theme-modal').style.display='none'">✕</button>
+          </div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:18px;">Choose a color palette or create your own custom theme.</div>
+          <div id="theme-presets" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;"></div>
+          <div style="border-top:1px solid var(--border);padding-top:18px;">
+            <div class="fw-700" style="margin-bottom:14px;">🎯 Custom Theme</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+              <div>
+                <label class="form-label">HEADER LEFT</label>
+                <input type="color" id="th-header-left" class="form-input" style="height:42px;padding:4px;" value="#1a2236">
+              </div>
+              <div>
+                <label class="form-label">HEADER RIGHT</label>
+                <input type="color" id="th-header-right" class="form-input" style="height:42px;padding:4px;" value="#2b4a8c">
+              </div>
+              <div>
+                <label class="form-label">CARD BACKGROUND</label>
+                <input type="color" id="th-card-bg" class="form-input" style="height:42px;padding:4px;" value="#1e293b">
+              </div>
+              <div>
+                <label class="form-label">ACCENT COLOR</label>
+                <input type="color" id="th-accent" class="form-input" style="height:42px;padding:4px;" value="#4a90d9">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;" onclick="SystemTools.applyCustomTheme()">Apply Custom Theme</button>
+          </div>
+        </div>
       </div>
     </div>
 
