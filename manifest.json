@@ -2,7 +2,7 @@
   "name": "Maxwell DealFlow CRM",
   "short_name": "DealFlow",
   "description": "Maxwell Midodzi — Real Estate CRM",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0f1e",
   "theme_color": "#1a56db",

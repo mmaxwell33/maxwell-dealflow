@@ -1,4 +1,4 @@
-const CACHE = 'dealflow-v1';
+const CACHE = 'dealflow-v3';
 const ASSETS = ['/', '/index.html', '/css/app.css', '/js/app.js', '/config.js'];
 
 self.addEventListener('install', e => {
