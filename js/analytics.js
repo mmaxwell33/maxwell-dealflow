@@ -28,19 +28,31 @@ const Analytics = {
     const ap = approvals || [];
 
     // Stat cards
-    const activeClients = cl.filter(c => c.status === 'Active').length;
     const totalClients = cl.length;
-    const activeDeals = pi.filter(p => p.status === 'Active').length;
+    // Active = not Closed or Lost
+    const activeClients = cl.filter(c => {
+      const s = (c.stage || c.status || '').toLowerCase();
+      return !s.includes('closed') && !s.includes('lost');
+    }).length;
+    const activeDeals = pi.filter(p => {
+      const s = (p.stage || p.status || '').toLowerCase();
+      return !s.includes('closed') && !s.includes('fell');
+    }).length;
     const pipelineValue = pi.reduce((s, p) => s + (p.offer_amount || 0), 0);
-    const closedDeals = pi.filter(p => p.stage === 'Closed').length;
+    const closedDeals = cl.filter(c => (c.stage||'').toLowerCase().includes('closed')).length;
     const convRate = totalClients > 0 ? Math.round((closedDeals / totalClients) * 100) : 0;
-    const viewingsThisMonth = vi.filter(v => v.viewing_date && new Date(v.viewing_date) >= monthAgo).length;
+    // Support both viewing_date and date field names
+    const viewingsThisMonth = vi.filter(v => {
+      const d = v.viewing_date || v.date || v.created_at;
+      return d && new Date(d) >= monthAgo;
+    }).length;
     const pendingApprovals = ap.length;
     const newClients30d = cl.filter(c => new Date(c.created_at) >= monthAgo).length;
-    const followUp = cl.filter(c =>
-      c.status === 'Active' &&
-      (!c.updated_at || (now - new Date(c.updated_at)) > 7 * 24 * 60 * 60 * 1000)
-    ).length;
+    const followUp = cl.filter(c => {
+      const s = (c.stage || '').toLowerCase();
+      if (s.includes('closed') || s.includes('lost')) return false;
+      return !c.updated_at || (now - new Date(c.updated_at)) > 7 * 24 * 60 * 60 * 1000;
+    }).length;
 
     document.getElementById('analytics-stats').innerHTML = `
       <div class="stat-card stat-blue"><div class="stat-num">${activeClients} / ${totalClients}</div><div class="stat-label">Active / Total Clients</div></div>
@@ -80,9 +92,17 @@ const Analytics = {
   },
 
   renderPipelineBreakdown(clients) {
-    const stages = ['Lost', 'Active Search', 'Under Contract', 'New/Viewing', 'In Offer', 'Closed'];
-    const colors = ['#475569', '#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444'];
-    const counts = stages.map(s => clients.filter(c => c.stage === s).length);
+    // Dynamically bucket all actual stages found in the data
+    const stageMap = {};
+    clients.forEach(c => {
+      const s = c.stage || 'Unknown';
+      stageMap[s] = (stageMap[s] || 0) + 1;
+    });
+    const palette = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899','#475569','#84cc16'];
+    const entries = Object.entries(stageMap).sort((a,b) => b[1]-a[1]);
+    const stages = entries.map(([s]) => s);
+    const counts = entries.map(([,n]) => n);
+    const colors = stages.map((_,i) => palette[i % palette.length]);
     Analytics.destroy('pipeline-breakdown');
     const ctx = document.getElementById('chart-pipeline-breakdown');
     if (!ctx) return;
@@ -180,9 +200,14 @@ const Analytics = {
   },
 
   renderStageDistribution(clients) {
-    const stages = ['Lost', 'Active Search', 'Under Contract', 'New/Viewing', 'In Offer', 'Closed'];
-    const colors = ['#475569', '#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444'];
-    const counts = stages.map(s => clients.filter(c => c.stage === s).length);
+    // Dynamically use all stages actually present in data
+    const stageMap = {};
+    clients.forEach(c => { const s = c.stage || 'Unknown'; stageMap[s] = (stageMap[s] || 0) + 1; });
+    const palette = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899','#475569','#84cc16'];
+    const entries = Object.entries(stageMap).sort((a,b) => b[1]-a[1]);
+    const stages = entries.map(([s]) => s);
+    const counts = entries.map(([,n]) => n);
+    const colors = stages.map((_,i) => palette[i % palette.length]);
     Analytics.destroy('stage-dist');
     const ctx = document.getElementById('chart-stage-dist');
     if (!ctx) return;
@@ -239,12 +264,24 @@ const Analytics = {
   },
 
   renderViewingStatus(viewings) {
-    const statuses = ['Scheduled', 'Completed', 'Cancelled', 'No-Show'];
-    const colors = ['#3b82f6', '#10b981', '#ef4444', '#f59e0b'];
-    const counts = statuses.map(s => viewings.filter(v => v.viewing_status === s).length);
+    // Dynamically collect all statuses actually in the data
+    const statusMap = {};
+    viewings.forEach(v => {
+      const s = v.viewing_status || v.status || 'Unknown';
+      statusMap[s] = (statusMap[s] || 0) + 1;
+    });
+    const palette = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
+    const entries = Object.entries(statusMap).sort((a,b) => b[1]-a[1]);
+    const statuses = entries.map(([s]) => s);
+    const counts = entries.map(([,n]) => n);
+    const colors = statuses.map((_,i) => palette[i % palette.length]);
     Analytics.destroy('viewing-status');
     const ctx = document.getElementById('chart-viewing-status');
     if (!ctx) return;
+    if (!statuses.length) {
+      ctx.parentElement.innerHTML += '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px;">No viewing data yet</div>';
+      return;
+    }
     Analytics.charts['viewing-status'] = new Chart(ctx.getContext('2d'), {
       type: 'pie',
       data: { labels: statuses, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0 }] },
@@ -256,9 +293,20 @@ const Analytics = {
   },
 
   renderTopLeads(clients) {
-    const stageScore = { 'Closed': 100, 'In Offer': 60, 'Under Contract': 50, 'Active Search': 35, 'Active': 35, 'New/Viewing': 10, 'Lost': 5 };
+    // Flexible scoring — matches partial stage names case-insensitively
+    const getScore = stage => {
+      if (!stage) return 5;
+      const s = stage.toLowerCase();
+      if (s.includes('closed')) return 100;
+      if (s.includes('offer') || s.includes('in offer')) return 60;
+      if (s.includes('contract') || s.includes('under contract')) return 50;
+      if (s.includes('search') || s.includes('searching') || s.includes('active')) return 35;
+      if (s.includes('view') || s.includes('new')) return 15;
+      if (s.includes('lost')) return 5;
+      return 10;
+    };
     const scored = clients
-      .map(c => ({ ...c, score: stageScore[c.stage] || 5 }))
+      .map(c => ({ ...c, score: getScore(c.stage) }))
       .sort((a, b) => b.score - a.score);
     const el = document.getElementById('analytics-top-leads');
     if (!el) return;
@@ -290,7 +338,11 @@ const Analytics = {
   renderNeedsFollowUp(clients) {
     const now = new Date();
     const overdue = clients
-      .filter(c => c.status === 'Active')
+      .filter(c => {
+        const s = (c.stage || '').toLowerCase();
+        // Skip only truly closed/lost clients
+        return !s.includes('closed') && !s.includes('lost');
+      })
       .map(c => ({ ...c, days: c.updated_at ? Math.floor((now - new Date(c.updated_at)) / 86400000) : 999 }))
       .filter(c => c.days >= 7)
       .sort((a, b) => b.days - a.days);
