@@ -162,6 +162,77 @@ ${agent.email || ''}
 
 P.S. Don't hesitate to reach out anytime — even just to say hello from your new home! 😊`
     }),
+
+    ready_to_offer: (client, viewing, agent) => ({
+      subject: `Ready to Make an Offer? — ${viewing.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Based on your strong interest in ${viewing.property_address}, I wanted to reach out about the next step — making an offer!
+
+Here's what happens when we submit an offer:
+1. We agree on an offer price together
+2. I prepare the offer documents on your behalf
+3. The offer is submitted to the seller's agent
+4. The seller can Accept, Counter, or Reject the offer
+5. If accepted — you're on your way to owning this home! 🔑
+
+To get started, simply reply to this email with:
+• The price you'd like to offer
+• Any conditions you want included (financing, inspection, etc.)
+• Or let me know if you'd like more time to think it over
+
+I'm here to guide you every step of the way. No pressure — just let me know what you'd like to do!
+
+${agent.full_name || agent.name}
+${agent.brokerage || 'eXp Realty'}
+${agent.phone || ''}
+${agent.email || ''}`
+    }),
+
+    offer_countered: (client, offer, counterAmount, message, agent) => ({
+      subject: `The Seller Has Countered Your Offer — ${offer.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+I have an update on your offer for ${offer.property_address}.
+
+The seller has responded with a COUNTER OFFER:
+
+Your Offer: ${App.fmtMoney(offer.offer_amount)}
+Seller's Counter: ${App.fmtMoney(counterAmount)}
+${message ? `\nSeller's Notes: ${message}\n` : ''}
+You have a few options:
+1. ✅ Accept the counter offer at ${App.fmtMoney(counterAmount)}
+2. 🔄 Submit a new counter offer at a different price
+3. ❌ Decline and walk away
+
+Please reply or call me as soon as possible — counter offers are time-sensitive!
+
+${agent.full_name || agent.name}
+${agent.brokerage || 'eXp Realty'}
+${agent.phone || ''}
+${agent.email || ''}`
+    }),
+
+    offer_rejected: (client, offer, message, agent) => ({
+      subject: `Update on Your Offer — ${offer.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+I wanted to update you on your offer for ${offer.property_address}.
+
+Unfortunately, the seller has decided not to accept your offer at this time.${message ? `\n\nSeller's message: ${message}` : ''}
+
+While this is disappointing, please know this happens and it's part of the process. The good news is:
+• There are many other great properties available
+• Your offer experience has prepared us well for the next one
+• I'm already looking for similar properties for you
+
+I'll be in touch shortly with some new options. Please don't hesitate to reach out if you have any questions.
+
+${agent.full_name || agent.name}
+${agent.brokerage || 'eXp Realty'}
+${agent.phone || ''}
+${agent.email || ''}`
+    }),
   },
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
@@ -221,6 +292,36 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
       'Post-Viewing Follow-Up',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, viewing.id
+    );
+  },
+
+  async onReadyToOffer(viewing, client) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.ready_to_offer(client, viewing, agent);
+    await Notify.queue(
+      'Ready to Make an Offer? 🏠',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, viewing.id
+    );
+  },
+
+  async onOfferCountered(offer, client, counterAmount, message) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.offer_countered(client, offer, counterAmount, message, agent);
+    await Notify.queue(
+      'Offer Countered 🔄',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, offer.id
+    );
+  },
+
+  async onOfferRejected(offer, client, message) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.offer_rejected(client, offer, message, agent);
+    await Notify.queue(
+      'Offer Rejected ❌',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, offer.id
     );
   },
 

@@ -176,25 +176,107 @@ const Offers = {
   async openDetail(id) {
     const o = Offers.all.find(x => x.id === id);
     if (!o) return;
-    const statusColor = { Submitted:'var(--accent2)', Accepted:'var(--green)', Rejected:'var(--red)', Conditions:'var(--yellow)' };
+    const statusColor = { Submitted:'var(--accent2)', Accepted:'var(--green)', Rejected:'var(--red)', Conditions:'var(--yellow)', Countered:'var(--purple)' };
+    const isPending = ['Submitted','Conditions'].includes(o.status);
     App.openModal(`
-      <div class="fw-800" style="font-size:16px;margin-bottom:4px;">${o.property_address}</div>
-      <div class="text-muted" style="font-size:13px;margin-bottom:16px;">👤 ${o.clients?.full_name||'—'}</div>
-      <div class="card-sm" style="margin-bottom:12px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Offer Amount</div><div class="fw-800 text-green" style="font-size:18px;">${App.fmtMoney(o.offer_amount)}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Status</div><div class="fw-800" style="font-size:15px;color:${statusColor[o.status]||'var(--text2)'};">${o.status}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(o.list_price)}</div></div>
-          <div><div class="text-muted" style="font-size:10px;text-transform:uppercase;">Date</div><div class="fw-700">${App.fmtDate(o.offer_date)}</div></div>
-        </div>
+      <div class="fw-800" style="font-size:16px;margin-bottom:2px;">${o.property_address}</div>
+      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">👤 ${o.clients?.full_name||'—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="background:var(--bg);padding:10px;border-radius:8px;grid-column:1/-1;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Offer Amount</div><div class="fw-800" style="font-size:22px;color:var(--green);">${App.fmtMoney(o.offer_amount)}</div></div>
+        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Status</div><div class="fw-700" style="color:${statusColor[o.status]||'var(--text2)'};">${o.status}</div></div>
+        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(o.list_price)||'—'}</div></div>
+        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Offer Date</div><div class="fw-700">${App.fmtDate(o.offer_date)}</div></div>
       </div>
-      ${o.conditions ? `<div class="card" style="margin-bottom:12px;"><div class="text-muted" style="font-size:10px;text-transform:uppercase;margin-bottom:4px;">Conditions</div><div style="font-size:13px;">${o.conditions}</div></div>` : ''}
-      ${o.agent_notes ? `<div class="card" style="margin-bottom:12px;"><div class="text-muted" style="font-size:10px;text-transform:uppercase;margin-bottom:4px;">Notes</div><div style="font-size:13px;">${o.agent_notes}</div></div>` : ''}
+      ${o.conditions ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📋 Conditions</div><div style="font-size:13px;">${App.esc(o.conditions)}</div></div>` : ''}
+      ${o.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📝 Notes</div><div style="font-size:13px;">${App.esc(o.agent_notes)}</div></div>` : ''}
+      ${isPending ? `
+      <div style="background:var(--bg2);border:2px solid var(--accent2);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📬 Seller Response?</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select the seller's response to automatically notify your buyer:</div>
+        <div style="display:grid;gap:8px;">
+          <button class="btn btn-green" onclick="Offers.sellerAccepted('${o.id}')">✅ Seller Accepted — Offer is firm!</button>
+          <button class="btn btn-outline" onclick="Offers.sellerCountered('${o.id}')" style="border-color:var(--purple);color:var(--purple);">🔄 Seller Countered — Enter counter amount</button>
+          <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}')">❌ Seller Rejected — Notify buyer</button>
+        </div>
+      </div>` : o.status === 'Accepted' ? `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>` : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
+      <button class="btn btn-outline btn-block" style="margin-top:4px;" onclick="App.closeModal()">Close</button>
+    `);
+  },
+
+  async sellerAccepted(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const client = Clients.all.find(c => c.id === o.client_id);
+    await db.from('offers').update({ status: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
+    await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
+    if (window.Notify && client?.email) await Notify.onOfferAccepted(o, client);
+    await Pipeline.createFromOffer(o, client);
+    App.closeModal();
+    App.toast('🎉 Accepted! Buyer notified (check Approvals) + Pipeline created!');
+    Offers.load(); Clients.load(); Pipeline.load(); App.loadOverview();
+  },
+
+  sellerCountered(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    App.openModal(`
+      <div class="modal-title">🔄 Seller Countered</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Your offer: <strong>${App.fmtMoney(o.offer_amount)}</strong> on ${o.property_address}</div>
+      <div class="form-group">
+        <label class="form-label">Seller's Counter Amount ($) *</label>
+        <input class="form-input" id="counter-amount" type="number" placeholder="e.g. 385000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message to buyer (optional)</label>
+        <textarea class="form-input" id="counter-msg" rows="3" placeholder="e.g. Seller is firm on closing date of May 15..."></textarea>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-green" onclick="Offers.updateStatus('${o.id}','Accepted')">✅ Mark Accepted</button>
-        <button class="btn btn-red" onclick="Offers.updateStatus('${o.id}','Rejected')">❌ Mark Rejected</button>
+        <button class="btn btn-primary" onclick="Offers.confirmCounter('${id}')">📬 Queue Notification</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
+  },
+
+  async confirmCounter(id) {
+    const o = Offers.all.find(x => x.id === id);
+    const counterAmount = document.getElementById('counter-amount')?.value;
+    const msg = document.getElementById('counter-msg')?.value?.trim();
+    if (!counterAmount) { App.toast('⚠️ Enter counter amount', 'var(--red)'); return; }
+    const client = Clients.all.find(c => c.id === o.client_id);
+    await db.from('offers').update({ status: 'Countered', agent_notes: (o.agent_notes||'') + `\nCounter: ${App.fmtMoney(counterAmount)}`, updated_at: new Date().toISOString() }).eq('id', id);
+    if (window.Notify && client?.email) await Notify.onOfferCountered(o, client, counterAmount, msg);
+    App.closeModal();
+    App.toast('📬 Counter offer notification queued in Approvals!');
+    Offers.load();
+  },
+
+  async sellerRejected(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    App.openModal(`
+      <div class="modal-title">❌ Seller Rejected Offer</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${o.property_address} — ${App.fmtMoney(o.offer_amount)}</div>
+      <div class="form-group">
+        <label class="form-label">Message to buyer (optional)</label>
+        <textarea class="form-input" id="reject-msg" rows="3" placeholder="e.g. Seller accepted another offer..."></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-red" onclick="Offers.confirmRejection('${id}')">📬 Queue Notification</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async confirmRejection(id) {
+    const o = Offers.all.find(x => x.id === id);
+    const msg = document.getElementById('reject-msg')?.value?.trim();
+    const client = Clients.all.find(c => c.id === o.client_id);
+    await db.from('offers').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
+    await db.from('clients').update({ stage: 'Searching' }).eq('id', o.client_id);
+    if (window.Notify && client?.email) await Notify.onOfferRejected(o, client, msg);
+    App.closeModal();
+    App.toast('📬 Rejection notification queued. Client stage reset to Searching.');
+    Offers.load(); Clients.load();
   },
 
   async updateStatus(id, status) {
