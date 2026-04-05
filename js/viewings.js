@@ -168,7 +168,16 @@ const Viewings = {
           await db.from('clients').update({ stage: 'Viewings' }).eq('id', clientId);
           Clients.load();
         }
+        // Queue confirmation email for approval
+        if (window.Notify && client?.email) {
+          const { data: newViewing } = await db.from('viewings').select('*').eq('client_id', clientId).order('created_at',{ascending:false}).limit(1).single();
+          await Notify.onViewingBooked(newViewing || payload, client);
+        }
       }
+    }
+    // If feedback was added on update, queue follow-up
+    if (existingId && !error && payload.client_feedback && window.Notify && client?.email) {
+      await Notify.onViewingFeedback(payload, client, payload.client_feedback);
     }
     if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
     App.closeModal();

@@ -157,6 +157,12 @@ const Offers = {
       }
     }
 
+    // Queue notification emails for approval
+    if (window.Notify && client?.email) {
+      await Notify.onOfferSubmitted(data, client);
+      if (status === 'Accepted') await Notify.onOfferAccepted(data, client);
+    }
+
     // If accepted, create pipeline entry automatically
     if (status === 'Accepted') {
       await Pipeline.createFromOffer(data, client);
@@ -197,6 +203,8 @@ const Offers = {
     if (status === 'Accepted' && o) {
       const client = Clients.all.find(c => c.id === o.client_id);
       await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
+      // Queue accepted notification for approval
+      if (window.Notify && client?.email) await Notify.onOfferAccepted(o, client);
       await Pipeline.createFromOffer(o, client);
       App.toast('🎉 Accepted! Pipeline entry created.');
     } else {
@@ -340,7 +348,9 @@ const Pipeline = {
     await db.from('pipeline').update({ stage: 'Closed', closing_date: close, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
     await App.logActivity('DEAL_CLOSED', d?.client_name, d?.client_email, `Deal closed: ${d?.property_address}`, d?.client_id);
-    App.toast('✅ Deal marked Closed!');
+    // Queue congratulations email for approval
+    if (window.Notify && d?.client_email) await Notify.onDealClosed(d, null);
+    App.toast('✅ Deal marked Closed! 🎉');
     Pipeline.load(); App.loadOverview();
   },
 

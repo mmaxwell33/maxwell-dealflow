@@ -72,6 +72,10 @@ const App = {
     Pipeline.load();
     App.restoreGroupStates();
     setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
+    // Check for upcoming condition/closing deadlines and queue reminder emails
+    setTimeout(() => { if (window.Notify) Notify.checkConditionDeadlines(); }, 2000);
+    // Update approvals badge
+    setTimeout(() => { if (window.Notify) Notify.updateBadge(); }, 1500);
   },
 
   showAuth() {

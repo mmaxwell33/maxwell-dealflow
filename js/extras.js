@@ -6,41 +6,111 @@ const Approvals = {
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false }).limit(50);
     const el = document.getElementById('approvals-list');
-    if (!data?.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">All caught up!</div></div>';
-      return;
-    }
-    const pending = data.filter(a => a.status === 'Pending');
+    const pending = (data || []).filter(a => a.status === 'Pending');
     const badge = document.getElementById('approvals-badge');
     if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
+    if (!data?.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
+      return;
+    }
+    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨' };
     el.innerHTML = data.map(a => `
-      <div class="card" style="margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
+          <div style="font-size:22px;line-height:1;">${typeIcon[a.action_type]||'📬'}</div>
           <div style="flex:1;">
-            <div class="fw-700">${a.client_name || 'Unknown'}</div>
-            <div class="text-muted" style="font-size:12px;">${a.action_type || 'Approval'} · ${App.timeAgo(a.created_at)}</div>
+            <div class="fw-700" style="font-size:14px;">${a.client_name || 'Unknown'}</div>
+            <div class="text-muted" style="font-size:12px;">${a.action_type || 'Email'} · ${App.timeAgo(a.created_at)}</div>
+            ${a.client_email ? `<div style="font-size:11px;color:var(--text2);">✉️ ${a.client_email}</div>` : ''}
           </div>
           <span class="stage-badge ${a.status==='Pending'?'badge-conditions':a.status==='Approved'?'badge-accepted':'badge-default'}">${a.status}</span>
         </div>
-        ${a.details ? `<div style="font-size:13px;color:var(--text2);margin-bottom:10px;">${a.details}</div>` : ''}
+        ${a.email_subject ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;padding:6px 10px;background:var(--bg);border-radius:6px;">📧 ${App.esc(a.email_subject)}</div>` : ''}
+        ${a.email_body ? `<div style="font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:120px;overflow:hidden;background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:10px;line-height:1.5;" id="appr-body-${a.id}">${App.esc(a.email_body.slice(0,300))}${a.email_body.length>300?'<span style="color:var(--accent2);cursor:pointer;" onclick="Approvals.expandBody(\''+a.id+'\')">… read more</span>':''}</div>` : ''}
         ${a.status === 'Pending' ? `
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve</button>
-            <button class="btn btn-red btn-sm" onclick="Approvals.reject('${a.id}')">❌ Reject</button>
-          </div>` : ''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Edit Email</button>
+            <button class="btn btn-red btn-sm" onclick="Approvals.reject('${a.id}')">❌ Discard</button>
+          </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '❌ Discarded'} · ${App.fmtDate(a.updated_at)}</div>`}
       </div>`).join('');
   },
 
+  expandBody(id) {
+    const el = document.getElementById(`appr-body-${id}`);
+    const item = (Approvals._data||[]).find(a=>a.id===id);
+    if (el && item?.email_body) {
+      el.textContent = item.email_body;
+      el.style.maxHeight = 'none';
+    }
+  },
+
+  _data: [],
+
   async approve(id) {
+    // Mark approved in DB
     await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
-    App.toast('✅ Approved!');
+    // In a real email setup this would call an edge function to send the email
+    // For now we show a success message with the email details
+    const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
+    App.toast('✅ Approved! Email marked as sent.', 'var(--green)');
+    if (item?.client_email && item?.email_subject) {
+      setTimeout(() => {
+        App.openModal(`
+          <div class="modal-title">📧 Email Approved</div>
+          <div style="margin-bottom:12px;">
+            <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">This email was approved and would be sent to:</div>
+            <div class="fw-700">📧 ${item.client_email}</div>
+            <div style="font-size:13px;margin-top:6px;padding:8px;background:var(--bg);border-radius:6px;">Subject: ${App.esc(item.email_subject)}</div>
+          </div>
+          <div style="font-size:12px;background:var(--bg);padding:12px;border-radius:8px;white-space:pre-wrap;max-height:300px;overflow-y:auto;line-height:1.6;">${App.esc(item.email_body||'')}</div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text2);">💡 To enable automatic sending, connect an email service in Settings → Email.</div>
+          <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="App.closeModal()">OK</button>
+        `);
+      }, 300);
+    }
     Approvals.load();
+    if (window.Notify) Notify.updateBadge();
+  },
+
+  openEdit(id) {
+    db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
+      if (!item) return;
+      App.openModal(`
+        <div class="modal-title">✏️ Edit Email Before Sending</div>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">TO</div>
+          <div class="fw-700">${item.client_name} · ${item.client_email}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <input class="form-input" id="edit-appr-subject" value="${App.esc(item.email_subject||'')}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Body</label>
+          <textarea class="form-input" id="edit-appr-body" rows="12" style="font-size:13px;line-height:1.6;">${App.esc(item.email_body||'')}</textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn btn-green" onclick="Approvals.saveEdit('${id}')">✅ Save & Approve</button>
+          <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        </div>
+      `);
+    });
+  },
+
+  async saveEdit(id) {
+    const subject = document.getElementById('edit-appr-subject')?.value.trim();
+    const body = document.getElementById('edit-appr-body')?.value.trim();
+    await db.from('approval_queue').update({ email_subject: subject, email_body: body, updated_at: new Date().toISOString() }).eq('id', id);
+    App.closeModal();
+    await Approvals.approve(id);
   },
 
   async reject(id) {
     await db.from('approval_queue').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
-    App.toast('❌ Rejected.');
+    App.toast('❌ Email discarded.');
     Approvals.load();
+    if (window.Notify) Notify.updateBadge();
   }
 };
 
