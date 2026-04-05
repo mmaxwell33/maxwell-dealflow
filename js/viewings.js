@@ -102,7 +102,7 @@ const Viewings = {
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
-        <select class="form-input form-select" id="vf-status">
+        <select class="form-input form-select" id="vf-vstatus">
           <option value="Scheduled" ${!viewing||viewing.viewing_status==='Scheduled'?'selected':''}>Scheduled</option>
           <option value="Confirmed" ${viewing?.viewing_status==='Confirmed'?'selected':''}>Confirmed</option>
           <option value="Completed" ${viewing?.viewing_status==='Completed'?'selected':''}>Completed</option>
@@ -125,20 +125,20 @@ const Viewings = {
       <button class="btn btn-primary btn-block" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
         ${viewing ? '💾 Update Viewing' : '📅 Book Viewing'}
       </button>
-      <div id="vf-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+      <div id="vf-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
   },
 
   async save(existingId = null) {
     const clientId = document.getElementById('vf-client').value;
     const address = document.getElementById('vf-address').value.trim();
+    const msgEl = document.getElementById('vf-msg');
     if (!clientId || !address) {
-      document.getElementById('vf-status').textContent = '⚠️ Client and address required';
+      if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = '⚠️ Client and address required'; }
       return;
     }
     const client = Clients.all.find(c => c.id === clientId);
-    const statusEl = document.getElementById('vf-status');
-    statusEl.textContent = 'Saving...';
+    if (msgEl) { msgEl.style.color='var(--text2)'; msgEl.textContent = 'Saving...'; }
     const payload = {
       client_id: clientId,
       property_address: address,
@@ -146,19 +146,17 @@ const Viewings = {
       list_price: document.getElementById('vf-price').value || null,
       viewing_date: document.getElementById('vf-date').value,
       viewing_time: document.getElementById('vf-time').value || null,
-      viewing_status: document.getElementById('vf-status-field')?.value || document.getElementById('vf-status').textContent !== 'Saving...' ? document.querySelector('#vf-status ~ select, select#vf-status')?.value || 'Scheduled' : 'Scheduled',
+      viewing_status: document.getElementById('vf-vstatus')?.value || 'Scheduled',
       agent_notes: document.getElementById('vf-notes').value.trim(),
       client_feedback: document.getElementById('vf-feedback').value || null,
       updated_at: new Date().toISOString()
     };
-    // Fix: grab viewing_status from the select directly
-    const statusSel = document.querySelector('select#vf-status') || document.querySelectorAll('select.form-input')[2];
-    if (statusSel) payload.viewing_status = statusSel.value;
 
     let error;
     if (existingId) {
       ({ error } = await db.from('viewings').update(payload).eq('id', existingId));
     } else {
+      payload.agent_id = currentAgent?.id;
       ({ error } = await db.from('viewings').insert(payload));
       if (!error) {
         await App.logActivity('VIEWING_SCHEDULED', client?.full_name, client?.email,
@@ -168,18 +166,21 @@ const Viewings = {
           await db.from('clients').update({ stage: 'Viewings' }).eq('id', clientId);
           Clients.load();
         }
-        // Queue confirmation email for approval
-        if (window.Notify && client?.email) {
+        // Queue confirmation email for approval (works even if no email — shows placeholder)
+        if (window.Notify) {
           const { data: newViewing } = await db.from('viewings').select('*').eq('client_id', clientId).order('created_at',{ascending:false}).limit(1).single();
-          await Notify.onViewingBooked(newViewing || payload, client);
+          const viewingObj = newViewing || { ...payload, id: null };
+          const clientObj = { ...client, email: client?.email || '(no email on file)' };
+          await Notify.onViewingBooked(viewingObj, clientObj);
         }
       }
     }
     // If feedback was added on update, queue follow-up
-    if (existingId && !error && payload.client_feedback && window.Notify && client?.email) {
-      await Notify.onViewingFeedback(payload, client, payload.client_feedback);
+    if (existingId && !error && payload.client_feedback && window.Notify) {
+      const clientObj = { ...client, email: client?.email || '(no email on file)' };
+      await Notify.onViewingFeedback(payload, clientObj, payload.client_feedback);
     }
-    if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
+    if (error) { if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; } return; }
     App.closeModal();
     App.toast(existingId ? '✅ Viewing updated!' : '✅ Viewing booked!');
     Viewings.load(); App.loadOverview();
