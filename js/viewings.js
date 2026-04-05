@@ -232,6 +232,7 @@ const Viewings = {
         ${!isCompleted ? `<button class="btn btn-primary" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
         ${v.client_feedback === 'interested' ? `<button class="btn btn-green" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
         <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">✏️ Edit</button>
+        <button class="btn btn-red" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
       </div>
     `);
   },
@@ -249,17 +250,27 @@ const Viewings = {
     await db.from('viewings').update({ client_feedback: feedback, updated_at: new Date().toISOString() }).eq('id', id);
     const v = Viewings.all.find(x => x.id === id) || {};
     const client = Clients.all.find(c => c.id === v.client_id);
-    // Queue follow-up email for approval
-    if (window.Notify && client?.email) {
-      await Notify.onViewingFeedback({...v, client_feedback: feedback}, client, feedback);
-      // If interested → also queue "Ready to make an offer?" email
+    // Queue follow-up email for approval (works even without email on file)
+    if (window.Notify) {
+      const clientObj = { ...client, email: client?.email || '(no email on file)' };
+      await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
       if (feedback === 'interested') {
-        await Notify.onReadyToOffer({...v, client_feedback: feedback}, client);
+        await Notify.onReadyToOffer({...v, client_feedback: feedback}, clientObj);
       }
     }
     App.toast(feedback === 'interested' ? '🌟 Great! Follow-up + offer invitation queued in Approvals' : feedback === 'good' ? '✅ Follow-up email queued in Approvals' : '📬 Continue searching email queued in Approvals');
     await Viewings.load();
     App.closeModal();
     setTimeout(() => Viewings.openDetail(id), 400);
+  },
+
+  async deleteViewing(id) {
+    if (!confirm('Delete this viewing? This cannot be undone.')) return;
+    const { error } = await db.from('viewings').delete().eq('id', id);
+    if (error) { App.toast('❌ Could not delete: ' + error.message, 'var(--red)'); return; }
+    App.closeModal();
+    App.toast('🗑 Viewing deleted');
+    Viewings.load();
+    App.loadOverview();
   }
 };
