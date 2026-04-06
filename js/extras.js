@@ -48,29 +48,21 @@ const Approvals = {
   _data: [],
 
   async approve(id) {
+    const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
+    if (!item) return;
     // Mark approved in DB
     await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
-    // In a real email setup this would call an edge function to send the email
-    // For now we show a success message with the email details
-    const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
-    App.toast('✅ Approved! Email marked as sent.', 'var(--green)');
-    if (item?.client_email && item?.email_subject) {
-      setTimeout(() => {
-        App.openModal(`
-          <div class="modal-title">📧 Email Approved</div>
-          <div style="margin-bottom:12px;">
-            <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">This email was approved and would be sent to:</div>
-            <div class="fw-700">📧 ${item.client_email}</div>
-            <div style="font-size:13px;margin-top:6px;padding:8px;background:var(--bg);border-radius:6px;">Subject: ${App.esc(item.email_subject)}</div>
-          </div>
-          <div style="font-size:12px;background:var(--bg);padding:12px;border-radius:8px;white-space:pre-wrap;max-height:300px;overflow-y:auto;line-height:1.6;">${App.esc(item.email_body||'')}</div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text2);">💡 To enable automatic sending, connect an email service in Settings → Email.</div>
-          <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="App.closeModal()">OK</button>
-        `);
-      }, 300);
-    }
+    App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
     Approvals.load();
     if (window.Notify) Notify.updateBadge();
+    // ── OPEN MAIL PRE-FILLED — YOUR SIGNATURE ALREADY IN BODY — ONE TAP SENDS
+    if (item.client_email && item.email_subject) {
+      const mailto = `mailto:${item.client_email}?subject=${encodeURIComponent(item.email_subject)}&body=${encodeURIComponent(item.email_body || '')}`;
+      window.open(mailto);
+      App.toast('✅ Mail opened — just tap Send!', 'var(--green)');
+    } else {
+      App.toast('✅ Approved and logged!', 'var(--green)');
+    }
   },
 
   openEdit(id) {
@@ -882,7 +874,7 @@ const EmailSend = {
     `);
   },
 
-  send() {
+  async send() {
     const st = document.getElementById('email-status');
     const clientSel = document.getElementById('email-client');
     const opt = clientSel.options[clientSel.selectedIndex];
@@ -891,26 +883,22 @@ const EmailSend = {
     const bodyText = EmailSend.getBodyText('email-body');
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
     const attachment = document.getElementById('email-attachment').value.trim();
-    const fullBody = bodyText + (attachment ? `\n\nAttachment: ${attachment}` : '');
-    window.open(`mailto:${opt.dataset.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`);
-    App.toast('📨 Email client opened!');
-    App.logActivity('EMAIL_SENT', opt.dataset.name, opt.dataset.email, `Email sent: ${subject}`);
-    st.style.color = 'var(--green)';
-    st.textContent = '✅ Email opened in your mail app!';
-    // Log to inbox
-    if (currentAgent?.id) {
-      db.from('email_inbox').insert({
-        agent_id: currentAgent.id,
-        direction: 'sent',
-        recipient_name: opt.dataset.name,
-        recipient_email: opt.dataset.email,
-        subject,
-        body: bodyText
-      }).then(() => {});
+    // Build your signature automatically from your profile
+    const sig = currentAgent?.email_signature ||
+      `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
+    const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '');
+    st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
+    // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
+    if (window.Notify) {
+      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fullBody);
     }
+    App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
+    st.style.color = 'var(--green)';
+    st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
+    App.toast('📬 Email queued — check Approvals to send it', 'var(--accent2)');
   },
 
-  sendExternal() {
+  async sendExternal() {
     const st = document.getElementById('ext-status');
     const toEmail = document.getElementById('ext-email').value.trim();
     const toName = document.getElementById('ext-name').value.trim();
@@ -920,24 +908,18 @@ const EmailSend = {
     const attachment = document.getElementById('ext-attachment').value.trim();
     if (!toEmail) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Recipient email is required'; return; }
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
-    const fullBody = bodyText + (attachment ? `\n\nAttachment: ${attachment}` : '');
-    let mailto = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(fullBody)}`;
-    if (cc) mailto += `&cc=${encodeURIComponent(cc)}`;
-    window.open(mailto);
-    App.toast('📨 External email client opened!');
-    st.style.color = 'var(--green)';
-    st.textContent = '✅ Email opened in your mail app!';
-    // Log to inbox
-    if (currentAgent?.id) {
-      db.from('email_inbox').insert({
-        agent_id: currentAgent.id,
-        direction: 'sent',
-        recipient_name: toName,
-        recipient_email: toEmail,
-        subject,
-        body: bodyText
-      }).then(() => {});
+    // Build your signature automatically from your profile
+    const sig = currentAgent?.email_signature ||
+      `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
+    const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '') + (cc ? `\n\nCC: ${cc}` : '');
+    st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
+    // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
+    if (window.Notify) {
+      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fullBody);
     }
+    st.style.color = 'var(--green)';
+    st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
+    App.toast('📬 Email queued — check Approvals to send it', 'var(--accent2)');
   },
 
   handleDrop(event) {

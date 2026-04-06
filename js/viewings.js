@@ -189,25 +189,12 @@ const Viewings = {
           badge.textContent = cur + 1;
           badge.style.display = 'inline';
         }
-        // ── SEND AGENT NOTIFICATION EMAIL ──────────────────────────────────
-        const agentEmail = currentAgent?.email;
-        if (agentEmail) {
-          const subject = encodeURIComponent(`📅 New Viewing Scheduled — ${client?.full_name || 'Client'}`);
-          const body = encodeURIComponent(
-            `A new viewing has been scheduled in Maxwell DealFlow CRM.\n\n` +
-            `CLIENT: ${client?.full_name || '—'}\n` +
-            `PROPERTY: ${address}\n` +
-            `DATE: ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n` +
-            `CLIENT EMAIL: ${client?.email || 'Not on file'}\n\n` +
-            `Log in to approve or send a confirmation: https://mmaxwell33.github.io/maxwell-dealflow`
-          );
-          // Open quietly in background tab
-          const a = document.createElement('a');
-          a.href = `mailto:${agentEmail}?subject=${subject}&body=${body}`;
-          a.target = '_blank'; a.style.display = 'none';
-          document.body.appendChild(a); a.click();
-          setTimeout(() => document.body.removeChild(a), 1000);
-        }
+        // ── PUSH NOTIFICATION TO AGENT (no mail app — stays in dashboard) ──
+        App.pushNotify(
+          `📅 Viewing Scheduled — ${client?.full_name || 'Client'}`,
+          `${address} · ${dateStr}${timeStr ? ' at ' + timeStr : ''} — tap to review`,
+          'approvals'
+        );
       }
     }
     // If feedback was added on update, queue follow-up
