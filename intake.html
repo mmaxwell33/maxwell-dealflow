@@ -3,374 +3,487 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Maxwell Delali Midodzi — Client Intake Form</title>
+  <title>Maxwell Delali Midodzi — New Client Intake</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0f1e;
-      color: #e2e8f0;
-      min-height: 100vh;
-      padding: 0 0 60px 0;
-    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh;padding-bottom:60px;}
 
-    /* ── HEADER ── */
-    .header {
-      background: linear-gradient(135deg, #1a2340 0%, #0f1729 100%);
-      border-bottom: 1px solid rgba(99,179,237,0.15);
-      padding: 28px 20px 24px;
-      text-align: center;
-    }
-    .header-logo {
-      width: 64px; height: 64px; border-radius: 16px;
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px; margin: 0 auto 14px;
-    }
-    .header-name { font-size: 20px; font-weight: 800; color: #fff; }
-    .header-title { font-size: 13px; color: #63b3ed; margin-top: 3px; }
-    .header-sub {
-      margin-top: 16px; font-size: 13px; color: #94a3b8; line-height: 1.6;
-      max-width: 420px; margin-left: auto; margin-right: auto;
-    }
+    /* HEADER */
+    .hdr{background:linear-gradient(160deg,#111827 0%,#0f172a 100%);border-bottom:1px solid rgba(99,179,237,.15);padding:32px 20px 28px;text-align:center;}
+    .hdr-avatar{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(59,130,246,.35);}
+    .hdr-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px;}
+    .hdr-role{font-size:13px;color:#63b3ed;margin-top:4px;font-weight:600;}
+    .hdr-sub{margin-top:14px;font-size:13.5px;color:#94a3b8;line-height:1.65;max-width:440px;margin-left:auto;margin-right:auto;}
 
-    /* ── FORM CARD ── */
-    .form-card {
-      max-width: 560px; margin: 24px auto; padding: 0 16px;
-    }
-    .section-label {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-      color: #63b3ed; text-transform: uppercase;
-      margin: 24px 0 10px; padding-bottom: 6px;
-      border-bottom: 1px solid rgba(99,179,237,0.2);
-    }
-    .field { margin-bottom: 14px; }
-    label {
-      display: block; font-size: 12px; font-weight: 600;
-      color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em;
-    }
-    label .req { color: #f87171; }
-    input, select, textarea {
-      width: 100%; padding: 12px 14px;
-      background: #1a2340; border: 1.5px solid rgba(99,179,237,0.2);
-      border-radius: 10px; color: #e2e8f0; font-size: 14px;
-      outline: none; transition: border-color 0.2s;
-    }
-    input:focus, select:focus, textarea:focus {
-      border-color: #3b82f6;
-    }
-    select option { background: #1a2340; }
-    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    /* PROGRESS BAR */
+    .progress-wrap{max-width:560px;margin:20px auto 0;padding:0 16px;}
+    .progress-bar{height:4px;background:rgba(99,179,237,.15);border-radius:4px;overflow:hidden;}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);border-radius:4px;transition:width .4s ease;}
+    .progress-steps{display:flex;justify-content:space-between;margin-top:8px;}
+    .progress-step{font-size:11px;color:#475569;font-weight:600;}
+    .progress-step.active{color:#63b3ed;}
 
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+    /* SECTIONS */
+    .wrap{max-width:560px;margin:0 auto;padding:0 16px;}
+    .section{display:none;}
+    .section.active{display:block;}
+    .section-hdr{margin:28px 0 20px;}
+    .section-hdr h2{font-size:18px;font-weight:800;color:#fff;}
+    .section-hdr p{font-size:13px;color:#64748b;margin-top:4px;line-height:1.5;}
 
-    /* ── CHECKBOX GROUP ── */
-    .check-group { display: flex; flex-wrap: wrap; gap: 8px; }
-    .check-item {
-      display: flex; align-items: center; gap: 8px;
-      background: #1a2340; border: 1.5px solid rgba(99,179,237,0.2);
-      border-radius: 8px; padding: 8px 12px; cursor: pointer;
-      font-size: 13px; transition: border-color 0.2s, background 0.2s;
+    /* FIELDS */
+    .field{margin-bottom:16px;}
+    .field-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block;}
+    .field-label .req{color:#f87171;}
+    input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
+      width:100%;padding:13px 15px;background:#131c30;border:1.5px solid rgba(99,179,237,.18);
+      border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;transition:border-color .2s;
+      font-family:inherit;
     }
-    .check-item input[type=checkbox] {
-      width: 16px; height: 16px; padding: 0; background: transparent;
-      border: 1.5px solid #63b3ed; border-radius: 4px; cursor: pointer;
-      accent-color: #3b82f6;
-    }
-    .check-item:has(input:checked) {
-      border-color: #3b82f6; background: rgba(59,130,246,0.12);
-    }
+    input:focus,select:focus,textarea:focus{border-color:#3b82f6;}
+    select option{background:#131c30;}
+    textarea{resize:vertical;min-height:90px;line-height:1.6;}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:460px){.row{grid-template-columns:1fr;}}
 
-    /* ── SUBMIT ── */
-    .submit-btn {
-      width: 100%; padding: 16px; margin-top: 28px;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: #fff; font-size: 16px; font-weight: 700;
-      border: none; border-radius: 12px; cursor: pointer;
-      transition: opacity 0.2s; letter-spacing: 0.02em;
+    /* PILL BUTTONS (clickable options) */
+    .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
+    .pill{
+      padding:9px 16px;border-radius:50px;border:1.5px solid rgba(99,179,237,.2);
+      background:#131c30;color:#94a3b8;font-size:13px;font-weight:600;
+      cursor:pointer;transition:all .18s;user-select:none;-webkit-user-select:none;
     }
-    .submit-btn:hover { opacity: 0.92; }
-    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pill:hover{border-color:#3b82f6;color:#93c5fd;}
+    .pill.selected{background:rgba(59,130,246,.18);border-color:#3b82f6;color:#93c5fd;}
+    .pill.selected::before{content:'✓ ';}
 
-    /* ── STATUS ── */
-    #form-status {
-      margin-top: 12px; text-align: center; font-size: 14px;
-      font-weight: 600; min-height: 20px;
-    }
+    /* BUDGET SLIDER DISPLAY */
+    .budget-display{text-align:center;font-size:22px;font-weight:800;color:#22c55e;margin:10px 0 6px;}
+    input[type=range]{width:100%;accent-color:#3b82f6;height:6px;margin:4px 0;}
 
-    /* ── SUCCESS SCREEN ── */
-    #success-screen {
-      display: none; max-width: 560px; margin: 60px auto; padding: 0 16px;
-      text-align: center;
-    }
-    .success-icon { font-size: 64px; margin-bottom: 20px; }
-    .success-title { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 10px; }
-    .success-msg { font-size: 15px; color: #94a3b8; line-height: 1.7; max-width: 380px; margin: 0 auto; }
+    /* NAV BUTTONS */
+    .nav-row{display:flex;gap:12px;margin-top:28px;}
+    .btn-back{flex:1;padding:14px;background:transparent;border:1.5px solid rgba(99,179,237,.2);color:#94a3b8;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;}
+    .btn-back:hover{border-color:#3b82f6;color:#93c5fd;}
+    .btn-next{flex:2;padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .18s;box-shadow:0 4px 14px rgba(59,130,246,.35);}
+    .btn-next:hover{opacity:.9;}
+    .btn-next:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-submit{width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:28px;box-shadow:0 4px 14px rgba(34,197,94,.35);letter-spacing:.02em;}
+    .btn-submit:disabled{opacity:.5;cursor:not-allowed;}
+    #form-status{text-align:center;margin-top:10px;font-size:14px;font-weight:600;min-height:20px;}
 
-    /* ── FOOTER ── */
-    .footer {
-      text-align: center; margin-top: 40px; padding: 0 16px;
-      font-size: 12px; color: #475569;
-    }
-    .footer a { color: #63b3ed; text-decoration: none; }
+    /* SUCCESS */
+    #success-screen{display:none;max-width:560px;margin:60px auto;padding:0 20px;text-align:center;}
+    .success-icon{font-size:72px;margin-bottom:20px;}
+    .success-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:12px;}
+    .success-msg{font-size:14px;color:#94a3b8;line-height:1.8;max-width:380px;margin:0 auto;}
+    .success-steps{background:#131c30;border:1px solid rgba(99,179,237,.15);border-radius:14px;padding:20px;margin-top:28px;text-align:left;}
+    .success-steps h3{font-size:13px;font-weight:700;color:#63b3ed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
+    .success-step-item{display:flex;gap:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5;align-items:flex-start;}
+    .step-num{width:24px;height:24px;border-radius:50%;background:rgba(59,130,246,.2);color:#63b3ed;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+
+    /* FOOTER */
+    .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
+    .footer a{color:#475569;text-decoration:none;}
   </style>
 </head>
 <body>
 
 <!-- HEADER -->
-<div class="header">
-  <div class="header-logo">🏠</div>
-  <div class="header-name">Maxwell Delali Midodzi</div>
-  <div class="header-title">REALTOR® · eXp Realty</div>
-  <div class="header-sub">
-    Welcome! Please fill out this quick form so I can understand your needs and find you the perfect home. It takes less than 3 minutes.
+<div class="hdr">
+  <div class="hdr-avatar">🏠</div>
+  <div class="hdr-name">Maxwell Delali Midodzi</div>
+  <div class="hdr-role">REALTOR® · eXp Realty · (709) 325-0545</div>
+  <div class="hdr-sub">Let's find your perfect home! Fill out this quick form so I can send you personalized listings that match exactly what you're looking for.</div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:25%"></div></div>
+  <div class="progress-steps">
+    <span class="progress-step active" id="ps-1">About You</span>
+    <span class="progress-step" id="ps-2">Your Search</span>
+    <span class="progress-step" id="ps-3">Budget</span>
+    <span class="progress-step" id="ps-4">Final Details</span>
   </div>
 </div>
 
-<!-- FORM -->
-<div class="form-card" id="form-section">
+<div class="wrap">
 
-  <!-- PERSONAL INFO -->
-  <div class="section-label">👤 Your Information</div>
+<!-- ══ SECTION 1 — ABOUT YOU ══════════════════════════════════════════ -->
+<div class="section active" id="sec-1">
+  <div class="section-hdr">
+    <h2>👤 Tell me about yourself</h2>
+    <p>Basic contact info so I can reach you with listings.</p>
+  </div>
 
   <div class="row">
     <div class="field">
-      <label>First Name <span class="req">*</span></label>
+      <span class="field-label">First Name <span class="req">*</span></span>
       <input type="text" id="f-firstname" placeholder="John" autocomplete="given-name">
     </div>
     <div class="field">
-      <label>Last Name <span class="req">*</span></label>
+      <span class="field-label">Last Name <span class="req">*</span></span>
       <input type="text" id="f-lastname" placeholder="Smith" autocomplete="family-name">
     </div>
   </div>
-
   <div class="field">
-    <label>Email Address <span class="req">*</span></label>
+    <span class="field-label">Email Address <span class="req">*</span></span>
     <input type="email" id="f-email" placeholder="john@email.com" autocomplete="email">
   </div>
-
   <div class="field">
-    <label>Phone Number</label>
+    <span class="field-label">Phone Number</span>
     <input type="tel" id="f-phone" placeholder="(709) 555-0100" autocomplete="tel">
   </div>
 
-  <!-- BUYING SITUATION -->
-  <div class="section-label">🏠 Your Home Search</div>
-
   <div class="field">
-    <label>Are you currently renting or a homeowner?</label>
-    <select id="f-current-status">
-      <option value="">-- Select --</option>
-      <option>Currently Renting</option>
-      <option>Homeowner — looking to buy another</option>
-      <option>Living with family / friends</option>
-      <option>Other</option>
-    </select>
+    <span class="field-label">What is your current living situation?</span>
+    <div class="pills" id="pills-living">
+      <div class="pill" data-val="Currently Renting" onclick="togglePill(this,'pills-living',true)">🏢 Renting</div>
+      <div class="pill" data-val="Homeowner — buying another" onclick="togglePill(this,'pills-living',true)">🏠 I own a home</div>
+      <div class="pill" data-val="Living with family / friends" onclick="togglePill(this,'pills-living',true)">👨‍👩‍👧 Living with family</div>
+      <div class="pill" data-val="Relocating" onclick="togglePill(this,'pills-living',true)">✈️ Relocating</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-next" onclick="goNext(1)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 2 — YOUR SEARCH ════════════════════════════════════════ -->
+<div class="section" id="sec-2">
+  <div class="section-hdr">
+    <h2>🏠 What are you looking for?</h2>
+    <p>Select everything that applies — I'll match listings to your exact criteria.</p>
   </div>
 
   <div class="field">
-    <label>What type of property are you looking for?</label>
-    <div class="check-group">
-      <label class="check-item"><input type="checkbox" name="ptype" value="Detached House"> Detached House</label>
-      <label class="check-item"><input type="checkbox" name="ptype" value="Semi-Detached"> Semi-Detached</label>
-      <label class="check-item"><input type="checkbox" name="ptype" value="Townhouse"> Townhouse</label>
-      <label class="check-item"><input type="checkbox" name="ptype" value="Condo/Apartment"> Condo / Apartment</label>
-      <label class="check-item"><input type="checkbox" name="ptype" value="New Build"> New Build</label>
-      <label class="check-item"><input type="checkbox" name="ptype" value="Open to anything"> Open to anything</label>
+    <span class="field-label">Property Type <span class="req">*</span></span>
+    <div class="pills" id="pills-ptype">
+      <div class="pill" data-val="Detached House" onclick="togglePill(this,'pills-ptype')">🏡 Detached House</div>
+      <div class="pill" data-val="Semi-Detached" onclick="togglePill(this,'pills-ptype')">🏘 Semi-Detached</div>
+      <div class="pill" data-val="Townhouse" onclick="togglePill(this,'pills-ptype')">🏙 Townhouse</div>
+      <div class="pill" data-val="Condo / Apartment" onclick="togglePill(this,'pills-ptype')">🏢 Condo / Apartment</div>
+      <div class="pill" data-val="New Build" onclick="togglePill(this,'pills-ptype')">🏗 New Build</div>
+      <div class="pill" data-val="Open to anything" onclick="togglePill(this,'pills-ptype')">✨ Open to anything</div>
     </div>
   </div>
 
   <div class="row">
     <div class="field">
-      <label>Minimum Bedrooms</label>
-      <select id="f-bedrooms">
-        <option value="">Any</option>
-        <option>1</option><option>2</option><option>3</option>
-        <option>4</option><option>5+</option>
-      </select>
+      <span class="field-label">Bedrooms (min)</span>
+      <div class="pills" id="pills-bed" style="flex-wrap:nowrap;gap:6px;">
+        <div class="pill" style="padding:8px 12px;" data-val="1" onclick="togglePill(this,'pills-bed',true)">1</div>
+        <div class="pill" style="padding:8px 12px;" data-val="2" onclick="togglePill(this,'pills-bed',true)">2</div>
+        <div class="pill" style="padding:8px 12px;" data-val="3" onclick="togglePill(this,'pills-bed',true)">3</div>
+        <div class="pill" style="padding:8px 12px;" data-val="4" onclick="togglePill(this,'pills-bed',true)">4</div>
+        <div class="pill" style="padding:8px 12px;" data-val="5+" onclick="togglePill(this,'pills-bed',true)">5+</div>
+      </div>
     </div>
     <div class="field">
-      <label>Minimum Bathrooms</label>
-      <select id="f-bathrooms">
-        <option value="">Any</option>
-        <option>1</option><option>1.5</option><option>2</option>
-        <option>2.5</option><option>3+</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- BUDGET & TIMELINE -->
-  <div class="section-label">💰 Budget & Timeline</div>
-
-  <div class="row">
-    <div class="field">
-      <label>Min Budget ($)</label>
-      <input type="number" id="f-budget-min" placeholder="e.g. 300000">
-    </div>
-    <div class="field">
-      <label>Max Budget ($) <span class="req">*</span></label>
-      <input type="number" id="f-budget-max" placeholder="e.g. 550000">
+      <span class="field-label">Bathrooms (min)</span>
+      <div class="pills" id="pills-bath" style="flex-wrap:nowrap;gap:6px;">
+        <div class="pill" style="padding:8px 12px;" data-val="1" onclick="togglePill(this,'pills-bath',true)">1</div>
+        <div class="pill" style="padding:8px 12px;" data-val="2" onclick="togglePill(this,'pills-bath',true)">2</div>
+        <div class="pill" style="padding:8px 12px;" data-val="3" onclick="togglePill(this,'pills-bath',true)">3</div>
+        <div class="pill" style="padding:8px 12px;" data-val="3+" onclick="togglePill(this,'pills-bath',true)">3+</div>
+      </div>
     </div>
   </div>
 
   <div class="field">
-    <label>When are you looking to buy?</label>
-    <select id="f-timeline">
-      <option value="">-- Select --</option>
-      <option>ASAP — actively looking</option>
-      <option>Within 1–3 months</option>
-      <option>3–6 months</option>
-      <option>6–12 months</option>
-      <option>Just exploring for now</option>
-    </select>
+    <span class="field-label">Preferred Areas / Neighbourhoods</span>
+    <input type="text" id="f-areas" placeholder="e.g. St. John's, Mount Pearl, CBS, Paradise...">
   </div>
 
   <div class="field">
-    <label>Have you been pre-approved for a mortgage?</label>
-    <select id="f-preapproval">
-      <option value="">-- Select --</option>
-      <option>Yes — fully pre-approved</option>
-      <option>In progress</option>
-      <option>Not yet — need guidance</option>
-      <option>Paying cash</option>
-    </select>
-  </div>
-
-  <!-- LOCATION -->
-  <div class="section-label">📍 Location Preferences</div>
-
-  <div class="field">
-    <label>Preferred Areas / Neighbourhoods</label>
-    <input type="text" id="f-areas" placeholder="e.g. St. John's, Mount Pearl, CBS...">
-  </div>
-
-  <div class="field">
-    <label>Must-Have Features</label>
-    <div class="check-group">
-      <label class="check-item"><input type="checkbox" name="features" value="Garage"> Garage</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Basement"> Basement</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Backyard"> Backyard</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Home Office"> Home Office</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Open Concept"> Open Concept</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Near Schools"> Near Schools</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Near Transit"> Near Transit</label>
-      <label class="check-item"><input type="checkbox" name="features" value="Wheelchair Access"> Wheelchair Access</label>
+    <span class="field-label">Must-Have Features</span>
+    <div class="pills" id="pills-features">
+      <div class="pill" data-val="Garage" onclick="togglePill(this,'pills-features')">🚗 Garage</div>
+      <div class="pill" data-val="Basement" onclick="togglePill(this,'pills-features')">🏚 Basement</div>
+      <div class="pill" data-val="Backyard" onclick="togglePill(this,'pills-features')">🌿 Backyard</div>
+      <div class="pill" data-val="Home Office" onclick="togglePill(this,'pills-features')">💻 Home Office</div>
+      <div class="pill" data-val="Open Concept" onclick="togglePill(this,'pills-features')">🛋 Open Concept</div>
+      <div class="pill" data-val="Near Schools" onclick="togglePill(this,'pills-features')">🏫 Near Schools</div>
+      <div class="pill" data-val="Near Transit" onclick="togglePill(this,'pills-features')">🚌 Near Transit</div>
+      <div class="pill" data-val="Fireplace" onclick="togglePill(this,'pills-features')">🔥 Fireplace</div>
+      <div class="pill" data-val="Wheelchair Access" onclick="togglePill(this,'pills-features')">♿ Accessibility</div>
+      <div class="pill" data-val="In-law Suite" onclick="togglePill(this,'pills-features')">🏠 In-law Suite</div>
     </div>
   </div>
 
-  <!-- ANYTHING ELSE -->
-  <div class="section-label">📝 Anything Else?</div>
+  <div class="nav-row">
+    <button class="btn-back" onclick="goBack(2)">← Back</button>
+    <button class="btn-next" onclick="goNext(2)">Continue →</button>
+  </div>
+</div>
 
-  <div class="field">
-    <label>How did you hear about Maxwell?</label>
-    <select id="f-referral">
-      <option value="">-- Select --</option>
-      <option>Referral from friend / family</option>
-      <option>Google search</option>
-      <option>Social media (Instagram / Facebook)</option>
-      <option>eXp Realty website</option>
-      <option>Previous client</option>
-      <option>Other</option>
-    </select>
+<!-- ══ SECTION 3 — BUDGET & TIMELINE ══════════════════════════════════ -->
+<div class="section" id="sec-3">
+  <div class="section-hdr">
+    <h2>💰 Budget & Timeline</h2>
+    <p>This helps me filter out listings outside your range so I never waste your time.</p>
   </div>
 
   <div class="field">
-    <label>Anything else you'd like Maxwell to know?</label>
-    <textarea id="f-notes" placeholder="Any special circumstances, must-haves, or questions..."></textarea>
+    <span class="field-label">Maximum Budget</span>
+    <div class="budget-display" id="budget-display">$450,000</div>
+    <input type="range" id="f-budget-slider" min="100000" max="2000000" step="25000" value="450000" oninput="updateBudget(this.value)">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#475569;margin-top:4px;">
+      <span>$100K</span><span>$500K</span><span>$1M</span><span>$2M+</span>
+    </div>
   </div>
 
-  <button class="submit-btn" onclick="submitIntake()" id="submit-btn">
-    🏠 Submit My Information
+  <div class="field" style="margin-top:20px;">
+    <span class="field-label">Or type exact amount</span>
+    <input type="number" id="f-budget-max" placeholder="e.g. 550000" oninput="syncSlider(this.value)">
+  </div>
+
+  <div class="field">
+    <span class="field-label">When are you looking to buy?</span>
+    <div class="pills" id="pills-timeline">
+      <div class="pill" data-val="ASAP — actively looking" onclick="togglePill(this,'pills-timeline',true)">🔥 ASAP</div>
+      <div class="pill" data-val="1–3 months" onclick="togglePill(this,'pills-timeline',true)">📅 1–3 months</div>
+      <div class="pill" data-val="3–6 months" onclick="togglePill(this,'pills-timeline',true)">📅 3–6 months</div>
+      <div class="pill" data-val="6–12 months" onclick="togglePill(this,'pills-timeline',true)">🗓 6–12 months</div>
+      <div class="pill" data-val="Just exploring" onclick="togglePill(this,'pills-timeline',true)">👀 Just exploring</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Mortgage Pre-Approval Status</span>
+    <div class="pills" id="pills-preapproval">
+      <div class="pill" data-val="Yes — fully pre-approved" onclick="togglePill(this,'pills-preapproval',true)">✅ Fully pre-approved</div>
+      <div class="pill" data-val="In progress" onclick="togglePill(this,'pills-preapproval',true)">🔄 In progress</div>
+      <div class="pill" data-val="Not yet — need guidance" onclick="togglePill(this,'pills-preapproval',true)">❓ Not yet</div>
+      <div class="pill" data-val="Paying cash" onclick="togglePill(this,'pills-preapproval',true)">💵 Paying cash</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-back" onclick="goBack(3)">← Back</button>
+    <button class="btn-next" onclick="goNext(3)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 4 — FINAL DETAILS ══════════════════════════════════════ -->
+<div class="section" id="sec-4">
+  <div class="section-hdr">
+    <h2>📝 Almost done!</h2>
+    <p>Any extra details help me serve you better from day one.</p>
+  </div>
+
+  <div class="field">
+    <span class="field-label">How did you hear about Maxwell?</span>
+    <div class="pills" id="pills-referral">
+      <div class="pill" data-val="Referral from friend / family" onclick="togglePill(this,'pills-referral',true)">👥 Friend / Family</div>
+      <div class="pill" data-val="Google search" onclick="togglePill(this,'pills-referral',true)">🔍 Google</div>
+      <div class="pill" data-val="Instagram / Facebook" onclick="togglePill(this,'pills-referral',true)">📱 Social Media</div>
+      <div class="pill" data-val="eXp Realty website" onclick="togglePill(this,'pills-referral',true)">🌐 eXp Realty</div>
+      <div class="pill" data-val="Previous client" onclick="togglePill(this,'pills-referral',true)">🤝 Previous client</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Are you also looking to sell a current property?</span>
+    <div class="pills" id="pills-sell">
+      <div class="pill" data-val="Yes — need to sell first" onclick="togglePill(this,'pills-sell',true)">🏷 Yes, sell first</div>
+      <div class="pill" data-val="Yes — already listed" onclick="togglePill(this,'pills-sell',true)">📋 Already listed</div>
+      <div class="pill" data-val="No — just buying" onclick="togglePill(this,'pills-sell',true)">🏠 Just buying</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Is there anything specific Maxwell should know? <br><span style="font-weight:400;text-transform:none;font-size:12px;color:#475569;">(special needs, flexibility on criteria, specific streets, anything at all)</span></span>
+    <textarea id="f-notes" placeholder="e.g. We need to be near St. Paul's School. Open to older homes that need updating. Would love a double garage. Flexible on closing date..."></textarea>
+  </div>
+
+  <button class="btn-submit" onclick="submitIntake()" id="submit-btn">
+    🏠 Submit — Let's Find My Home!
   </button>
   <div id="form-status"></div>
 
+  <div class="nav-row" style="margin-top:12px;">
+    <button class="btn-back" onclick="goBack(4)" style="flex:1;">← Back</button>
+  </div>
 </div>
+
+</div><!-- /wrap -->
 
 <!-- SUCCESS SCREEN -->
 <div id="success-screen">
   <div class="success-icon">🎉</div>
   <div class="success-title">You're all set!</div>
   <div class="success-msg">
-    Thank you! Maxwell has received your information and will be in touch with you shortly to discuss your home search.<br><br>
-    <strong style="color:#63b3ed;">Maxwell Delali Midodzi</strong><br>
-    REALTOR® · eXp Realty<br>
-    📞 (709) 325-0545
+    Maxwell has received your information and will be in touch very shortly. Check your inbox for a welcome email with everything you need to know about the home buying process.
+  </div>
+
+  <div class="success-steps" style="max-width:520px;margin:28px auto 0;">
+    <h3>🗺 Here's What Happens Next</h3>
+    <div class="success-step-item">
+      <div class="step-num">1</div>
+      <div><strong style="color:#e2e8f0;">Welcome Email</strong><br>Maxwell will send you a welcome email with next steps and what to expect throughout your home buying journey.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">2</div>
+      <div><strong style="color:#e2e8f0;">Personalized Listings</strong><br>Based on your criteria, Maxwell will send you hand-picked listings that match your needs and budget — no spam, just the right homes.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">3</div>
+      <div><strong style="color:#e2e8f0;">Book a Showing</strong><br>See something you like? Just let Maxwell know — he'll arrange a private showing at your convenience.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">4</div>
+      <div><strong style="color:#e2e8f0;">Make an Offer</strong><br>When you find the one, Maxwell will guide you through preparing and submitting a competitive offer.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">5</div>
+      <div><strong style="color:#e2e8f0;">Keys in Hand 🔑</strong><br>From accepted offer through conditions, inspections, and closing — Maxwell handles it all so you can focus on the exciting part.</div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:20px;background:#131c30;border-radius:14px;max-width:520px;margin-left:auto;margin-right:auto;border:1px solid rgba(99,179,237,.15);">
+    <div style="font-size:13px;color:#64748b;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Your Agent</div>
+    <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
+    <div style="font-size:13px;color:#63b3ed;margin-top:3px;">REALTOR® · eXp Realty</div>
+    <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.8;">
+      📞 (709) 325-0545<br>
+      ✉️ maxwelldelali22@gmail.com
+    </div>
   </div>
 </div>
 
-<div class="footer">
-  Powered by <a href="https://maxwell-dealflow.vercel.app" target="_blank">Maxwell DealFlow CRM</a> · eXp Realty · Your information is kept private and secure.
+<div class="footer" style="margin-top:40px;">
+  <a href="https://maxwell-dealflow.vercel.app" target="_blank">Maxwell DealFlow CRM</a> · eXp Realty · Your information is private and secure.
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const { createClient } = supabase;
-  const db = createClient(
-    'https://bxwmbrdndsetjwcexwpc.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc'
-  );
+const { createClient } = supabase;
+const db = createClient(
+  'https://bxwmbrdndsetjwcexwpc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc'
+);
 
-  function getChecked(name) {
-    return [...document.querySelectorAll(`input[name="${name}"]:checked`)]
-      .map(el => el.value).join(', ');
+let currentSection = 1;
+const TOTAL = 4;
+
+// ── PILL TOGGLE ───────────────────────────────────────────────────────────────
+function togglePill(el, groupId, single = false) {
+  if (single) {
+    document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove('selected'));
+  }
+  el.classList.toggle('selected');
+}
+
+function getPills(groupId) {
+  return [...document.querySelectorAll(`#${groupId} .pill.selected`)]
+    .map(p => p.dataset.val).join(', ');
+}
+
+// ── BUDGET SLIDER ─────────────────────────────────────────────────────────────
+function updateBudget(val) {
+  const n = Number(val);
+  document.getElementById('budget-display').textContent = '$' + n.toLocaleString();
+  document.getElementById('f-budget-max').value = val;
+}
+function syncSlider(val) {
+  const n = Math.min(Math.max(Number(val) || 100000, 100000), 2000000);
+  document.getElementById('f-budget-slider').value = n;
+  document.getElementById('budget-display').textContent = '$' + n.toLocaleString();
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function goNext(from) {
+  // Validate section 1
+  if (from === 1) {
+    const fn = document.getElementById('f-firstname').value.trim();
+    const ln = document.getElementById('f-lastname').value.trim();
+    const em = document.getElementById('f-email').value.trim();
+    if (!fn || !ln) { alert('Please enter your first and last name.'); return; }
+    if (!em || !em.includes('@')) { alert('Please enter a valid email address.'); return; }
+  }
+  showSection(from + 1);
+}
+
+function goBack(from) { showSection(from - 1); }
+
+function showSection(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + n).classList.add('active');
+  currentSection = n;
+  // Progress
+  const pct = (n / TOTAL) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  for (let i = 1; i <= TOTAL; i++) {
+    const el = document.getElementById('ps-' + i);
+    if (el) el.classList.toggle('active', i <= n);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+async function submitIntake() {
+  const st  = document.getElementById('form-status');
+  const btn = document.getElementById('submit-btn');
+
+  const firstName = document.getElementById('f-firstname').value.trim();
+  const lastName  = document.getElementById('f-lastname').value.trim();
+  const email     = document.getElementById('f-email').value.trim();
+
+  if (!firstName || !lastName || !email) {
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Please go back and fill in your name and email.';
+    return;
   }
 
-  async function submitIntake() {
-    const st = document.getElementById('form-status');
-    const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  st.style.color = '#94a3b8'; st.textContent = 'Sending your information securely...';
 
-    const firstName = document.getElementById('f-firstname').value.trim();
-    const lastName  = document.getElementById('f-lastname').value.trim();
-    const email     = document.getElementById('f-email').value.trim();
-    const budgetMax = document.getElementById('f-budget-max').value.trim();
+  const budgetVal = document.getElementById('f-budget-max').value ||
+                    document.getElementById('f-budget-slider').value;
 
-    if (!firstName || !lastName) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your first and last name.'; return; }
-    if (!email) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your email address.'; return; }
-    if (!budgetMax) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your maximum budget.'; return; }
+  const payload = {
+    full_name:       `${firstName} ${lastName}`,
+    first_name:      firstName,
+    last_name:       lastName,
+    email,
+    phone:           document.getElementById('f-phone').value.trim() || null,
+    current_status:  getPills('pills-living') || null,
+    property_types:  getPills('pills-ptype') || null,
+    bedrooms:        getPills('pills-bed') || null,
+    bathrooms:       getPills('pills-bath') || null,
+    budget_max:      budgetVal || null,
+    timeline:        getPills('pills-timeline') || null,
+    preapproval:     getPills('pills-preapproval') || null,
+    preferred_areas: document.getElementById('f-areas').value.trim() || null,
+    must_haves:      getPills('pills-features') || null,
+    selling_status:  getPills('pills-sell') || null,
+    referral_source: getPills('pills-referral') || null,
+    notes:           document.getElementById('f-notes').value.trim() || null,
+    status:          'New',
+    submitted_at:    new Date().toISOString()
+  };
 
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
-    st.style.color = '#94a3b8'; st.textContent = 'Sending your information...';
+  const { error } = await db.from('client_intake').insert(payload);
 
-    const payload = {
-      full_name:       `${firstName} ${lastName}`,
-      first_name:      firstName,
-      last_name:       lastName,
-      email:           email,
-      phone:           document.getElementById('f-phone').value.trim() || null,
-      current_status:  document.getElementById('f-current-status').value || null,
-      property_types:  getChecked('ptype') || null,
-      bedrooms:        document.getElementById('f-bedrooms').value || null,
-      bathrooms:       document.getElementById('f-bathrooms').value || null,
-      budget_min:      document.getElementById('f-budget-min').value || null,
-      budget_max:      budgetMax,
-      timeline:        document.getElementById('f-timeline').value || null,
-      preapproval:     document.getElementById('f-preapproval').value || null,
-      preferred_areas: document.getElementById('f-areas').value.trim() || null,
-      must_haves:      getChecked('features') || null,
-      referral_source: document.getElementById('f-referral').value || null,
-      notes:           document.getElementById('f-notes').value.trim() || null,
-      status:          'New',
-      submitted_at:    new Date().toISOString()
-    };
-
-    const { error } = await db.from('client_intake').insert(payload);
-
-    if (error) {
-      btn.disabled = false;
-      btn.textContent = '🏠 Submit My Information';
-      st.style.color = '#f87171';
-      st.textContent = '⚠️ Something went wrong. Please try again.';
-      console.error(error);
-      return;
-    }
-
-    // Show success screen
-    document.getElementById('form-section').style.display = 'none';
-    document.getElementById('success-screen').style.display = 'block';
-    window.scrollTo(0, 0);
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = '🏠 Submit — Let\'s Find My Home!';
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Something went wrong. Please try again.';
+    console.error(error);
+    return;
   }
+
+  // Show success
+  document.querySelector('.wrap').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+  document.querySelector('.progress-wrap').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 </body>
 </html>
