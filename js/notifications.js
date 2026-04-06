@@ -233,6 +233,76 @@ ${agent.brokerage || 'eXp Realty'}
 ${agent.phone || ''}
 ${agent.email || ''}`
     }),
+
+    welcome_email: (client, intake, agent) => {
+      const firstName = client.full_name?.split(' ')[0] || client.first_name || 'there';
+      const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+      const agentTitle = agent.title || 'REALTOR®';
+      const agentBrokerage = agent.brokerage || 'eXp Realty';
+      const agentPhone = agent.phone || '';
+      const agentEmail = agent.email || '';
+      const agentSig = agent.email_signature ||
+        `${agentName}\n${agentTitle}\n${agentBrokerage}${agentPhone ? '\n' + agentPhone : ''}${agentEmail ? '\n' + agentEmail : ''}`;
+
+      // Build criteria summary from intake data
+      const criteriaLines = [];
+      if (intake.property_types) criteriaLines.push(`🏠 Property Type: ${intake.property_types}`);
+      if (intake.bedrooms) criteriaLines.push(`🛏 Bedrooms: ${intake.bedrooms}`);
+      if (intake.bathrooms) criteriaLines.push(`🛁 Bathrooms: ${intake.bathrooms}`);
+      if (intake.budget_max) criteriaLines.push(`💰 Budget: Up to ${Number(intake.budget_max).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0})}`);
+      if (intake.preferred_areas) criteriaLines.push(`📍 Areas: ${intake.preferred_areas}`);
+      if (intake.timeline) criteriaLines.push(`📅 Timeline: ${intake.timeline}`);
+      if (intake.must_haves) criteriaLines.push(`✅ Must-Haves: ${intake.must_haves}`);
+      const criteriaBlock = criteriaLines.length ? criteriaLines.join('\n') : 'Your preferences have been noted.';
+
+      return {
+        subject: `Welcome, ${firstName}! Here's What to Expect — ${agentName}`,
+        body: `Hi ${firstName},
+
+Welcome, and thank you for submitting your information! I'm ${agentName}, and I'm thrilled to be working with you on your home search. I've received your details and I'm already getting started.
+
+Here's a quick overview of what you can expect throughout our journey together:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏡 YOUR HOME BUYING PROCESS — AT A GLANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1 — PERSONALIZED LISTINGS 📋
+Based on your criteria, I'll curate a shortlist of properties that match what you're looking for and send them your way. No spam — only homes I genuinely think are a fit.
+
+STEP 2 — TELL ME WHAT YOU LIKE 💬
+When you see a listing that catches your eye, simply reply to my email or send me a text. I'll arrange a private showing as quickly as possible.
+
+STEP 3 — PROPERTY VIEWINGS 🏠
+We'll tour the homes together. I'll point out things you might not notice on your own — condition, neighbourhood, value. After each viewing, I'll follow up to get your feedback.
+
+STEP 4 — MAKING AN OFFER 📝
+Found the one? I'll prepare a competitive offer on your behalf, walk you through every line, and submit it to the seller's agent. I negotiate hard on your side.
+
+STEP 5 — CONDITIONS & DUE DILIGENCE ✅
+Most offers include conditions — financing approval and a home inspection. I'll guide you through both and keep track of all deadlines so nothing slips through the cracks.
+
+STEP 6 — CLOSING DAY 🔑
+Once conditions are met and everything is signed, your lawyer takes over for the final paperwork. On closing day — the keys are yours!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 YOUR SEARCH CRITERIA ON FILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${criteriaBlock}
+
+If anything has changed or you'd like to refine these, just let me know — I want to make sure every listing I send you is right on target.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+I'm here every step of the way. Don't hesitate to reach out anytime — no question is too small.
+
+Looking forward to finding you the perfect home!
+
+Warm regards,
+
+${agentSig}`
+      };
+    },
   },
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
@@ -360,6 +430,16 @@ ${agent.email || ''}`
       'Deal Closed 🏠',
       clientObj.id, clientObj.full_name, clientObj.email,
       tmpl.subject, tmpl.body, deal.id
+    );
+  },
+
+  async onClientAdded(client, intake) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.welcome_email(client, intake, agent);
+    await Notify.queue(
+      'Welcome Email',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, null
     );
   },
 

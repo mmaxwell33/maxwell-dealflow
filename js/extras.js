@@ -131,6 +131,17 @@ const FormResponses = {
       return;
     }
     FormResponses.all = data;
+
+    // ── PUSH NOTIFY FOR ANY NEW (unreviewed) SUBMISSIONS ───────────────────
+    const newCount = data.filter(r => r.status === 'New').length;
+    if (newCount > 0 && window.App?.pushNotify) {
+      App.pushNotify(
+        `📋 ${newCount} New Client Intake${newCount > 1 ? 's' : ''}`,
+        `${newCount} client${newCount > 1 ? 's have' : ' has'} submitted the intake form — tap to review`,
+        'formresponses'
+      );
+    }
+
     el.innerHTML = `
       <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
@@ -197,12 +208,30 @@ const FormResponses = {
       notes: notes || null
     });
     if (error) { App.toast('⚠️ Error: ' + error.message, 'var(--red)'); return; }
+
+    // Fetch the new client record so we have the ID
+    const { data: newClient } = await db.from('clients')
+      .select('id, full_name, email')
+      .eq('agent_id', currentAgent.id)
+      .eq('email', r.email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
     // Mark intake as processed
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
     await App.logActivity('CLIENT_ADDED', r.full_name, r.email, `Added from intake form: ${r.full_name}`);
-    App.toast(`✅ ${r.full_name} added as a client!`, 'var(--green)');
+
+    // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
+    if (window.Notify && newClient) {
+      await Notify.onClientAdded(newClient, r);
+    }
+
+    App.toast(`✅ ${r.full_name} added! Welcome email queued for your approval.`, 'var(--green)');
     FormResponses.load();
     Clients.load();
+    // Switch to Approvals so agent can review the welcome email right away
+    if (window.App?.switchTab) App.switchTab('approvals');
   },
 
   async dismiss(id) {
