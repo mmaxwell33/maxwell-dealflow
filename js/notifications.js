@@ -254,7 +254,14 @@ ${agent.email || ''}`
     if (!error) {
       // Update badge
       Notify.updateBadge();
-      App.toast(`📬 Email draft queued — check Approvals to send`, 'var(--accent2)');
+      // ── PUSH NOTIFICATION TO AGENT ──────────────────────────────────────
+      // Fire immediately — agent taps notification → lands on Approvals
+      App.pushNotify(
+        `📬 Action Required: ${type}`,
+        `${clientName} — tap to review and send`,
+        'approvals'
+      );
+      App.toast(`📬 Approval needed — check Approvals to send`, 'var(--accent2)');
     }
     return !error;
   },

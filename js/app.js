@@ -11,6 +11,10 @@ const App = {
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
+      // Listen for SW messages (e.g. notification tap → switch tab)
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'SWITCH_TAB') App.switchTab(e.data.tab);
+      });
     }
     // Check existing session
     const { data: { session } } = await db.auth.getSession();
@@ -76,6 +80,36 @@ const App = {
     setTimeout(() => { if (window.Notify) Notify.checkConditionDeadlines(); }, 2000);
     // Update approvals badge
     setTimeout(() => { if (window.Notify) Notify.updateBadge(); }, 1500);
+    // Request browser push notification permission
+    setTimeout(() => App.requestNotifyPermission(), 3000);
+  },
+
+  // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
+  async requestNotifyPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      if (result === 'granted') {
+        App.pushNotify('🔔 Notifications On', 'You will be alerted when approvals need your attention.', 'approvals');
+      }
+    }
+  },
+
+  pushNotify(title, body, tab = 'approvals') {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const n = new Notification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: tab,           // replaces previous notification with same tag (no spam)
+      renotify: true,
+      data: { tab }
+    });
+    n.onclick = () => {
+      window.focus();
+      App.switchTab(tab);
+      n.close();
+    };
   },
 
   showAuth() {
