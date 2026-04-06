@@ -184,6 +184,25 @@ const FormResponses = {
   async addAsClient(id) {
     const r = FormResponses.all.find(x => x.id === id);
     if (!r || !currentAgent?.id) return;
+
+    // ── DISABLE BUTTON IMMEDIATELY to prevent double-clicks ────────────────
+    const btn = document.querySelector(`button[onclick="FormResponses.addAsClient('${id}')"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
+    // ── DUPLICATE CHECK — block if client with same email already exists ───
+    const { data: existing } = await db.from('clients')
+      .select('id, full_name')
+      .eq('agent_id', currentAgent.id)
+      .eq('email', r.email)
+      .limit(1);
+    if (existing?.length) {
+      App.toast(`⚠️ ${r.full_name} is already in your clients list!`, 'var(--red)');
+      // Mark intake as Added so it won't show again
+      await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
+      FormResponses.load();
+      return;
+    }
+
     // Build notes from intake data
     const notes = [
       r.property_types ? `Looking for: ${r.property_types}` : '',
@@ -207,7 +226,11 @@ const FormResponses = {
       status: 'Active',
       notes: notes || null
     });
-    if (error) { App.toast('⚠️ Error: ' + error.message, 'var(--red)'); return; }
+    if (error) {
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Add as Client'; }
+      App.toast('⚠️ Error: ' + error.message, 'var(--red)');
+      return;
+    }
 
     // Fetch the new client record so we have the ID
     const { data: newClient } = await db.from('clients')
