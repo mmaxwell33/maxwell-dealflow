@@ -246,8 +246,10 @@ const FormResponses = {
     await App.logActivity('CLIENT_ADDED', r.full_name, r.email, `Added from intake form: ${r.full_name}`);
 
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
-    if (window.Notify && newClient) {
-      await Notify.onClientAdded(newClient, r);
+    // Use newClient if fetched, otherwise build a minimal client object from intake
+    const clientForEmail = newClient || { id: null, full_name: r.full_name, email: r.email };
+    if (window.Notify) {
+      await Notify.onClientAdded(clientForEmail, r);
     }
 
     App.toast(`✅ ${r.full_name} added! Welcome email queued for your approval.`, 'var(--green)');

@@ -308,9 +308,11 @@ ${agentSig}`
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
   async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null) {
-    if (!currentAgent?.id) return;
+    // Use agent id, or fall back to auth user id if agent record not in agents table
+    const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
+    if (!agentId) return;
     const { error } = await db.from('approval_queue').insert({
-      agent_id: currentAgent.id,
+      agent_id: agentId,
       client_id: clientId,
       client_name: clientName,
       client_email: clientEmail,
@@ -337,10 +339,11 @@ ${agentSig}`
   },
 
   async updateBadge() {
-    if (!currentAgent?.id) return;
+    const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
+    if (!agentId) return;
     const { count } = await db.from('approval_queue')
       .select('*', { count: 'exact', head: true })
-      .eq('agent_id', currentAgent.id)
+      .eq('agent_id', agentId)
       .eq('status', 'Pending');
     const badge = document.getElementById('approvals-badge');
     if (badge) {
