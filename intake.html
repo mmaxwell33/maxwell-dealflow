@@ -173,9 +173,10 @@
   <div class="row">
     <div class="field">
       <span class="field-label">Bedrooms (min)</span>
-      <div class="pills" id="pills-bed" style="flex-wrap:nowrap;gap:6px;">
+      <div class="pills" id="pills-bed" style="flex-wrap:wrap;gap:6px;">
         <div class="pill" style="padding:8px 12px;" data-val="1" onclick="togglePill(this,'pills-bed',true)">1</div>
         <div class="pill" style="padding:8px 12px;" data-val="2" onclick="togglePill(this,'pills-bed',true)">2</div>
+        <div class="pill" style="padding:8px 12px;" data-val="2+" onclick="togglePill(this,'pills-bed',true)">2+</div>
         <div class="pill" style="padding:8px 12px;" data-val="3" onclick="togglePill(this,'pills-bed',true)">3</div>
         <div class="pill" style="padding:8px 12px;" data-val="4" onclick="togglePill(this,'pills-bed',true)">4</div>
         <div class="pill" style="padding:8px 12px;" data-val="5+" onclick="togglePill(this,'pills-bed',true)">5+</div>
@@ -183,7 +184,7 @@
     </div>
     <div class="field">
       <span class="field-label">Bathrooms (min)</span>
-      <div class="pills" id="pills-bath" style="flex-wrap:nowrap;gap:6px;">
+      <div class="pills" id="pills-bath" style="flex-wrap:wrap;gap:6px;">
         <div class="pill" style="padding:8px 12px;" data-val="1" onclick="togglePill(this,'pills-bath',true)">1</div>
         <div class="pill" style="padding:8px 12px;" data-val="2" onclick="togglePill(this,'pills-bath',true)">2</div>
         <div class="pill" style="padding:8px 12px;" data-val="3" onclick="togglePill(this,'pills-bath',true)">3</div>
@@ -194,7 +195,22 @@
 
   <div class="field">
     <span class="field-label">Preferred Areas / Neighbourhoods</span>
-    <input type="text" id="f-areas" placeholder="e.g. St. John's, Mount Pearl, CBS, Paradise...">
+    <div class="pills" id="pills-areas" style="margin-bottom:8px;">
+      <div class="pill" data-val="St. John's" onclick="togglePill(this,'pills-areas')">St. John's</div>
+      <div class="pill" data-val="Mount Pearl" onclick="togglePill(this,'pills-areas')">Mount Pearl</div>
+      <div class="pill" data-val="Paradise" onclick="togglePill(this,'pills-areas')">Paradise</div>
+      <div class="pill" data-val="CBS" onclick="togglePill(this,'pills-areas')">CBS</div>
+      <div class="pill" data-val="Conception Bay South" onclick="togglePill(this,'pills-areas')">Conception Bay South</div>
+      <div class="pill" data-val="Torbay" onclick="togglePill(this,'pills-areas')">Torbay</div>
+      <div class="pill" data-val="Pouch Cove" onclick="togglePill(this,'pills-areas')">Pouch Cove</div>
+      <div class="pill" data-val="Logy Bay" onclick="togglePill(this,'pills-areas')">Logy Bay</div>
+      <div class="pill" data-val="Kilbride" onclick="togglePill(this,'pills-areas')">Kilbride</div>
+      <div class="pill" data-val="Bay Bulls" onclick="togglePill(this,'pills-areas')">Bay Bulls</div>
+      <div class="pill" data-val="Witless Bay" onclick="togglePill(this,'pills-areas')">Witless Bay</div>
+      <div class="pill" data-val="Goulds" onclick="togglePill(this,'pills-areas')">Goulds</div>
+      <div class="pill" data-val="Portugal Cove" onclick="togglePill(this,'pills-areas')">Portugal Cove</div>
+    </div>
+    <input type="text" id="f-areas" placeholder="Other — type any area, street, or neighbourhood...">
   </div>
 
   <div class="field">
@@ -228,16 +244,19 @@
 
   <div class="field">
     <span class="field-label">Maximum Budget</span>
-    <div class="budget-display" id="budget-display">$450,000</div>
-    <input type="range" id="f-budget-slider" min="100000" max="2000000" step="25000" value="450000" oninput="updateBudget(this.value)">
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:#475569;margin-top:4px;">
-      <span>$100K</span><span>$500K</span><span>$1M</span><span>$2M+</span>
+    <div class="pills" id="pills-budget" style="margin-bottom:10px;">
+      <div class="pill" data-val="300000" onclick="toggleBudgetPill(this,'pills-budget')">Under $300K</div>
+      <div class="pill" data-val="350000" onclick="toggleBudgetPill(this,'pills-budget')">$300K – $350K</div>
+      <div class="pill" data-val="400000" onclick="toggleBudgetPill(this,'pills-budget')">$350K – $400K</div>
+      <div class="pill" data-val="450000" onclick="toggleBudgetPill(this,'pills-budget')">$400K – $450K</div>
+      <div class="pill" data-val="500000" onclick="toggleBudgetPill(this,'pills-budget')">$450K – $500K</div>
+      <div class="pill" data-val="600000" onclick="toggleBudgetPill(this,'pills-budget')">$500K – $600K</div>
+      <div class="pill" data-val="750000" onclick="toggleBudgetPill(this,'pills-budget')">$600K – $750K</div>
+      <div class="pill" data-val="1000000" onclick="toggleBudgetPill(this,'pills-budget')">$750K – $1M</div>
+      <div class="pill" data-val="1500000" onclick="toggleBudgetPill(this,'pills-budget')">$1M – $1.5M</div>
+      <div class="pill" data-val="2000000" onclick="toggleBudgetPill(this,'pills-budget')">$1.5M+</div>
     </div>
-  </div>
-
-  <div class="field" style="margin-top:20px;">
-    <span class="field-label">Or type exact amount</span>
-    <input type="number" id="f-budget-max" placeholder="e.g. 550000" oninput="syncSlider(this.value)">
+    <input type="number" id="f-budget-max" placeholder="Or type your exact max budget (e.g. 525000)" oninput="clearBudgetPills()">
   </div>
 
   <div class="field">
@@ -382,16 +401,14 @@ function getPills(groupId) {
     .map(p => p.dataset.val).join(', ');
 }
 
-// ── BUDGET SLIDER ─────────────────────────────────────────────────────────────
-function updateBudget(val) {
-  const n = Number(val);
-  document.getElementById('budget-display').textContent = '$' + n.toLocaleString();
-  document.getElementById('f-budget-max').value = val;
+// ── BUDGET PILLS ──────────────────────────────────────────────────────────────
+function toggleBudgetPill(el, groupId) {
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('f-budget-max').value = '';
 }
-function syncSlider(val) {
-  const n = Math.min(Math.max(Number(val) || 100000, 100000), 2000000);
-  document.getElementById('f-budget-slider').value = n;
-  document.getElementById('budget-display').textContent = '$' + n.toLocaleString();
+function clearBudgetPills() {
+  document.querySelectorAll('#pills-budget .pill').forEach(p => p.classList.remove('selected'));
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
@@ -442,8 +459,15 @@ async function submitIntake() {
   btn.textContent = 'Submitting...';
   st.style.color = '#94a3b8'; st.textContent = 'Sending your information securely...';
 
-  const budgetVal = document.getElementById('f-budget-max').value ||
-                    document.getElementById('f-budget-slider').value;
+  // Budget: pill value OR typed value
+  const budgetPill = document.querySelector('#pills-budget .pill.selected');
+  const budgetVal = document.getElementById('f-budget-max').value.trim() ||
+                    (budgetPill ? budgetPill.dataset.val : '');
+
+  // Areas: combine clicked pills + any typed text
+  const areasPills = getPills('pills-areas');
+  const areasTyped = document.getElementById('f-areas').value.trim();
+  const areasVal = [areasPills, areasTyped].filter(Boolean).join(', ') || null;
 
   const payload = {
     full_name:       `${firstName} ${lastName}`,
@@ -458,7 +482,7 @@ async function submitIntake() {
     budget_max:      budgetVal || null,
     timeline:        getPills('pills-timeline') || null,
     preapproval:     getPills('pills-preapproval') || null,
-    preferred_areas: document.getElementById('f-areas').value.trim() || null,
+    preferred_areas: areasVal,
     must_haves:      getPills('pills-features') || null,
     selling_status:  getPills('pills-sell') || null,
     referral_source: getPills('pills-referral') || null,
