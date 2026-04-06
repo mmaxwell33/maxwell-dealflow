@@ -82,6 +82,8 @@ const App = {
     setTimeout(() => { if (window.Notify) Notify.updateBadge(); }, 1500);
     // Request browser push notification permission
     setTimeout(() => App.requestNotifyPermission(), 3000);
+    // Check for new intake form submissions and notify agent
+    setTimeout(() => App.checkNewIntakes(), 4000);
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
@@ -93,6 +95,30 @@ const App = {
         App.pushNotify('🔔 Notifications On', 'You will be alerted when approvals need your attention.', 'approvals');
       }
     }
+  },
+
+  async checkNewIntakes() {
+    // Silently check Supabase for unreviewed intake submissions on every login
+    try {
+      const { data, error } = await db.from('client_intake')
+        .select('id, full_name, submitted_at')
+        .eq('status', 'New')
+        .order('submitted_at', { ascending: false });
+      if (error || !data?.length) return;
+      const count = data.length;
+      const latest = data[0];
+      // Push notify agent immediately
+      App.pushNotify(
+        `📋 ${count} New Client Intake${count > 1 ? 's' : ''}`,
+        `${latest.full_name || 'A client'} submitted the form — tap to review`,
+        'formresponses'
+      );
+      // Also show a toast in the app
+      App.toast(`📋 ${count} new intake form${count > 1 ? 's' : ''} waiting — check Form Responses`, 'var(--accent2)');
+      // Update the Form Responses tab badge if it exists
+      const badge = document.getElementById('formresponses-badge');
+      if (badge) { badge.textContent = count; badge.style.display = 'inline'; }
+    } catch(e) {}
   },
 
   pushNotify(title, body, tab = 'approvals') {

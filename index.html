@@ -123,8 +123,9 @@
             <button class="nav-item" data-tab="tracker" onclick="App.switchTab('tracker')">
               <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
             </button>
-            <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')">
+            <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')" style="position:relative;">
               <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
+              <span id="formresponses-badge" style="display:none;position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1;"></span>
             </button>
           </div>
         </div>
@@ -1324,15 +1325,15 @@
 <!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="config.js?v=20250407d"></script>
-<script src="js/app.js?v=20250407d"></script>
-<script src="js/clients.js?v=20250407d"></script>
-<script src="js/viewings.js?v=20250407d"></script>
-<script src="js/offers.js?v=20250407d"></script>
-<script src="js/notifications.js?v=20250407d"></script>
-<script src="js/extras.js?v=20250407d"></script>
-<script src="js/analytics.js?v=20250407d"></script>
-<script src="js/tracker.js?v=20250407d"></script>
-<script src="js/ai.js?v=20250407d"></script>
+<script src="config.js?v=20250407e"></script>
+<script src="js/app.js?v=20250407e"></script>
+<script src="js/clients.js?v=20250407e"></script>
+<script src="js/viewings.js?v=20250407e"></script>
+<script src="js/offers.js?v=20250407e"></script>
+<script src="js/notifications.js?v=20250407e"></script>
+<script src="js/extras.js?v=20250407e"></script>
+<script src="js/analytics.js?v=20250407e"></script>
+<script src="js/tracker.js?v=20250407e"></script>
+<script src="js/ai.js?v=20250407e"></script>
 </body>
 </html>
