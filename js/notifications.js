@@ -21,10 +21,14 @@ Please don't hesitate to reach out if you have any questions or need to reschedu
 
 Looking forward to showing you this property!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     viewing_followup: (client, viewing, feedback, agent) => ({
@@ -37,10 +41,14 @@ ${feedback === 'interested' ? `Based on your strong interest, I'd recommend we d
 
 Let me know your thoughts!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     offer_submitted: (client, offer, agent) => ({
@@ -57,10 +65,14 @@ I will keep you updated as soon as I hear back from the seller's agent. This pro
 
 Stay tuned — I'll be in touch!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     offer_accepted: (client, offer, agent) => ({
@@ -79,10 +91,14 @@ ${offer.conditions ? `📋 Conditions to fulfill:\n${offer.conditions}\n\n` : ''
 
 I'll be guiding you every step of the way. Please don't hesitate to call or message me anytime.
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     conditions_reminder: (client, deal, daysLeft, conditionType, agent) => ({
@@ -98,10 +114,14 @@ ${conditionType === 'Financing' ? 'Please ensure your mortgage lender has all re
 
 Time is of the essence — please reach out right away if anything needs attention.
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     closing_countdown: (client, deal, daysLeft, agent) => ({
@@ -129,10 +149,14 @@ ${daysLeft <= 3 ? `✅ Final Closing Checklist:
 
 `}I'm here for any questions. This is an exciting time!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     deal_closed: (client, deal, agent) => ({
@@ -155,10 +179,14 @@ If you have a moment, I would truly appreciate a Google review or a referral to 
 
 Thank you again,
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.
 
 P.S. Don't hesitate to reach out anytime — even just to say hello from your new home! 😊`
     }),
@@ -183,10 +211,14 @@ To get started, simply reply to this email with:
 
 I'm here to guide you every step of the way. No pressure — just let me know what you'd like to do!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     offer_countered: (client, offer, counterAmount, message, agent) => ({
@@ -207,10 +239,14 @@ You have a few options:
 
 Please reply or call me as soon as possible — counter offers are time-sensitive!
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     offer_rejected: (client, offer, message, agent) => ({
@@ -228,10 +264,14 @@ While this is disappointing, please know this happens and it's part of the proce
 
 I'll be in touch shortly with some new options. Please don't hesitate to reach out if you have any questions.
 
-${agent.full_name || agent.name}
-${agent.brokerage || 'eXp Realty'}
-${agent.phone || ''}
-${agent.email || ''}`
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
     welcome_email: (client, intake, agent) => {
@@ -242,7 +282,7 @@ ${agent.email || ''}`
       const agentPhone = agent.phone || '';
       const agentEmail = agent.email || '';
       const agentSig = agent.email_signature ||
-        `${agentName}\n${agentTitle}\n${agentBrokerage}${agentPhone ? '\n' + agentPhone : ''}${agentEmail ? '\n' + agentEmail : ''}`;
+        `${agentName}\nREALTOR® | eXp Realty\nPhone: ${agentPhone || '(709) 325-0545'} | Email: ${agentEmail || 'Maxwell.Midodzi@exprealty.com'}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2\nmaxwellmidodzi.exprealty.com\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       // Build criteria summary from intake data
       const criteriaLines = [];
