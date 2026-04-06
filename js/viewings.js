@@ -37,19 +37,23 @@ const Viewings = {
     }
     const statusColor = { Scheduled:'var(--accent2)', Confirmed:'var(--green)', Completed:'var(--text2)', Cancelled:'var(--red)' };
     el.innerHTML = list.map(v => `
-      <div class="card" onclick="Viewings.openDetail('${v.id}')" style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-          <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;">${v.property_address || 'No address'}</div>
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;" onclick="Viewings.openDetail('${v.id}')">
+          <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;cursor:pointer;">${v.property_address || 'No address'}</div>
           <span style="font-size:11px;font-weight:700;color:${statusColor[v.viewing_status]||'var(--text2)'};">${v.viewing_status||'Scheduled'}</span>
         </div>
-        <div class="text-muted" style="font-size:12px;margin-bottom:8px;">👤 ${v.clients?.full_name || '—'}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <div class="text-muted" style="font-size:12px;margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${v.clients?.full_name || '—'}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
           <span>📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
           ${v.list_price ? `<span class="text-accent fw-700">${App.fmtMoney(v.list_price)}</span>` : ''}
         </div>
         ${v.client_feedback ? `<div style="margin-top:6px;font-size:11px;padding:4px 8px;border-radius:6px;background:var(--bg2);display:inline-block;">
           ${v.client_feedback === 'good' ? '✅' : v.client_feedback === 'interested' ? '🌟' : '❌'} ${v.client_feedback}
         </div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+          <button class="btn btn-outline btn-sm" style="flex:1;" onclick="Viewings.openDetail('${v.id}')">✏️ Details</button>
+          <button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
+        </div>
       </div>`).join('');
   },
 
@@ -166,12 +170,43 @@ const Viewings = {
           await db.from('clients').update({ stage: 'Viewings' }).eq('id', clientId);
           Clients.load();
         }
-        // Queue confirmation email for approval (works even if no email — shows placeholder)
-        if (window.Notify) {
-          const { data: newViewing } = await db.from('viewings').select('*').eq('client_id', clientId).order('created_at',{ascending:false}).limit(1).single();
-          const viewingObj = newViewing || { ...payload, id: null };
-          const clientObj = { ...client, email: client?.email || '(no email on file)' };
-          await Notify.onViewingBooked(viewingObj, clientObj);
+        // ── AUTO-QUEUE APPROVAL NOTIFICATION ──────────────────────────────
+        const viewDate = document.getElementById('vf-date').value;
+        const viewTime = document.getElementById('vf-time').value;
+        const dateStr = viewDate ? new Date(viewDate + 'T12:00:00').toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'}) : '—';
+        const timeStr = viewTime ? viewTime.slice(0,5) : '';
+        await db.from('approval_queue').insert({
+          agent_id: currentAgent.id,
+          client_name: client?.full_name || 'Unknown Client',
+          action_type: 'VIEWING_SCHEDULED',
+          status: 'Pending',
+          details: `📅 Viewing booked for ${client?.full_name || 'client'}\n📍 ${address}\n🕐 ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n📧 ${client?.email || 'No email on file'}`
+        });
+        // Update approvals badge
+        const badge = document.getElementById('approvals-badge');
+        if (badge) {
+          const cur = parseInt(badge.textContent) || 0;
+          badge.textContent = cur + 1;
+          badge.style.display = 'inline';
+        }
+        // ── SEND AGENT NOTIFICATION EMAIL ──────────────────────────────────
+        const agentEmail = currentAgent?.email;
+        if (agentEmail) {
+          const subject = encodeURIComponent(`📅 New Viewing Scheduled — ${client?.full_name || 'Client'}`);
+          const body = encodeURIComponent(
+            `A new viewing has been scheduled in Maxwell DealFlow CRM.\n\n` +
+            `CLIENT: ${client?.full_name || '—'}\n` +
+            `PROPERTY: ${address}\n` +
+            `DATE: ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n` +
+            `CLIENT EMAIL: ${client?.email || 'Not on file'}\n\n` +
+            `Log in to approve or send a confirmation: https://mmaxwell33.github.io/maxwell-dealflow`
+          );
+          // Open quietly in background tab
+          const a = document.createElement('a');
+          a.href = `mailto:${agentEmail}?subject=${subject}&body=${body}`;
+          a.target = '_blank'; a.style.display = 'none';
+          document.body.appendChild(a); a.click();
+          setTimeout(() => document.body.removeChild(a), 1000);
         }
       }
     }
