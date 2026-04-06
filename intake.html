@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Maxwell Delali Midodzi — Client Intake Form</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0f1e;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 0 0 60px 0;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, #1a2340 0%, #0f1729 100%);
+      border-bottom: 1px solid rgba(99,179,237,0.15);
+      padding: 28px 20px 24px;
+      text-align: center;
+    }
+    .header-logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; margin: 0 auto 14px;
+    }
+    .header-name { font-size: 20px; font-weight: 800; color: #fff; }
+    .header-title { font-size: 13px; color: #63b3ed; margin-top: 3px; }
+    .header-sub {
+      margin-top: 16px; font-size: 13px; color: #94a3b8; line-height: 1.6;
+      max-width: 420px; margin-left: auto; margin-right: auto;
+    }
+
+    /* ── FORM CARD ── */
+    .form-card {
+      max-width: 560px; margin: 24px auto; padding: 0 16px;
+    }
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      color: #63b3ed; text-transform: uppercase;
+      margin: 24px 0 10px; padding-bottom: 6px;
+      border-bottom: 1px solid rgba(99,179,237,0.2);
+    }
+    .field { margin-bottom: 14px; }
+    label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    label .req { color: #f87171; }
+    input, select, textarea {
+      width: 100%; padding: 12px 14px;
+      background: #1a2340; border: 1.5px solid rgba(99,179,237,0.2);
+      border-radius: 10px; color: #e2e8f0; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #3b82f6;
+    }
+    select option { background: #1a2340; }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+
+    /* ── CHECKBOX GROUP ── */
+    .check-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .check-item {
+      display: flex; align-items: center; gap: 8px;
+      background: #1a2340; border: 1.5px solid rgba(99,179,237,0.2);
+      border-radius: 8px; padding: 8px 12px; cursor: pointer;
+      font-size: 13px; transition: border-color 0.2s, background 0.2s;
+    }
+    .check-item input[type=checkbox] {
+      width: 16px; height: 16px; padding: 0; background: transparent;
+      border: 1.5px solid #63b3ed; border-radius: 4px; cursor: pointer;
+      accent-color: #3b82f6;
+    }
+    .check-item:has(input:checked) {
+      border-color: #3b82f6; background: rgba(59,130,246,0.12);
+    }
+
+    /* ── SUBMIT ── */
+    .submit-btn {
+      width: 100%; padding: 16px; margin-top: 28px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff; font-size: 16px; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: opacity 0.2s; letter-spacing: 0.02em;
+    }
+    .submit-btn:hover { opacity: 0.92; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── STATUS ── */
+    #form-status {
+      margin-top: 12px; text-align: center; font-size: 14px;
+      font-weight: 600; min-height: 20px;
+    }
+
+    /* ── SUCCESS SCREEN ── */
+    #success-screen {
+      display: none; max-width: 560px; margin: 60px auto; padding: 0 16px;
+      text-align: center;
+    }
+    .success-icon { font-size: 64px; margin-bottom: 20px; }
+    .success-title { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+    .success-msg { font-size: 15px; color: #94a3b8; line-height: 1.7; max-width: 380px; margin: 0 auto; }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center; margin-top: 40px; padding: 0 16px;
+      font-size: 12px; color: #475569;
+    }
+    .footer a { color: #63b3ed; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">🏠</div>
+  <div class="header-name">Maxwell Delali Midodzi</div>
+  <div class="header-title">REALTOR® · eXp Realty</div>
+  <div class="header-sub">
+    Welcome! Please fill out this quick form so I can understand your needs and find you the perfect home. It takes less than 3 minutes.
+  </div>
+</div>
+
+<!-- FORM -->
+<div class="form-card" id="form-section">
+
+  <!-- PERSONAL INFO -->
+  <div class="section-label">👤 Your Information</div>
+
+  <div class="row">
+    <div class="field">
+      <label>First Name <span class="req">*</span></label>
+      <input type="text" id="f-firstname" placeholder="John" autocomplete="given-name">
+    </div>
+    <div class="field">
+      <label>Last Name <span class="req">*</span></label>
+      <input type="text" id="f-lastname" placeholder="Smith" autocomplete="family-name">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Email Address <span class="req">*</span></label>
+    <input type="email" id="f-email" placeholder="john@email.com" autocomplete="email">
+  </div>
+
+  <div class="field">
+    <label>Phone Number</label>
+    <input type="tel" id="f-phone" placeholder="(709) 555-0100" autocomplete="tel">
+  </div>
+
+  <!-- BUYING SITUATION -->
+  <div class="section-label">🏠 Your Home Search</div>
+
+  <div class="field">
+    <label>Are you currently renting or a homeowner?</label>
+    <select id="f-current-status">
+      <option value="">-- Select --</option>
+      <option>Currently Renting</option>
+      <option>Homeowner — looking to buy another</option>
+      <option>Living with family / friends</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>What type of property are you looking for?</label>
+    <div class="check-group">
+      <label class="check-item"><input type="checkbox" name="ptype" value="Detached House"> Detached House</label>
+      <label class="check-item"><input type="checkbox" name="ptype" value="Semi-Detached"> Semi-Detached</label>
+      <label class="check-item"><input type="checkbox" name="ptype" value="Townhouse"> Townhouse</label>
+      <label class="check-item"><input type="checkbox" name="ptype" value="Condo/Apartment"> Condo / Apartment</label>
+      <label class="check-item"><input type="checkbox" name="ptype" value="New Build"> New Build</label>
+      <label class="check-item"><input type="checkbox" name="ptype" value="Open to anything"> Open to anything</label>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Minimum Bedrooms</label>
+      <select id="f-bedrooms">
+        <option value="">Any</option>
+        <option>1</option><option>2</option><option>3</option>
+        <option>4</option><option>5+</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Minimum Bathrooms</label>
+      <select id="f-bathrooms">
+        <option value="">Any</option>
+        <option>1</option><option>1.5</option><option>2</option>
+        <option>2.5</option><option>3+</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- BUDGET & TIMELINE -->
+  <div class="section-label">💰 Budget & Timeline</div>
+
+  <div class="row">
+    <div class="field">
+      <label>Min Budget ($)</label>
+      <input type="number" id="f-budget-min" placeholder="e.g. 300000">
+    </div>
+    <div class="field">
+      <label>Max Budget ($) <span class="req">*</span></label>
+      <input type="number" id="f-budget-max" placeholder="e.g. 550000">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>When are you looking to buy?</label>
+    <select id="f-timeline">
+      <option value="">-- Select --</option>
+      <option>ASAP — actively looking</option>
+      <option>Within 1–3 months</option>
+      <option>3–6 months</option>
+      <option>6–12 months</option>
+      <option>Just exploring for now</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Have you been pre-approved for a mortgage?</label>
+    <select id="f-preapproval">
+      <option value="">-- Select --</option>
+      <option>Yes — fully pre-approved</option>
+      <option>In progress</option>
+      <option>Not yet — need guidance</option>
+      <option>Paying cash</option>
+    </select>
+  </div>
+
+  <!-- LOCATION -->
+  <div class="section-label">📍 Location Preferences</div>
+
+  <div class="field">
+    <label>Preferred Areas / Neighbourhoods</label>
+    <input type="text" id="f-areas" placeholder="e.g. St. John's, Mount Pearl, CBS...">
+  </div>
+
+  <div class="field">
+    <label>Must-Have Features</label>
+    <div class="check-group">
+      <label class="check-item"><input type="checkbox" name="features" value="Garage"> Garage</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Basement"> Basement</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Backyard"> Backyard</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Home Office"> Home Office</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Open Concept"> Open Concept</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Near Schools"> Near Schools</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Near Transit"> Near Transit</label>
+      <label class="check-item"><input type="checkbox" name="features" value="Wheelchair Access"> Wheelchair Access</label>
+    </div>
+  </div>
+
+  <!-- ANYTHING ELSE -->
+  <div class="section-label">📝 Anything Else?</div>
+
+  <div class="field">
+    <label>How did you hear about Maxwell?</label>
+    <select id="f-referral">
+      <option value="">-- Select --</option>
+      <option>Referral from friend / family</option>
+      <option>Google search</option>
+      <option>Social media (Instagram / Facebook)</option>
+      <option>eXp Realty website</option>
+      <option>Previous client</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Anything else you'd like Maxwell to know?</label>
+    <textarea id="f-notes" placeholder="Any special circumstances, must-haves, or questions..."></textarea>
+  </div>
+
+  <button class="submit-btn" onclick="submitIntake()" id="submit-btn">
+    🏠 Submit My Information
+  </button>
+  <div id="form-status"></div>
+
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div id="success-screen">
+  <div class="success-icon">🎉</div>
+  <div class="success-title">You're all set!</div>
+  <div class="success-msg">
+    Thank you! Maxwell has received your information and will be in touch with you shortly to discuss your home search.<br><br>
+    <strong style="color:#63b3ed;">Maxwell Delali Midodzi</strong><br>
+    REALTOR® · eXp Realty<br>
+    📞 (709) 325-0545
+  </div>
+</div>
+
+<div class="footer">
+  Powered by <a href="https://maxwell-dealflow.vercel.app" target="_blank">Maxwell DealFlow CRM</a> · eXp Realty · Your information is kept private and secure.
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const { createClient } = supabase;
+  const db = createClient(
+    'https://bxwmbrdndsetjwcexwpc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc'
+  );
+
+  function getChecked(name) {
+    return [...document.querySelectorAll(`input[name="${name}"]:checked`)]
+      .map(el => el.value).join(', ');
+  }
+
+  async function submitIntake() {
+    const st = document.getElementById('form-status');
+    const btn = document.getElementById('submit-btn');
+
+    const firstName = document.getElementById('f-firstname').value.trim();
+    const lastName  = document.getElementById('f-lastname').value.trim();
+    const email     = document.getElementById('f-email').value.trim();
+    const budgetMax = document.getElementById('f-budget-max').value.trim();
+
+    if (!firstName || !lastName) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your first and last name.'; return; }
+    if (!email) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your email address.'; return; }
+    if (!budgetMax) { st.style.color='#f87171'; st.textContent='⚠️ Please enter your maximum budget.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+    st.style.color = '#94a3b8'; st.textContent = 'Sending your information...';
+
+    const payload = {
+      full_name:       `${firstName} ${lastName}`,
+      first_name:      firstName,
+      last_name:       lastName,
+      email:           email,
+      phone:           document.getElementById('f-phone').value.trim() || null,
+      current_status:  document.getElementById('f-current-status').value || null,
+      property_types:  getChecked('ptype') || null,
+      bedrooms:        document.getElementById('f-bedrooms').value || null,
+      bathrooms:       document.getElementById('f-bathrooms').value || null,
+      budget_min:      document.getElementById('f-budget-min').value || null,
+      budget_max:      budgetMax,
+      timeline:        document.getElementById('f-timeline').value || null,
+      preapproval:     document.getElementById('f-preapproval').value || null,
+      preferred_areas: document.getElementById('f-areas').value.trim() || null,
+      must_haves:      getChecked('features') || null,
+      referral_source: document.getElementById('f-referral').value || null,
+      notes:           document.getElementById('f-notes').value.trim() || null,
+      status:          'New',
+      submitted_at:    new Date().toISOString()
+    };
+
+    const { error } = await db.from('client_intake').insert(payload);
+
+    if (error) {
+      btn.disabled = false;
+      btn.textContent = '🏠 Submit My Information';
+      st.style.color = '#f87171';
+      st.textContent = '⚠️ Something went wrong. Please try again.';
+      console.error(error);
+      return;
+    }
+
+    // Show success screen
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+</script>
+</body>
+</html>

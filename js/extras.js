@@ -106,6 +106,112 @@ const Approvals = {
   }
 };
 
+// ── FORM RESPONSES (Client Intake) ──────────────────────────────────────────
+const FormResponses = {
+  all: [],
+
+  async load() {
+    const el = document.getElementById('formresponses-list');
+    if (!el) return;
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+    // Load ALL submissions (no agent_id filter — public form, agent reviews all)
+    const { data, error } = await db.from('client_intake')
+      .select('*').order('submitted_at', { ascending: false }).limit(100);
+    if (error || !data?.length) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text">No form submissions yet</div>
+        <div class="empty-sub">Share your intake form link with clients to get started</div>
+      </div>
+      <div class="card" style="margin-top:16px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📋 Your Intake Form Link</div>
+        <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwell-dealflow.vercel.app/intake.html</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">📋 Copy Link</button>
+      </div>`;
+      return;
+    }
+    FormResponses.all = data;
+    el.innerHTML = `
+      <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
+        <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwell-dealflow.vercel.app/intake.html</div>
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">📋 Copy Link</button>
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${data.length} submission${data.length!==1?'s':''} received</div>
+      ${data.map(r => {
+        const isNew = r.status === 'New';
+        const date = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+        return `
+        <div class="card" style="margin-bottom:12px;border-left:3px solid ${isNew?'var(--accent2)':'var(--green)'};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div>
+              <div class="fw-700" style="font-size:15px;">${r.full_name || '—'}</div>
+              <div style="font-size:12px;color:var(--text2);">📧 ${r.email || '—'} ${r.phone ? '· 📞 '+r.phone : ''}</div>
+            </div>
+            <span class="stage-badge ${isNew?'badge-conditions':'badge-accepted'}" style="font-size:10px;white-space:nowrap;">${isNew?'🆕 New':'✅ Added'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--text2);margin-bottom:10px;">
+            ${r.budget_max ? `<div>💰 Max Budget: <strong style="color:var(--green);">$${Number(r.budget_max).toLocaleString()}</strong></div>` : ''}
+            ${r.timeline ? `<div>⏱ Timeline: ${r.timeline}</div>` : ''}
+            ${r.preapproval ? `<div>🏦 Pre-Approved: ${r.preapproval}</div>` : ''}
+            ${r.bedrooms ? `<div>🛏 Bedrooms: ${r.bedrooms}+</div>` : ''}
+            ${r.preferred_areas ? `<div>📍 Areas: ${r.preferred_areas}</div>` : ''}
+            ${r.property_types ? `<div>🏠 Type: ${r.property_types}</div>` : ''}
+          </div>
+          ${r.must_haves ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">✅ Must-haves: ${r.must_haves}</div>` : ''}
+          ${r.notes ? `<div style="font-size:12px;background:var(--bg);padding:8px;border-radius:6px;color:var(--text2);margin-bottom:10px;line-height:1.5;">📝 ${r.notes}</div>` : ''}
+          <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Submitted ${date}</div>
+          ${isNew ? `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="FormResponses.addAsClient('${r.id}')">✅ Add as Client</button>
+            <button class="btn btn-red btn-sm" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
+          </div>` : ''}
+        </div>`;
+      }).join('')}`;
+  },
+
+  async addAsClient(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    if (!r || !currentAgent?.id) return;
+    // Build notes from intake data
+    const notes = [
+      r.property_types ? `Looking for: ${r.property_types}` : '',
+      r.must_haves ? `Must-haves: ${r.must_haves}` : '',
+      r.current_status ? `Current status: ${r.current_status}` : '',
+      r.preapproval ? `Pre-approval: ${r.preapproval}` : '',
+      r.referral_source ? `Referred by: ${r.referral_source}` : '',
+      r.notes ? `Client notes: ${r.notes}` : ''
+    ].filter(Boolean).join('\n');
+
+    const { error } = await db.from('clients').insert({
+      agent_id: currentAgent.id,
+      full_name: r.full_name,
+      email: r.email,
+      phone: r.phone || null,
+      budget_min: r.budget_min ? Number(r.budget_min) : null,
+      budget_max: r.budget_max ? Number(r.budget_max) : null,
+      preferred_areas: r.preferred_areas || null,
+      bedrooms: r.bedrooms || null,
+      stage: 'New Lead',
+      status: 'Active',
+      notes: notes || null
+    });
+    if (error) { App.toast('⚠️ Error: ' + error.message, 'var(--red)'); return; }
+    // Mark intake as processed
+    await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
+    await App.logActivity('CLIENT_ADDED', r.full_name, r.email, `Added from intake form: ${r.full_name}`);
+    App.toast(`✅ ${r.full_name} added as a client!`, 'var(--green)');
+    FormResponses.load();
+    Clients.load();
+  },
+
+  async dismiss(id) {
+    await db.from('client_intake').update({ status: 'Dismissed' }).eq('id', id);
+    App.toast('Submission dismissed');
+    FormResponses.load();
+  }
+};
+
 // ── ACTIVITY LOG ────────────────────────────────────────────────────────────
 const ActivityLog = {
   all: [],
