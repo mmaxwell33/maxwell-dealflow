@@ -5,6 +5,55 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentAgent = null;
 let currentTab = 'overview';
 
+// ── PWA Install Prompt ────────────────────────────────────────────────────────
+let _pwaInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaInstallPrompt = e;
+  // Show install banner after a short delay (only if not already installed)
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    setTimeout(() => _showPWABanner(), 3000);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  _pwaInstallPrompt = null;
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.remove();
+  console.log('DealFlow PWA installed ✅');
+});
+
+function _showPWABanner() {
+  if (document.getElementById('pwa-install-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-install-banner';
+  banner.style.cssText = [
+    'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
+    'background:#1a56db', 'color:#fff', 'padding:12px 20px', 'border-radius:12px',
+    'display:flex', 'align-items:center', 'gap:12px', 'box-shadow:0 4px 24px rgba(0,0,0,0.4)',
+    'z-index:99999', 'font-family:inherit', 'font-size:14px', 'font-weight:600',
+    'white-space:nowrap', 'cursor:pointer', 'transition:opacity .3s'
+  ].join(';');
+  banner.innerHTML = `
+    <span style="font-size:20px">📲</span>
+    <span>Install DealFlow on your device</span>
+    <button onclick="App.installPWA()" style="background:#fff;color:#1a56db;border:none;padding:6px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Install</button>
+    <button onclick="document.getElementById('pwa-install-banner').remove()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px;">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+// Exposed so the topbar Settings can also trigger install
+App.installPWA = async function() {
+  if (!_pwaInstallPrompt) return;
+  _pwaInstallPrompt.prompt();
+  const { outcome } = await _pwaInstallPrompt.userChoice;
+  if (outcome === 'accepted') _pwaInstallPrompt = null;
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.remove();
+};
+
 const App = {
 
   async init() {
