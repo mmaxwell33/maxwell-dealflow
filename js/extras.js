@@ -21,7 +21,7 @@ const Approvals = {
     const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨' };
     Approvals._data = pending;
     el.innerHTML = pending.map(a => `
-      <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};">
+      <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};cursor:pointer;" onclick="Approvals.openEdit('${a.id}')">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
           <div style="font-size:22px;line-height:1;">${typeIcon[a.approval_type]||'📬'}</div>
           <div style="flex:1;">
@@ -33,15 +33,15 @@ const Approvals = {
         </div>
         ${a.email_subject ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;padding:6px 10px;background:var(--bg);border-radius:6px;">📧 ${App.esc(a.email_subject)}</div>` : ''}
         ${a.email_body ? `
-        <div style="font-size:12px;color:var(--text2);white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;margin-bottom:10px;line-height:1.6;max-height:160px;overflow:hidden;position:relative;" id="appr-body-${a.id}">
-          ${App.esc(a.email_body.slice(0,400))}${a.email_body.length>400?`<div style="position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--bg));"></div>`:''}
-        </div>
-        ${a.email_body.length>400?`<button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:10px;" onclick="Approvals.previewEmail('${a.id}')">👁 Read Full Email & Edit</button>`:''}
-        ` : ''}
+        <div style="font-size:12px;color:var(--text2);background:var(--bg);padding:10px;border-radius:6px;margin-bottom:10px;line-height:1.6;">
+          ${a.email_body.trim().startsWith('<!DOCTYPE') || a.email_body.trim().startsWith('<html')
+            ? `<span style="color:var(--accent2);">👁 Click to preview formatted email</span>`
+            : App.esc(a.email_body.slice(0,200)) + (a.email_body.length>200?'…':'')}
+        </div>` : ''}
         ${a.status === 'Pending' ? `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
-            <button class="btn btn-outline btn-sm" onclick="Approvals.previewEmail('${a.id}')">✏️ Edit Email</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Preview & Edit</button>
             <button class="btn btn-red btn-sm" onclick="Approvals.reject('${a.id}')">❌ Discard</button>
           </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '❌ Discarded'} · ${App.fmtDate(a.updated_at)}</div>`}
       </div>`).join('');
@@ -98,7 +98,7 @@ const Approvals = {
             to: item.client_email,
             subject: item.email_subject,
             body: item.email_body || '',
-            from_name: agent.full_name || 'Maxwell Midodzi',
+            from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
             from_email: null
           })
         });
@@ -129,25 +129,50 @@ const Approvals = {
   openEdit(id) {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
+      const isHtml = item.email_body?.trim().startsWith('<!DOCTYPE') || item.email_body?.trim().startsWith('<html');
       App.openModal(`
-        <div class="modal-title">✏️ Edit Email Before Sending</div>
-        <div style="margin-bottom:8px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">TO</div>
-          <div class="fw-700">${item.client_name} · ${item.client_email}</div>
+        <div class="modal-title">📧 Review & Edit Email</div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--bg);border-radius:8px;">
+          <div style="font-size:28px;">👤</div>
+          <div>
+            <div class="fw-700" style="font-size:14px;">${App.esc(item.client_name||'Unknown')}</div>
+            <div style="font-size:12px;color:var(--text2);">✉️ ${App.esc(item.client_email||'No email on file')}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">${App.esc(item.approval_type||'Email')} · ${App.timeAgo(item.created_at)}</div>
+          </div>
         </div>
+
         <div class="form-group">
-          <label class="form-label">Subject</label>
-          <input class="form-input" id="edit-appr-subject" value="${App.esc(item.email_subject||'')}">
+          <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Subject</label>
+          <input class="form-input" id="edit-appr-subject" value="${App.esc(item.email_subject||'')}" style="font-weight:700;">
         </div>
+
         <div class="form-group">
-          <label class="form-label">Email Body</label>
-          <textarea class="form-input" id="edit-appr-body" rows="12" style="font-size:13px;line-height:1.6;">${App.esc(item.email_body||'')}</textarea>
+          <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Preview</label>
+          ${isHtml
+            ? `<iframe id="appr-preview-iframe" style="width:100%;height:320px;border:1px solid var(--border);border-radius:8px;background:#fff;" sandbox="allow-same-origin"></iframe>
+               <input type="hidden" id="edit-appr-body" value="">`
+            : `<textarea class="form-input" id="edit-appr-body" rows="10" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>`
+          }
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button class="btn btn-green" onclick="Approvals.saveEdit('${id}')">✅ Save & Approve</button>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <button class="btn btn-green" onclick="Approvals.saveEdit('${id}')">✅ Approve & Send</button>
           <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
         </div>
+        <button class="btn btn-red btn-block" onclick="App.closeModal();Approvals.reject('${id}')">❌ Discard Email</button>
       `);
+      // Inject HTML into iframe after modal renders
+      if (isHtml) {
+        setTimeout(() => {
+          const iframe = document.getElementById('appr-preview-iframe');
+          const hiddenInput = document.getElementById('edit-appr-body');
+          if (iframe) {
+            iframe.srcdoc = item.email_body;
+          }
+          if (hiddenInput) hiddenInput.value = item.email_body;
+        }, 100);
+      }
     });
   },
 

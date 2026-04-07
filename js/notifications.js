@@ -277,77 +277,122 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     welcome_email: (client, intake, agent) => {
       const firstName = client.full_name?.split(' ')[0] || client.first_name || 'there';
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
-      const agentTitle = agent.title || 'REALTOR®';
-      const agentBrokerage = agent.brokerage || 'eXp Realty';
-      const agentPhone = agent.phone || '';
-      const agentEmail = agent.email || '';
-      const agentSig = agent.email_signature ||
-        `${agentName}\nREALTOR® | eXp Realty\nPhone: ${agentPhone || '(709) 325-0545'} | Email: ${agentEmail || 'Maxwell.Midodzi@exprealty.com'}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2\nmaxwellmidodzi.exprealty.com\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+      const agentPhone = agent.phone || '(709) 325-0545';
+      const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
+      const agentAddress = agent.brokerage_address || '33 Pippy PL, Suite 101, St. John\'s, NL A1B 3X2';
 
-      // Build criteria summary from intake data
+      // Build criteria rows
       const criteriaLines = [];
-      if (intake.property_types) criteriaLines.push(`🏠 Property Type: ${intake.property_types}`);
-      if (intake.bedrooms) criteriaLines.push(`🛏 Bedrooms: ${intake.bedrooms}`);
-      if (intake.bathrooms) criteriaLines.push(`🛁 Bathrooms: ${intake.bathrooms}`);
-      if (intake.budget_max) criteriaLines.push(`💰 Budget: Up to ${Number(intake.budget_max).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0})}`);
-      if (intake.preferred_areas) criteriaLines.push(`📍 Areas: ${intake.preferred_areas}`);
-      if (intake.timeline) criteriaLines.push(`📅 Timeline: ${intake.timeline}`);
-      if (intake.must_haves) criteriaLines.push(`✅ Must-Haves: ${intake.must_haves}`);
-      const criteriaBlock = criteriaLines.length ? criteriaLines.join('\n') : 'Your preferences have been noted.';
+      if (intake.property_types) criteriaLines.push(`🏠 <strong>Property Type:</strong> ${intake.property_types}`);
+      if (intake.bedrooms) criteriaLines.push(`🛏 <strong>Bedrooms:</strong> ${intake.bedrooms}`);
+      if (intake.bathrooms) criteriaLines.push(`🛁 <strong>Bathrooms:</strong> ${intake.bathrooms}`);
+      if (intake.budget_max) criteriaLines.push(`💰 <strong>Budget:</strong> Up to ${Number(intake.budget_max).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0})}`);
+      if (intake.preferred_areas) criteriaLines.push(`📍 <strong>Areas:</strong> ${intake.preferred_areas}`);
+      if (intake.timeline) criteriaLines.push(`📅 <strong>Timeline:</strong> ${intake.timeline}`);
+      if (intake.must_haves) criteriaLines.push(`✅ <strong>Must-Haves:</strong> ${intake.must_haves}`);
+      const criteriaHTML = criteriaLines.length
+        ? criteriaLines.map(l => `<p style="margin:6px 0;font-size:14px;color:#333;">${l}</p>`).join('')
+        : `<p style="margin:6px 0;font-size:14px;color:#333;">Your preferences have been noted.</p>`;
+
+      const steps = [
+        { n:1, color:'#4f46e5', title:'Discovery Call', desc:"We'll discuss your needs, budget, and timeline" },
+        { n:2, color:'#059669', title:'Property Search', desc:"I'll share listings that match your criteria" },
+        { n:3, color:'#d97706', title:'Viewings', desc:"We'll tour properties together" },
+        { n:4, color:'#7c3aed', title:'Offer & Closing', desc:"I'll negotiate the best deal for you" }
+      ];
+
+      const stepsHTML = steps.map((s, i) => `
+        <tr>
+          <td style="padding:14px 0;${i < steps.length-1 ? 'border-bottom:1px solid #eee;' : ''}">
+            <table cellpadding="0" cellspacing="0"><tr>
+              <td style="width:40px;vertical-align:middle;">
+                <div style="width:32px;height:32px;border-radius:50%;background:${s.color};color:#fff;font-weight:bold;font-size:15px;text-align:center;line-height:32px;">${s.n}</div>
+              </td>
+              <td style="padding-left:12px;vertical-align:middle;">
+                <span style="font-weight:bold;color:#111;">${s.title}</span>
+                <span style="color:#555;"> — ${s.desc}</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr>`).join('');
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
+
+      <tr><td style="padding:32px 40px 24px;">
+        <p style="margin:0 0 8px;font-size:28px;">🎉 <strong style="color:#4f46e5;">Welcome!</strong></p>
+        <p style="margin:0 0 20px;font-size:16px;color:#111;">Hi ${firstName},</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Thank you for choosing me as your real estate agent! I'm excited to help you find your perfect home.</p>
+        <p style="margin:0 0 20px;font-size:15px;color:#333;">Here's what happens next:</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:8px;overflow:hidden;padding:0 16px;">
+          ${stepsHTML}
+        </table>
+
+        ${criteriaLines.length ? `
+        <div style="margin-top:24px;padding:16px;background:#f9f9f9;border-radius:8px;">
+          <p style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:.05em;">Your Search Criteria on File</p>
+          ${criteriaHTML}
+        </div>` : ''}
+
+        <p style="margin:24px 0 0;font-size:15px;color:#333;line-height:1.6;">Feel free to reach out anytime — I'm here to help!</p>
+      </td></tr>
+
+      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
+        <p style="margin:0 0 4px;font-size:14px;color:#555;">Regards,</p>
+        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
+        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR® | eXp Realty</p>
+      </td></tr>
+
+      <tr><td style="background:#f8f8f8;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
+        <p style="margin:0 0 4px;font-size:12px;color:#888;">Phone: ${agentPhone} | Email: <a href="mailto:${agentEmail}" style="color:#4f46e5;">${agentEmail}</a></p>
+        <p style="margin:0 0 4px;font-size:12px;color:#888;">eXp Realty, ${agentAddress}</p>
+        <p style="margin:0;font-size:12px;color:#888;"><a href="https://${agentWebsite}" style="color:#4f46e5;">${agentWebsite}</a></p>
+      </td></tr>
+
+      <tr><td style="padding:16px 40px;background:#f8f8f8;border-top:1px solid #eee;">
+        <p style="margin:0;font-size:11px;color:#aaa;line-height:1.6;text-align:center;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+      const plainText = `Hi ${firstName},
+
+Welcome! I'm ${agentName} and I'm thrilled to be working with you.
+
+Here's what happens next:
+1. Discovery Call — We'll discuss your needs, budget, and timeline
+2. Property Search — I'll share listings that match your criteria
+3. Viewings — We'll tour properties together
+4. Offer & Closing — I'll negotiate the best deal for you
+
+Feel free to reach out anytime.
+
+Regards,
+${agentName}
+REALTOR® | eXp Realty
+${agentPhone} | ${agentEmail}
+${agentAddress}`;
 
       return {
-        subject: `Welcome, ${firstName}! Here's What to Expect — ${agentName}`,
-        body: `Hi ${firstName},
-
-Welcome, and thank you for submitting your information! I'm ${agentName}, and I'm thrilled to be working with you on your home search. I've received your details and I'm already getting started.
-
-Here's a quick overview of what you can expect throughout our journey together:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏡 YOUR HOME BUYING PROCESS — AT A GLANCE
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-STEP 1 — PERSONALIZED LISTINGS 📋
-Based on your criteria, I'll curate a shortlist of properties that match what you're looking for and send them your way. No spam — only homes I genuinely think are a fit.
-
-STEP 2 — TELL ME WHAT YOU LIKE 💬
-When you see a listing that catches your eye, simply reply to my email or send me a text. I'll arrange a private showing as quickly as possible.
-
-STEP 3 — PROPERTY VIEWINGS 🏠
-We'll tour the homes together. I'll point out things you might not notice on your own — condition, neighbourhood, value. After each viewing, I'll follow up to get your feedback.
-
-STEP 4 — MAKING AN OFFER 📝
-Found the one? I'll prepare a competitive offer on your behalf, walk you through every line, and submit it to the seller's agent. I negotiate hard on your side.
-
-STEP 5 — CONDITIONS & DUE DILIGENCE ✅
-Most offers include conditions — financing approval and a home inspection. I'll guide you through both and keep track of all deadlines so nothing slips through the cracks.
-
-STEP 6 — CLOSING DAY 🔑
-Once conditions are met and everything is signed, your lawyer takes over for the final paperwork. On closing day — the keys are yours!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-📌 YOUR SEARCH CRITERIA ON FILE
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-${criteriaBlock}
-
-If anything has changed or you'd like to refine these, just let me know — I want to make sure every listing I send you is right on target.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-I'm here every step of the way. Don't hesitate to reach out anytime — no question is too small.
-
-Looking forward to finding you the perfect home!
-
-Warm regards,
-
-${agentSig}`
+        subject: `🎉 Welcome to eXp Realty, ${firstName}! — ${agentName}`,
+        body: html,
+        plainText
       };
     },
   },
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, plainText = null) {
     // Use agent id, or fall back to auth user id if agent record not in agents table
     const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
     if (!agentId) return;
@@ -480,7 +525,7 @@ ${agentSig}`
     await Notify.queue(
       'Welcome Email',
       client.id, client.full_name, client.email,
-      tmpl.subject, tmpl.body, null
+      tmpl.subject, tmpl.body, null, tmpl.plainText
     );
   },
 

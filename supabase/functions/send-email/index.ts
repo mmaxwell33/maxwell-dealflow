@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_name, from_email } = await req.json();
+    const { to, subject, body, html, from_name, from_email } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing required fields: to, subject, body' }), {
@@ -32,6 +32,11 @@ serve(async (req) => {
       ? `${from_name || 'Maxwell Midodzi'} <${from_email}>`
       : 'Maxwell Midodzi <onboarding@resend.dev>';
 
+    // Determine if body is HTML or plain text
+    const isHtml = body && body.trim().startsWith('<!DOCTYPE') || body?.trim().startsWith('<html');
+    const htmlContent = html || (isHtml ? body : null);
+    const textContent = isHtml ? (body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : body;
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -41,8 +46,9 @@ serve(async (req) => {
       body: JSON.stringify({
         from: fromAddress,
         to: [to],
-        subject: subject,
-        text: body,
+        subject,
+        ...(htmlContent ? { html: htmlContent } : {}),
+        text: textContent,
       }),
     });
 

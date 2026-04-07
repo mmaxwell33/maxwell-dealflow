@@ -206,8 +206,14 @@ const Clients = {
 
     if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
     await App.logActivity('CLIENT_ADDED', name, data.email, `New client added: ${name}`, data.id);
+
+    // Queue welcome email for approval if client has an email
+    if (data.email && window.Notify) {
+      await Notify.onClientAdded(data, {});
+    }
+
     App.closeModal();
-    App.toast('✅ Client added!');
+    App.toast('✅ Client added! Welcome email queued for approval.', 'var(--green)');
     Clients.load();
     App.loadOverview();
   },
