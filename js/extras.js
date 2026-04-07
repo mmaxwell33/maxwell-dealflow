@@ -75,17 +75,48 @@ const Approvals = {
   async approve(id) {
     const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
     if (!item) return;
-    // Mark approved in DB
-    await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
-    App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
-    Approvals.load();
-    if (window.Notify) Notify.updateBadge();
-    // ── OPEN MAIL PRE-FILLED — YOUR SIGNATURE ALREADY IN BODY — ONE TAP SENDS
+
+    App.toast('📨 Sending email...', 'var(--accent2)');
+
     if (item.client_email && item.email_subject) {
-      const mailto = `mailto:${item.client_email}?subject=${encodeURIComponent(item.email_subject)}&body=${encodeURIComponent(item.email_body || '')}`;
-      window.open(mailto);
-      App.toast('✅ Mail opened — just tap Send!', 'var(--green)');
+      // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
+      try {
+        const agent = currentAgent || {};
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'apikey': SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({
+            to: item.client_email,
+            subject: item.email_subject,
+            body: item.email_body || '',
+            from_name: agent.full_name || 'Maxwell Midodzi',
+            from_email: null
+          })
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) {
+          App.toast(`❌ Failed to send: ${JSON.stringify(result.error)}`, 'var(--red)');
+          return;
+        }
+        // Mark approved in DB
+        await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
+        App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
+        Approvals.load();
+        if (window.Notify) Notify.updateBadge();
+        App.toast(`✅ Email sent to ${item.client_name}!`, 'var(--green)');
+      } catch (err) {
+        App.toast(`❌ Error: ${err.message}`, 'var(--red)');
+      }
     } else {
+      // No email on file — just mark approved
+      await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
+      App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Approved: ${item.email_subject}`);
+      Approvals.load();
+      if (window.Notify) Notify.updateBadge();
       App.toast('✅ Approved and logged!', 'var(--green)');
     }
   },
