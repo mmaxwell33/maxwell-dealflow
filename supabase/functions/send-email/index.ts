@@ -28,9 +28,13 @@ serve(async (req) => {
       });
     }
 
-    const fromAddress = from_email
-      ? `${from_name || 'Maxwell Midodzi'} <${from_email}>`
-      : 'Maxwell Midodzi <onboarding@resend.dev>';
+    // Use verified sender domain — update SENDER_EMAIL env var in Supabase dashboard
+    const SENDER_EMAIL = Deno.env.get('SENDER_EMAIL') || 'onboarding@resend.dev';
+    const fromAddress = `${from_name || 'Maxwell Delali Midodzi'} <${SENDER_EMAIL}>`;
+
+    // Send to actual recipient — domain must be verified in Resend
+    const actualTo = to;
+    const sandboxSubject = subject;
 
     // Determine if body is HTML or plain text
     const isHtml = body && body.trim().startsWith('<!DOCTYPE') || body?.trim().startsWith('<html');
@@ -45,8 +49,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: fromAddress,
-        to: [to],
-        subject,
+        to: [actualTo],
+        subject: sandboxSubject,
         ...(htmlContent ? { html: htmlContent } : {}),
         text: textContent,
       }),
