@@ -83,11 +83,10 @@ const App = {
     const errEl = document.getElementById('auth-error');
     errEl.textContent = '';
     if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return; }
-    const btn = document.querySelector('.auth-btn');
-    btn.textContent = 'Signing in...';
-    btn.disabled = true;
+    const btn = document.querySelector('.lock-btn') || document.querySelector('.auth-btn');
+    if (btn) { btn.textContent = 'Unlocking...'; btn.disabled = true; }
     const { error } = await db.auth.signInWithPassword({ email, password });
-    btn.textContent = 'Sign In'; btn.disabled = false;
+    if (btn) { btn.textContent = 'Unlock'; btn.disabled = false; }
     if (error) { errEl.textContent = error.message; return; }
   },
 
