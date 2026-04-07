@@ -97,8 +97,13 @@ const App = {
 
   async onSignedIn(user) {
     // Load agent profile
-    const { data: agent } = await db.from('agents').select('*').eq('email', user.email).single();
-    currentAgent = agent || { name: user.email, email: user.email, id: null };
+    // Try by auth user ID first, then fall back to email match
+    let { data: agent } = await db.from('agents').select('*').eq('id', user.id).single();
+    if (!agent) {
+      const { data: agentByEmail } = await db.from('agents').select('*').eq('email', user.email).single();
+      agent = agentByEmail;
+    }
+    currentAgent = agent || { name: user.email, email: user.email, id: user.id };
     // Merge any locally-cached profile edits (in case Supabase write was blocked)
     try {
       const cached = JSON.parse(localStorage.getItem('mdf-profile-cache') || 'null');
