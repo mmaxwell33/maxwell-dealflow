@@ -384,15 +384,15 @@ ${agentAddress}`;
 
       return {
         subject: `🎉 Welcome to eXp Realty, ${firstName}! — ${agentName}`,
-        body: html,
-        plainText
+        body: plainText,
+        html
       };
     },
   },
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, plainText = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null) {
     // Use agent id, or fall back to auth user id if agent record not in agents table
     const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
     if (!agentId) return;
@@ -402,7 +402,8 @@ ${agentAddress}`;
       client_email: clientEmail,
       approval_type: type,
       email_subject: emailSubject,
-      email_body: emailBody,
+      email_body: emailBody,      // always plain text — shown in preview
+      context_data: htmlBody || null, // HTML template stored here for sending
       related_id: relatedId,
       status: 'Pending'
     });
@@ -525,7 +526,7 @@ ${agentAddress}`;
     await Notify.queue(
       'Welcome Email',
       client.id, client.full_name, client.email,
-      tmpl.subject, tmpl.body, null, tmpl.plainText
+      tmpl.subject, tmpl.body, null, tmpl.html
     );
   },
 

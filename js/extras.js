@@ -98,6 +98,7 @@ const Approvals = {
             to: item.client_email,
             subject: item.email_subject,
             body: item.email_body || '',
+            html: item.context_data || null,
             from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
             from_email: null
           })
@@ -129,7 +130,6 @@ const Approvals = {
   openEdit(id) {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
-      const isHtml = item.email_body?.trim().startsWith('<!DOCTYPE') || item.email_body?.trim().startsWith('<html');
       App.openModal(`
         <div class="modal-title">📧 Review & Edit Email</div>
 
@@ -148,12 +148,8 @@ const Approvals = {
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Preview</label>
-          ${isHtml
-            ? `<iframe id="appr-preview-iframe" style="width:100%;height:320px;border:1px solid var(--border);border-radius:8px;background:#fff;" sandbox="allow-same-origin"></iframe>
-               <input type="hidden" id="edit-appr-body" value="">`
-            : `<textarea class="form-input" id="edit-appr-body" rows="10" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>`
-          }
+          <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Message</label>
+          <textarea class="form-input" id="edit-appr-body" rows="12" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -162,17 +158,6 @@ const Approvals = {
         </div>
         <button class="btn btn-red btn-block" onclick="App.closeModal();Approvals.reject('${id}')">❌ Discard Email</button>
       `);
-      // Inject HTML into iframe after modal renders
-      if (isHtml) {
-        setTimeout(() => {
-          const iframe = document.getElementById('appr-preview-iframe');
-          const hiddenInput = document.getElementById('edit-appr-body');
-          if (iframe) {
-            iframe.srcdoc = item.email_body;
-          }
-          if (hiddenInput) hiddenInput.value = item.email_body;
-        }, 100);
-      }
     });
   },
 
