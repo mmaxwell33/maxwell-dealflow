@@ -1,12 +1,16 @@
 // ── APPROVALS ──────────────────────────────────────────────────────────────
 const Approvals = {
   async load() {
-    if (!currentAgent?.id) return;
+    const el = document.getElementById('approvals-list');
+    if (!currentAgent?.id) {
+      // Retry after short delay in case agent is still loading
+      setTimeout(() => Approvals.load(), 800);
+      return;
+    }
     const { data } = await db.from('approval_queue')
       .select('*').eq('agent_id', currentAgent.id)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false }).limit(50);
-    const el = document.getElementById('approvals-list');
     const pending = data || [];
     const badge = document.getElementById('approvals-badge');
     if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
