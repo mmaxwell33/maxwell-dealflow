@@ -149,7 +149,7 @@ const Approvals = {
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Message</label>
-          <textarea class="form-input" id="edit-appr-body" rows="12" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>
+          <textarea class="form-input" id="edit-appr-body" rows="18" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">

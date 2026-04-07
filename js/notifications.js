@@ -366,7 +366,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const plainText = `Hi ${firstName},
 
-Welcome! I'm ${agentName} and I'm thrilled to be working with you.
+Welcome! I'm ${agentName} and I'm thrilled to be working with you on your real estate journey.
 
 Here's what happens next:
 1. Discovery Call — We'll discuss your needs, budget, and timeline
@@ -374,13 +374,17 @@ Here's what happens next:
 3. Viewings — We'll tour properties together
 4. Offer & Closing — I'll negotiate the best deal for you
 
-Feel free to reach out anytime.
+Feel free to reach out anytime — I'm here to help!
 
 Regards,
 ${agentName}
 REALTOR® | eXp Realty
-${agentPhone} | ${agentEmail}
-${agentAddress}`;
+Phone: ${agentPhone} | Email: ${agentEmail}
+eXp Realty, ${agentAddress}
+${agentWebsite}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       return {
         subject: `🎉 Welcome to eXp Realty, ${firstName}! — ${agentName}`,
