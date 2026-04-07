@@ -14,6 +14,7 @@ const Approvals = {
       return;
     }
     const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨' };
+    Approvals._data = data;
     el.innerHTML = data.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
@@ -25,12 +26,17 @@ const Approvals = {
           </div>
           <span class="stage-badge ${a.status==='Pending'?'badge-conditions':a.status==='Approved'?'badge-accepted':'badge-default'}">${a.status}</span>
         </div>
-        ${a.email_subject ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;padding:6px 10px;background:var(--bg);border-radius:6px;">📧 ${App.esc(a.email_subject)}</div>` : ''}
-        ${a.email_body ? `<div style="font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:120px;overflow:hidden;background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:10px;line-height:1.5;" id="appr-body-${a.id}">${App.esc(a.email_body.slice(0,300))}${a.email_body.length>300?'<span style="color:var(--accent2);cursor:pointer;" onclick="Approvals.expandBody(\''+a.id+'\')">… read more</span>':''}</div>` : ''}
+        ${a.email_subject ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;padding:6px 10px;background:var(--bg);border-radius:6px;">📧 ${App.esc(a.email_subject)}</div>` : ''}
+        ${a.email_body ? `
+        <div style="font-size:12px;color:var(--text2);white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;margin-bottom:10px;line-height:1.6;max-height:160px;overflow:hidden;position:relative;" id="appr-body-${a.id}">
+          ${App.esc(a.email_body.slice(0,400))}${a.email_body.length>400?`<div style="position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--bg));"></div>`:''}
+        </div>
+        ${a.email_body.length>400?`<button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:10px;" onclick="Approvals.previewEmail('${a.id}')">👁 Read Full Email & Edit</button>`:''}
+        ` : ''}
         ${a.status === 'Pending' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
-            <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Edit Email</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.previewEmail('${a.id}')">✏️ Edit Email</button>
             <button class="btn btn-red btn-sm" onclick="Approvals.reject('${a.id}')">❌ Discard</button>
           </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '❌ Discarded'} · ${App.fmtDate(a.updated_at)}</div>`}
       </div>`).join('');
@@ -43,6 +49,25 @@ const Approvals = {
       el.textContent = item.email_body;
       el.style.maxHeight = 'none';
     }
+  },
+
+  previewEmail(id) {
+    const item = (Approvals._data||[]).find(a=>a.id===id);
+    if (!item) return;
+    App.openModal(`
+      <div class="modal-title">📧 Email Preview</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">TO</div>
+      <div class="fw-700" style="margin-bottom:12px;">${item.client_name} · ${item.client_email||'No email'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">SUBJECT</div>
+      <div class="fw-700" style="margin-bottom:12px;">${App.esc(item.email_subject||'')}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">MESSAGE</div>
+      <div style="font-size:13px;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px;line-height:1.7;max-height:340px;overflow-y:auto;margin-bottom:16px;">${App.esc(item.email_body||'')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-green" onclick="App.closeModal();Approvals.approve('${id}')">✅ Approve & Send</button>
+        <button class="btn btn-outline" onclick="App.closeModal();Approvals.openEdit('${id}')">✏️ Edit Email</button>
+      </div>
+      <button class="btn btn-red btn-block" onclick="App.closeModal();Approvals.reject('${id}')">❌ Discard</button>
+    `);
   },
 
   _data: [],
