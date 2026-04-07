@@ -308,6 +308,13 @@ const Clients = {
       updated_at: new Date().toISOString()
     }).eq('id', id);
     if (error) { st.style.color='var(--red)'; st.textContent = error.message; return; }
+    // Sync any pending approval emails for this client with updated name/email
+    const newName  = document.getElementById('ce-name').value.trim();
+    const newEmail = document.getElementById('ce-email').value.trim();
+    await db.from('approval_queue')
+      .update({ client_name: newName, client_email: newEmail, updated_at: new Date().toISOString() })
+      .eq('client_id', id)
+      .eq('status', 'Pending');
     App.closeModal(); App.toast('✅ Client updated!');
     Clients.load(); App.loadOverview();
   },
