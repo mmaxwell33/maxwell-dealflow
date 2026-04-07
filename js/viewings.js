@@ -178,9 +178,10 @@ const Viewings = {
         await db.from('approval_queue').insert({
           agent_id: currentAgent.id,
           client_name: client?.full_name || 'Unknown Client',
-          action_type: 'VIEWING_SCHEDULED',
+          approval_type: 'VIEWING_SCHEDULED',
+          client_email: client?.email || null,
           status: 'Pending',
-          details: `📅 Viewing booked for ${client?.full_name || 'client'}\n📍 ${address}\n🕐 ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n📧 ${client?.email || 'No email on file'}`
+          context_data: `📅 Viewing booked for ${client?.full_name || 'client'}\n📍 ${address}\n🕐 ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n📧 ${client?.email || 'No email on file'}`
         });
         // Update approvals badge
         const badge = document.getElementById('approvals-badge');

@@ -311,10 +311,14 @@ const Clients = {
     // Sync any pending approval emails for this client with updated name/email
     const newName  = document.getElementById('ce-name').value.trim();
     const newEmail = document.getElementById('ce-email').value.trim();
-    await db.from('approval_queue')
-      .update({ client_name: newName, client_email: newEmail, updated_at: new Date().toISOString() })
-      .eq('client_id', id)
-      .eq('status', 'Pending');
+    const oldClient = Clients.all.find(x => x.id === id);
+    if (oldClient) {
+      await db.from('approval_queue')
+        .update({ client_name: newName, client_email: newEmail, updated_at: new Date().toISOString() })
+        .eq('agent_id', currentAgent.id)
+        .eq('client_name', oldClient.full_name)
+        .eq('status', 'Pending');
+    }
     App.closeModal(); App.toast('✅ Client updated!');
     Clients.load(); App.loadOverview();
   },

@@ -353,15 +353,13 @@ ${agentSig}`
     if (!agentId) return;
     const { error } = await db.from('approval_queue').insert({
       agent_id: agentId,
-      client_id: clientId,
       client_name: clientName,
       client_email: clientEmail,
-      action_type: type,
+      approval_type: type,
       email_subject: emailSubject,
       email_body: emailBody,
       related_id: relatedId,
-      status: 'Pending',
-      details: `To: ${clientEmail}\nSubject: ${emailSubject}`
+      status: 'Pending'
     });
     if (!error) {
       // Update badge
@@ -514,7 +512,7 @@ ${agentSig}`
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('action_type', `Financing Reminder (${daysLeft}d)`)
+            .eq('approval_type', `Financing Reminder (${daysLeft}d)`)
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.conditions_reminder(client, deal, daysLeft, 'Financing', agent);
@@ -533,7 +531,7 @@ ${agentSig}`
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('action_type', `Inspection Reminder (${daysLeft}d)`)
+            .eq('approval_type', `Inspection Reminder (${daysLeft}d)`)
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.conditions_reminder(client, deal, daysLeft, 'Inspection', agent);
@@ -552,7 +550,7 @@ ${agentSig}`
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('action_type', `Closing Countdown (${daysLeft}d)`)
+            .eq('approval_type', `Closing Countdown (${daysLeft}d)`)
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.closing_countdown(client, deal, daysLeft, agent);

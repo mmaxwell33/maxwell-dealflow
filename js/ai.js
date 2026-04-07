@@ -100,7 +100,7 @@ Today's date: ${new Date().toLocaleDateString('en-CA', {weekday:'long',year:'num
       db.from('viewings').select('property_address,viewing_date,viewing_status,client_feedback,notes').eq('agent_id', id).order('viewing_date',{ascending:false}).limit(20),
       db.from('commissions').select('client_name,property_address,sale_price,net_commission,commission_date,status').eq('agent_id', id).order('commission_date',{ascending:false}).limit(10),
       db.from('new_builds').select('client_name,builder_name,lot_address,current_stage,est_completion_date,milestones_done').eq('agent_id', id).limit(10),
-      db.from('approval_queue').select('client_name,action_type,status,created_at').eq('agent_id', id).eq('status','Pending').limit(10)
+      db.from('approval_queue').select('client_name,approval_type,status,created_at').eq('agent_id', id).eq('status','Pending').limit(10)
     ]);
 
     const cl = clients || [];
@@ -166,7 +166,7 @@ ${co.map(c => `- ${c.client_name} | ${c.property_address||'—'} | Sale: $${Numb
 ${nb.map(b => `- ${b.client_name} | ${b.builder_name||'—'} | ${b.lot_address||'—'} | Stage: ${b.current_stage||'—'} | Milestones: ${b.milestones_done||0}/9 | Est. Complete: ${b.est_completion_date||'TBD'}`).join('\n') || 'No active builds'}
 
 === PENDING APPROVALS ===
-${ap.map(a => `- ${a.client_name} | ${a.action_type} | ${a.created_at?.slice(0,10)}`).join('\n') || 'None'}
+${ap.map(a => `- ${a.client_name} | ${a.approval_type} | ${a.created_at?.slice(0,10)}`).join('\n') || 'None'}
 `.trim();
   },
 

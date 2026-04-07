@@ -17,10 +17,10 @@ const Approvals = {
     el.innerHTML = data.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
-          <div style="font-size:22px;line-height:1;">${typeIcon[a.action_type]||'📬'}</div>
+          <div style="font-size:22px;line-height:1;">${typeIcon[a.approval_type]||'📬'}</div>
           <div style="flex:1;">
             <div class="fw-700" style="font-size:14px;">${a.client_name || 'Unknown'}</div>
-            <div class="text-muted" style="font-size:12px;">${a.action_type || 'Email'} · ${App.timeAgo(a.created_at)}</div>
+            <div class="text-muted" style="font-size:12px;">${a.approval_type || 'Email'} · ${App.timeAgo(a.created_at)}</div>
             ${a.client_email ? `<div style="font-size:11px;color:var(--text2);">✉️ ${a.client_email}</div>` : ''}
           </div>
           <span class="stage-badge ${a.status==='Pending'?'badge-conditions':a.status==='Approved'?'badge-accepted':'badge-default'}">${a.status}</span>
@@ -1577,10 +1577,10 @@ const SystemTools = {
     const { error } = await db.from('approval_queue').insert({
       agent_id: currentAgent.id,
       client_name: opt.dataset.name,
-      action_type: 'Welcome Email',
-      details: `Resend welcome email to ${opt.dataset.name} (${opt.dataset.email})`,
-      status: 'Pending',
-      created_at: new Date().toISOString()
+      approval_type: 'Welcome Email',
+      client_email: opt.dataset.email || null,
+      context_data: `Resend welcome email to ${opt.dataset.name} (${opt.dataset.email})`,
+      status: 'Pending'
     });
     if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
     if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Welcome email queued for ${opt.dataset.name}! Check Approvals to send.`; }
