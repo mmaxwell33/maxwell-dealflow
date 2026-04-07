@@ -44,17 +44,16 @@ function _showPWABanner() {
   document.body.appendChild(banner);
 }
 
-// Exposed so the topbar Settings can also trigger install
-App.installPWA = async function() {
-  if (!_pwaInstallPrompt) return;
-  _pwaInstallPrompt.prompt();
-  const { outcome } = await _pwaInstallPrompt.userChoice;
-  if (outcome === 'accepted') _pwaInstallPrompt = null;
-  const banner = document.getElementById('pwa-install-banner');
-  if (banner) banner.remove();
-};
-
 const App = {
+
+  async installPWA() {
+    if (!_pwaInstallPrompt) return;
+    _pwaInstallPrompt.prompt();
+    const { outcome } = await _pwaInstallPrompt.userChoice;
+    if (outcome === 'accepted') _pwaInstallPrompt = null;
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+  },
 
   async init() {
     // Register service worker
