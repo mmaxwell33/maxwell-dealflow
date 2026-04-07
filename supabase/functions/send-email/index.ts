@@ -20,37 +20,32 @@ serve(async (req) => {
       });
     }
 
-    const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
-    if (!BREVO_API_KEY) {
-      return new Response(JSON.stringify({ error: 'BREVO_API_KEY not configured' }), {
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    if (!RESEND_API_KEY) {
+      return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const SENDER_EMAIL = Deno.env.get('SENDER_EMAIL') || 'maxwelldelali22@gmail.com';
-    const senderName = from_name || 'Maxwell Delali Midodzi';
 
     // Determine if body is HTML or plain text
     const isHtml = (body && body.trim().startsWith('<!DOCTYPE')) || body?.trim().startsWith('<html');
     const htmlContent = html || (isHtml ? body : null);
     const textContent = isHtml ? body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : body;
 
-    const payload: Record<string, unknown> = {
-      sender: { name: senderName, email: SENDER_EMAIL },
-      to: [{ email: to }],
-      subject: subject,
-      textContent: textContent,
-    };
-    if (htmlContent) payload.htmlContent = htmlContent;
-
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'api-key': BREVO_API_KEY,
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        from: `${from_name || 'Maxwell Delali Midodzi'} <onboarding@resend.dev>`,
+        to: [to],
+        subject: subject,
+        ...(htmlContent ? { html: htmlContent } : {}),
+        text: textContent,
+      }),
     });
 
     const data = await res.json();
@@ -62,7 +57,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, messageId: data.messageId }), {
+    return new Response(JSON.stringify({ success: true, id: data.id }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
