@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, html, from_name, from_email } = await req.json();
+    const { to, subject, body, html, from_name } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing required fields: to, subject, body' }), {
@@ -20,40 +20,37 @@ serve(async (req) => {
       });
     }
 
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) {
-      return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
+    const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
+    if (!BREVO_API_KEY) {
+      return new Response(JSON.stringify({ error: 'BREVO_API_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Use verified sender domain — update SENDER_EMAIL env var in Supabase dashboard
-    const SENDER_EMAIL = Deno.env.get('SENDER_EMAIL') || 'onboarding@resend.dev';
-    const fromAddress = `${from_name || 'Maxwell Delali Midodzi'} <${SENDER_EMAIL}>`;
-
-    // Send to actual recipient — domain must be verified in Resend
-    const actualTo = to;
-    const sandboxSubject = subject;
+    const SENDER_EMAIL = Deno.env.get('SENDER_EMAIL') || 'maxwelldelali22@gmail.com';
+    const senderName = from_name || 'Maxwell Delali Midodzi';
 
     // Determine if body is HTML or plain text
-    const isHtml = body && body.trim().startsWith('<!DOCTYPE') || body?.trim().startsWith('<html');
+    const isHtml = (body && body.trim().startsWith('<!DOCTYPE')) || body?.trim().startsWith('<html');
     const htmlContent = html || (isHtml ? body : null);
-    const textContent = isHtml ? (body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : body;
+    const textContent = isHtml ? body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : body;
 
-    const res = await fetch('https://api.resend.com/emails', {
+    const payload: Record<string, unknown> = {
+      sender: { name: senderName, email: SENDER_EMAIL },
+      to: [{ email: to }],
+      subject: subject,
+      textContent: textContent,
+    };
+    if (htmlContent) payload.htmlContent = htmlContent;
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'api-key': BREVO_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: fromAddress,
-        to: [actualTo],
-        subject: sandboxSubject,
-        ...(htmlContent ? { html: htmlContent } : {}),
-        text: textContent,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -65,13 +62,13 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id }), {
+    return new Response(JSON.stringify({ success: true, messageId: data.messageId }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
