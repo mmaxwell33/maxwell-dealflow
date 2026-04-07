@@ -260,6 +260,7 @@ const Clients = {
         <button class="btn btn-green" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
       </div>
       <button class="btn btn-outline btn-block mt-8" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
+      <button class="btn btn-block mt-8" style="background:var(--accent2);color:#fff;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
       <button class="btn btn-block mt-8" style="background:var(--red);color:#fff;" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive Client</button>
     `);
   },
@@ -327,6 +328,25 @@ const Clients = {
     }
     App.closeModal(); App.toast('✅ Client updated!');
     Clients.load(); App.loadOverview();
+  },
+
+  // ── SEND WELCOME EMAIL to existing client ───────────────────────────────────
+  async sendWelcome(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    if (!c.email) { App.toast('⚠️ This client has no email on file', 'var(--red)'); return; }
+    if (window.Notify) {
+      await Notify.onClientAdded(c, {
+        budget_max: c.budget_max || null,
+        preferred_areas: c.preferred_areas || c.city || null,
+        bedrooms: c.bedrooms || null,
+        must_haves: null,
+        timeline: null,
+        property_types: null
+      });
+      App.switchTab('approvals');
+      App.toast(`📧 Welcome email queued for ${c.full_name} — go approve it!`, 'var(--green)');
+    }
   },
 
   // ── ARCHIVE (soft delete) ────────────────────────────────────────────────────
