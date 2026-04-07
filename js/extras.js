@@ -4,18 +4,19 @@ const Approvals = {
     if (!currentAgent?.id) return;
     const { data } = await db.from('approval_queue')
       .select('*').eq('agent_id', currentAgent.id)
+      .eq('status', 'Pending')
       .order('created_at', { ascending: false }).limit(50);
     const el = document.getElementById('approvals-list');
-    const pending = (data || []).filter(a => a.status === 'Pending');
+    const pending = data || [];
     const badge = document.getElementById('approvals-badge');
     if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
-    if (!data?.length) {
+    if (!pending.length) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
       return;
     }
     const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨' };
-    Approvals._data = data;
-    el.innerHTML = data.map(a => `
+    Approvals._data = pending;
+    el.innerHTML = pending.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
           <div style="font-size:22px;line-height:1;">${typeIcon[a.approval_type]||'📬'}</div>
