@@ -1,4 +1,4 @@
-const CACHE = 'dealflow-v12';
+const CACHE = 'dealflow-v13';
 const ASSETS = [
   '/',
   '/index.html',
