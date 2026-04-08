@@ -319,7 +319,7 @@ input,select,textarea{font-family:inherit;outline:none;}
   display:none; /* hidden on desktop */
 }
 
-@media(max-width:900px){
+@media(max-width:768px){
   /* ── Layout ── */
   .screen{padding:14px 14px 90px 14px;}
   #app-body{overflow:hidden;}
