@@ -307,7 +307,7 @@ const App = {
     ] = await Promise.all([
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
-      db.from('viewings').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('viewing_status','Scheduled'),
+      db.from('viewings').select('*',{count:'exact',head:true}).eq('viewing_status','Scheduled'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('stage','Closed'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
