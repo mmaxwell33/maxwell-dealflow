@@ -1,20 +1,7 @@
-const CACHE = 'dealflow-v14';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/intake.html',
-  '/manifest.json',
-  '/config.js',
-  '/css/app.css',
-  '/js/app.js',
-  '/js/clients.js',
-  '/js/viewings.js',
-  '/js/offers.js',
-  '/js/notifications.js',
-  '/js/tracker.js',
-  '/js/analytics.js',
-  '/js/extras.js',
-  '/js/ai.js',
+const CACHE = 'dealflow-v15';
+const ICON_CACHE = 'dealflow-icons-v1';
+
+const ICONS = [
   '/icons/icon-48.png',
   '/icons/icon-72.png',
   '/icons/icon-96.png',
@@ -26,10 +13,10 @@ const ASSETS = [
   '/icons/apple-touch-icon.png'
 ];
 
-// ── INSTALL: cache all shell assets ──────────────────────────────────────────
+// ── INSTALL: pre-cache only icons (they never change) ────────────────────────
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(ICON_CACHE).then(c => c.addAll(ICONS)).then(() => self.skipWaiting())
   );
 });
 
@@ -37,38 +24,43 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE && k !== ICON_CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: network-first for Supabase; cache-first for shell assets ───────────
+// ── FETCH ─────────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', e => {
   const url = e.request.url;
 
-  // Never intercept Supabase, auth, or POST requests
-  if (url.includes('supabase.co') || e.request.method !== 'GET') return;
+  // Never intercept Supabase, external APIs, or non-GET requests
+  if (url.includes('supabase.co') || url.includes('googleapis') || e.request.method !== 'GET') return;
 
-  // For navigation (HTML pages) — network first, fallback to cache
-  if (e.request.mode === 'navigate') {
+  // Icons — cache-first (they never change)
+  if (url.includes('/icons/')) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/index.html'))
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+        if (resp && resp.status === 200) {
+          caches.open(ICON_CACHE).then(c => c.put(e.request, resp.clone()));
+        }
+        return resp;
+      }))
     );
     return;
   }
 
-  // For everything else — cache first, then network
+  // Everything else (JS, CSS, HTML, manifest) — NETWORK FIRST, fallback to cache
+  // This ensures updated code always loads immediately
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
-        // Cache successful same-origin responses
-        if (resp && resp.status === 200 && resp.type === 'basic') {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return resp;
-      }).catch(() => cached);
+    fetch(e.request).then(resp => {
+      // Cache the fresh response for offline fallback
+      if (resp && resp.status === 200 && resp.type === 'basic') {
+        caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+      }
+      return resp;
+    }).catch(() => {
+      // Offline fallback — serve from cache
+      return caches.match(e.request).then(cached => cached || caches.match('/index.html'));
     })
   );
 });
