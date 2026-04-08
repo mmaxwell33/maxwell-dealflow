@@ -305,15 +305,15 @@ const App = {
       { data: recent },
       { data: deals }
     ] = await Promise.all([
-      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
+      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
       db.from('viewings').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('viewing_status','Scheduled'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('stage','Closed'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
-      db.from('clients').select('id,name,stage,updated_at').eq('agent_id',agentId).eq('status','Active'),
+      db.from('clients').select('id,full_name,stage,updated_at').eq('agent_id',agentId).neq('status','Archived'),
       db.from('activity_log').select('*').eq('agent_id',agentId).order('created_at',{ascending:false}).limit(6),
-      db.from('pipeline').select('*').eq('agent_id',agentId).eq('status','Active').limit(3)
+      db.from('pipeline').select('*').eq('agent_id',agentId).not('stage','in','("Closed","Fell Through")').limit(3)
     ]);
 
     // Update stats
