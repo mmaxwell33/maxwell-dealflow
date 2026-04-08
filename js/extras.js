@@ -87,6 +87,18 @@ const Approvals = {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
         const agent = currentAgent || {};
+        // context_data may be JSON {html, ics} or plain html string (legacy)
+        let htmlBody = null, icsAttachment = null;
+        if (item.context_data) {
+          try {
+            const ctx = JSON.parse(item.context_data);
+            htmlBody = ctx.html || null;
+            icsAttachment = ctx.ics || null;
+          } catch {
+            // legacy: plain html string
+            htmlBody = item.context_data;
+          }
+        }
         const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
           method: 'POST',
           headers: {
@@ -98,7 +110,8 @@ const Approvals = {
             to: item.client_email,
             subject: item.email_subject,
             body: item.email_body || '',
-            html: item.context_data || null,
+            html: htmlBody,
+            ics: icsAttachment,
             from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
             from_email: null
           })

@@ -122,6 +122,26 @@ const Viewings = {
           <option value="pass" ${viewing?.client_feedback==='pass'?'selected':''}>❌ Pass</option>
         </select>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Offer Due Date</label>
+          <input class="form-input" id="vf-offer-date" type="date" value="${viewing?.offer_due_date||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Offer Due Time</label>
+          <input class="form-input" id="vf-offer-time" type="time" value="${viewing?.offer_due_time||''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Seller's Direction</label>
+        <select class="form-input form-select" id="vf-sellers-dir">
+          <option value="" ${!viewing?.sellers_direction?'selected':''}>-- Not specified --</option>
+          <option value="Offers anytime" ${viewing?.sellers_direction==='Offers anytime'?'selected':''}>Offers anytime</option>
+          <option value="Offer date set" ${viewing?.sellers_direction==='Offer date set'?'selected':''}>Offer date set</option>
+          <option value="No conveyance" ${viewing?.sellers_direction==='No conveyance'?'selected':''}>No conveyance</option>
+          <option value="Seller reviewing offers" ${viewing?.sellers_direction==='Seller reviewing offers'?'selected':''}>Seller reviewing offers</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Agent Notes</label>
         <textarea class="form-input" id="vf-notes" rows="2" placeholder="Notes...">${viewing?.agent_notes||''}</textarea>
@@ -150,6 +170,9 @@ const Viewings = {
       list_price: document.getElementById('vf-price').value || null,
       viewing_date: document.getElementById('vf-date').value,
       viewing_time: document.getElementById('vf-time').value || null,
+      offer_due_date: document.getElementById('vf-offer-date').value || null,
+      offer_due_time: document.getElementById('vf-offer-time').value || null,
+      sellers_direction: document.getElementById('vf-sellers-dir').value || null,
       viewing_status: document.getElementById('vf-vstatus')?.value || 'Scheduled',
       agent_notes: document.getElementById('vf-notes').value.trim(),
       client_feedback: document.getElementById('vf-feedback').value || null,
@@ -233,6 +256,8 @@ const Viewings = {
         <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Status</div><div class="fw-700">${v.viewing_status||'Scheduled'}</div></div>
         <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(v.list_price)||'—'}</div></div>
         ${v.mls_number?`<div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">MLS#</div><div class="fw-700">${v.mls_number}</div></div>`:''}
+        ${v.offer_due_date?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;">⏰ Offers Due</div><div class="fw-700">${App.fmtDate(v.offer_due_date)}${v.offer_due_time?' at '+v.offer_due_time.slice(0,5):''}</div></div>`:''}
+        ${v.sellers_direction?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
       </div>
       ${v.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📝 Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
       ${feedbackSection}

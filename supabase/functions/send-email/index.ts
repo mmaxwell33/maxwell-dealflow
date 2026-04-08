@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, html, from_name } = await req.json();
+    const { to, subject, body, html, ics, from_name } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(
@@ -45,6 +45,15 @@ serve(async (req) => {
 
     if (html) {
       payload.html = html;
+    }
+
+    // Attach .ics calendar invite if provided (base64-encoded)
+    if (ics) {
+      payload.attachments = [{
+        filename: 'viewing.ics',
+        content: ics,
+        content_type: 'text/calendar; charset=utf-8; method=REQUEST',
+      }];
     }
 
     const res = await fetch('https://api.resend.com/emails', {
