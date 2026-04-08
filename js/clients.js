@@ -261,7 +261,10 @@ const Clients = {
       </div>
       <button class="btn btn-outline btn-block mt-8" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
       <button class="btn btn-block mt-8" style="background:var(--accent2);color:#fff;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
-      <button class="btn btn-block mt-8" style="background:var(--red);color:#fff;" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive Client</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <button class="btn" style="background:var(--accent2);color:#fff;" onclick="App.closeModal();Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
+        <button class="btn" style="background:var(--red);color:#fff;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+      </div>
     `);
   },
 
@@ -383,6 +386,17 @@ const Clients = {
     App.toast(`🗑 ${name} permanently deleted.`, 'var(--red)');
     Clients.load();
     App.loadOverview();
+  },
+
+  confirmDelete(id, name) {
+    App.openModal(`
+      <div class="modal-title">🗑 Delete Client</div>
+      <p style="color:var(--text2);margin-bottom:20px;">Permanently delete <strong>${App.esc(name)}</strong>? This cannot be undone. Their pipeline and offer history will remain in the database.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn" style="background:var(--red);color:#fff;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.esc(name)}')">🗑 Yes, Delete</button>
+      </div>
+    `);
   },
 
   // Legacy method kept for backward compatibility

@@ -42,8 +42,8 @@ const Approvals = {
           <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
             <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Preview & Edit</button>
-            <button class="btn btn-red btn-sm" onclick="Approvals.reject('${a.id}')">❌ Discard</button>
-          </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '❌ Discarded'} · ${App.fmtDate(a.updated_at)}</div>`}
+            <button class="btn btn-sm" style="background:var(--text2);color:#fff;" onclick="Approvals.skip('${a.id}')">⏭ Skip (client aware)</button>
+          </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '⏭ Skipped — client already aware'} · ${App.fmtDate(a.updated_at)}</div>`}
       </div>`).join('');
   },
 
@@ -105,7 +105,9 @@ const Approvals = {
         });
         const result = await res.json();
         if (!res.ok || result.error) {
-          App.toast(`❌ Failed to send: ${JSON.stringify(result.error)}`, 'var(--red)');
+          const errMsg = result.error || result.message || JSON.stringify(result);
+          App.toast(`❌ Email failed: ${errMsg}`, 'var(--red)');
+          console.error('Email send error:', result);
           return;
         }
         // Mark approved in DB
@@ -156,7 +158,7 @@ const Approvals = {
           <button class="btn btn-green" onclick="Approvals.saveEdit('${id}')">✅ Approve & Send</button>
           <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
         </div>
-        <button class="btn btn-red btn-block" onclick="App.closeModal();Approvals.reject('${id}')">❌ Discard Email</button>
+        <button class="btn btn-block" style="background:var(--text2);color:#fff;" onclick="App.closeModal();Approvals.skip('${id}')">⏭ Skip — client already aware</button>
       `);
     });
   },
@@ -170,10 +172,15 @@ const Approvals = {
   },
 
   async reject(id) {
-    await db.from('approval_queue').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
-    App.toast('❌ Email discarded.');
+    // "Reject" = skip this email, client is already aware. Pipeline continues unaffected.
+    await db.from('approval_queue').update({ status: 'Skipped', updated_at: new Date().toISOString() }).eq('id', id);
+    App.toast('⏭ Email skipped — pipeline continues.');
     Approvals.load();
     if (typeof Notify !== "undefined") Notify.updateBadge();
+  },
+
+  async skip(id) {
+    await Approvals.reject(id);
   }
 };
 
