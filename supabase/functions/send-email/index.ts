@@ -30,15 +30,19 @@ serve(async (req) => {
 
     const fromName = from_name || 'Maxwell Delali Midodzi';
     const fromAddress = 'onboarding@resend.dev';
-    // In test mode, Resend only allows sending to the account owner's email.
-    // Route all emails to the agent Gmail until a custom domain is verified.
-    const TEST_MODE_EMAIL = Deno.env.get('AGENT_EMAIL') || 'maxwelldelali22@gmail.com';
-    const actualTo = TEST_MODE_EMAIL;
+    // Resend test mode: onboarding@resend.dev can only deliver to the Resend account owner email.
+    // AGENT_EMAIL must be set to the Resend account email (e.g. maxwelldelali22@gmail.com).
+    // When a custom domain is verified, remove this block and set fromAddress to the domain email.
+    const AGENT_EMAIL = Deno.env.get('AGENT_EMAIL') || 'maxwelldelali22@gmail.com';
+    // Send to real client but BCC agent so agent sees a copy too
+    const actualTo = to;  // real client email
+    const bcc = [AGENT_EMAIL]; // agent always gets a silent copy
 
     const payload: Record<string, unknown> = {
       from: `${fromName} <${fromAddress}>`,
       to: [actualTo],
-      reply_to: to,
+      bcc,
+      reply_to: AGENT_EMAIL,
       subject,
       text: body,
     };

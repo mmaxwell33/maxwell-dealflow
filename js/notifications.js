@@ -11,51 +11,99 @@ const Notify = {
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
       const firstName = client.full_name?.split(' ')[0] || 'there';
       const dateStr = new Date(viewing.viewing_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      const timeStr = viewing.viewing_time ? viewing.viewing_time.slice(0,5) : null;
+
+      // Format time as 12h (e.g. 4:30 PM)
+      const fmt12h = (t) => {
+        if (!t) return null;
+        const [h, m] = t.split(':').map(Number);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${ampm}`;
+      };
 
       const offerDueLine = viewing.offer_due_date
-        ? `\n⏰ Offers Due: ${new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' })}${viewing.offer_due_time ? ' at ' + viewing.offer_due_time.slice(0,5) : ''}`
+        ? `\n⏰ Offers Due: ${new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' })}${viewing.offer_due_time ? ' at ' + fmt12h(viewing.offer_due_time) : ''}`
         : '';
-      const sellersLine = viewing.sellers_direction
-        ? `\n📋 Seller's Direction: ${viewing.sellers_direction}`
-        : '';
+      const sellersLine = viewing.sellers_direction ? `\n📋 Seller's Direction: ${viewing.sellers_direction}` : '';
 
-      const body = `Hi ${firstName},
+      // Plain text fallback
+      const body = `Hi ${firstName},\n\nYour property viewing has been confirmed.\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
-Your property viewing has been confirmed. Here are the details:
+      // ── HTML EMAIL ─────────────────────────────────────────────────────────
+      const tableRows = [];
+      tableRows.push(`<tr><td class="label">Property</td><td class="value"><strong>${viewing.property_address}</strong></td></tr>`);
+      if (viewing.mls_number) tableRows.push(`<tr><td class="label">MLS#</td><td class="value">${viewing.mls_number}</td></tr>`);
+      if (viewing.list_price) tableRows.push(`<tr><td class="label">List Price</td><td class="value">${App.fmtMoney(viewing.list_price)}</td></tr>`);
+      tableRows.push(`<tr><td class="label">Date</td><td class="value">${dateStr}</td></tr>`);
+      if (timeStr) tableRows.push(`<tr><td class="label">Time</td><td class="value">${fmt12h(timeStr)}</td></tr>`);
+      tableRows.push(`<tr><td class="label">Duration</td><td class="value">30 minutes</td></tr>`);
+      if (viewing.offer_due_date) {
+        const offerDue = new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+        tableRows.push(`<tr><td class="label" style="color:#e65c00;">Offers Due</td><td class="value" style="color:#e65c00;font-weight:600;">${offerDue}${viewing.offer_due_time ? ' at ' + fmt12h(viewing.offer_due_time) : ''}</td></tr>`);
+      }
+      if (viewing.sellers_direction) tableRows.push(`<tr><td class="label">Seller's Direction</td><td class="value">${viewing.sellers_direction}</td></tr>`);
+      if (viewing.agent_notes) tableRows.push(`<tr><td class="label">Notes</td><td class="value">${viewing.agent_notes}</td></tr>`);
 
-📍 Property: ${viewing.property_address}${viewing.mls_number ? `\n🏷️ MLS#: ${viewing.mls_number}` : ''}${viewing.list_price ? `\n💰 List Price: ${App.fmtMoney(viewing.list_price)}` : ''}
-📅 Date: ${dateStr}${viewing.viewing_time ? `\n⏰ Time: ${viewing.viewing_time.slice(0,5)}` : ''}${offerDueLine}${sellersLine}
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;}
+        .wrap{max-width:600px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.10);}
+        .header{background:#1a2744;padding:32px 32px 24px;text-align:center;}
+        .header h1{margin:0;color:#fff;font-size:26px;font-weight:700;letter-spacing:-0.5px;}
+        .header p{margin:6px 0 0;color:#b0bcd4;font-size:14px;}
+        .body{padding:32px;}
+        .greeting{font-size:16px;color:#333;margin-bottom:20px;}
+        .detail-table{width:100%;border-collapse:collapse;margin-bottom:28px;}
+        .detail-table tr{border-bottom:1px solid #eee;}
+        .detail-table tr:last-child{border-bottom:none;}
+        td.label{padding:10px 12px;color:#888;font-size:13px;width:36%;vertical-align:top;}
+        td.value{padding:10px 12px;color:#222;font-size:14px;font-weight:500;}
+        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#fff !important;text-decoration:none;font-size:16px;font-weight:700;padding:16px 32px;border-radius:8px;margin:0 auto 28px;max-width:280px;}
+        .cal-note{text-align:center;font-size:12px;color:#999;margin-bottom:28px;}
+        .footer{background:#f8f9fb;border-top:1px solid #eee;padding:24px 32px;text-align:center;}
+        .footer .agent-name{font-size:15px;font-weight:700;color:#1a2744;}
+        .footer .agent-title{font-size:12px;color:#666;margin:2px 0;}
+        .footer .agent-contact{font-size:13px;color:#444;margin:8px 0 4px;}
+        .footer a{color:#1a6ef5;text-decoration:none;}
+        .footer .address{font-size:11px;color:#aaa;margin-top:6px;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;text-align:center;padding:0 20px;}
+      </style></head><body>
+      <div class="wrap">
+        <div class="header">
+          <h1>📅 Viewing Confirmed!</h1>
+          <p>Your property showing has been scheduled</p>
+        </div>
+        <div class="body">
+          <p class="greeting">Hi ${firstName},<br><br>Your property viewing has been confirmed. Here are all the details:</p>
+          <table class="detail-table">${tableRows.join('')}</table>
+          <a class="cal-btn" href="#">📅 Add to Calendar</a>
+          <p class="cal-note">A calendar invite (.ics) is attached to this email — open it to add this viewing to your calendar automatically.</p>
+          <p style="font-size:14px;color:#555;">Please don't hesitate to reach out if you have any questions or need to reschedule. Looking forward to showing you this property!</p>
+        </div>
+        <div class="footer">
+          <div class="agent-name">${agentName}</div>
+          <div class="agent-title">REALTOR® | eXp Realty</div>
+          <div class="agent-contact">📞 <a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; ✉️ <a href="mailto:${agentEmail}">${agentEmail}</a></div>
+          <div class="address">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</div>
+          <div class="address"><a href="https://${agentWebsite}">${agentWebsite}</a></div>
+        </div>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
 
-${viewing.agent_notes ? `📝 Notes: ${viewing.agent_notes}\n\n` : ''}A calendar invite is attached — tap it to add this viewing to your calendar automatically.
-
-Please don't hesitate to reach out if you have any questions or need to reschedule.
-
-Looking forward to showing you this property!
-
-${agentName}
-REALTOR® | eXp Realty
-Phone: ${agentPhone} | Email: ${agentEmail}
-eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
-
-      // Generate .ics calendar invite
+      // ── .ICS CALENDAR INVITE ───────────────────────────────────────────────
       const uid = `viewing-${viewing.id || Date.now()}@maxwell-dealflow`;
       const dtStamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
       let dtStart, dtEnd;
       if (viewing.viewing_time) {
         const [h, m] = viewing.viewing_time.split(':');
         const startDate = new Date(`${viewing.viewing_date}T${h.padStart(2,'0')}:${m.padStart(2,'0')}:00`);
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour
+        const endDate = new Date(startDate.getTime() + 30 * 60 * 1000); // 30 minutes
         dtStart = startDate.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
         dtEnd = endDate.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
       } else {
-        // All-day event
-        dtStart = `${viewing.viewing_date.replace(/-/g,'')}`;
+        dtStart = viewing.viewing_date.replace(/-/g,'');
         dtEnd = dtStart;
       }
       const isAllDay = !viewing.viewing_time;
@@ -73,7 +121,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         `UID:${uid}`,
         `DTSTAMP:${dtStamp}`,
         dateProps,
-        `SUMMARY:Property Viewing — ${viewing.property_address}`,
+        `SUMMARY:Property Viewing \u2014 ${viewing.property_address}`,
         `DESCRIPTION:Viewing with ${agentName}\\n${agentPhone}\\n${agentEmail}${viewing.mls_number ? '\\nMLS#: ' + viewing.mls_number : ''}${viewing.agent_notes ? '\\nNotes: ' + viewing.agent_notes : ''}`,
         `LOCATION:${viewing.property_address}`,
         `ORGANIZER;CN=${agentName}:mailto:${agentEmail}`,
@@ -85,7 +133,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
 
-      return { subject: `Your Viewing is Confirmed — ${viewing.property_address}`, body, ics: icsBase64 };
+      return { subject: `\uD83D\uDCC5 Viewing Confirmed \u2014 ${viewing.property_address}`, body, html, ics: icsBase64 };
     },
 
     viewing_followup: (client, viewing, feedback, agent) => ({
@@ -628,7 +676,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       'Viewing Confirmation',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, viewing.id,
-      null,         // no html body
+      tmpl.html,    // beautiful HTML email
       tmpl.ics      // base64 .ics calendar invite
     );
   },
