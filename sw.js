@@ -41,7 +41,8 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
         if (resp && resp.status === 200) {
-          caches.open(ICON_CACHE).then(c => c.put(e.request, resp.clone()));
+          const toCache = resp.clone();
+          caches.open(ICON_CACHE).then(c => c.put(e.request, toCache));
         }
         return resp;
       }))
@@ -55,7 +56,8 @@ self.addEventListener('fetch', e => {
     fetch(e.request).then(resp => {
       // Cache the fresh response for offline fallback
       if (resp && resp.status === 200 && resp.type === 'basic') {
-        caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+        const toCache = resp.clone();
+        caches.open(CACHE).then(c => c.put(e.request, toCache));
       }
       return resp;
     }).catch(() => {
