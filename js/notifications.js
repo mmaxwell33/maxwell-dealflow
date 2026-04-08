@@ -274,6 +274,113 @@ maxwellmidodzi.exprealty.com
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
+    walkthrough_reminder: (client, deal, agent) => ({
+      subject: `🚶 Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Just a friendly reminder that your final walkthrough is scheduled for TOMORROW at ${deal.property_address}.
+
+📍 Property: ${deal.property_address}
+📅 Walkthrough Date: ${App.fmtDate(deal.walkthrough_date)}
+
+During the walkthrough, please:
+• Check that all agreed-upon repairs have been completed
+• Ensure all fixtures, appliances, and inclusions are present
+• Test lights, faucets, and major systems
+• Check for any new damage or issues since the inspection
+• Make sure the property is in the condition agreed upon
+
+If you notice anything concerning, contact me immediately — we still have time to address issues before closing.
+
+I'll be there with you. See you tomorrow!
+
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    deal_fell_through: (client, deal, reason, agent) => ({
+      subject: `An Update on Your Home Search — Let's Keep Going 💪`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+I know this isn't the news we were hoping for regarding ${deal.property_address}. Sometimes deals don't work out, and while it can feel discouraging, please know this is a normal part of the home buying journey.${reason ? `\n\nReason: ${reason}` : ''}
+
+Here's what I want you to remember:
+• This experience has given us valuable information for the next offer
+• The right home for you is still out there
+• I'm already looking at new listings that match your criteria
+• We know exactly what to look for and avoid next time
+
+I'll be in touch very soon with new options. In the meantime, please feel free to reach out anytime — I'm here to support you through this.
+
+We WILL find your perfect home. 💪
+
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    post_closing_referral: (client, deal, agent) => ({
+      subject: `Congratulations Again — and a Small Favour 🙏 — ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+I hope you're settling into ${deal.property_address} and loving every moment of your new home! It has been an absolute pleasure working with you on this journey.
+
+Now that you're all moved in, I wanted to reach out with a small request.
+
+If you had a great experience working with me, I'd be truly grateful if you could:
+
+⭐ Leave me a Google Review — it takes just 2 minutes and means the world to a Realtor®
+👥 Refer me to any friends, family, or colleagues who are thinking about buying or selling
+
+Word-of-mouth referrals are the highest compliment I can receive, and I promise to take great care of anyone you send my way.
+
+Thank you again for trusting me with such an important milestone. I hope to work with you again — or with the people you know — very soon!
+
+Warmly,
+
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    new_listing_match: (client, listing, agent) => ({
+      subject: `🏠 New Listing That Matches Your Criteria — ${listing.address || 'Check This Out!'}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Great news — I found a listing that I think is a strong match for what you're looking for!
+
+📍 Property: ${listing.address || '—'}
+${listing.mls_number ? `🏷️ MLS#: ${listing.mls_number}\n` : ''}${listing.list_price ? `💰 List Price: ${App.fmtMoney(listing.list_price)}\n` : ''}${listing.bedrooms ? `🛏 Bedrooms: ${listing.bedrooms}\n` : ''}${listing.notes ? `📝 Notes: ${listing.notes}\n` : ''}
+Based on your search criteria, I think this one is worth a look. Properties like this tend to move quickly in this market.
+
+Would you like to schedule a viewing? Just reply to this email or give me a call and I'll set it up right away.
+
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
     welcome_email: (client, intake, agent) => {
       const firstName = client.full_name?.split(' ')[0] || client.first_name || 'there';
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
@@ -534,6 +641,46 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     );
   },
 
+  async onWalkthroughReminder(deal, client) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.walkthrough_reminder(client, deal, agent);
+    await Notify.queue(
+      'Walkthrough Reminder (1d)',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, deal.id
+    );
+  },
+
+  async onDealFellThrough(deal, client, reason) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.deal_fell_through(client, deal, reason, agent);
+    await Notify.queue(
+      'Deal Fell Through 💔',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, deal.id
+    );
+  },
+
+  async onPostClosingReferral(deal, client) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.post_closing_referral(client, deal, agent);
+    await Notify.queue(
+      'Post-Closing Referral Request',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, deal.id
+    );
+  },
+
+  async onNewListingMatch(client, listing) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.new_listing_match(client, listing, agent);
+    await Notify.queue(
+      'New Listing Match 🏠',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, null
+    );
+  },
+
   async checkConditionDeadlines() {
     // Called on load — checks all active pipeline deals for upcoming deadlines
     if (!currentAgent?.id) return;
@@ -590,7 +737,26 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         }
       }
 
-      // Check closing countdown
+      // Check walkthrough reminder (1 day before)
+      if (deal.walkthrough_date) {
+        const walkDate = new Date(deal.walkthrough_date);
+        walkDate.setHours(0,0,0,0);
+        const daysLeft = Math.round((walkDate - today) / (1000 * 60 * 60 * 24));
+        if (daysLeft === 1) {
+          const { count } = await db.from('approval_queue')
+            .select('*', { count: 'exact', head: true })
+            .eq('agent_id', currentAgent.id)
+            .eq('related_id', deal.id)
+            .eq('approval_type', 'Walkthrough Reminder (1d)')
+            .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
+          if (!count) {
+            const tmpl = Notify.templates.walkthrough_reminder(client, deal, agent);
+            await Notify.queue('Walkthrough Reminder (1d)', client.id, client.full_name, client.email, tmpl.subject, tmpl.body, deal.id);
+          }
+        }
+      }
+
+      // Check closing countdown (7d, 3d, 1d) + closing day (0d)
       if (deal.closing_date) {
         const closeDate = new Date(deal.closing_date);
         closeDate.setHours(0,0,0,0);
@@ -605,6 +771,19 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
           if (!count) {
             const tmpl = Notify.templates.closing_countdown(client, deal, daysLeft, agent);
             await Notify.queue(`Closing Countdown (${daysLeft}d)`, client.id, client.full_name, client.email, tmpl.subject, tmpl.body, deal.id);
+          }
+        }
+        // Closing day itself — queue Happy Closing Day email
+        if (daysLeft === 0 && deal.stage !== 'Closed') {
+          const { count } = await db.from('approval_queue')
+            .select('*', { count: 'exact', head: true })
+            .eq('agent_id', currentAgent.id)
+            .eq('related_id', deal.id)
+            .eq('approval_type', 'Happy Closing Day! 🔑')
+            .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
+          if (!count) {
+            const tmpl = Notify.templates.deal_closed(client, deal, agent);
+            await Notify.queue('Happy Closing Day! 🔑', client.id, client.full_name, client.email, tmpl.subject, tmpl.body, deal.id);
           }
         }
       }

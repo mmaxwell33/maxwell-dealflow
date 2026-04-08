@@ -311,9 +311,11 @@ const Pipeline = {
   },
 
   async createFromOffer(offer, client) {
-    const pipelineId = 'DEAL-' + Date.now();
-    await db.from('pipeline').insert({
-      pipeline_id: pipelineId,
+    const today = new Date().toISOString().slice(0,10);
+    const acceptDate = offer.offer_date || today;
+
+    // Insert pipeline record and get its ID back
+    const { data: pipelineRow, error } = await db.from('pipeline').insert({
       agent_id: currentAgent.id,
       client_id: offer.client_id,
       offer_id: offer.id,
@@ -321,13 +323,90 @@ const Pipeline = {
       client_email: client?.email || '',
       property_address: offer.property_address,
       offer_amount: offer.offer_amount,
-      acceptance_date: offer.offer_date || new Date().toISOString().slice(0,10),
+      acceptance_date: acceptDate,
       stage: 'Accepted',
       status: 'Active'
-    });
+    }).select('id').single();
+
+    if (error) {
+      // Fallback: insert without select (older Supabase RLS configs)
+      await db.from('pipeline').insert({
+        agent_id: currentAgent.id,
+        client_id: offer.client_id,
+        client_name: client?.full_name || offer.client_name,
+        client_email: client?.email || '',
+        property_address: offer.property_address,
+        offer_amount: offer.offer_amount,
+        acceptance_date: acceptDate,
+        stage: 'Accepted',
+        status: 'Active'
+      });
+    }
+
+    const pipelineId = pipelineRow?.id || null;
+
+    // Auto-generate 22-task closing checklist
+    await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
+
     await App.logActivity('PIPELINE_CREATED', client?.full_name, client?.email,
       `Deal pipeline created: ${offer.property_address}`, offer.client_id);
     Pipeline.load();
+  },
+
+  // Generate the standard 22-task closing checklist
+  async generateChecklist(pipelineId, offer, client, acceptDate) {
+    if (!currentAgent?.id || !pipelineId) return;
+
+    // Calculate relative due dates from acceptance date
+    const addDays = (base, n) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+
+    const tasks = [
+      // Legal
+      { title: 'Retain a real estate lawyer / notary', category: 'Legal', due: addDays(acceptDate, 2) },
+      { title: 'Send accepted offer documents to lawyer', category: 'Legal', due: addDays(acceptDate, 3) },
+      { title: 'Confirm deposit payment to listing brokerage', category: 'Legal', due: addDays(acceptDate, 5) },
+      { title: 'Review lawyer\'s title search and insurance', category: 'Legal', due: addDays(acceptDate, 10) },
+      // Financing
+      { title: 'Confirm client has submitted mortgage application', category: 'Financing', due: addDays(acceptDate, 3) },
+      { title: 'Provide all required documents to mortgage lender', category: 'Financing', due: addDays(acceptDate, 5) },
+      { title: 'Confirm mortgage approval with lender', category: 'Financing', due: addDays(acceptDate, 8) },
+      { title: 'Ensure financing condition is waived or extended', category: 'Financing', due: offer.financing_date || addDays(acceptDate, 10) },
+      // Inspection
+      { title: 'Book home inspection appointment', category: 'Inspection', due: addDays(acceptDate, 3) },
+      { title: 'Attend home inspection with client', category: 'Inspection', due: addDays(acceptDate, 7) },
+      { title: 'Review inspection report and negotiate repairs if needed', category: 'Inspection', due: addDays(acceptDate, 9) },
+      { title: 'Ensure inspection condition is waived or resolved', category: 'Inspection', due: offer.inspection_date || addDays(acceptDate, 10) },
+      // Insurance & Utilities
+      { title: 'Remind client to arrange home insurance', category: 'General', due: addDays(acceptDate, 14) },
+      { title: 'Remind client to transfer utilities (hydro, water, gas, internet)', category: 'General', due: addDays(acceptDate, 21) },
+      // Moving
+      { title: 'Remind client to book a moving company', category: 'Moving', due: addDays(acceptDate, 14) },
+      { title: 'Confirm moving date and logistics with client', category: 'Moving', due: addDays(acceptDate, 28) },
+      // Walkthrough & Closing
+      { title: 'Schedule final walkthrough with client', category: 'General', due: offer.walkthrough_date || addDays(acceptDate, 28) },
+      { title: 'Conduct final walkthrough of the property', category: 'General', due: offer.walkthrough_date || addDays(acceptDate, 28) },
+      { title: 'Confirm all conditions have been met and waived', category: 'Legal', due: addDays(acceptDate, 12) },
+      { title: 'Confirm closing costs with lawyer (client must prepare bank draft)', category: 'Legal', due: offer.closing_date ? addDays(offer.closing_date, -3) : addDays(acceptDate, 25) },
+      { title: 'Coordinate key handover with listing agent', category: 'General', due: offer.closing_date || addDays(acceptDate, 30) },
+      { title: 'Post-closing: send congratulations and request Google review', category: 'General', due: offer.closing_date ? addDays(offer.closing_date, 3) : addDays(acceptDate, 33) },
+    ];
+
+    const rows = tasks.map(t => ({
+      agent_id: currentAgent.id,
+      pipeline_id: pipelineId,
+      client_id: offer.client_id || null,
+      client_name: client?.full_name || '',
+      title: t.title,
+      category: t.category,
+      due_date: t.due,
+      done: false
+    }));
+
+    await db.from('deal_checklist').insert(rows);
   },
 
   render(list) {
@@ -374,6 +453,7 @@ const Pipeline = {
             <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;">Updated: ${d.updated_at ? new Date(d.updated_at).toLocaleString() : '—'}</div>
       </div>`;
@@ -429,17 +509,36 @@ const Pipeline = {
     const close = document.getElementById(`pl-close-${id}`)?.value || new Date().toISOString().slice(0,10);
     await db.from('pipeline').update({ stage: 'Closed', closing_date: close, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
+    // Update client stage to Closed
+    if (d?.client_id) {
+      await db.from('clients').update({ stage: 'Closed', updated_at: new Date().toISOString() }).eq('id', d.client_id);
+    }
     await App.logActivity('DEAL_CLOSED', d?.client_name, d?.client_email, `Deal closed: ${d?.property_address}`, d?.client_id);
-    // Queue congratulations email for approval
-    if (window.Notify && d?.client_email) await Notify.onDealClosed(d, null);
-    App.toast('✅ Deal marked Closed! 🎉');
-    Pipeline.load(); App.loadOverview();
+    // Queue closing congratulations email for approval
+    if (window.Notify && d?.client_email) {
+      const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
+      await Notify.onDealClosed(d, client);
+    }
+    App.toast('✅ Deal marked Closed! 🎉 Congrats email queued in Approvals.');
+    Pipeline.load(); Clients.load(); App.loadOverview();
   },
 
   async markFellThrough(id) {
+    const d = Pipeline.all.find(x => x.id === id);
     await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
-    App.toast('❌ Deal marked Fell Through');
-    Pipeline.load();
+    // Reset client stage back to Searching so they stay active in the pipeline
+    if (d?.client_id) {
+      await db.from('clients').update({ stage: 'Searching', updated_at: new Date().toISOString() }).eq('id', d.client_id);
+    }
+    // Queue encouraging email to client
+    if (window.Notify && d?.client_email) {
+      const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
+      await Notify.onDealFellThrough(d, client, null);
+    }
+    await App.logActivity('DEAL_FELL_THROUGH', d?.client_name, d?.client_email,
+      `Deal fell through: ${d?.property_address}`, d?.client_id);
+    App.toast('❌ Deal fell through — client notified (check Approvals)');
+    Pipeline.load(); Clients.load(); App.loadOverview();
   },
 
   async reactivate(id) {
@@ -475,8 +574,112 @@ const Pipeline = {
     const stage = document.getElementById('ps-stage').value;
     await db.from('pipeline').update({ stage, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
+    // Keep client stage in sync with pipeline stage
+    const clientStageMap = { Accepted: 'Accepted', Conditions: 'Conditions', Closing: 'Closing', Closed: 'Closing' };
+    const clientStage = clientStageMap[stage];
+    if (d?.client_id && clientStage) {
+      await db.from('clients').update({ stage: clientStage, updated_at: new Date().toISOString() }).eq('id', d.client_id);
+    }
     await App.logActivity('PIPELINE_UPDATED', d?.client_name, d?.client_email, `Stage → ${stage}`, d?.client_id);
     App.closeModal(); App.toast('✅ Stage updated!');
-    Pipeline.load(); App.loadOverview();
+    Pipeline.load(); Clients.load(); App.loadOverview();
+  },
+
+  async openChecklist(pipelineId) {
+    const d = Pipeline.all.find(x => x.id === pipelineId);
+    if (!d) return;
+
+    // Load tasks for this deal
+    const { data: tasks } = await db.from('deal_checklist')
+      .select('*')
+      .eq('pipeline_id', pipelineId)
+      .order('due_date', { ascending: true });
+
+    if (!tasks?.length) {
+      App.openModal(`
+        <div class="modal-title">☑️ Closing Checklist — ${d.client_name}</div>
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">No checklist items yet</div>
+          <div class="empty-sub">The checklist is auto-generated when an offer is accepted. This deal may have been created before this feature was added.</div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="Pipeline.regenerateChecklist('${pipelineId}')">🔄 Generate Checklist Now</button>
+      `);
+      return;
+    }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const doneCount = tasks.filter(t => t.done).length;
+    const pct = Math.round((doneCount / tasks.length) * 100);
+
+    // Group by category
+    const categories = [...new Set(tasks.map(t => t.category))];
+    const categoryIcons = { Legal: '⚖️', Financing: '🏦', Inspection: '🔍', Moving: '📦', General: '📋' };
+
+    const taskRows = categories.map(cat => {
+      const catTasks = tasks.filter(t => t.category === cat);
+      return `
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${categoryIcons[cat]||'📋'} ${cat}</div>
+          ${catTasks.map(t => {
+            const due = t.due_date ? new Date(t.due_date) : null;
+            const isOverdue = due && !t.done && due < today;
+            const dueTxt = due ? App.fmtDate(t.due_date) : '';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;margin-bottom:3px;${t.done?'opacity:0.55;':''}${isOverdue?'border-left:2px solid var(--red);':''}">
+              <input type="checkbox" ${t.done?'checked':''} onchange="Pipeline.toggleChecklistItem('${t.id}','${pipelineId}',this.checked)" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">
+              <div style="flex:1;">
+                <div style="font-size:13px;${t.done?'text-decoration:line-through;color:var(--text3);':''}">${App.esc(t.title)}</div>
+                ${dueTxt ? `<div style="font-size:11px;color:${isOverdue?'var(--red)':'var(--text2)'};">${isOverdue?'⚠️ Overdue — ':'Due '}${dueTxt}</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`;
+    }).join('');
+
+    App.openModal(`
+      <div class="modal-title">☑️ Closing Checklist</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">📍 ${App.esc(d.property_address)} · ${App.esc(d.client_name)}</div>
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px;">
+          <span>${doneCount} of ${tasks.length} tasks done</span>
+          <span class="fw-700" style="color:var(--green);">${pct}%</span>
+        </div>
+        <div style="height:8px;background:var(--border);border-radius:4px;">
+          <div style="height:100%;width:${pct}%;background:var(--green);border-radius:4px;transition:width 0.3s;"></div>
+        </div>
+      </div>
+      <div style="max-height:55vh;overflow-y:auto;">${taskRows}</div>
+      <button class="btn btn-outline btn-block" style="margin-top:12px;" onclick="App.closeModal()">Close</button>
+    `);
+  },
+
+  async toggleChecklistItem(taskId, pipelineId, done) {
+    const now = new Date().toISOString();
+    await db.from('deal_checklist').update({
+      done,
+      done_at: done ? now : null,
+      updated_at: now
+    }).eq('id', taskId);
+    // Refresh checklist in-place (re-open)
+    await Pipeline.openChecklist(pipelineId);
+  },
+
+  async regenerateChecklist(pipelineId) {
+    const d = Pipeline.all.find(x => x.id === pipelineId);
+    if (!d) return;
+    // Build a minimal offer-like object from pipeline data
+    const fakeOffer = {
+      client_id: d.client_id,
+      offer_amount: d.offer_amount,
+      property_address: d.property_address,
+      financing_date: d.financing_date || null,
+      inspection_date: d.inspection_date || null,
+      walkthrough_date: d.walkthrough_date || null,
+      closing_date: d.closing_date || null
+    };
+    const client = { full_name: d.client_name, email: d.client_email };
+    await Pipeline.generateChecklist(pipelineId, fakeOffer, client, d.acceptance_date || new Date().toISOString().slice(0,10));
+    App.toast('✅ Checklist generated!');
+    await Pipeline.openChecklist(pipelineId);
   }
 };
