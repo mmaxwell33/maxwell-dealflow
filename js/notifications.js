@@ -968,5 +968,69 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         }
       }
     }
+  },
+
+  // ── AUTO-COMPLETE PAST VIEWINGS & PROMPT FOR FEEDBACK ────────────────────
+  // Called on app load — finds viewings where date+time have passed but status
+  // is still "Scheduled". Auto-marks them "Completed" and pushes a notification
+  // to the agent asking "How did the viewing go?"
+
+  async checkCompletedViewings() {
+    if (!currentAgent?.id) return;
+
+    // Get all scheduled (non-completed) viewings for this agent
+    const { data: viewings } = await db.from('viewings')
+      .select('*, clients(full_name, email)')
+      .eq('agent_id', currentAgent.id)
+      .neq('viewing_status', 'Completed')
+      .order('viewing_date', { ascending: false });
+
+    if (!viewings?.length) return;
+
+    const now = new Date();
+    let completedCount = 0;
+
+    for (const v of viewings) {
+      // Build the viewing end time (viewing_time + 1 hour buffer, or end of day if no time)
+      let viewingEnd;
+      if (v.viewing_date && v.viewing_time) {
+        viewingEnd = new Date(v.viewing_date + 'T' + v.viewing_time);
+        viewingEnd.setHours(viewingEnd.getHours() + 1); // 1 hour buffer after scheduled time
+      } else if (v.viewing_date) {
+        // No time set — consider it done at end of the viewing day
+        viewingEnd = new Date(v.viewing_date + 'T23:59:59');
+      } else {
+        continue; // No date, skip
+      }
+
+      if (now > viewingEnd) {
+        // This viewing's time has passed — auto-complete it
+        await db.from('viewings').update({
+          viewing_status: 'Completed',
+          updated_at: new Date().toISOString()
+        }).eq('id', v.id);
+
+        completedCount++;
+
+        const clientName = v.clients?.full_name || 'your client';
+        const address = v.property_address || 'the property';
+
+        // Send push notification for each completed viewing
+        App.pushNotify(
+          `How was the viewing?`,
+          `${address} with ${clientName} — tap to record feedback`,
+          'viewings'
+        );
+      }
+    }
+
+    // If any viewings were auto-completed, refresh the viewings list and show toast
+    if (completedCount > 0) {
+      if (typeof Viewings !== "undefined") await Viewings.load();
+      App.toast(
+        `${completedCount} viewing${completedCount > 1 ? 's' : ''} completed — tap to record feedback`,
+        'var(--accent2)'
+      );
+    }
   }
 };

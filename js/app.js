@@ -130,6 +130,8 @@ const App = {
     setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
     // Check for upcoming condition/closing deadlines and queue reminder emails
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
+    // Auto-complete past viewings and notify agent to record feedback
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 2500);
     // Update approvals badge
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
     // Update client responses badge
