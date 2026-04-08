@@ -567,11 +567,12 @@ const Reports = {
   async buildReport(clientId) {
     const { data: client } = await db.from('clients').select('*').eq('id', clientId).single();
     if (!client) return null;
-    const [{ data: viewings }, { data: offers }] = await Promise.all([
+    const [{ data: viewings }, { data: offers }, { data: pipelineDeals }] = await Promise.all([
       db.from('viewings').select('*').eq('client_id', clientId).order('viewing_date', { ascending: false }),
-      db.from('pipeline').select('*').eq('agent_id', currentAgent.id)
+      db.from('offers').select('*').eq('client_id', clientId).order('offer_date', { ascending: false }),
+      db.from('pipeline').select('*').eq('agent_id', currentAgent.id).eq('client_id', clientId)
     ]);
-    const clientOffers = (offers||[]).filter(o => o.client_name === client.full_name);
+    const clientOffers = offers || [];
     const sections = {
       info:      document.getElementById('rpt-sec-info')?.checked,
       criteria:  document.getElementById('rpt-sec-criteria')?.checked,
@@ -631,12 +632,13 @@ const Reports = {
         html += `<p style="font-size:13px;color:#64748b;">No offers recorded yet.</p>`;
       } else {
         html += `<table style="width:100%;font-size:13px;border-collapse:collapse;border:1px solid #e2e8f0;">
-          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:right;">Offer Amount</th><th style="padding:8px 12px;text-align:left;">Stage</th></tr></thead>
+          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:right;">Offer Amount</th><th style="padding:8px 12px;text-align:left;">Status</th><th style="padding:8px 12px;text-align:left;">Date</th></tr></thead>
           <tbody>${clientOffers.map(o => `
             <tr style="border-top:1px solid #e2e8f0;">
               <td style="padding:8px 12px;">${o.property_address||'—'}</td>
               <td style="padding:8px 12px;text-align:right;font-weight:700;">${App.fmtMoney(o.offer_amount)}</td>
-              <td style="padding:8px 12px;">${o.stage||'—'}</td>
+              <td style="padding:8px 12px;">${o.status||'—'}</td>
+              <td style="padding:8px 12px;">${App.fmtDate(o.offer_date)}</td>
             </tr>`).join('')}</tbody>
         </table>`;
       }
@@ -1039,7 +1041,10 @@ const EmailSend = {
     offer_accepted: { subject: 'Congratulations — Your Offer Was Accepted! 🎉', body: `Hi [CLIENT_NAME],\n\nFantastic news — your offer has been ACCEPTED! This is such an exciting milestone and I'm thrilled for you.\n\nWe'll now begin the next steps in the process. I'll be in touch shortly with all the details.\n\nCongratulations again!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
     conditions_met: { subject: 'Conditions Have Been Met ✅', body: `Hi [CLIENT_NAME],\n\nAll conditions on your purchase have been satisfied and the deal is now firm. We're moving forward!\n\nI'll keep you updated on the closing timeline.\n\nBest regards,\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
     property_report: { subject: 'Your Property Report is Ready 📊', body: `Hi [CLIENT_NAME],\n\nI've put together a property report based on your search criteria. Please review the attached listings and let me know which ones interest you.\n\nHappy to schedule viewings for any properties you'd like to see!\n\nBest regards,\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
-    follow_up: { subject: 'Checking In — How Are Things Going? 👋', body: `Hi [CLIENT_NAME],\n\nI just wanted to check in and see how your home search is going. The market has some great options right now and I'd love to help you find the right fit.\n\nAre there any properties you'd like to view, or any questions I can answer for you?\n\nLooking forward to hearing from you!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` }
+    follow_up: { subject: 'Checking In — How Are Things Going? 👋', body: `Hi [CLIENT_NAME],\n\nI just wanted to check in and see how your home search is going. The market has some great options right now and I'd love to help you find the right fit.\n\nAre there any properties you'd like to view, or any questions I can answer for you?\n\nLooking forward to hearing from you!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
+    new_listing_match: { subject: '🏠 New Listing That Matches Your Criteria!', body: `Hi [CLIENT_NAME],\n\nI came across a new listing that I think is a strong match for what you're looking for!\n\n[Add property details here]\n\nProperties like this tend to move quickly. Would you like to schedule a viewing? Just reply to this email or give me a call and I'll set it up right away.\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
+    referral_request: { subject: 'A Small Favour — and Thank You! 🙏', body: `Hi [CLIENT_NAME],\n\nI hope you're settling in and loving your new home!\n\nIf you had a great experience working with me, I'd be truly grateful if you could:\n\n⭐ Leave me a Google Review (it takes just 2 minutes!)\n👥 Refer me to any friends, family, or colleagues looking to buy or sell\n\nWord-of-mouth referrals are the highest compliment I can receive, and I promise to take great care of anyone you send my way.\n\nThank you again!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
+    post_closing_checkin: { subject: 'How Are You Settling In? 🏡', body: `Hi [CLIENT_NAME],\n\nJust wanted to check in and see how you're settling into your new home! I hope everything is going smoothly.\n\nIf you have any questions or need any recommendations (contractors, services, etc.), please don't hesitate to reach out — I'm always happy to help.\n\nEnjoy your new home!\n\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` }
   },
 
   async init() {
