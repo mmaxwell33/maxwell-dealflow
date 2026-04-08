@@ -30,19 +30,16 @@ serve(async (req) => {
 
     const fromName = from_name || 'Maxwell Delali Midodzi';
     const fromAddress = 'onboarding@resend.dev';
-    // Resend test mode: onboarding@resend.dev can only deliver to the Resend account owner email.
-    // AGENT_EMAIL must be set to the Resend account email (e.g. maxwelldelali22@gmail.com).
-    // When a custom domain is verified, remove this block and set fromAddress to the domain email.
+
+    // Resend with onboarding@resend.dev can only deliver to the account owner's Gmail.
+    // Email goes to your Gmail — reply_to is set to the client so when client replies it comes back to you.
+    // You appear as the sender, client replies go to you — exactly like the old App Script flow.
     const AGENT_EMAIL = Deno.env.get('AGENT_EMAIL') || 'maxwelldelali22@gmail.com';
-    // Send to real client but BCC agent so agent sees a copy too
-    const actualTo = to;  // real client email
-    const bcc = [AGENT_EMAIL]; // agent always gets a silent copy
 
     const payload: Record<string, unknown> = {
       from: `${fromName} <${fromAddress}>`,
-      to: [actualTo],
-      bcc,
-      reply_to: AGENT_EMAIL,
+      to: [AGENT_EMAIL],
+      reply_to: to,          // client email — their replies come back to you
       subject,
       text: body,
     };
