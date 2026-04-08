@@ -7,29 +7,86 @@ const Notify = {
 
   templates: {
 
-    viewing_confirmation: (client, viewing, agent) => ({
-      subject: `Your Viewing is Confirmed — ${viewing.property_address}`,
-      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+    viewing_confirmation: (client, viewing, agent) => {
+      const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+      const agentPhone = agent.phone || '(709) 325-0545';
+      const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const dateStr = new Date(viewing.viewing_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+      const offerDueLine = viewing.offer_due_date
+        ? `\n⏰ Offers Due: ${new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' })}${viewing.offer_due_time ? ' at ' + viewing.offer_due_time.slice(0,5) : ''}`
+        : '';
+      const sellersLine = viewing.sellers_direction
+        ? `\n📋 Seller's Direction: ${viewing.sellers_direction}`
+        : '';
+
+      const body = `Hi ${firstName},
 
 Your property viewing has been confirmed. Here are the details:
 
 📍 Property: ${viewing.property_address}${viewing.mls_number ? `\n🏷️ MLS#: ${viewing.mls_number}` : ''}${viewing.list_price ? `\n💰 List Price: ${App.fmtMoney(viewing.list_price)}` : ''}
-📅 Date: ${new Date(viewing.viewing_date).toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}${viewing.viewing_time ? `\n⏰ Time: ${viewing.viewing_time.slice(0,5)}` : ''}
+📅 Date: ${dateStr}${viewing.viewing_time ? `\n⏰ Time: ${viewing.viewing_time.slice(0,5)}` : ''}${offerDueLine}${sellersLine}
 
-${viewing.agent_notes ? `📝 Notes: ${viewing.agent_notes}\n` : ''}
+${viewing.agent_notes ? `📝 Notes: ${viewing.agent_notes}\n\n` : ''}A calendar invite is attached — tap it to add this viewing to your calendar automatically.
+
 Please don't hesitate to reach out if you have any questions or need to reschedule.
 
 Looking forward to showing you this property!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+${agentName}
 REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+Phone: ${agentPhone} | Email: ${agentEmail}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.exprealty.com
 
 ──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
-    }),
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      // Generate .ics calendar invite
+      const uid = `viewing-${viewing.id || Date.now()}@maxwell-dealflow`;
+      const dtStamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+      let dtStart, dtEnd;
+      if (viewing.viewing_time) {
+        const [h, m] = viewing.viewing_time.split(':');
+        const startDate = new Date(`${viewing.viewing_date}T${h.padStart(2,'0')}:${m.padStart(2,'0')}:00`);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour
+        dtStart = startDate.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+        dtEnd = endDate.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+      } else {
+        // All-day event
+        dtStart = `${viewing.viewing_date.replace(/-/g,'')}`;
+        dtEnd = dtStart;
+      }
+      const isAllDay = !viewing.viewing_time;
+      const dateProps = isAllDay
+        ? `DTSTART;VALUE=DATE:${dtStart}\r\nDTEND;VALUE=DATE:${dtEnd}`
+        : `DTSTART:${dtStart}\r\nDTEND:${dtEnd}`;
+
+      const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Maxwell DealFlow CRM//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:REQUEST',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        dateProps,
+        `SUMMARY:Property Viewing — ${viewing.property_address}`,
+        `DESCRIPTION:Viewing with ${agentName}\\n${agentPhone}\\n${agentEmail}${viewing.mls_number ? '\\nMLS#: ' + viewing.mls_number : ''}${viewing.agent_notes ? '\\nNotes: ' + viewing.agent_notes : ''}`,
+        `LOCATION:${viewing.property_address}`,
+        `ORGANIZER;CN=${agentName}:mailto:${agentEmail}`,
+        `ATTENDEE;CN=${client.full_name};ROLE=REQ-PARTICIPANT:mailto:${client.email || agentEmail}`,
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+
+      const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
+
+      return { subject: `Your Viewing is Confirmed — ${viewing.property_address}`, body, ics: icsBase64 };
+    },
 
     viewing_followup: (client, viewing, feedback, agent) => ({
       subject: `Follow-Up: ${viewing.property_address}`,
@@ -503,10 +560,15 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null) {
     // Use agent id, or fall back to auth user id if agent record not in agents table
     const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
     if (!agentId) return;
+    // Pack html + ics into context_data as JSON so both survive the single-column storage
+    let contextData = null;
+    if (htmlBody || icsBase64) {
+      contextData = JSON.stringify({ html: htmlBody || null, ics: icsBase64 || null });
+    }
     const insertRow = {
       agent_id: agentId,
       client_name: clientName,
@@ -514,7 +576,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       approval_type: type,
       email_subject: emailSubject,
       email_body: emailBody,
-      context_data: htmlBody || null,
+      context_data: contextData,
       status: 'Pending'
     };
     // Only include related_id if it has a value (avoids schema cache issues if column not yet refreshed)
@@ -565,7 +627,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     await Notify.queue(
       'Viewing Confirmation',
       client.id, client.full_name, client.email,
-      tmpl.subject, tmpl.body, viewing.id
+      tmpl.subject, tmpl.body, viewing.id,
+      null,         // no html body
+      tmpl.ics      // base64 .ics calendar invite
     );
   },
 
