@@ -48,47 +48,35 @@ const Notify = {
       if (viewing.agent_notes) tableRows.push(`<tr><td class="label">Notes</td><td class="value">${viewing.agent_notes}</td></tr>`);
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;}
-        .wrap{max-width:600px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.10);}
-        .header{background:#1a2744;padding:32px 32px 24px;text-align:center;}
-        .header h1{margin:0;color:#fff;font-size:26px;font-weight:700;letter-spacing:-0.5px;}
-        .header p{margin:6px 0 0;color:#b0bcd4;font-size:14px;}
-        .body{padding:32px;}
-        .greeting{font-size:16px;color:#333;margin-bottom:20px;}
-        .detail-table{width:100%;border-collapse:collapse;margin-bottom:28px;}
-        .detail-table tr{border-bottom:1px solid #eee;}
-        .detail-table tr:last-child{border-bottom:none;}
-        td.label{padding:10px 12px;color:#888;font-size:13px;width:36%;vertical-align:top;}
-        td.value{padding:10px 12px;color:#222;font-size:14px;font-weight:500;}
-        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#fff !important;text-decoration:none;font-size:16px;font-weight:700;padding:16px 32px;border-radius:8px;margin:0 auto 28px;max-width:280px;}
-        .cal-note{text-align:center;font-size:12px;color:#999;margin-bottom:28px;}
-        .footer{background:#f8f9fb;border-top:1px solid #eee;padding:24px 32px;text-align:center;}
-        .footer .agent-name{font-size:15px;font-weight:700;color:#1a2744;}
-        .footer .agent-title{font-size:12px;color:#666;margin:2px 0;}
-        .footer .agent-contact{font-size:13px;color:#444;margin:8px 0 4px;}
-        .footer a{color:#1a6ef5;text-decoration:none;}
-        .footer .address{font-size:11px;color:#aaa;margin-top:6px;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;text-align:center;padding:0 20px;}
-      </style></head><body>
-      <div class="wrap">
-        <div class="header">
-          <h1>📅 Viewing Confirmed!</h1>
-          <p>Your property showing has been scheduled</p>
-        </div>
-        <div class="body">
-          <p class="greeting">Hi ${firstName},<br><br>Your property viewing has been confirmed. Here are all the details:</p>
-          <table class="detail-table">${tableRows.join('')}</table>
-          <a class="cal-btn" href="#">📅 Add to Calendar</a>
-          <p class="cal-note">A calendar invite (.ics) is attached to this email — open it to add this viewing to your calendar automatically.</p>
-          <p style="font-size:14px;color:#555;">Please don't hesitate to reach out if you have any questions or need to reschedule. Looking forward to showing you this property!</p>
-        </div>
-        <div class="footer">
-          <div class="agent-name">${agentName}</div>
-          <div class="agent-title">REALTOR® | eXp Realty</div>
-          <div class="agent-contact">📞 <a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; ✉️ <a href="mailto:${agentEmail}">${agentEmail}</a></div>
-          <div class="address">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</div>
-          <div class="address"><a href="https://${agentWebsite}">${agentWebsite}</a></div>
-        </div>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
+        table.dt tr{border-bottom:1px solid #eee;}
+        table.dt tr:last-child{border-bottom:none;}
+        table.dt td.lb{padding:9px 12px;color:#888;font-size:13px;width:38%;vertical-align:top;}
+        table.dt td.vl{padding:9px 12px;color:#222;font-size:14px;font-weight:500;}
+        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
+        .cal-note{font-size:12px;color:#999;margin:0 0 24px;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>Your viewing has been confirmed. Here are the details:</p>
+        <table class="dt">${tableRows.join('')}</table>
+        <a class="cal-btn" href="#">📅 Add to Calendar</a>
+        <p class="cal-note">A calendar invite is attached — open it to add this viewing to your calendar automatically.</p>
+        <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
+        <p>Looking forward to seeing you!</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
         <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
       </div></body></html>`;
 
