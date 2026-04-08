@@ -1,4 +1,4 @@
-// Maxwell DealFlow CRM — Client Notification System
+// Maxwell DealFlow CRM — Client Notification System v2
 // Every email goes to Approvals first — Maxwell approves before it sends
 
 const Notify = {
