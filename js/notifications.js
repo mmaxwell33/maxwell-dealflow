@@ -507,30 +507,34 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // Use agent id, or fall back to auth user id if agent record not in agents table
     const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
     if (!agentId) return;
-    const { error } = await db.from('approval_queue').insert({
+    const insertRow = {
       agent_id: agentId,
       client_name: clientName,
       client_email: clientEmail,
       approval_type: type,
       email_subject: emailSubject,
-      email_body: emailBody,      // always plain text — shown in preview
-      context_data: htmlBody || null, // HTML template stored here for sending
-      related_id: relatedId,
+      email_body: emailBody,
+      context_data: htmlBody || null,
       status: 'Pending'
-    });
-    if (!error) {
-      // Update badge
-      Notify.updateBadge();
-      // ── PUSH NOTIFICATION TO AGENT ──────────────────────────────────────
-      // Fire immediately — agent taps notification → lands on Approvals
-      App.pushNotify(
-        `📬 Action Required: ${type}`,
-        `${clientName} — tap to review and send`,
-        'approvals'
-      );
-      App.toast(`📬 Approval needed — check Approvals to send`, 'var(--accent2)');
+    };
+    // Only include related_id if it has a value (avoids schema cache issues if column not yet refreshed)
+    if (relatedId) insertRow.related_id = relatedId;
+    const { error } = await db.from('approval_queue').insert(insertRow);
+    if (error) {
+      console.error('Notify.queue insert error:', error);
+      App.toast(`⚠️ Could not queue approval: ${error.message}`, 'var(--red)');
+      return false;
     }
-    return !error;
+    // Update badge
+    Notify.updateBadge();
+    // ── PUSH NOTIFICATION TO AGENT ──────────────────────────────────────
+    App.pushNotify(
+      `📬 Action Required: ${type}`,
+      `${clientName} — tap to review and send`,
+      'approvals'
+    );
+    App.toast(`📬 Approval needed — check Approvals to send`, 'var(--accent2)');
+    return true;
   },
 
   async updateBadge() {
