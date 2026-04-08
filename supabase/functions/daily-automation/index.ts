@@ -351,21 +351,23 @@ serve(async (req) => {
   //    queue a "How did the viewing go?" feedback request email.
   const { data: pastViewings } = await supabase
     .from('viewings')
-    .select('id, agent_id, client_id, property_address, viewing_date, viewing_time, viewing_status')
+    .select('id, client_id, property_address, viewing_date, viewing_time, viewing_status')
     .eq('viewing_status', 'Scheduled')
     .is('client_feedback', null)
     .lte('viewing_date', todayStr);
 
   for (const v of (pastViewings ?? [])) {
     if (!v.client_id) continue;
-    // Look up client email
+    // Look up client email + agent_id via client record
     const { data: clientRow } = await supabase
       .from('clients')
-      .select('id, full_name, email')
+      .select('id, full_name, email, agent_id')
       .eq('id', v.client_id)
       .single();
     if (!clientRow?.email) continue;
 
+    // Attach agent_id from client record
+    v.agent_id = clientRow.agent_id;
     const agent = agentMap.get(v.agent_id) ?? { id: v.agent_id, full_name: null, email: null, phone: null };
     const viewDateFmt = new Date(v.viewing_date).toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const firstName = clientRow.full_name?.split(' ')[0] || 'there';

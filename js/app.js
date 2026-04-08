@@ -341,9 +341,9 @@ const App = {
       document.getElementById('followup-count-badge').textContent = followups.length;
       document.getElementById('followup-list').innerHTML = followups.slice(0,3).map(c => `
         <div class="followup-item">
-          <div class="client-avatar" style="width:32px;height:32px;font-size:12px;background:${App.avatarColor(c.name)};">${App.initials(c.name)}</div>
+          <div class="client-avatar" style="width:32px;height:32px;font-size:12px;background:${App.avatarColor(c.full_name)};">${App.initials(c.full_name)}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;">${c.name}</div>
+            <div style="font-size:13px;font-weight:700;">${c.full_name}</div>
             <div style="font-size:11px;color:var(--text2);">${c.stage || 'No stage'} · Last update ${App.timeAgo(c.updated_at)}</div>
           </div>
         </div>`).join('');

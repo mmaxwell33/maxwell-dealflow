@@ -160,7 +160,6 @@ const Viewings = {
     if (existingId) {
       ({ error } = await db.from('viewings').update(payload).eq('id', existingId));
     } else {
-      payload.agent_id = currentAgent?.id;
       ({ error } = await db.from('viewings').insert(payload));
       if (!error) {
         await App.logActivity('VIEWING_SCHEDULED', client?.full_name, client?.email,
