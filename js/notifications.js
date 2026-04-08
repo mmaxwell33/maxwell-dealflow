@@ -121,7 +121,7 @@ const Notify = {
 
       const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
 
-      return { subject: `\uD83D\uDCC5 Viewing Confirmed \u2014 ${viewing.property_address}`, body, html, ics: icsBase64 };
+      return { subject: `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
     },
 
     viewing_followup: (client, viewing, feedback, agent) => ({
@@ -169,7 +169,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     offer_accepted: (client, offer, agent) => ({
-      subject: `🎉 Your Offer Was Accepted! — ${offer.property_address}`,
+      subject: `Your Offer Was Accepted! - ${offer.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 CONGRATULATIONS! 🎉 Your offer of ${App.fmtMoney(offer.offer_amount)} on ${offer.property_address} has been ACCEPTED!
@@ -218,7 +218,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     closing_countdown: (client, deal, daysLeft, agent) => ({
-      subject: `🔑 ${daysLeft === 1 ? 'TOMORROW is Closing Day!' : `Closing Day in ${daysLeft} Days`} — ${deal.property_address}`,
+      subject: `${daysLeft === 1 ? 'TOMORROW is Closing Day!' : `Closing Day in ${daysLeft} Days`} - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 ${daysLeft === 1 ? '🔑 Tomorrow is the big day!' : `🏠 You are ${daysLeft} days away from closing!`}
@@ -253,7 +253,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     deal_closed: (client, deal, agent) => ({
-      subject: `🏠 Congratulations on Your New Home! — ${deal.property_address}`,
+      subject: `Congratulations on Your New Home! - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 CONGRATULATIONS! 🎉🏠🔑
@@ -398,7 +398,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     deal_fell_through: (client, deal, reason, agent) => ({
-      subject: `An Update on Your Home Search — Let's Keep Going 💪`,
+      subject: `An Update on Your Home Search - Let's Keep Going`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 I know this isn't the news we were hoping for regarding ${deal.property_address}. Sometimes deals don't work out, and while it can feel discouraging, please know this is a normal part of the home buying journey.${reason ? `\n\nReason: ${reason}` : ''}
@@ -424,7 +424,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     post_closing_referral: (client, deal, agent) => ({
-      subject: `Congratulations Again — and a Small Favour 🙏 — ${deal.property_address}`,
+      subject: `Congratulations Again - and a Small Favour - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 I hope you're settling into ${deal.property_address} and loving every moment of your new home! It has been an absolute pleasure working with you on this journey.
@@ -453,7 +453,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     new_listing_match: (client, listing, agent) => ({
-      subject: `🏠 New Listing That Matches Your Criteria — ${listing.address || 'Check This Out!'}`,
+      subject: `New Listing That Matches Your Criteria - ${listing.address || 'Check This Out!'}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 Great news — I found a listing that I think is a strong match for what you're looking for!
@@ -587,7 +587,7 @@ ${agentWebsite}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       return {
-        subject: `🎉 Welcome to eXp Realty, ${firstName}! — ${agentName}`,
+        subject: `Welcome to eXp Realty, ${firstName}! - ${agentName}`,
         body: plainText,
         html
       };
