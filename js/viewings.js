@@ -170,32 +170,18 @@ const Viewings = {
           await db.from('clients').update({ stage: 'Viewings' }).eq('id', clientId);
           Clients.load();
         }
-        // ── AUTO-QUEUE APPROVAL NOTIFICATION ──────────────────────────────
-        const viewDate = document.getElementById('vf-date').value;
-        const viewTime = document.getElementById('vf-time').value;
-        const dateStr = viewDate ? new Date(viewDate + 'T12:00:00').toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'}) : '—';
-        const timeStr = viewTime ? viewTime.slice(0,5) : '';
-        await db.from('approval_queue').insert({
-          agent_id: currentAgent.id,
-          client_name: client?.full_name || 'Unknown Client',
-          approval_type: 'VIEWING_SCHEDULED',
-          client_email: client?.email || null,
-          status: 'Pending',
-          context_data: `📅 Viewing booked for ${client?.full_name || 'client'}\n📍 ${address}\n🕐 ${dateStr}${timeStr ? ' at ' + timeStr : ''}\n📧 ${client?.email || 'No email on file'}`
-        });
-        // Update approvals badge
-        const badge = document.getElementById('approvals-badge');
-        if (badge) {
-          const cur = parseInt(badge.textContent) || 0;
-          badge.textContent = cur + 1;
-          badge.style.display = 'inline';
+        // ── AUTO-QUEUE VIEWING CONFIRMATION EMAIL FOR APPROVAL ────────────
+        // Fetch the newly inserted viewing so we have its id for dedup
+        const { data: newViewing } = await db.from('viewings')
+          .select('*')
+          .eq('client_id', clientId)
+          .eq('property_address', address)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (window.Notify && client?.email && newViewing) {
+          await Notify.onViewingBooked(newViewing, client);
         }
-        // ── PUSH NOTIFICATION TO AGENT (no mail app — stays in dashboard) ──
-        App.pushNotify(
-          `📅 Viewing Scheduled — ${client?.full_name || 'Client'}`,
-          `${address} · ${dateStr}${timeStr ? ' at ' + timeStr : ''} — tap to review`,
-          'approvals'
-        );
       }
     }
     // If feedback was added on update, queue follow-up

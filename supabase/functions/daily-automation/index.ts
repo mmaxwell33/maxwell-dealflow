@@ -346,7 +346,80 @@ serve(async (req) => {
     }
   }
 
-  // ── 4. Post-closing referral (7 days after closing) ───────────────────────
+  // ── 4. Viewing feedback requests (viewing date passed, no feedback yet) ──────
+  //    When a viewing date has passed and no client_feedback is recorded,
+  //    queue a "How did the viewing go?" feedback request email.
+  const { data: pastViewings } = await supabase
+    .from('viewings')
+    .select('id, agent_id, client_id, property_address, viewing_date, viewing_time, viewing_status')
+    .eq('viewing_status', 'Scheduled')
+    .is('client_feedback', null)
+    .lte('viewing_date', todayStr);
+
+  for (const v of (pastViewings ?? [])) {
+    if (!v.client_id) continue;
+    // Look up client email
+    const { data: clientRow } = await supabase
+      .from('clients')
+      .select('id, full_name, email')
+      .eq('id', v.client_id)
+      .single();
+    if (!clientRow?.email) continue;
+
+    const agent = agentMap.get(v.agent_id) ?? { id: v.agent_id, full_name: null, email: null, phone: null };
+    const viewDateFmt = new Date(v.viewing_date).toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const firstName = clientRow.full_name?.split(' ')[0] || 'there';
+
+    const subject = `How Did the Viewing Go? — ${v.property_address}`;
+    const body = `Hi ${firstName},
+
+I hope you enjoyed viewing ${v.property_address} on ${viewDateFmt}!
+
+I'd love to hear your thoughts. Here are a few questions to help guide our next steps:
+
+🏠 Did the property meet your expectations?
+📐 Did the size and layout work for you?
+💰 Do you feel the asking price is fair?
+❓ Do you have any questions or concerns?
+
+Your honest feedback helps me find the perfect home for you. Feel free to reply directly to this email or give me a call.
+
+${sig(agent)}`;
+
+    // Dedup check using viewing id
+    const windowStart = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const { data: dupCheck } = await supabase
+      .from('approval_queue')
+      .select('id')
+      .eq('agent_id', v.agent_id)
+      .eq('related_id', v.id)
+      .eq('approval_type', 'Post-Viewing Feedback Request')
+      .eq('status', 'Pending')
+      .gte('created_at', windowStart)
+      .limit(1);
+
+    if ((dupCheck?.length ?? 0) > 0) { summary.skipped_duplicate++; continue; }
+
+    const { error: qErr } = await supabase.from('approval_queue').insert({
+      agent_id: v.agent_id,
+      client_name: clientRow.full_name,
+      client_email: clientRow.email,
+      approval_type: 'Post-Viewing Feedback Request',
+      email_subject: subject,
+      email_body: body,
+      related_id: v.id,
+      status: 'Pending',
+    });
+
+    if (qErr) { summary.errors.push(`viewing ${v.id}: ${qErr.message}`); }
+    else {
+      summary.queued++;
+      // Also mark the viewing as needing follow-up so it doesn't pile up
+      await supabase.from('viewings').update({ viewing_status: 'Needs Follow-Up' }).eq('id', v.id);
+    }
+  }
+
+  // ── 5. Post-closing referral (7 days after closing) ───────────────────────
   //    Fetch recently-closed deals separately (stage = Closed, closed in last 8 days,
   //    check if exactly 7 days have passed)
   const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
@@ -372,7 +445,7 @@ serve(async (req) => {
     result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
   }
 
-  // ── 5. Stale deal detection (stuck > 30 days in same non-terminal stage) ──
+  // ── 6. Stale deal detection (stuck > 30 days in same non-terminal stage) ──
   //    Log to activity_log only — no email queued (Maxwell reviews manually)
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 86_400_000).toISOString();
 
@@ -395,7 +468,7 @@ serve(async (req) => {
     }).select(); // .select() suppresses no-return warning
   }
 
-  // ── 6. Return summary ──────────────────────────────────────────────────────
+  // ── 7. Return summary ──────────────────────────────────────────────────────
   return new Response(JSON.stringify(summary), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
