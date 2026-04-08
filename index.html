@@ -157,6 +157,10 @@
             <button class="nav-item" data-tab="viewings" onclick="App.switchTab('viewings')">
               <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
             </button>
+            <button class="nav-item" data-tab="responses" onclick="App.switchTab('responses')" style="position:relative;">
+              <span class="nav-icon">💬</span><span class="nav-label">Client Responses</span>
+              <span id="responses-badge" style="display:none;position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1;"></span>
+            </button>
             <button class="nav-item" data-tab="offers" onclick="App.switchTab('offers')">
               <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
             </button>
@@ -1048,6 +1052,15 @@
       </div>
     </div>
 
+    <!-- CLIENT RESPONSES SCREEN (from interactive response page) -->
+    <div id="screen-responses" class="screen" style="padding:16px;">
+      <div class="section-header">
+        <div class="section-title">💬 Client Responses</div>
+        <span class="text-muted" style="font-size:13px;">Decisions from clients after viewings</span>
+      </div>
+      <div id="responses-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
     <!-- FORM RESPONSES SCREEN -->
     <div id="screen-formresponses" class="screen" style="padding:16px;">
       <div class="section-header">
@@ -1381,6 +1394,7 @@
 <script src="js/viewings.js"></script>
 <script src="js/offers.js"></script>
 <script src="js/notifications.js"></script>
+<script src="js/responses.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/tracker.js"></script>

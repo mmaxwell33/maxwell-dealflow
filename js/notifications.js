@@ -284,35 +284,104 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 P.S. Don't hesitate to reach out anytime — even just to say hello from your new home! 😊`
     }),
 
-    ready_to_offer: (client, viewing, agent) => ({
-      subject: `Ready to Make an Offer? — ${viewing.property_address}`,
-      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+    ready_to_offer: (client, viewing, agent) => {
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+      const agentPhone = agent.phone || '(709) 325-0545';
+      const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const responseLink = `https://maxwell-dealflow.vercel.app/respond.html?viewing_id=${viewing.id}&client_id=${client.id}`;
+      const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
-Based on your strong interest in ${viewing.property_address}, I wanted to reach out about the next step — making an offer!
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
 
-Here's what happens when we submit an offer:
-1. We agree on an offer price together
-2. I prepare the offer documents on your behalf
-3. The offer is submitted to the seller's agent
-4. The seller can Accept, Counter, or Reject the offer
-5. If accepted — you're on your way to owning this home! 🔑
+      <tr><td style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:28px 40px;text-align:center;">
+        <p style="margin:0;font-size:24px;font-weight:bold;color:#fff;">Ready for the Next Step?</p>
+        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,.85);">${viewing.property_address}</p>
+      </td></tr>
 
-To get started, simply reply to this email with:
-• The price you'd like to offer
-• Any conditions you want included (financing, inspection, etc.)
-• Or let me know if you'd like more time to think it over
+      <tr><td style="padding:32px 40px 24px;">
+        <p style="margin:0 0 16px;font-size:16px;color:#111;">Hi ${firstName},</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Based on your strong interest in <strong>${viewing.property_address}</strong>, I wanted to reach out about the next step.</p>
 
-I'm here to guide you every step of the way. No pressure — just let me know what you'd like to do!
+        ${listPrice ? `<div style="background:#f0f7ff;border-radius:8px;padding:16px;margin-bottom:20px;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.05em;">List Price</p>
+          <p style="margin:4px 0 0;font-size:24px;font-weight:bold;color:#1d4ed8;">${listPrice}</p>
+        </div>` : ''}
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+        <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6;">I've set up a simple page where you can let me know what you'd like to do. You have three options:</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:8px;">
+            <p style="margin:0;font-size:14px;"><strong style="color:#059669;">Make an Offer</strong> - Enter your preferred price and any notes</p>
+          </td></tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;">
+            <p style="margin:0;font-size:14px;"><strong style="color:#3b82f6;">Continue Searching</strong> - Keep looking at other options</p>
+          </td></tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;">
+            <p style="margin:0;font-size:14px;"><strong style="color:#6b7280;">Pass</strong> - This one isn't the right fit</p>
+          </td></tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center">
+            <a href="${responseLink}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;padding:16px 40px;border-radius:8px;font-size:16px;font-weight:bold;text-decoration:none;">Let Me Know Your Decision</a>
+          </td></tr>
+        </table>
+
+        <p style="margin:24px 0 0;font-size:14px;color:#666;text-align:center;">No pressure - take your time. I'm here whenever you're ready.</p>
+      </td></tr>
+
+      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
+        <p style="margin:0 0 2px;font-size:14px;color:#555;">Regards,</p>
+        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
+        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR&reg; | eXp Realty</p>
+        <p style="margin:0;font-size:12px;color:#888;">Phone: ${agentPhone} | Email: ${agentEmail}</p>
+        <p style="margin:0;font-size:12px;color:#888;">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+        <p style="margin:4px 0 0;font-size:12px;"><a href="https://maxwellmidodzi.exprealty.com" style="color:#3b82f6;text-decoration:none;">maxwellmidodzi.exprealty.com</a></p>
+      </td></tr>
+
+      <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #eee;">
+        <p style="margin:0;font-size:11px;color:#999;line-height:1.5;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+      return {
+        subject: `Ready to Make an Offer? - ${viewing.property_address}`,
+        body: `Hi ${firstName},
+
+Based on your strong interest in ${viewing.property_address}, I wanted to reach out about the next step.
+
+${listPrice ? `List Price: ${listPrice}\n` : ''}
+I've set up a simple page where you can let me know what you'd like to do:
+
+Click here to respond: ${responseLink}
+
+Your options:
+- Make an Offer (enter your preferred price and any notes)
+- Continue Searching (keep looking at other options)
+- Pass (this one isn't the right fit)
+
+No pressure - take your time. I'm here whenever you're ready!
+
+${agentName}
+REALTOR | eXp Realty
+Phone: ${agentPhone} | Email: ${agentEmail}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
-    }),
+maxwellmidodzi.exprealty.com`,
+        html
+      };
+    },
 
     offer_countered: (client, offer, counterAmount, message, agent) => ({
       subject: `The Seller Has Countered Your Offer — ${offer.property_address}`,
@@ -684,9 +753,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const agent = currentAgent;
     const tmpl = Notify.templates.ready_to_offer(client, viewing, agent);
     await Notify.queue(
-      'Ready to Make an Offer? 🏠',
+      'Ready to Make an Offer?',
       client.id, client.full_name, client.email,
-      tmpl.subject, tmpl.body, viewing.id
+      tmpl.subject, tmpl.body, viewing.id,
+      tmpl.html    // beautiful HTML email with interactive response link
     );
   },
 

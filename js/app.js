@@ -132,6 +132,8 @@ const App = {
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
     // Update approvals badge
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
+    // Update client responses badge
+    setTimeout(() => { if (typeof Responses !== "undefined") Responses.updateBadge(); }, 1800);
     // Request browser push notification permission
     setTimeout(() => App.requestNotifyPermission(), 3000);
     // Check for new intake form submissions and notify agent
@@ -280,6 +282,7 @@ const App = {
     if (tab === 'tracker') Tracker.load();
     if (tab === 'checklist') Checklist.load();
     if (tab === 'inbox') { /* Inbox loads on button click — instant tab open */ }
+    if (tab === 'responses') Responses.load();
     if (tab === 'formresponses') FormResponses.load();
     if (tab === 'agentportal') AgentPortal.load();
     if (tab === 'cleanup') Cleanup.init();
