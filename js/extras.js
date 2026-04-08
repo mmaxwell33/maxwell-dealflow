@@ -112,7 +112,7 @@ const Approvals = {
         await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
         App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
         Approvals.load();
-        if (window.Notify) Notify.updateBadge();
+        if (typeof Notify !== "undefined") Notify.updateBadge();
         App.toast(`✅ Email sent to ${item.client_name}!`, 'var(--green)');
       } catch (err) {
         App.toast(`❌ Error: ${err.message}`, 'var(--red)');
@@ -122,7 +122,7 @@ const Approvals = {
       await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
       App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Approved: ${item.email_subject}`);
       Approvals.load();
-      if (window.Notify) Notify.updateBadge();
+      if (typeof Notify !== "undefined") Notify.updateBadge();
       App.toast('✅ Approved and logged!', 'var(--green)');
     }
   },
@@ -173,7 +173,7 @@ const Approvals = {
     await db.from('approval_queue').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
     App.toast('❌ Email discarded.');
     Approvals.load();
-    if (window.Notify) Notify.updateBadge();
+    if (typeof Notify !== "undefined") Notify.updateBadge();
   }
 };
 
@@ -319,7 +319,7 @@ const FormResponses = {
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
     // Use newClient if fetched, otherwise build a minimal client object from intake
     const clientForEmail = newClient || { id: null, full_name: r.full_name, email: r.email };
-    if (window.Notify) {
+    if (typeof Notify !== "undefined") {
       await Notify.onClientAdded(clientForEmail, r);
     }
 
@@ -1125,7 +1125,7 @@ const EmailSend = {
     const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '');
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
-    if (window.Notify) {
+    if (typeof Notify !== "undefined") {
       await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fullBody);
     }
     App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
@@ -1150,7 +1150,7 @@ const EmailSend = {
     const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '') + (cc ? `\n\nCC: ${cc}` : '');
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
-    if (window.Notify) {
+    if (typeof Notify !== "undefined") {
       await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fullBody);
     }
     st.style.color = 'var(--green)';

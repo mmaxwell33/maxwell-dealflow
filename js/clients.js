@@ -208,7 +208,7 @@ const Clients = {
     await App.logActivity('CLIENT_ADDED', name, data.email, `New client added: ${name}`, data.id);
 
     // Queue welcome email for approval if client has an email
-    if (data.email && window.Notify) {
+    if (data.email && typeof Notify !== "undefined") {
       await Notify.onClientAdded(data, {});
     }
 
@@ -335,7 +335,7 @@ const Clients = {
     const c = Clients.all.find(x => x.id === id);
     if (!c) return;
     if (!c.email) { App.toast('⚠️ This client has no email on file', 'var(--red)'); return; }
-    if (window.Notify) {
+    if (typeof Notify !== "undefined") {
       await Notify.onClientAdded(c, {
         budget_max: c.budget_max || null,
         preferred_areas: c.preferred_areas || c.city || null,

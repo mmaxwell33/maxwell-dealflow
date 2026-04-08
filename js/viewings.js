@@ -179,13 +179,13 @@ const Viewings = {
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
-        if (window.Notify && client?.email && newViewing) {
+        if (typeof Notify !== "undefined" && client?.email && newViewing) {
           await Notify.onViewingBooked(newViewing, client);
         }
       }
     }
     // If feedback was added on update, queue follow-up
-    if (existingId && !error && payload.client_feedback && window.Notify) {
+    if (existingId && !error && payload.client_feedback && typeof Notify !== "undefined") {
       const clientObj = { ...client, email: client?.email || '(no email on file)' };
       await Notify.onViewingFeedback(payload, clientObj, payload.client_feedback);
     }
@@ -260,7 +260,7 @@ const Viewings = {
     const v = Viewings.all.find(x => x.id === id) || {};
     const client = Clients.all.find(c => c.id === v.client_id);
     // Queue follow-up email for approval (works even without email on file)
-    if (window.Notify) {
+    if (typeof Notify !== "undefined") {
       const clientObj = { ...client, email: client?.email || '(no email on file)' };
       await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
       if (feedback === 'interested') {

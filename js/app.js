@@ -129,9 +129,9 @@ const App = {
     App.restoreGroupStates();
     setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
     // Check for upcoming condition/closing deadlines and queue reminder emails
-    setTimeout(() => { if (window.Notify) Notify.checkConditionDeadlines(); }, 2000);
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
     // Update approvals badge
-    setTimeout(() => { if (window.Notify) Notify.updateBadge(); }, 1500);
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
     // Request browser push notification permission
     setTimeout(() => App.requestNotifyPermission(), 3000);
     // Check for new intake form submissions and notify agent

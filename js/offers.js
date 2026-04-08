@@ -158,7 +158,7 @@ const Offers = {
     }
 
     // Queue notification emails for approval
-    if (window.Notify && client?.email) {
+    if (typeof Notify !== "undefined" && client?.email) {
       await Notify.onOfferSubmitted(data, client);
       if (status === 'Accepted') await Notify.onOfferAccepted(data, client);
     }
@@ -209,7 +209,7 @@ const Offers = {
     const client = Clients.all.find(c => c.id === o.client_id);
     await db.from('offers').update({ status: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
     await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
-    if (window.Notify && client?.email) await Notify.onOfferAccepted(o, client);
+    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
     await Pipeline.createFromOffer(o, client);
     App.closeModal();
     App.toast('🎉 Accepted! Buyer notified (check Approvals) + Pipeline created!');
@@ -244,7 +244,7 @@ const Offers = {
     if (!counterAmount) { App.toast('⚠️ Enter counter amount', 'var(--red)'); return; }
     const client = Clients.all.find(c => c.id === o.client_id);
     await db.from('offers').update({ status: 'Countered', agent_notes: (o.agent_notes||'') + `\nCounter: ${App.fmtMoney(counterAmount)}`, updated_at: new Date().toISOString() }).eq('id', id);
-    if (window.Notify && client?.email) await Notify.onOfferCountered(o, client, counterAmount, msg);
+    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferCountered(o, client, counterAmount, msg);
     App.closeModal();
     App.toast('📬 Counter offer notification queued in Approvals!');
     Offers.load();
@@ -273,7 +273,7 @@ const Offers = {
     const client = Clients.all.find(c => c.id === o.client_id);
     await db.from('offers').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
     await db.from('clients').update({ stage: 'Searching' }).eq('id', o.client_id);
-    if (window.Notify && client?.email) await Notify.onOfferRejected(o, client, msg);
+    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg);
     App.closeModal();
     App.toast('📬 Rejection notification queued. Client stage reset to Searching.');
     Offers.load(); Clients.load();
@@ -286,7 +286,7 @@ const Offers = {
       const client = Clients.all.find(c => c.id === o.client_id);
       await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
       // Queue accepted notification for approval
-      if (window.Notify && client?.email) await Notify.onOfferAccepted(o, client);
+      if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
       await Pipeline.createFromOffer(o, client);
       App.toast('🎉 Accepted! Pipeline entry created.');
     } else {
@@ -515,7 +515,7 @@ const Pipeline = {
     }
     await App.logActivity('DEAL_CLOSED', d?.client_name, d?.client_email, `Deal closed: ${d?.property_address}`, d?.client_id);
     // Queue closing congratulations email for approval
-    if (window.Notify && d?.client_email) {
+    if (typeof Notify !== "undefined" && d?.client_email) {
       const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
       await Notify.onDealClosed(d, client);
     }
@@ -531,7 +531,7 @@ const Pipeline = {
       await db.from('clients').update({ stage: 'Searching', updated_at: new Date().toISOString() }).eq('id', d.client_id);
     }
     // Queue encouraging email to client
-    if (window.Notify && d?.client_email) {
+    if (typeof Notify !== "undefined" && d?.client_email) {
       const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
       await Notify.onDealFellThrough(d, client, null);
     }
