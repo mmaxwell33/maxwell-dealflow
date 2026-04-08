@@ -252,6 +252,31 @@
 
     </nav><!-- /sidebar -->
 
+  <!-- MOBILE BOTTOM NAV -->
+  <nav id="mobile-bottom-nav">
+    <button class="mob-nav-item active" data-tab="overview" onclick="App.switchTab('overview')">
+      <span class="mob-nav-icon">🏠</span>
+      <span class="mob-nav-label">Home</span>
+    </button>
+    <button class="mob-nav-item" data-tab="clients" onclick="App.switchTab('clients')">
+      <span class="mob-nav-icon">👥</span>
+      <span class="mob-nav-label">Clients</span>
+    </button>
+    <button class="mob-nav-item mob-nav-center" onclick="Clients.openAdd()">
+      <span class="mob-nav-icon">➕</span>
+      <span class="mob-nav-label">Add</span>
+    </button>
+    <button class="mob-nav-item" data-tab="approvals" onclick="App.switchTab('approvals')">
+      <span class="mob-nav-icon">✅</span>
+      <span class="mob-nav-label">Approvals</span>
+      <span class="mob-nav-badge" id="mob-approvals-badge" style="display:none;"></span>
+    </button>
+    <button class="mob-nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
+      <span class="mob-nav-icon">🚀</span>
+      <span class="mob-nav-label">Pipeline</span>
+    </button>
+  </nav>
+
   <!-- MAIN CONTENT -->
   <div id="main-content">
 

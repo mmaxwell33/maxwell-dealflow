@@ -314,21 +314,111 @@ input,select,textarea{font-family:inherit;outline:none;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── MOBILE ── */
+/* ── MOBILE BOTTOM NAV ───────────────────────────────────────────────────── */
+#mobile-bottom-nav{
+  display:none; /* hidden on desktop */
+}
+
 @media(max-width:900px){
+  /* Stats grid */
   .stats-row-2{grid-template-columns:repeat(3,1fr);gap:8px;}
   .quick-actions{grid-template-columns:1fr 1fr;}
-  .screen{padding:14px;}
+  .screen{padding:12px 12px 80px 12px;} /* bottom padding for nav bar */
+
+  /* Hide desktop-only topbar buttons */
   .tb-actions .tb-btn-grey{display:none;}
+  .tb-actions .tb-btn-green{display:none;}
+  .tb-actions .tb-btn-blue{display:none;}
+
+  /* Compact topbar */
+  #topbar{padding:0 12px;height:52px;}
+  .tb-name{font-size:13px;}
+  .tb-role{font-size:11px;}
+
   /* Sidebar slides in from left on mobile */
   #sidebar{
-    position:absolute;top:0;left:0;bottom:0;z-index:150;
+    position:fixed;top:0;left:0;bottom:0;z-index:300;
     transform:translateX(-100%);
+    width:260px;
   }
   #sidebar.open{transform:translateX(0);}
-  #sidebar-overlay{display:none;} /* shown via JS */
+  #sidebar-overlay{display:none;}
   .tb-hamburger{display:flex;}
+
+  /* Modal as bottom sheet */
   .modal-overlay{align-items:flex-end;padding:0;}
-  .modal{border-radius:16px 16px 0 0;max-width:100%;}
+  .modal{border-radius:20px 20px 0 0;max-width:100%;max-height:92vh;overflow-y:auto;}
+
+  /* Bottom nav */
+  #mobile-bottom-nav{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    background:var(--bg2);
+    border-top:1px solid var(--border);
+    padding:6px 0 max(6px, env(safe-area-inset-bottom));
+    height:64px;
+    align-items:center;
+    justify-content:space-around;
+  }
+
+  .mob-nav-item{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;flex:1;
+    background:none;border:none;cursor:pointer;
+    color:var(--text2);font-size:10px;font-weight:500;
+    padding:4px 2px;
+    position:relative;
+    transition:color .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mob-nav-item.active{color:var(--accent2);}
+  .mob-nav-item.active .mob-nav-icon{transform:scale(1.1);}
+
+  .mob-nav-icon{font-size:20px;line-height:1;transition:transform .15s;}
+  .mob-nav-label{font-size:10px;letter-spacing:0.2px;}
+
+  /* Center add button */
+  .mob-nav-center{
+    background:var(--accent);
+    border-radius:50%;
+    width:48px;height:48px;
+    flex:none;
+    margin-bottom:8px;
+    box-shadow:0 4px 14px rgba(26,86,219,0.5);
+    color:#fff !important;
+  }
+  .mob-nav-center .mob-nav-icon{font-size:22px;}
+  .mob-nav-center .mob-nav-label{display:none;}
+
+  /* Badge on approvals */
+  .mob-nav-badge{
+    position:absolute;top:2px;right:calc(50% - 18px);
+    background:var(--red);color:#fff;
+    font-size:9px;font-weight:800;
+    border-radius:50%;min-width:14px;height:14px;
+    display:flex;align-items:center;justify-content:center;
+    padding:0 3px;
+    line-height:1;
+  }
+
+  /* App body must account for bottom nav */
+  #app-body{
+    padding-bottom:0;
+  }
+
+  /* Card improvements for mobile */
+  .card{padding:12px;}
+  .client-row{padding:10px 12px;}
+
+  /* Stat cards smaller on mobile */
+  .stat-card{padding:12px 10px;}
+  .stat-num{font-size:22px;}
+  .stat-label{font-size:10px;}
+
+  /* Quick action cards */
+  .qa-card{padding:14px 12px;}
+  .qa-title{font-size:13px;}
+  .qa-sub{font-size:11px;}
 }
 
 /* ── RICH TEXT EDITOR ── */

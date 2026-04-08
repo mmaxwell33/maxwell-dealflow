@@ -264,6 +264,10 @@ const App = {
     document.querySelectorAll('.nav-item, .tab-item').forEach(n => {
       n.classList.toggle('active', n.dataset.tab === tab);
     });
+    // Sync mobile bottom nav active state
+    document.querySelectorAll('.mob-nav-item').forEach(n => {
+      n.classList.toggle('active', n.dataset.tab === tab);
+    });
     document.getElementById('main-content').scrollTop = 0;
     // Lazy load modules
     if (tab === 'approvals') Approvals.load();

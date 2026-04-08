@@ -549,6 +549,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       badge.textContent = count || 0;
       badge.style.display = (count > 0) ? 'inline' : 'none';
     }
+    // Sync mobile bottom nav badge
+    const mobBadge = document.getElementById('mob-approvals-badge');
+    if (mobBadge) {
+      mobBadge.textContent = count || 0;
+      mobBadge.style.display = (count > 0) ? 'flex' : 'none';
+    }
   },
 
   // ── TRIGGER FUNCTIONS (called from viewings/offers/pipeline) ───────────────
