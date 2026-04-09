@@ -47,6 +47,20 @@ const Notify = {
       if (viewing.sellers_direction) tableRows.push(`<tr><td class="label">Seller's Direction</td><td class="value">${viewing.sellers_direction}</td></tr>`);
       if (viewing.agent_notes) tableRows.push(`<tr><td class="label">Notes</td><td class="value">${viewing.agent_notes}</td></tr>`);
 
+      // Build Google Calendar link so the "Add to Calendar" button actually works
+      let gcalStart, gcalEnd;
+      if (viewing.viewing_time) {
+        const [gh, gm] = viewing.viewing_time.split(':');
+        const gStart = new Date(`${viewing.viewing_date}T${gh.padStart(2,'0')}:${gm.padStart(2,'0')}:00`);
+        const gEnd = new Date(gStart.getTime() + 30 * 60 * 1000);
+        gcalStart = gStart.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+        gcalEnd = gEnd.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+      } else {
+        gcalStart = viewing.viewing_date.replace(/-/g,'');
+        gcalEnd = gcalStart;
+      }
+      const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Property Viewing - ' + viewing.property_address)}&dates=${gcalStart}/${gcalEnd}&location=${encodeURIComponent(viewing.property_address)}&details=${encodeURIComponent('Viewing with ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail + (viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''))}`;
+
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
         body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
         .wrap{max-width:560px;margin:0 auto;}
@@ -66,8 +80,8 @@ const Notify = {
         <p>Hi ${firstName},</p>
         <p>Your viewing has been confirmed. Here are the details:</p>
         <table class="dt">${tableRows.join('')}</table>
-        <a class="cal-btn" href="#">📅 Add to Calendar</a>
-        <p class="cal-note">A calendar invite is attached — open it to add this viewing to your calendar automatically.</p>
+        <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
+        <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
         <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to seeing you!</p>
         <hr>
