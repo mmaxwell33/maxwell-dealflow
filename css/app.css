@@ -316,7 +316,12 @@ input,select,textarea{font-family:inherit;outline:none;}
 /* ── MOBILE ── */
 /* ── MOBILE BOTTOM NAV ───────────────────────────────────────────────────── */
 #mobile-bottom-nav{
-  display:none; /* hidden on desktop */
+  display:none !important; /* hidden on desktop */
+}
+@media(max-width:768px){
+  #mobile-bottom-nav{
+    display:flex !important;
+  }
 }
 
 @media(max-width:768px){
@@ -372,7 +377,7 @@ input,select,textarea{font-family:inherit;outline:none;}
 
   /* ── Bottom nav bar ── */
   #mobile-bottom-nav{
-    display:flex;
+    display:flex !important;
     position:fixed;bottom:0;left:0;right:0;z-index:250;
     background:rgba(22,27,34,0.97);
     backdrop-filter:blur(12px);
