@@ -123,11 +123,29 @@ const Approvals = {
           console.error('Email send error:', result);
           return;
         }
+        // Log sent email to inbox for threading
+        try {
+          await db.from('email_inbox').insert({
+            agent_id: currentAgent.id,
+            direction: 'sent',
+            recipient_name: item.client_name || '',
+            recipient_email: item.client_email,
+            sender_name: agent.name || agent.full_name || 'Maxwell Midodzi',
+            sender_email: agent.email || 'maxwelldelali22@gmail.com',
+            subject: item.email_subject,
+            body: item.email_body || '',
+            gmail_message_id: result.gmail_message_id || null,
+            gmail_thread_id: result.gmail_thread_id || null,
+            is_read: true,
+            created_at: new Date().toISOString()
+          });
+        } catch (logErr) { console.warn('Inbox log failed:', logErr); }
         // Mark approved in DB
         await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
         App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
         Approvals.load();
         if (typeof Notify !== "undefined") Notify.updateBadge();
+        if (typeof Inbox !== "undefined") Inbox.updateBadge();
         App.toast(`✅ Email sent to ${item.client_name}!`, 'var(--green)');
       } catch (err) {
         App.toast(`❌ Error: ${err.message}`, 'var(--red)');
@@ -1244,33 +1262,33 @@ const EmailSend = {
 // ── INBOX ────────────────────────────────────────────────────────────────────
 const Inbox = {
   _all: [],
-  _tab: 'client',
-  _selected: new Set(),
+  _threads: [],
+  _syncing: false,
+  _lastSync: 0,
 
+  // ── LOAD: fetch all emails from local DB ──────────────────────────────────
   async load() {
     if (!currentAgent?.id) return;
     const el = document.getElementById('inbox-list');
     if (el) el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
 
-    // Safety timeout — never spin forever
     const timer = setTimeout(() => {
       if (el && el.innerHTML.includes('spinner')) {
-        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No emails logged yet</div><div class="empty-sub">Emails you send via the Send Email tab are logged here. Send one to get started!</div></div>';
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No conversations yet</div><div class="empty-sub">Send an email to a client, then sync to see replies.</div></div>';
       }
-    }, 6000);
+    }, 8000);
 
     try {
       const days = parseInt(document.getElementById('inbox-filter')?.value || '30');
       const since = new Date(Date.now() - days * 86400000).toISOString();
 
-      // Run both queries in parallel
       const [emailRes, clientRes] = await Promise.all([
         db.from('email_inbox')
-          .select('id,direction,recipient_name,recipient_email,sender_name,sender_email,subject,body,created_at')
+          .select('id,direction,recipient_name,recipient_email,sender_name,sender_email,subject,body,created_at,gmail_thread_id,gmail_message_id,in_reply_to,is_read,gmail_internal_date')
           .eq('agent_id', currentAgent.id)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(100),
+          .limit(200),
         db.from('clients')
           .select('id,full_name,email')
           .eq('agent_id', currentAgent.id)
@@ -1280,7 +1298,6 @@ const Inbox = {
       clearTimeout(timer);
       Inbox._all = emailRes.data || [];
 
-      // Build client lookup map
       const clientEmails = new Set();
       const clientMap = {};
       (clientRes.data || []).forEach(c => {
@@ -1291,99 +1308,351 @@ const Inbox = {
       });
       Inbox._clientEmails = clientEmails;
       Inbox._clientMap = clientMap;
-      Inbox._selected.clear();
-      const ctr = document.getElementById('inbox-sel-count');
-      if (ctr) ctr.textContent = '0';
-      Inbox.showTab(Inbox._tab);
+
+      Inbox._threads = Inbox.groupIntoThreads(Inbox._all);
+      Inbox.renderThreadList();
+      Inbox.updateBadge();
     } catch (err) {
       clearTimeout(timer);
-      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No emails logged yet</div><div class="empty-sub">Emails you send via the Send Email tab are logged here.</div></div>`;
+      console.error('Inbox load error:', err);
+      if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No conversations yet</div><div class="empty-sub">Send an email and sync to see replies.</div></div>';
     }
   },
 
-  showTab(tab) {
-    Inbox._tab = tab;
-    const btnClient = document.getElementById('inbox-tab-client');
-    const btnExt = document.getElementById('inbox-tab-external');
-    if (btnClient) {
-      btnClient.style.background = tab === 'client' ? 'var(--accent)' : 'var(--card)';
-      btnClient.style.color = tab === 'client' ? '#fff' : 'var(--text2)';
+  // ── GMAIL SYNC: fetch new emails from Gmail API ───────────────────────────
+  async syncGmail(silent) {
+    if (Inbox._syncing) return;
+    Inbox._syncing = true;
+    const btn = document.getElementById('inbox-sync-btn');
+    const status = document.getElementById('inbox-sync-status');
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = '⏳ Syncing...';
+    if (!silent) App.toast('📬 Syncing Gmail...', 'var(--accent2)');
+
+    try {
+      // Find latest gmail_internal_date or created_at to only fetch new emails
+      let afterEpoch = 0;
+      if (Inbox._all.length) {
+        const dates = Inbox._all
+          .map(e => new Date(e.gmail_internal_date || e.created_at).getTime())
+          .filter(d => !isNaN(d));
+        if (dates.length) afterEpoch = Math.floor(Math.max(...dates) / 1000) - 60; // 1 min overlap for safety
+      }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-inbox`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ after_epoch: afterEpoch, max_results: 30 })
+      });
+      const data = await res.json();
+
+      if (data.needs_scope) {
+        if (status) status.textContent = '⚠️ Need Gmail read permission';
+        App.toast('⚠️ Gmail sync needs updated OAuth token. See setup guide.', 'var(--accent2)');
+        Inbox._syncing = false;
+        if (btn) btn.disabled = false;
+        return;
+      }
+      if (data.error) throw new Error(data.error);
+
+      const emails = data.emails || [];
+      let newCount = 0;
+      const agentEmail = (currentAgent?.email || 'maxwelldelali22@gmail.com').toLowerCase();
+
+      for (const em of emails) {
+        // Skip if already in DB (dedup by gmail_message_id)
+        const exists = Inbox._all.some(e => e.gmail_message_id === em.gmail_message_id);
+        if (exists) continue;
+
+        const isSent = em.from_email.toLowerCase() === agentEmail;
+        const contactEmail = isSent ? em.to.replace(/.*</, '').replace(/>.*/, '').trim() : em.from_email;
+        const contactName = isSent ? em.to.replace(/<.*/, '').trim() : em.from.replace(/<.*/, '').trim();
+
+        try {
+          await db.from('email_inbox').insert({
+            agent_id: currentAgent.id,
+            direction: isSent ? 'sent' : 'received',
+            recipient_name: isSent ? contactName : (currentAgent.full_name || currentAgent.name || ''),
+            recipient_email: isSent ? contactEmail : agentEmail,
+            sender_name: isSent ? (currentAgent.full_name || currentAgent.name || '') : contactName,
+            sender_email: isSent ? agentEmail : contactEmail,
+            subject: em.subject || '(no subject)',
+            body: em.body_text || '',
+            gmail_message_id: em.gmail_message_id,
+            gmail_thread_id: em.gmail_thread_id,
+            in_reply_to: em.message_id_header || null,
+            is_read: isSent, // sent = read, received = unread
+            gmail_internal_date: em.date ? new Date(em.date).toISOString() : new Date().toISOString(),
+            created_at: em.date ? new Date(em.date).toISOString() : new Date().toISOString()
+          });
+          newCount++;
+        } catch (insertErr) {
+          // Dedup constraint may fire — that's fine
+          if (!insertErr.message?.includes('duplicate')) console.warn('Insert err:', insertErr);
+        }
+      }
+
+      Inbox._lastSync = Date.now();
+      if (status) status.textContent = `✅ Synced · ${newCount} new`;
+      if (newCount > 0) {
+        if (!silent) App.toast(`📬 ${newCount} new email(s) synced!`, 'var(--green)');
+        // Send push notification for received emails
+        if (typeof Notify !== 'undefined') {
+          const received = emails.filter(e => e.from_email.toLowerCase() !== agentEmail);
+          if (received.length) {
+            Notify.push('📬 New Email', `${received.length} new reply(s) in your inbox`, 'inbox');
+          }
+        }
+        await Inbox.load(); // Reload to show new emails
+      } else {
+        if (!silent) App.toast('✅ Inbox is up to date', 'var(--green)');
+      }
+      Inbox.updateBadge();
+    } catch (err) {
+      console.error('Gmail sync error:', err);
+      if (status) status.textContent = '❌ Sync failed';
+      if (!silent) App.toast(`❌ Sync failed: ${err.message}`, 'var(--red)');
     }
-    if (btnExt) {
-      btnExt.style.background = tab === 'external' ? 'var(--accent)' : 'var(--card)';
-      btnExt.style.color = tab === 'external' ? '#fff' : 'var(--text2)';
-    }
-    const ce = Inbox._clientEmails || new Set();
-    const isClient = e => {
-      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
-      return ce.has(addr);
-    };
-    const filtered = Inbox._all.filter(e => tab === 'client' ? isClient(e) : !isClient(e));
-    Inbox.renderList(filtered);
+    Inbox._syncing = false;
+    if (btn) btn.disabled = false;
   },
 
-  renderList(list) {
+  // ── GROUP INTO THREADS ────────────────────────────────────────────────────
+  groupIntoThreads(emails) {
+    const threadMap = {};
+    emails.forEach(e => {
+      const key = e.gmail_thread_id || `solo_${e.id}`;
+      if (!threadMap[key]) threadMap[key] = [];
+      threadMap[key].push(e);
+    });
+    // Sort messages within each thread by date (oldest first)
+    const threads = Object.entries(threadMap).map(([threadId, msgs]) => {
+      msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      const latest = msgs[msgs.length - 1];
+      const unread = msgs.filter(m => !m.is_read && m.direction === 'received').length;
+      // Determine contact: the non-agent email in the thread
+      const agentEmail = (currentAgent?.email || 'maxwelldelali22@gmail.com').toLowerCase();
+      let contact = '';
+      let contactEmail = '';
+      for (const m of msgs) {
+        if (m.direction === 'sent') {
+          contact = m.recipient_name || m.recipient_email || '';
+          contactEmail = (m.recipient_email || '').toLowerCase();
+        } else {
+          contact = m.sender_name || m.sender_email || '';
+          contactEmail = (m.sender_email || '').toLowerCase();
+        }
+        if (contactEmail && contactEmail !== agentEmail) break;
+      }
+      return {
+        threadId,
+        contact: contact || 'Unknown',
+        contactEmail,
+        subject: msgs[0].subject || '(no subject)',
+        latest,
+        messages: msgs,
+        unread,
+        lastDate: latest.created_at
+      };
+    });
+    // Sort threads by latest message date (newest first)
+    threads.sort((a, b) => new Date(b.lastDate) - new Date(a.lastDate));
+    return threads;
+  },
+
+  // ── RENDER THREAD LIST (WhatsApp-style) ───────────────────────────────────
+  renderThreadList() {
     const el = document.getElementById('inbox-list');
-    if (!list.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${Inbox._tab === 'client' ? '👤' : '🌐'}</div><div class="empty-text">No ${Inbox._tab === 'client' ? 'client' : 'external'} emails found</div><div class="empty-sub">Try a wider date range or click Load Inbox.</div></div>`;
+    if (!el) return;
+    const threads = Inbox._threads;
+    if (!threads.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No conversations yet</div><div class="empty-sub">Send an email to a client, then sync Gmail to see replies.</div></div>';
       return;
     }
-    el.innerHTML = list.map(e => {
-      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
-      const client = Inbox._clientMap?.[addr];
-      const name = e.recipient_name || e.sender_name || addr;
-      const isSent = e.direction === 'sent';
-      return `<div class="card" style="margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;">
-        <input type="checkbox" style="margin-top:3px;" onchange="Inbox.toggleSelect('${e.id}',this.checked)">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-            <div class="fw-700" style="font-size:13px;">${App.esc(name)}</div>
-            <div style="font-size:11px;color:var(--text2);">${isSent ? '↗ Sent' : '↙ Received'} · ${App.timeAgo(e.created_at)}</div>
+    el.innerHTML = threads.map(t => {
+      const client = Inbox._clientMap?.[t.contactEmail];
+      const preview = (t.latest.body || '').replace(/\n/g, ' ').slice(0, 80);
+      const isSent = t.latest.direction === 'sent';
+      const unreadDot = t.unread > 0 ? `<span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center;">${t.unread}</span>` : '';
+      return `<div class="card inbox-thread-card" style="margin-bottom:8px;cursor:pointer;border-left:3px solid ${t.unread > 0 ? 'var(--accent)' : 'transparent'};" onclick="Inbox.openThread('${t.threadId}')">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${client ? 'var(--accent)' : 'var(--text2)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${(t.contact[0] || '?').toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
+              <div class="fw-700" style="font-size:13px;${t.unread > 0 ? 'color:var(--text);' : 'color:var(--text2);'}">${App.esc(t.contact)}</div>
+              <div style="font-size:11px;color:var(--text2);white-space:nowrap;">${App.timeAgo(t.lastDate)}</div>
+            </div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(t.subject)}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${isSent ? '↗ You: ' : ''}${App.esc(preview)}${preview.length >= 80 ? '…' : ''}</div>
+              ${unreadDot}
+            </div>
+            ${client ? `<div style="font-size:10px;color:var(--accent2);margin-top:2px;">👤 ${App.esc(client.full_name)}</div>` : `<div style="font-size:10px;color:var(--text2);margin-top:2px;">${t.messages.length} message${t.messages.length > 1 ? 's' : ''}</div>`}
           </div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:3px;">${App.esc(e.subject || '(no subject)')}</div>
-          <div style="font-size:12px;color:var(--text2);">${App.esc((e.body || '').slice(0,120))}${(e.body||'').length > 120 ? '…' : ''}</div>
-          ${client ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px;">👤 ${App.esc(client.full_name)}</div>` : ''}
         </div>
       </div>`;
     }).join('');
   },
 
-  toggleSelect(id, checked) {
-    if (checked) Inbox._selected.add(id); else Inbox._selected.delete(id);
-    document.getElementById('inbox-sel-count').textContent = Inbox._selected.size;
+  // ── OPEN THREAD (chat bubble view) ────────────────────────────────────────
+  async openThread(threadId) {
+    const thread = Inbox._threads.find(t => t.threadId === threadId);
+    if (!thread) return;
+
+    // Mark all received messages as read
+    const unreadIds = thread.messages.filter(m => !m.is_read && m.direction === 'received').map(m => m.id);
+    if (unreadIds.length) {
+      await db.from('email_inbox').update({ is_read: true }).in('id', unreadIds);
+      thread.messages.forEach(m => { if (unreadIds.includes(m.id)) m.is_read = true; });
+      thread.unread = 0;
+      Inbox.updateBadge();
+    }
+
+    const msgs = thread.messages;
+    const lastReceived = [...msgs].reverse().find(m => m.direction === 'received');
+    const lastMsg = msgs[msgs.length - 1];
+
+    const bubbles = msgs.map(m => {
+      const isSent = m.direction === 'sent';
+      const body = App.esc((m.body || '').slice(0, 2000)).replace(/\n/g, '<br>');
+      const time = new Date(m.created_at).toLocaleString('en-CA', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+      return `<div style="display:flex;justify-content:${isSent ? 'flex-end' : 'flex-start'};margin-bottom:10px;">
+        <div style="max-width:80%;padding:10px 14px;border-radius:${isSent ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};background:${isSent ? 'var(--accent)' : 'var(--card)'};color:${isSent ? '#fff' : 'var(--text)'};font-size:13px;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+          <div style="font-size:11px;${isSent ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text2);'}margin-bottom:4px;font-weight:600;">${isSent ? 'You' : App.esc(m.sender_name || m.sender_email || 'Client')} · ${time}</div>
+          <div>${body}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    App.openModal(`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button class="btn btn-outline btn-sm" onclick="App.closeModal();Inbox.renderThreadList();" style="padding:4px 10px;">← Back</button>
+        <div style="flex:1;">
+          <div class="fw-800" style="font-size:15px;">${App.esc(thread.contact)}</div>
+          <div style="font-size:12px;color:var(--text2);">${App.esc(thread.subject)} · ${msgs.length} message${msgs.length > 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      <div id="inbox-thread-messages" style="max-height:50vh;overflow-y:auto;padding:10px 0;margin-bottom:14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+        ${bubbles}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">↩️ Reply to ${App.esc(thread.contact)}</div>
+      <textarea id="inbox-reply-text" class="form-input" style="width:100%;min-height:80px;resize:vertical;font-size:13px;" placeholder="Type your reply..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+        <button class="btn btn-outline btn-sm" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="inbox-reply-btn" onclick="Inbox.sendReply('${threadId}')">📤 Send Reply</button>
+      </div>
+    `);
+
+    // Scroll to bottom of messages
+    setTimeout(() => {
+      const container = document.getElementById('inbox-thread-messages');
+      if (container) container.scrollTop = container.scrollHeight;
+    }, 100);
   },
 
-  selectAll() {
-    const ce = Inbox._clientEmails || new Set();
-    const isClient = e => { const addr = (e.recipient_email || e.sender_email || '').toLowerCase(); return ce.has(addr); };
-    const filtered = Inbox._all.filter(e => Inbox._tab === 'client' ? isClient(e) : !isClient(e));
-    filtered.forEach(e => Inbox._selected.add(e.id));
-    document.getElementById('inbox-sel-count').textContent = Inbox._selected.size;
-    Inbox.renderList(filtered); // re-render to show checked state (simple approach)
-    App.toast(`☑️ ${Inbox._selected.size} selected`);
+  // ── SEND REPLY ────────────────────────────────────────────────────────────
+  async sendReply(threadId) {
+    const thread = Inbox._threads.find(t => t.threadId === threadId);
+    if (!thread) return;
+    const text = document.getElementById('inbox-reply-text')?.value.trim();
+    if (!text) { App.toast('⚠️ Type a reply first'); return; }
+
+    const btn = document.getElementById('inbox-reply-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending...'; }
+
+    try {
+      const agent = currentAgent || {};
+      const agentEmail = agent.email || 'maxwelldelali22@gmail.com';
+      const toEmail = thread.contactEmail;
+      const subject = thread.subject.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`;
+
+      // Get threading headers from the last message in thread
+      const lastMsg = thread.messages[thread.messages.length - 1];
+      const gmailThreadId = (threadId.startsWith('solo_') ? null : threadId);
+
+      // Build signed body + HTML
+      const { plainSig, fullBody } = EmailSend.buildSignedBody(text);
+      const htmlBody = EmailSend.wrapHtml(text, plainSig);
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          to: toEmail,
+          subject,
+          body: fullBody,
+          html: htmlBody,
+          from_name: agent.full_name || agent.name || 'Maxwell Midodzi',
+          thread_id: gmailThreadId,
+          in_reply_to: lastMsg.in_reply_to || lastMsg.gmail_message_id || null,
+          references: lastMsg.in_reply_to || null
+        })
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Send failed');
+
+      // Log to email_inbox
+      await db.from('email_inbox').insert({
+        agent_id: currentAgent.id,
+        direction: 'sent',
+        recipient_name: thread.contact,
+        recipient_email: toEmail,
+        sender_name: agent.full_name || agent.name || '',
+        sender_email: agentEmail,
+        subject,
+        body: text,
+        gmail_message_id: result.gmail_message_id || null,
+        gmail_thread_id: result.gmail_thread_id || gmailThreadId || null,
+        is_read: true,
+        created_at: new Date().toISOString()
+      });
+
+      App.toast('✅ Reply sent!', 'var(--green)');
+      App.closeModal();
+      await Inbox.load(); // Refresh threads
+    } catch (err) {
+      App.toast(`❌ Reply failed: ${err.message}`, 'var(--red)');
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Send Reply'; }
+    }
   },
 
-  async trashSelected() {
-    if (!Inbox._selected.size) { App.toast('⚠️ Nothing selected'); return; }
-    if (!confirm(`Delete ${Inbox._selected.size} email(s) from the log? This cannot be undone.`)) return;
-    const ids = [...Inbox._selected];
+  // ── UPDATE BADGE ──────────────────────────────────────────────────────────
+  async updateBadge() {
+    try {
+      if (!currentAgent?.id) return;
+      const { count } = await db.from('email_inbox')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', currentAgent.id)
+        .eq('direction', 'received')
+        .eq('is_read', false);
+      const n = count || 0;
+      // Sidebar badge
+      const sbBadge = document.getElementById('inbox-badge');
+      if (sbBadge) { sbBadge.textContent = n; sbBadge.style.display = n > 0 ? 'inline' : 'none'; }
+      // Mobile badge
+      const mobBadge = document.getElementById('mob-inbox-badge');
+      if (mobBadge) { mobBadge.textContent = n; mobBadge.style.display = n > 0 ? '' : 'none'; }
+    } catch (_) {}
+  },
+
+  // ── DELETE THREAD ─────────────────────────────────────────────────────────
+  async deleteThread(threadId) {
+    const thread = Inbox._threads.find(t => t.threadId === threadId);
+    if (!thread) return;
+    if (!confirm(`Delete this conversation with ${thread.contact}? (${thread.messages.length} messages)`)) return;
+    const ids = thread.messages.map(m => m.id);
     await db.from('email_inbox').delete().in('id', ids);
-    App.toast(`🗑 ${ids.length} email(s) removed.`);
-    Inbox._selected.clear();
-    Inbox.load();
-  },
-
-  async cleanNonClients() {
-    if (!confirm('Remove all logged emails that are NOT from your clients? This cannot be undone.')) return;
-    const ce = Inbox._clientEmails || new Set();
-    const nonClientIds = Inbox._all.filter(e => {
-      const addr = (e.recipient_email || e.sender_email || '').toLowerCase();
-      return !ce.has(addr);
-    }).map(e => e.id);
-    if (!nonClientIds.length) { App.toast('✅ No non-client emails to clean.'); return; }
-    await db.from('email_inbox').delete().in('id', nonClientIds);
-    App.toast(`🧹 Removed ${nonClientIds.length} non-client email(s).`);
-    Inbox.load();
+    App.toast('🗑 Conversation deleted');
+    App.closeModal();
+    await Inbox.load();
   }
 };
 

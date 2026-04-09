@@ -10,6 +10,11 @@ const corsHeaders = {
  * No SMTP, no third-party email service, no domain needed.
  * Emails come directly FROM maxwelldelali22@gmail.com — no "on behalf of".
  *
+ * Supports reply threading:
+ *   thread_id   – Gmail threadId to keep reply in same thread
+ *   in_reply_to – Message-ID header of the message being replied to
+ *   references  – References header chain for threading
+ *
  * Required Supabase secrets:
  *   GMAIL_USER            – your Gmail address
  *   GMAIL_CLIENT_ID       – from Google Cloud Console
@@ -20,6 +25,7 @@ const corsHeaders = {
 function buildRawMime(opts: {
   from: string; to: string; subject: string;
   text: string; html?: string | null; ics?: string | null;
+  inReplyTo?: string | null; references?: string | null;
 }): string {
   const boundary = `b_${crypto.randomUUID().replace(/-/g, '')}`;
   const inner = `i_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -29,6 +35,12 @@ function buildRawMime(opts: {
   lines.push(`To: ${opts.to}`);
   lines.push(`Subject: ${opts.subject}`);
   lines.push('MIME-Version: 1.0');
+
+  // Reply threading headers
+  if (opts.inReplyTo) {
+    lines.push(`In-Reply-To: ${opts.inReplyTo}`);
+    lines.push(`References: ${opts.references || opts.inReplyTo}`);
+  }
 
   if (opts.ics) {
     lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
@@ -96,7 +108,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, html, ics, from_name } = await req.json();
+    const { to, subject, body, html, ics, from_name, thread_id, in_reply_to, references } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing: to, subject, body' }), {
@@ -134,7 +146,7 @@ serve(async (req) => {
       throw new Error('OAuth token failed: ' + JSON.stringify(tokenData));
     }
 
-    // Step 2: Build MIME message
+    // Step 2: Build MIME message (with optional reply headers)
     const raw = buildRawMime({
       from: `${fromName} <${GMAIL_USER}>`,
       to,
@@ -142,13 +154,18 @@ serve(async (req) => {
       text: body,
       html: html || null,
       ics: ics || null,
+      inReplyTo: in_reply_to || null,
+      references: references || null,
     });
 
     // Step 3: Base64url encode
     const encoded = btoa(unescape(encodeURIComponent(raw)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-    // Step 4: Send via Gmail API
+    // Step 4: Send via Gmail API (include threadId for replies)
+    const sendPayload: Record<string, string> = { raw: encoded };
+    if (thread_id) sendPayload.threadId = thread_id;
+
     const sendRes = await fetch(
       'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
       {
@@ -157,7 +174,7 @@ serve(async (req) => {
           Authorization: `Bearer ${tokenData.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ raw: encoded }),
+        body: JSON.stringify(sendPayload),
       }
     );
     const sendData = await sendRes.json();
@@ -165,7 +182,12 @@ serve(async (req) => {
       throw new Error('Gmail send failed: ' + (sendData.error?.message || JSON.stringify(sendData)));
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Return Gmail metadata (messageId + threadId) for inbox logging
+    return new Response(JSON.stringify({
+      success: true,
+      gmail_message_id: sendData.id || null,
+      gmail_thread_id: sendData.threadId || null,
+    }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

@@ -138,6 +138,10 @@ const App = {
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
     // Update client responses badge
     setTimeout(() => { if (typeof Responses !== "undefined") Responses.updateBadge(); }, 1800);
+    // Update inbox unread badge
+    setTimeout(() => { if (typeof Inbox !== "undefined") Inbox.updateBadge(); }, 2000);
+    // Auto-sync Gmail inbox every 5 minutes for new replies
+    setInterval(() => { if (typeof Inbox !== "undefined") Inbox.syncGmail(true); }, 5 * 60 * 1000);
     // Request browser push notification permission
     setTimeout(() => App.requestNotifyPermission(), 3000);
     // Check for new intake form submissions and notify agent
