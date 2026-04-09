@@ -1130,42 +1130,50 @@ const EmailSend = {
     `);
   },
 
-  // Wrap plain-text email body in a branded HTML template
+  // Build plain-text body with professional signature + disclaimer
+  buildSignedBody(bodyText, attachment, cc) {
+    const agent = currentAgent || {};
+    const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+    const agentPhone = agent.phone || '(709) 325-0545';
+    const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
+    const plainSig = `Best regards,\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2\n${agentWebsite}`;
+    const disclaimer = '\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.';
+    let fullBody = bodyText + '\n\n' + plainSig;
+    if (attachment) fullBody += `\n\nAttachment: ${attachment}`;
+    if (cc) fullBody += `\n\nCC: ${cc}`;
+    fullBody += disclaimer;
+    return { plainSig, fullBody };
+  },
+
+  // Wrap plain-text email body in branded HTML — matches viewing confirmed email exactly
   wrapHtml(bodyText, sig, attachment) {
+    const agent = currentAgent || {};
+    const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+    const agentPhone = agent.phone || '(709) 325-0545';
+    const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
     const bodyHtml = bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
-    const sigHtml = sig.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
-    return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr><td style="background:linear-gradient(135deg,#1a1f2e,#2d3548);padding:24px 32px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td><span style="font-size:20px;font-weight:700;color:#ffffff;">Maxwell Delali Midodzi</span><br>
-              <span style="font-size:13px;color:rgba(255,255,255,0.7);">eXp Realty | Licensed Real Estate Agent</span></td>
-            </tr>
-          </table>
-        </td></tr>
-        <!-- Body -->
-        <tr><td style="padding:32px;font-size:15px;line-height:1.7;color:#333333;">
-          ${bodyHtml}
-        </td></tr>
-        <!-- Signature -->
-        <tr><td style="padding:0 32px 24px;border-top:1px solid #eee;padding-top:20px;">
-          <p style="font-size:13px;color:#666;line-height:1.6;margin:0;">${sigHtml}</p>
-          ${attachment ? `<p style="font-size:12px;color:#888;margin-top:10px;">Attachment: ${attachment}</p>` : ''}
-        </td></tr>
-        <!-- Footer -->
-        <tr><td style="background:#f8f9fa;padding:16px 32px;text-align:center;">
-          <p style="font-size:11px;color:#999;margin:0;">Maxwell Delali Midodzi | eXp Realty<br>(709) 325-0545 | maxwelldelali22@gmail.com</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+      body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+      .wrap{max-width:560px;margin:0 auto;}
+      hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+      .sig-name{font-weight:700;font-size:15px;}
+      .sig-line{font-size:13px;color:#555;margin:2px 0;}
+      .sig-line a{color:#1a6ef5;text-decoration:none;}
+      .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+    </style></head><body><div class="wrap">
+      ${bodyHtml}
+      ${attachment ? `<p style="font-size:13px;color:#555;margin-top:16px;">📎 Attachment: ${attachment}</p>` : ''}
+      <hr>
+      <p>Best regards,</p>
+      <p class="sig-name">${agentName}</p>
+      <p class="sig-line">REALTOR® | eXp Realty</p>
+      <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+      <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+      <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+      <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+    </div></body></html>`;
   },
 
   async send() {
@@ -1177,16 +1185,14 @@ const EmailSend = {
     const bodyText = EmailSend.getBodyText('email-body');
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
     const attachment = document.getElementById('email-attachment').value.trim();
-    // Build your signature automatically from your profile
-    const sig = currentAgent?.email_signature ||
-      `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
-    const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '');
+    // Build professional signature + disclaimer (matches viewing confirmed emails)
+    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment);
     // Build branded HTML email
-    const htmlBody = EmailSend.wrapHtml(bodyText, sig, attachment);
+    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, attachment);
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fullBody, null, htmlBody);
+      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fb, null, htmlBody);
     }
     App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
     st.style.color = 'var(--green)';
@@ -1204,16 +1210,14 @@ const EmailSend = {
     const attachment = document.getElementById('ext-attachment').value.trim();
     if (!toEmail) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Recipient email is required'; return; }
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
-    // Build your signature automatically from your profile
-    const sig = currentAgent?.email_signature ||
-      `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
-    const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '') + (cc ? `\n\nCC: ${cc}` : '');
+    // Build professional signature + disclaimer (matches viewing confirmed emails)
+    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment, cc);
     // Build branded HTML email
-    const htmlBody = EmailSend.wrapHtml(bodyText, sig, attachment);
+    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, attachment);
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fullBody, null, htmlBody);
+      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody);
     }
     st.style.color = 'var(--green)';
     st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
