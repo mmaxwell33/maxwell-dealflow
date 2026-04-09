@@ -223,6 +223,25 @@ const App = {
     if (ov) ov.style.display = 'none';
   },
 
+  // ── Mobile FAB (Floating Action Button) ──
+  toggleFab() {
+    const fab = document.getElementById('mobile-fab');
+    const menu = document.getElementById('mobile-fab-menu');
+    const overlay = document.getElementById('mobile-fab-overlay');
+    if (!fab) return;
+    const isOpen = fab.classList.toggle('open');
+    if (menu) menu.classList.toggle('open', isOpen);
+    if (overlay) overlay.classList.toggle('open', isOpen);
+  },
+  closeFab() {
+    const fab = document.getElementById('mobile-fab');
+    const menu = document.getElementById('mobile-fab-menu');
+    const overlay = document.getElementById('mobile-fab-overlay');
+    if (fab) fab.classList.remove('open');
+    if (menu) menu.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+  },
+
   toggleGroup(name) {
     const grp = document.getElementById(`grp-${name}`);
     if (!grp) return;
