@@ -992,11 +992,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   async checkCompletedViewings() {
     if (!currentAgent?.id) return;
 
-    // Get all scheduled (non-completed) viewings for this agent
+    // Get all scheduled/confirmed viewings for this agent (not completed/cancelled)
     const { data: viewings } = await db.from('viewings')
       .select('*, clients(full_name, email)')
       .eq('agent_id', currentAgent.id)
-      .neq('viewing_status', 'Completed')
+      .in('viewing_status', ['Scheduled', 'Confirmed'])
       .order('viewing_date', { ascending: false });
 
     if (!viewings?.length) return;

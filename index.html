@@ -1348,9 +1348,9 @@
   </div><!-- /app-body -->
 
   <!-- MOBILE BOTTOM NAV — fixed, outside app-body so it doesn't affect desktop layout -->
-  <!-- MOBILE FAB (Floating Action Button) — hidden on desktop via CSS -->
-  <div id="mobile-fab-overlay" onclick="App.closeFab()"></div>
-  <div id="mobile-fab-menu">
+  <!-- MOBILE FAB (Floating Action Button) — hidden on desktop via inline+CSS -->
+  <div id="mobile-fab-overlay" style="display:none;" onclick="App.closeFab()"></div>
+  <div id="mobile-fab-menu" style="display:none;">
     <button class="fab-action" onclick="App.closeFab();Clients.openAdd()">
       <span class="fab-action-icon" style="background:#1a56db;">➕</span>
       <span class="fab-action-label">Add Client</span>
@@ -1368,7 +1368,7 @@
       <span class="fab-action-label">Ask AI</span>
     </button>
   </div>
-  <button id="mobile-fab" onclick="App.toggleFab()">➕</button>
+  <button id="mobile-fab" style="display:none;" onclick="App.toggleFab()">➕</button>
 
   <nav id="mobile-bottom-nav" style="display:none;">
     <button class="mob-nav-item active" data-tab="overview" onclick="App.switchTab('overview')">

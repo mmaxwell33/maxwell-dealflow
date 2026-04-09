@@ -1130,6 +1130,44 @@ const EmailSend = {
     `);
   },
 
+  // Wrap plain-text email body in a branded HTML template
+  wrapHtml(bodyText, sig, attachment) {
+    const bodyHtml = bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+    const sigHtml = sig.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#1a1f2e,#2d3548);padding:24px 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td><span style="font-size:20px;font-weight:700;color:#ffffff;">Maxwell Delali Midodzi</span><br>
+              <span style="font-size:13px;color:rgba(255,255,255,0.7);">eXp Realty | Licensed Real Estate Agent</span></td>
+            </tr>
+          </table>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:32px;font-size:15px;line-height:1.7;color:#333333;">
+          ${bodyHtml}
+        </td></tr>
+        <!-- Signature -->
+        <tr><td style="padding:0 32px 24px;border-top:1px solid #eee;padding-top:20px;">
+          <p style="font-size:13px;color:#666;line-height:1.6;margin:0;">${sigHtml}</p>
+          ${attachment ? `<p style="font-size:12px;color:#888;margin-top:10px;">Attachment: ${attachment}</p>` : ''}
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="background:#f8f9fa;padding:16px 32px;text-align:center;">
+          <p style="font-size:11px;color:#999;margin:0;">Maxwell Delali Midodzi | eXp Realty<br>(709) 325-0545 | maxwelldelali22@gmail.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  },
+
   async send() {
     const st = document.getElementById('email-status');
     const clientSel = document.getElementById('email-client');
@@ -1143,10 +1181,12 @@ const EmailSend = {
     const sig = currentAgent?.email_signature ||
       `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
     const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '');
+    // Build branded HTML email
+    const htmlBody = EmailSend.wrapHtml(bodyText, sig, attachment);
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fullBody);
+      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fullBody, null, htmlBody);
     }
     App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
     st.style.color = 'var(--green)';
@@ -1168,10 +1208,12 @@ const EmailSend = {
     const sig = currentAgent?.email_signature ||
       `${currentAgent?.full_name || 'Maxwell Delali Midodzi'}\n${currentAgent?.title ? currentAgent.title + '\n' : ''}${currentAgent?.brokerage || 'eXp Realty'}${currentAgent?.phone ? '\n' + currentAgent.phone : ''}${currentAgent?.email ? '\n' + currentAgent.email : ''}`;
     const fullBody = bodyText + '\n\n--\n' + sig + (attachment ? `\n\nAttachment: ${attachment}` : '') + (cc ? `\n\nCC: ${cc}` : '');
+    // Build branded HTML email
+    const htmlBody = EmailSend.wrapHtml(bodyText, sig, attachment);
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fullBody);
+      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fullBody, null, htmlBody);
     }
     st.style.color = 'var(--green)';
     st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';

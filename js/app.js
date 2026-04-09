@@ -132,6 +132,8 @@ const App = {
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
     // Auto-complete past viewings and notify agent to record feedback
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 2500);
+    // Re-check every 5 minutes while app is open (so agent doesn't have to reload)
+    setInterval(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
     // Update approvals badge
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
     // Update client responses badge
