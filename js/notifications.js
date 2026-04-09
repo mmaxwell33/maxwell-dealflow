@@ -1005,20 +1005,39 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     let completedCount = 0;
 
     for (const v of viewings) {
-      // Build the viewing end time (viewing_time + 1 hour buffer, or end of day if no time)
-      let viewingEnd;
-      if (v.viewing_date && v.viewing_time) {
-        viewingEnd = new Date(v.viewing_date + 'T' + v.viewing_time);
-        viewingEnd.setHours(viewingEnd.getHours() + 1); // 1 hour buffer after scheduled time
-      } else if (v.viewing_date) {
-        // No time set — consider it done at end of the viewing day
-        viewingEnd = new Date(v.viewing_date + 'T23:59:59');
+      if (!v.viewing_date) continue;
+
+      // Calculate when the viewing actually ends (start + 30 min viewing duration)
+      let viewingEndTime;
+      if (v.viewing_time) {
+        viewingEndTime = new Date(v.viewing_date + 'T' + v.viewing_time);
+        viewingEndTime.setMinutes(viewingEndTime.getMinutes() + 30); // 30 min viewing
       } else {
-        continue; // No date, skip
+        viewingEndTime = new Date(v.viewing_date + 'T23:59:59');
       }
 
-      if (now > viewingEnd) {
-        // This viewing's time has passed — auto-complete it
+      // Check if there's an offer deadline today — if so, skip the buffer
+      // so agent gets notified ASAP to give the client time to respond
+      let hasUrgentDeadline = false;
+      if (v.offer_due_date) {
+        const deadlineDate = new Date(v.offer_due_date + 'T' + (v.offer_due_time || '23:59') + ':00');
+        const hoursUntilDeadline = (deadlineDate - now) / (1000 * 60 * 60);
+        // Urgent if deadline is within 6 hours of viewing end
+        if (hoursUntilDeadline <= 6 && hoursUntilDeadline > 0) {
+          hasUrgentDeadline = true;
+        }
+      }
+
+      // Determine when to trigger: right after viewing if urgent, or +1hr buffer if not
+      let triggerTime;
+      if (hasUrgentDeadline) {
+        triggerTime = viewingEndTime; // No buffer — notify immediately after viewing ends
+      } else {
+        triggerTime = new Date(viewingEndTime.getTime() + 60 * 60 * 1000); // 1 hour buffer
+      }
+
+      if (now > triggerTime) {
+        // Time has passed — auto-complete this viewing
         await db.from('viewings').update({
           viewing_status: 'Completed',
           updated_at: new Date().toISOString()
@@ -1029,10 +1048,17 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         const clientName = v.clients?.full_name || 'your client';
         const address = v.property_address || 'the property';
 
-        // Send push notification for each completed viewing
+        // Build notification message — flag urgency if offer deadline is close
+        let notifBody = `${address} with ${clientName} - tap to record feedback`;
+        if (hasUrgentDeadline) {
+          const dueTime = v.offer_due_time ? v.offer_due_time.slice(0,5) : '';
+          const fmtDue = dueTime ? (() => { const [h,m] = dueTime.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`; })() : 'tonight';
+          notifBody = `URGENT: Offers due ${fmtDue}! ${address} with ${clientName} - record feedback now`;
+        }
+
         App.pushNotify(
-          `How was the viewing?`,
-          `${address} with ${clientName} — tap to record feedback`,
+          hasUrgentDeadline ? `Viewing done - offers due soon!` : `How was the viewing?`,
+          notifBody,
           'viewings'
         );
       }
