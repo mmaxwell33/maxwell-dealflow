@@ -1404,7 +1404,7 @@ const Inbox = {
         if (typeof Notify !== 'undefined') {
           const received = emails.filter(e => e.from_email.toLowerCase() !== agentEmail);
           if (received.length) {
-            Notify.push('📬 New Email', `${received.length} new reply(s) in your inbox`, 'inbox');
+            App.toast(`📬 ${received.length} new reply(s) in your inbox`, 'var(--green)');
           }
         }
         await Inbox.load(); // Reload to show new emails
