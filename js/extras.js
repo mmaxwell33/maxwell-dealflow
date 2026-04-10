@@ -1216,14 +1216,16 @@ const EmailSend = {
     return { plainSig, fullBody };
   },
 
-  // Wrap plain-text email body in branded HTML — matches viewing confirmed email exactly
+  // Wrap email body in branded HTML — accepts plain text or HTML (auto-detects)
   wrapHtml(bodyText, sig, attachment) {
     const agent = currentAgent || {};
     const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
     const agentPhone = agent.phone || '(709) 325-0545';
     const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
     const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
-    const bodyHtml = bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+    // If content is already HTML (from rich editor) use as-is; otherwise escape and convert newlines
+    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(bodyText);
+    const bodyHtml = looksLikeHtml ? bodyText : bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
     return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
       body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
       .wrap{max-width:560px;margin:0 auto;}
@@ -1550,7 +1552,7 @@ const Inbox = {
     }).join('');
   },
 
-  // ── OPEN THREAD (chat bubble view) ────────────────────────────────────────
+  // ── OPEN THREAD (professional email view) ────────────────────────────────
   async openThread(threadId) {
     const thread = Inbox._threads.find(t => t.threadId === threadId);
     if (!thread) return;
@@ -1565,37 +1567,98 @@ const Inbox = {
     }
 
     const msgs = thread.messages;
-    const lastReceived = [...msgs].reverse().find(m => m.direction === 'received');
-    const lastMsg = msgs[msgs.length - 1];
 
-    const bubbles = msgs.map(m => {
+    // Build email message cards (Gmail-style collapsed/expanded)
+    const emailCards = msgs.map((m, idx) => {
       const isSent = m.direction === 'sent';
-      const body = App.esc((m.body || '').slice(0, 2000)).replace(/\n/g, '<br>');
-      const time = new Date(m.created_at).toLocaleString('en-CA', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-      return `<div style="display:flex;justify-content:${isSent ? 'flex-end' : 'flex-start'};margin-bottom:10px;">
-        <div style="max-width:80%;padding:10px 14px;border-radius:${isSent ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};background:${isSent ? 'var(--accent)' : 'var(--card)'};color:${isSent ? '#fff' : 'var(--text)'};font-size:13px;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.06);">
-          <div style="font-size:11px;${isSent ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text2);'}margin-bottom:4px;font-weight:600;">${isSent ? 'You' : App.esc(m.sender_name || m.sender_email || 'Client')} · ${time}</div>
-          <div>${body}</div>
+      const senderLabel = isSent ? ('You') : App.esc(m.sender_name || m.sender_email || 'Client');
+      const senderEmail = isSent ? (currentAgent?.email || '') : App.esc(m.sender_email || '');
+      const time = new Date(m.created_at).toLocaleString('en-CA', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+      // Render HTML body if it looks like HTML, otherwise convert newlines
+      const rawBody = m.body || '';
+      const isHtml = rawBody.trim().startsWith('<') && rawBody.includes('<');
+      const bodyContent = isHtml
+        ? `<iframe srcdoc="${rawBody.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="width:100%;border:none;min-height:80px;background:#fff;" onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px'" sandbox="allow-same-origin"></iframe>`
+        : `<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);">${App.esc(rawBody).replace(/\n/g,'<br>')}</div>`;
+      const isLast = idx === msgs.length - 1;
+      const collapsed = !isLast && msgs.length > 2;
+      return `<div class="inbox-msg-card" style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card);overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;${collapsed ? '' : 'border-bottom:1px solid var(--border);'}" onclick="this.parentElement.querySelector('.inbox-msg-body').classList.toggle('hidden');this.querySelector('.inbox-msg-chevron').classList.toggle('rotated')">
+          <div style="width:32px;height:32px;border-radius:50%;background:${isSent ? 'var(--accent)' : 'var(--accent2)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${(senderLabel[0]||'?').toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
+              <span class="fw-700" style="font-size:13px;">${senderLabel}</span>
+              <span style="font-size:11px;color:var(--text2);">&lt;${senderEmail}&gt;</span>
+            </div>
+            ${collapsed ? `<div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">${App.esc(rawBody.slice(0,80))}…</div>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-size:11px;color:var(--text2);">${time}</span>
+            <span class="inbox-msg-chevron" style="font-size:12px;color:var(--text2);transition:transform 0.2s;${collapsed ? '' : 'transform:rotate(180deg);'} display:inline-block;">▼</span>
+          </div>
+        </div>
+        <div class="inbox-msg-body${collapsed ? ' hidden' : ''}" style="padding:14px;">
+          ${bodyContent}
         </div>
       </div>`;
     }).join('');
 
+    // Avatar initials for contact
+    const initials = (thread.contact || '?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
     App.openModal(`
+      <style>
+        .inbox-msg-body.hidden { display:none; }
+        .inbox-msg-chevron.rotated { transform:rotate(0deg) !important; }
+        .inbox-reply-toolbar button { background:none;border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--text);line-height:1.4; }
+        .inbox-reply-toolbar button:hover { background:var(--accent);color:#fff;border-color:var(--accent); }
+        .inbox-reply-editor { min-height:100px;max-height:200px;overflow-y:auto;outline:none;font-size:13px;line-height:1.6;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text); }
+        .inbox-reply-editor:focus { border-color:var(--accent); }
+        .inbox-attach-list { display:flex;flex-wrap:wrap;gap:6px;margin-top:6px; }
+        .inbox-attach-chip { display:flex;align-items:center;gap:4px;background:var(--bg2,var(--bg));border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px; }
+        .inbox-attach-chip button { background:none;border:none;cursor:pointer;font-size:11px;color:var(--text2);padding:0 2px; }
+      </style>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <button class="btn btn-outline btn-sm" onclick="App.closeModal();Inbox.renderThreadList();" style="padding:4px 10px;">← Back</button>
-        <div style="flex:1;">
+        <button class="btn btn-outline btn-sm" onclick="App.closeModal();Inbox.renderThreadList();" style="padding:4px 10px;font-size:12px;">← Back</button>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${initials}</div>
+        <div style="flex:1;min-width:0;">
           <div class="fw-800" style="font-size:15px;">${App.esc(thread.contact)}</div>
-          <div style="font-size:12px;color:var(--text2);">${App.esc(thread.subject)} · ${msgs.length} message${msgs.length > 1 ? 's' : ''}</div>
+          <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(thread.subject)}</div>
         </div>
+        <button class="btn btn-outline btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red);padding:3px 8px;" onclick="Inbox.deleteThread('${threadId}')">🗑</button>
       </div>
-      <div id="inbox-thread-messages" style="max-height:50vh;overflow-y:auto;padding:10px 0;margin-bottom:14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-        ${bubbles}
+      <div id="inbox-thread-messages" style="max-height:44vh;overflow-y:auto;padding-right:2px;margin-bottom:12px;">
+        ${emailCards}
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">↩️ Reply to ${App.esc(thread.contact)}</div>
-      <textarea id="inbox-reply-text" class="form-input" style="width:100%;min-height:80px;resize:vertical;font-size:13px;" placeholder="Type your reply..."></textarea>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-        <button class="btn btn-outline btn-sm" onclick="App.closeModal()">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="inbox-reply-btn" onclick="Inbox.sendReply('${threadId}')">📤 Send Reply</button>
+      <div style="border:1px solid var(--border);border-radius:8px;background:var(--card);padding:10px 12px;">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;">↩️ Reply to ${App.esc(thread.contact)}</div>
+        <div style="display:flex;gap:6px;margin-bottom:4px;">
+          <div style="font-size:12px;color:var(--text2);white-space:nowrap;align-self:center;">To:</div>
+          <div style="font-size:12px;flex:1;color:var(--text);">${App.esc(thread.contactEmail)}</div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;">CC:</label>
+          <input id="inbox-reply-cc" type="email" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;height:28px;" placeholder="cc@email.com (optional)">
+        </div>
+        <div class="inbox-reply-toolbar" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('bold')" title="Bold"><b>B</b></button>
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('italic')" title="Italic"><i>I</i></button>
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('underline')" title="Underline"><u>U</u></button>
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('insertUnorderedList')" title="Bullet list">• List</button>
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('insertOrderedList')" title="Numbered list">1. List</button>
+          <button onclick="(function(){const url=prompt('Link URL:');if(url){document.getElementById('inbox-reply-editor').focus();document.execCommand('createLink',false,url);}})()" title="Insert link">🔗</button>
+          <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('removeFormat')" title="Clear formatting">✕ Format</button>
+          <label style="cursor:pointer;" title="Attach file">
+            <span class="btn btn-outline" style="font-size:12px;padding:2px 7px;border-radius:4px;cursor:pointer;">📎 Attach</span>
+            <input type="file" id="inbox-attach-input" style="display:none;" multiple onchange="Inbox._handleAttachSelect(this)">
+          </label>
+        </div>
+        <div id="inbox-reply-editor" class="inbox-reply-editor" contenteditable="true" data-placeholder="Type your reply…" style="margin-bottom:6px;" oninput="if(!this.innerHTML.trim()||this.innerHTML==='<br>'){this.innerHTML=''}"></div>
+        <div id="inbox-attach-list" class="inbox-attach-list"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+          <div style="font-size:11px;color:var(--text2);">Your signature will be appended automatically.</div>
+          <button class="btn btn-primary btn-sm" id="inbox-reply-btn" onclick="Inbox.sendReply('${threadId}')" style="font-size:13px;">📤 Send</button>
+        </div>
       </div>
     `);
 
@@ -1603,18 +1666,56 @@ const Inbox = {
     setTimeout(() => {
       const container = document.getElementById('inbox-thread-messages');
       if (container) container.scrollTop = container.scrollHeight;
-    }, 100);
+    }, 120);
+  },
+
+  // ── HANDLE ATTACHMENT FILE SELECT ─────────────────────────────────────────
+  _pendingAttachments: [],
+
+  _handleAttachSelect(input) {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    const list = document.getElementById('inbox-attach-list');
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const base64 = (e.target.result).split(',')[1]; // strip data:...;base64,
+        const att = { filename: file.name, mime_type: file.type || 'application/octet-stream', data: base64, size: file.size };
+        Inbox._pendingAttachments.push(att);
+        if (list) {
+          const chip = document.createElement('div');
+          chip.className = 'inbox-attach-chip';
+          chip.dataset.filename = file.name;
+          chip.innerHTML = `📎 ${App.esc(file.name)} <span style="color:var(--text2);">(${(file.size/1024).toFixed(0)}KB)</span> <button onclick="Inbox._removeAttachment('${file.name.replace(/'/g,"\\'")}',this.parentElement)">×</button>`;
+          list.appendChild(chip);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    input.value = ''; // reset so same file can be re-added
+  },
+
+  _removeAttachment(filename, chipEl) {
+    Inbox._pendingAttachments = Inbox._pendingAttachments.filter(a => a.filename !== filename);
+    if (chipEl) chipEl.remove();
   },
 
   // ── SEND REPLY ────────────────────────────────────────────────────────────
   async sendReply(threadId) {
     const thread = Inbox._threads.find(t => t.threadId === threadId);
     if (!thread) return;
-    const text = document.getElementById('inbox-reply-text')?.value.trim();
-    if (!text) { App.toast('⚠️ Type a reply first'); return; }
+
+    const editorEl = document.getElementById('inbox-reply-editor');
+    const htmlContent = editorEl?.innerHTML?.trim() || '';
+    const textContent = editorEl?.innerText?.trim() || '';
+
+    if (!textContent) { App.toast('⚠️ Type a reply first'); return; }
+
+    const ccEmail = document.getElementById('inbox-reply-cc')?.value.trim() || null;
+    const attachments = (Inbox._pendingAttachments || []).slice();
 
     const btn = document.getElementById('inbox-reply-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending...'; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
 
     try {
       const agent = currentAgent || {};
@@ -1626,9 +1727,11 @@ const Inbox = {
       const lastMsg = thread.messages[thread.messages.length - 1];
       const gmailThreadId = (threadId.startsWith('solo_') ? null : threadId);
 
-      // Build signed body + HTML
-      const { plainSig, fullBody } = EmailSend.buildSignedBody(text);
-      const htmlBody = EmailSend.wrapHtml(text, plainSig);
+      // Build plain text body + signature
+      const { plainSig, fullBody } = EmailSend.buildSignedBody(textContent, null, ccEmail || null);
+
+      // Build branded HTML email using the rich content from editor
+      const htmlBody = EmailSend.wrapHtml(htmlContent, plainSig, null);
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
         method: 'POST',
@@ -1639,9 +1742,11 @@ const Inbox = {
         },
         body: JSON.stringify({
           to: toEmail,
+          cc: ccEmail || null,
           subject,
           body: fullBody,
           html: htmlBody,
+          attachments: attachments.length ? attachments : null,
           from_name: agent.full_name || agent.name || 'Maxwell Midodzi',
           thread_id: gmailThreadId,
           in_reply_to: lastMsg.in_reply_to || lastMsg.gmail_message_id || null,
@@ -1660,19 +1765,22 @@ const Inbox = {
         sender_name: agent.full_name || agent.name || '',
         sender_email: agentEmail,
         subject,
-        body: text,
+        body: textContent,
         gmail_message_id: result.gmail_message_id || null,
         gmail_thread_id: result.gmail_thread_id || gmailThreadId || null,
         is_read: true,
         created_at: new Date().toISOString()
       });
 
+      // Clear pending attachments
+      Inbox._pendingAttachments = [];
+
       App.toast('✅ Reply sent!', 'var(--green)');
       App.closeModal();
       await Inbox.load(); // Refresh threads
     } catch (err) {
       App.toast(`❌ Reply failed: ${err.message}`, 'var(--red)');
-      if (btn) { btn.disabled = false; btn.textContent = '📤 Send Reply'; }
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Send'; }
     }
   },
 

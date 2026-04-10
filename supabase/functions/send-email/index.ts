@@ -22,9 +22,16 @@ const corsHeaders = {
  *   GMAIL_REFRESH_TOKEN   – from OAuth Playground
  */
 
+interface AttachmentData {
+  filename: string;
+  mime_type: string;
+  data: string; // base64-encoded file content
+}
+
 function buildRawMime(opts: {
   from: string; to: string; cc?: string | null; subject: string;
   text: string; html?: string | null; ics?: string | null;
+  attachments?: AttachmentData[] | null;
   inReplyTo?: string | null; references?: string | null;
 }): string {
   const boundary = `b_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -43,9 +50,13 @@ function buildRawMime(opts: {
     lines.push(`References: ${opts.references || opts.inReplyTo}`);
   }
 
-  if (opts.ics) {
+  const hasAttachments = (opts.attachments && opts.attachments.length > 0) || opts.ics;
+
+  if (hasAttachments) {
+    // multipart/mixed wraps everything when there are attachments
     lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
     lines.push('');
+    // Body part (text or html+text)
     lines.push(`--${boundary}`);
     if (opts.html) {
       lines.push(`Content-Type: multipart/alternative; boundary="${inner}"`);
@@ -67,18 +78,33 @@ function buildRawMime(opts: {
       lines.push(opts.text);
     }
     lines.push('');
-    lines.push(`--${boundary}`);
-    lines.push('Content-Type: text/calendar; charset=UTF-8; method=REQUEST');
-    lines.push('Content-Transfer-Encoding: base64');
-    lines.push('Content-Disposition: attachment; filename="viewing.ics"');
-    lines.push('');
-    const icsText = opts.ics;
-    if (icsText.startsWith('BEGIN:VCALENDAR')) {
-      lines.push(btoa(unescape(encodeURIComponent(icsText))));
-    } else {
-      lines.push(icsText);
+    // ICS calendar attachment
+    if (opts.ics) {
+      lines.push(`--${boundary}`);
+      lines.push('Content-Type: text/calendar; charset=UTF-8; method=REQUEST');
+      lines.push('Content-Transfer-Encoding: base64');
+      lines.push('Content-Disposition: attachment; filename="viewing.ics"');
+      lines.push('');
+      const icsText = opts.ics;
+      if (icsText.startsWith('BEGIN:VCALENDAR')) {
+        lines.push(btoa(unescape(encodeURIComponent(icsText))));
+      } else {
+        lines.push(icsText);
+      }
+      lines.push('');
     }
-    lines.push('');
+    // Generic file attachments
+    if (opts.attachments) {
+      for (const att of opts.attachments) {
+        lines.push(`--${boundary}`);
+        lines.push(`Content-Type: ${att.mime_type}; name="${att.filename}"`);
+        lines.push('Content-Transfer-Encoding: base64');
+        lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+        lines.push('');
+        lines.push(att.data);
+        lines.push('');
+      }
+    }
     lines.push(`--${boundary}--`);
   } else if (opts.html) {
     lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
@@ -109,7 +135,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, cc, subject, body, html, ics, from_name, thread_id, in_reply_to, references } = await req.json();
+    const { to, cc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing: to, subject, body' }), {
@@ -156,6 +182,7 @@ serve(async (req) => {
       text: body,
       html: html || null,
       ics: ics || null,
+      attachments: attachments || null,
       inReplyTo: in_reply_to || null,
       references: references || null,
     });
