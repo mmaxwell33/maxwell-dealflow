@@ -195,9 +195,19 @@ const Viewings = {
       updated_at: new Date().toISOString()
     };
 
+    // Snapshot old cc_email before update (to detect if CC was just added)
+    const oldViewing = existingId ? Viewings.all.find(v => v.id === existingId) : null;
+
     let error;
     if (existingId) {
       ({ error } = await db.from('viewings').update(payload).eq('id', existingId));
+      if (!error) {
+        // Re-send confirmation as "Update" email if client has an email on file
+        if (typeof Notify !== 'undefined' && client?.email) {
+          const updatedViewing = { ...oldViewing, ...payload, id: existingId };
+          await Notify.onViewingBooked(updatedViewing, client, true); // true = isUpdate
+        }
+      }
     } else {
       ({ error } = await db.from('viewings').insert(payload));
       if (!error) {

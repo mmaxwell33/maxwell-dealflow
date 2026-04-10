@@ -7,7 +7,7 @@ const Notify = {
 
   templates: {
 
-    viewing_confirmation: (client, viewing, agent) => {
+    viewing_confirmation: (client, viewing, agent, isUpdate = false) => {
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
@@ -30,7 +30,10 @@ const Notify = {
       const sellersLine = viewing.sellers_direction ? `\n📋 Seller's Direction: ${viewing.sellers_direction}` : '';
 
       // Plain text fallback
-      const body = `Hi ${firstName},\n\nYour property viewing has been confirmed.\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
+      const introLine = isUpdate
+        ? `Your viewing details have been updated. Here is the latest information:`
+        : `Your property viewing has been confirmed.`;
+      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
       // ── HTML EMAIL ─────────────────────────────────────────────────────────
       const tableRows = [];
@@ -80,7 +83,7 @@ const Notify = {
         .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
       </style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
-        <p>Your viewing has been confirmed. Here are the details:</p>
+        <p>${isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
         <table class="dt">${tableRows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
@@ -137,7 +140,7 @@ const Notify = {
 
       const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
 
-      return { subject: `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
+      return { subject: isUpdate ? `Viewing Update - ${viewing.property_address}` : `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
     },
 
     viewing_followup: (client, viewing, feedback, agent) => ({
@@ -742,11 +745,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── TRIGGER FUNCTIONS (called from viewings/offers/pipeline) ───────────────
 
-  async onViewingBooked(viewing, client) {
+  async onViewingBooked(viewing, client, isUpdate = false) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.viewing_confirmation(client, viewing, agent);
+    const tmpl = Notify.templates.viewing_confirmation(client, viewing, agent, isUpdate);
     await Notify.queue(
-      'Viewing Confirmation',
+      isUpdate ? 'Viewing Update' : 'Viewing Confirmation',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, viewing.id,
       tmpl.html,          // beautiful HTML email
