@@ -1260,14 +1260,15 @@ const EmailSend = {
     const bodyText = EmailSend.getBodyText('email-body');
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
     const attachment = document.getElementById('email-attachment').value.trim();
+    const cc = document.getElementById('email-cc')?.value.trim() || null;
     // Build professional signature + disclaimer (matches viewing confirmed emails)
-    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment);
+    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment, cc);
     // Build branded HTML email
     const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, attachment);
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fb, null, htmlBody);
+      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fb, null, htmlBody, null, cc);
     }
     App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
     st.style.color = 'var(--green)';
@@ -1292,7 +1293,7 @@ const EmailSend = {
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
     // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody);
+      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody, null, cc || null);
     }
     st.style.color = 'var(--green)';
     st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
