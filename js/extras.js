@@ -1049,7 +1049,9 @@ const NewBuilds = {
         'New Build Update',
         clientId, b.client_name, clientEmail,
         subject, plainBody, b.id,
-        html
+        html,
+        null,           // push_data
+        b.cc_email || null  // CC — co-buyer / spouse
       );
       App.toast('📬 Build update queued in Approvals — review and send!', 'var(--green)');
       App.switchTab('approvals');
@@ -1086,6 +1088,7 @@ const NewBuilds = {
     const { data: saved, error } = await db.from('new_builds').insert({
       agent_id: currentAgent.id,
       client_name: clientName,
+      client_id: clientId || null,
       builder: document.getElementById('nb-builder')?.value.trim() || '',
       lot_address: lotAddress,
       purchase_price: price,
@@ -1094,6 +1097,7 @@ const NewBuilds = {
       flooring_selection: document.getElementById('nb-flooring')?.value.trim() || '',
       builder_contact: document.getElementById('nb-builder-contact')?.value.trim() || '',
       notes: document.getElementById('nb-notes')?.value.trim() || '',
+      cc_email: document.getElementById('nb-cc-email')?.value.trim() || null,
       deposit_amount: parseFloat(document.getElementById('nb-deposit-amount')?.value) || 0,
       deposit_date: document.getElementById('nb-deposit-date')?.value || null,
       deposit_status: document.getElementById('nb-deposit-status')?.value || 'Pending',
