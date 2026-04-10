@@ -173,7 +173,7 @@ Great news! Your offer has been officially submitted. Here's a summary:
 💰 Offer Amount: ${App.fmtMoney(offer.offer_amount)}${offer.list_price ? `\n🏷️ List Price: ${App.fmtMoney(offer.list_price)}` : ''}
 📅 Offer Date: ${App.fmtDate(offer.offer_date)}${offer.conditions ? `\n📋 Conditions: ${offer.conditions}` : ''}
 
-I will keep you updated as soon as I hear back from the seller's agent. This process typically takes 24–48 hours.
+I will be in touch with you the moment I receive a response from the seller's agent.
 
 Stay tuned — I'll be in touch!
 
@@ -308,7 +308,9 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
-      const responseLink = `https://maxwell-dealflow.vercel.app/respond.html?viewing_id=${viewing.id}&client_id=${client.id}`;
+      const responseLink = viewing._responseToken
+        ? `https://maxwell-dealflow.vercel.app/respond?t=${viewing._responseToken}`
+        : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
       const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
       const html = `<!DOCTYPE html>
@@ -539,6 +541,121 @@ maxwellmidodzi.exprealty.com
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
+
+    // ── NEW BUILD UPDATE ──────────────────────────────────────────────────────
+    build_update: (client, build, newStage, agent, buildToken) => {
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+      const agentPhone = agent.phone || '(709) 325-0545';
+      const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const trackerLink = buildToken
+        ? `https://maxwell-dealflow.vercel.app/build?t=${buildToken}`
+        : `https://maxwell-dealflow.vercel.app/build`;
+
+      const STAGE_ORDER = [
+        'Deposit Paid','Purchase Agreement','Lot Identified','Lot Offer Accepted',
+        'Design Selections','Construction Started','Framing','Drywall',
+        'Finishes & Fixtures','Final Walkthrough','Closing / Possession'
+      ];
+
+      const stageRows = STAGE_ORDER.map(s => {
+        const isDone = STAGE_ORDER.indexOf(s) < STAGE_ORDER.indexOf(newStage);
+        const isCurrent = s === newStage;
+        const icon = isDone ? '✅' : isCurrent ? '▶️' : '○';
+        const color = isDone ? '#059669' : isCurrent ? '#1d4ed8' : '#9ca3af';
+        const weight = isCurrent ? 'font-weight:700;' : '';
+        return `<tr><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${color};${weight}font-size:14px;">${icon}&nbsp; ${s}</td></tr>`;
+      }).join('');
+
+      const estClose = build.est_close_date || build.closing_date;
+      const estCloseStr = estClose ? new Date(estClose).toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : null;
+
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 40px;text-align:center;">
+        <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Maxwell DealFlow</p>
+        <p style="margin:0;font-size:22px;font-weight:bold;color:#fff;">🏗️ Build Update</p>
+        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,.75);">${build.lot_address || 'Your New Home'}</p>
+      </td></tr>
+
+      <tr><td style="padding:32px 40px 24px;">
+        <p style="margin:0 0 16px;font-size:16px;color:#111;">Hi ${firstName},</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Exciting news! Your new home at <strong>${build.lot_address}</strong> has reached a new milestone.</p>
+
+        <div style="background:#dbeafe;border-radius:10px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#1e40af;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">Current Stage</p>
+          <p style="margin:8px 0 0;font-size:20px;font-weight:800;color:#1d4ed8;">▶️ ${newStage}</p>
+        </div>
+
+        ${estCloseStr ? `<p style="margin:0 0 20px;font-size:14px;color:#555;">📅 <strong>Estimated Possession Date:</strong> ${estCloseStr}</p>` : ''}
+
+        <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em;">Build Progress</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+          ${stageRows}
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+          <tr><td align="center">
+            <a href="${trackerLink}" style="display:inline-block;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:bold;text-decoration:none;">View Full Build Progress →</a>
+          </td></tr>
+        </table>
+
+        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">If you have any questions about this stage or the construction timeline, please don't hesitate to reach out.</p>
+      </td></tr>
+
+      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
+        <p style="margin:0 0 2px;font-size:14px;color:#555;">Warm regards,</p>
+        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
+        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR® | eXp Realty</p>
+        <p style="margin:0;font-size:12px;color:#888;">📞 ${agentPhone} &nbsp;|&nbsp; ✉️ ${agentEmail}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#888;">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+      </td></tr>
+
+      <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #eee;">
+        <p style="margin:0;font-size:11px;color:#999;line-height:1.5;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+      const body = `Hi ${firstName},
+
+Exciting news! Your new home at ${build.lot_address} has reached a new milestone.
+
+Current Stage: ▶️ ${newStage}
+${estCloseStr ? `Estimated Possession: ${estCloseStr}` : ''}
+
+Build Progress:
+${STAGE_ORDER.map(s => {
+  const isDone = STAGE_ORDER.indexOf(s) < STAGE_ORDER.indexOf(newStage);
+  const isCurrent = s === newStage;
+  return `${isDone ? '✅' : isCurrent ? '▶️' : '○'}  ${s}`;
+}).join('\n')}
+
+View your full build tracker: ${trackerLink}
+
+If you have any questions, please don't hesitate to reach out.
+
+${agentName}
+REALTOR® | eXp Realty
+Phone: ${agentPhone} | Email: ${agentEmail}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.`;
+
+      return {
+        subject: `🏗️ Build Update — ${newStage} | ${build.lot_address}`,
+        body,
+        html
+      };
+    },
 
     new_listing_match: (client, listing, agent) => ({
       subject: `New Listing That Matches Your Criteria - ${listing.address || 'Check This Out!'}`,

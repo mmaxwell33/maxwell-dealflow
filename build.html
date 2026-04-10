@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Your Build Progress — Maxwell DealFlow</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
+    .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;overflow:hidden;}
+    .header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px 28px 24px;text-align:center;}
+    .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+    .header-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:2px;}
+    .header-title{font-size:13px;color:rgba(255,255,255,.6);}
+    .body{padding:28px;}
+    .build-title{font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:4px;}
+    .build-meta{font-size:13px;color:#666;margin-bottom:20px;line-height:1.8;}
+    .build-meta span{margin-right:16px;}
+    /* Progress bar */
+    .progress-wrap{margin-bottom:28px;}
+    .progress-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#555;margin-bottom:8px;}
+    .progress-bar{height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;}
+    .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#059669,#34d399);transition:width .8s ease;}
+    /* Stages */
+    .stages-title{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+    .stage-row{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #f3f4f6;position:relative;}
+    .stage-row:last-child{border-bottom:none;}
+    .stage-icon-wrap{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:15px;}
+    .stage-icon-done{background:#d1fae5;color:#059669;}
+    .stage-icon-current{background:#dbeafe;color:#1d4ed8;}
+    .stage-icon-upcoming{background:#f3f4f6;color:#9ca3af;}
+    .stage-content{flex:1;}
+    .stage-name{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:2px;}
+    .stage-name.upcoming{color:#9ca3af;}
+    .stage-date{font-size:12px;color:#888;}
+    .stage-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;margin-top:4px;}
+    .badge-done{background:#d1fae5;color:#065f46;}
+    .badge-current{background:#dbeafe;color:#1e40af;}
+    .badge-upcoming{background:#f3f4f6;color:#9ca3af;}
+    /* Contact */
+    .contact-box{margin-top:24px;padding:16px;background:#f8faff;border-radius:12px;}
+    .contact-box-title{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+    .contact-box a{color:#1d4ed8;text-decoration:none;font-weight:600;}
+    /* States */
+    #state-loading{text-align:center;padding:60px 20px;}
+    #state-error,#state-main{display:none;}
+    .spinner{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .last-updated{font-size:11px;color:#aaa;margin-top:20px;text-align:center;}
+    footer{margin-top:20px;font-size:11px;color:#aaa;text-align:center;}
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Loading -->
+  <div id="state-loading">
+    <div style="padding:60px 20px;text-align:center;">
+      <div class="spinner"></div>
+      <div style="color:#555;font-size:14px;">Loading your build progress...</div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="state-error">
+    <div class="header">
+      <div class="header-logo">Maxwell DealFlow</div>
+      <div class="header-name">Maxwell Delali Midodzi</div>
+      <div class="header-title">REALTOR® | eXp Realty</div>
+    </div>
+    <div class="body" style="text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+      <div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:8px;">Page Not Found</div>
+      <div style="font-size:14px;color:#555;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
+      <div class="contact-box" style="text-align:left;margin-top:24px;">
+        <div class="contact-box-title">Contact Maxwell</div>
+        <div style="font-size:14px;line-height:2.2;">
+          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
+          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="state-main">
+    <div class="header">
+      <div class="header-logo">Maxwell DealFlow</div>
+      <div class="header-name">Maxwell Delali Midodzi</div>
+      <div class="header-title">REALTOR® | eXp Realty</div>
+    </div>
+    <div class="body">
+      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
+      <div class="build-title" id="build-address">—</div>
+      <div class="build-meta">
+        <span id="build-builder"></span>
+        <span id="build-closing"></span>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Progress</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="stages-title">Build Milestones</div>
+      <div id="stages-list"></div>
+
+      <div class="last-updated" id="last-updated"></div>
+
+      <div class="contact-box">
+        <div class="contact-box-title">Questions About Your Build?</div>
+        <div style="font-size:14px;line-height:2.2;">
+          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
+          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a><br>
+          🌐 <a href="https://maxwellmidodzi.exprealty.com" target="_blank">maxwellmidodzi.exprealty.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer>Maxwell DealFlow CRM &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty</footer>
+
+<script>
+const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
+
+// Fixed stage list — matches what's in the new_builds table columns
+const FIXED_STAGES = [
+  { key: 'deposit',          label: 'Deposit Paid',            dateField: 'deposit_date' },
+  { key: 'pa_submitted',     label: 'Purchase Agreement',      dateField: 'pa_submitted_date' },
+  { key: 'lot_identified',   label: 'Lot Identified',          dateField: 'lot_identified_date' },
+  { key: 'lot_offer',        label: 'Lot Offer Accepted',      dateField: 'lot_offer_date' },
+  { key: 'design_selections',label: 'Design Selections',       dateField: 'design_selections_date' },
+  { key: 'construction_start',label:'Construction Started',    dateField: 'construction_start_date' },
+  { key: 'framing',          label: 'Framing',                 dateField: 'framing_date' },
+  { key: 'drywall',          label: 'Drywall',                 dateField: 'drywall_date' },
+  { key: 'finishes',         label: 'Finishes & Fixtures',     dateField: 'finishes_date' },
+  { key: 'walkthrough',      label: 'Final Walkthrough',       dateField: 'walkthrough_date' },
+  { key: 'closing',          label: 'Closing / Possession',    dateField: 'closing_date' },
+];
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function show(s) {
+  ['loading','error','main'].forEach(id => {
+    const el = document.getElementById('state-'+id);
+    if (el) el.style.display = 'none';
+  });
+  const t = document.getElementById('state-'+s);
+  if (t) t.style.display = 'block';
+}
+
+async function init() {
+  const token = new URLSearchParams(location.search).get('t');
+  if (!token) { show('error'); return; }
+
+  try {
+    // Look up build token
+    const tokenRows = await fetch(SB_URL + `/rest/v1/build_tokens?token=eq.${encodeURIComponent(token)}&select=*,new_builds(*)`, {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+    }).then(r => r.json());
+
+    if (!tokenRows?.length || !tokenRows[0].active) { show('error'); return; }
+
+    const build = tokenRows[0].new_builds;
+    if (!build) { show('error'); return; }
+
+    // Populate header
+    document.getElementById('build-address').textContent = build.lot_address || '—';
+    if (build.builder_name) document.getElementById('build-builder').textContent = '🏗️ ' + build.builder_name;
+    if (build.est_close_date || build.closing_date) {
+      const closeDate = build.est_close_date || build.closing_date;
+      document.getElementById('build-closing').textContent = '📅 Est. Possession: ' + fmtDate(closeDate);
+    }
+
+    // Build stage list — determine current stage
+    const currentStageKey = build.current_stage || '';
+    let currentFound = false;
+    let doneCount = 0;
+
+    // Also parse custom stages from stage_history
+    const stageHistory = build.stage_history || [];
+
+    const stagesHtml = FIXED_STAGES.map((stage, i) => {
+      const dateVal = build[stage.dateField];
+      const isDone = !!dateVal;
+      const isCurrent = !isDone && !currentFound && (
+        currentStageKey === stage.key || currentStageKey === stage.label ||
+        (i > 0 && !!build[FIXED_STAGES[i-1].dateField] && !build[FIXED_STAGES[i+1]?.dateField])
+      );
+
+      if (isDone) { doneCount++; if (!currentFound) {} }
+      if (isCurrent) currentFound = true;
+
+      const iconClass = isDone ? 'stage-icon-done' : isCurrent ? 'stage-icon-current' : 'stage-icon-upcoming';
+      const icon = isDone ? '✅' : isCurrent ? '▶️' : '○';
+      const nameClass = isDone || isCurrent ? '' : ' upcoming';
+      const badge = isDone
+        ? `<span class="stage-badge badge-done">Completed</span>`
+        : isCurrent
+        ? `<span class="stage-badge badge-current">In Progress</span>`
+        : `<span class="stage-badge badge-upcoming">Upcoming</span>`;
+
+      return `<div class="stage-row">
+        <div class="stage-icon-wrap ${iconClass}">${icon}</div>
+        <div class="stage-content">
+          <div class="stage-name${nameClass}">${stage.label}</div>
+          ${dateVal ? `<div class="stage-date">${fmtDate(dateVal)}</div>` : ''}
+          ${badge}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Add custom stages from stage_history
+    const customStages = stageHistory.filter(s => s.custom).map(s => `
+      <div class="stage-row">
+        <div class="stage-icon-wrap ${s.completed_at ? 'stage-icon-done' : 'stage-icon-current'}">${s.completed_at ? '✅' : '▶️'}</div>
+        <div class="stage-content">
+          <div class="stage-name">${s.label}</div>
+          ${s.completed_at ? `<div class="stage-date">${fmtDate(s.completed_at)}</div>` : ''}
+          <span class="stage-badge ${s.completed_at ? 'badge-done' : 'badge-current'}">${s.completed_at ? 'Completed' : 'In Progress'}</span>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('stages-list').innerHTML = stagesHtml + customStages;
+
+    // Progress bar
+    const total = FIXED_STAGES.length + stageHistory.filter(s => s.custom).length;
+    const done = doneCount + stageHistory.filter(s => s.custom && s.completed_at).length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progress-pct').textContent = pct + '%';
+    document.getElementById('progress-fill').style.width = pct + '%';
+
+    // Last updated
+    if (build.updated_at) {
+      document.getElementById('last-updated').textContent = 'Last updated: ' + fmtDate(build.updated_at);
+    }
+
+    show('main');
+  } catch(e) {
+    show('error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

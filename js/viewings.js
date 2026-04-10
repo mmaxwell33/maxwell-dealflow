@@ -293,6 +293,17 @@ const Viewings = {
         <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">✏️ Edit</button>
         <button class="btn btn-red" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
       </div>
+      ${isCompleted ? `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📞 Manual Override — Client Called You?</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Record the client's decision manually. This will expire any pending email response link.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <button class="btn btn-sm" style="background:var(--green);color:#fff;" onclick="Viewings.manualOverride('${v.id}','make_offer')">🏠 Make Offer</button>
+          <button class="btn btn-sm btn-outline" onclick="Viewings.manualOverride('${v.id}','continue_searching')">🔍 Keep Searching</button>
+          <button class="btn btn-sm btn-outline" style="border-color:var(--red);color:var(--red);" onclick="Viewings.manualOverride('${v.id}','not_a_fit')">❌ Not a Fit</button>
+          <button class="btn btn-sm btn-outline" onclick="Viewings.manualOverride('${v.id}','rescheduled')">📅 Reschedule</button>
+        </div>
+      </div>` : ''}
     `);
   },
 
@@ -309,18 +320,82 @@ const Viewings = {
     await db.from('viewings').update({ client_feedback: feedback, updated_at: new Date().toISOString() }).eq('id', id);
     const v = Viewings.all.find(x => x.id === id) || {};
     const client = Clients.all.find(c => c.id === v.client_id);
-    // Queue follow-up email for approval (works even without email on file)
+    const clientObj = { ...client, email: client?.email || '(no email on file)' };
+
     if (typeof Notify !== "undefined") {
-      const clientObj = { ...client, email: client?.email || '(no email on file)' };
       await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
       if (feedback === 'interested') {
-        await Notify.onReadyToOffer({...v, client_feedback: feedback}, clientObj);
+        // Generate a unique response token so client can respond via the web page
+        const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+        await db.from('viewing_responses').insert({
+          viewing_id: id,
+          client_id: v.client_id,
+          token,
+          expires_at: expiresAt,
+          expired: false
+        });
+        const viewingWithToken = { ...v, client_feedback: feedback, _responseToken: token };
+        await Notify.onReadyToOffer(viewingWithToken, clientObj);
       }
     }
-    App.toast(feedback === 'interested' ? '🌟 Great! Follow-up + offer invitation queued in Approvals' : feedback === 'good' ? '✅ Follow-up email queued in Approvals' : '📬 Continue searching email queued in Approvals');
+
+    App.toast(feedback === 'interested' ? '🌟 Offer invitation queued in Approvals' : feedback === 'good' ? '✅ Follow-up email queued in Approvals' : '📬 Continue searching email queued in Approvals');
     await Viewings.load();
     App.closeModal();
     setTimeout(() => Viewings.openDetail(id), 400);
+  },
+
+  // Manual override — agent records client decision without waiting for email response
+  async manualOverride(viewingId, decision) {
+    const decisions = {
+      make_offer: { client_response: 'make_offer', client_feedback: 'interested' },
+      continue_searching: { client_response: 'continue_searching', client_feedback: 'good' },
+      not_a_fit: { client_response: 'not_a_fit', client_feedback: 'pass' },
+      cancelled: { viewing_status: 'Cancelled', client_feedback: null },
+      rescheduled: { viewing_status: 'Rescheduled', client_feedback: null }
+    };
+    const update = decisions[decision];
+    if (!update) return;
+
+    // Expire any open response tokens for this viewing
+    await db.from('viewing_responses').update({ expired: true }).eq('viewing_id', viewingId).eq('expired', false);
+
+    await db.from('viewings').update({ ...update, updated_at: new Date().toISOString() }).eq('id', viewingId);
+
+    if (decision === 'make_offer') {
+      // Prompt for offer amount
+      const amt = prompt('Enter the offer amount the client discussed with you ($):');
+      const note = prompt('Any notes from your conversation? (optional)');
+      if (amt && parseFloat(amt) > 0) {
+        const v = Viewings.all.find(x => x.id === viewingId) || {};
+        const client = Clients.all.find(c => c.id === v.client_id);
+        if (client && currentAgent) {
+          await db.from('pending_offers').insert({
+            viewing_id: viewingId,
+            client_id: v.client_id,
+            agent_id: currentAgent.id,
+            client_name: client.full_name,
+            property_address: v.property_address,
+            list_price: v.list_price,
+            offer_amount: parseFloat(amt),
+            client_note: note || null,
+            status: 'Pending'
+          });
+        }
+      }
+      App.toast('✅ Offer interest recorded. Response link expired.');
+    } else if (decision === 'cancelled') {
+      App.toast('❌ Viewing marked cancelled. Response link expired.');
+    } else if (decision === 'rescheduled') {
+      App.toast('📅 Viewing marked for rescheduling. Response link expired.');
+    } else {
+      App.toast('✅ Decision recorded manually. Response link expired.');
+    }
+
+    await Viewings.load();
+    App.closeModal();
+    if (typeof PendingOffers !== 'undefined') PendingOffers.load();
   },
 
   async deleteViewing(id) {

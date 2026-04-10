@@ -1,23 +1,21 @@
 /**
  * Maxwell DealFlow CRM — Daily Automation Edge Function
  *
- * Runs every day at 8:00 AM local time (via pg_cron or Supabase scheduled invocations).
+ * Runs every day at 8:00 AM UTC (via pg_cron).
  * Scans all active pipeline deals for approaching deadlines and queues approval emails.
  *
  * What it does:
- *   1. Condition deadlines — queue reminder 3 days before and 1 day before expiry
- *   2. Walkthrough reminders — queue reminder 1 day before walkthrough
- *   3. Closing-day email — queue "Happy Closing Day!" on the closing date itself
- *   4. Post-closing referral — queue referral ask 7 days after closing
- *   5. Stale deal alerts — log a note if a deal has been stuck in same stage > 30 days
+ *   1. Financing deadline — reminder 3 days before and 1 day before
+ *   2. Inspection deadline — reminder 3 days before and 1 day before
+ *   3. Walkthrough reminders — queue reminder 1 day before walkthrough
+ *   4. Closing-day email — queue "Happy Closing Day!" on the closing date itself
+ *   5. Post-closing referral — queue referral ask 7 days after closing
+ *   6. Stale deal alerts — log a note if a deal has been stuck in same stage > 30 days
+ *   7. Post-viewing feedback — for any viewing that happened today or earlier,
+ *      status still Scheduled, no feedback yet → queue feedback request
  *
  * Idempotency: Every approval_queue insert is guarded by checking for an existing
  * Pending row with the same (agent_id, related_id, approval_type) within 25 hours.
- * This means re-running the function (e.g., if cron fires twice) is safe.
- *
- * Environment variables required (set in Supabase dashboard → Settings → Edge Functions):
- *   SUPABASE_URL         — your project URL (auto-injected in Edge Functions)
- *   SUPABASE_SERVICE_KEY — service-role key with RLS bypass (NOT the anon key)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -33,10 +31,11 @@ interface PipelineDeal {
   client_email: string | null;
   property_address: string | null;
   stage: string | null;
-  conditions_deadline: string | null;
+  financing_deadline: string | null;
+  inspection_deadline: string | null;
   walkthrough_date: string | null;
   closing_date: string | null;
-  stage_updated_at: string | null;
+  updated_at: string | null;
 }
 
 interface Agent {
@@ -81,38 +80,51 @@ const fmtDate = (iso: string) =>
 
 const templates = {
 
-  conditions_reminder_3d: (deal: PipelineDeal, agent: Agent): { subject: string; body: string } => ({
-    subject: `⏰ Reminder: Conditions Deadline in 3 Days — ${deal.property_address}`,
+  financing_reminder_3d: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `⏰ Reminder: Financing Deadline in 3 Days — ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-Just a friendly reminder that the conditions on your accepted offer at ${deal.property_address} are due to be fulfilled in 3 days (${fmtDate(deal.conditions_deadline!)}).
+Just a friendly reminder that your financing deadline for ${deal.property_address} is in 3 days (${fmtDate(deal.financing_deadline!)}).
 
-Please ensure the following are in order:
-• Financing approval from your lender
-• Home inspection (if not yet completed)
-• Any other conditions noted in your offer
-
-If you have any questions or need help arranging anything, please reach out right away — we don't want to miss this deadline.
+Please ensure your mortgage approval is confirmed with your lender. If there are any delays or concerns, please contact me immediately so we can discuss your options before the deadline.
 
 ${sig(agent)}`,
   }),
 
-  conditions_reminder_1d: (deal: PipelineDeal, agent: Agent): { subject: string; body: string } => ({
-    subject: `🚨 URGENT: Conditions Deadline Tomorrow — ${deal.property_address}`,
+  financing_reminder_1d: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `🚨 URGENT: Financing Deadline Tomorrow — ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-IMPORTANT REMINDER — your conditions deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.conditions_deadline!)}).
+IMPORTANT REMINDER — your financing deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.financing_deadline!)}).
 
-If all conditions have been satisfied, please confirm with your lender and let me know so I can move the file forward.
-
-If there are any concerns or outstanding items, please call me immediately so we can discuss your options.
-
-This is a time-sensitive matter — please act today.
+Please confirm with your lender today that your mortgage is approved. If there are any issues, call me immediately — this is time-sensitive.
 
 ${sig(agent)}`,
   }),
 
-  walkthrough_reminder: (deal: PipelineDeal, agent: Agent): { subject: string; body: string } => ({
+  inspection_reminder_3d: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `⏰ Reminder: Home Inspection Deadline in 3 Days — ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+A quick reminder that your home inspection condition deadline for ${deal.property_address} is in 3 days (${fmtDate(deal.inspection_deadline!)}).
+
+If you haven't already booked your inspection, please do so immediately. If you need a recommendation for a home inspector, I'm happy to help.
+
+${sig(agent)}`,
+  }),
+
+  inspection_reminder_1d: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `🚨 URGENT: Inspection Deadline Tomorrow — ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+IMPORTANT — your home inspection deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.inspection_deadline!)}).
+
+Please ensure your inspection is complete and any concerns have been reviewed. Contact me right away if you need to discuss the results or next steps.
+
+${sig(agent)}`,
+  }),
+
+  walkthrough_reminder: (deal: PipelineDeal, agent: Agent) => ({
     subject: `🏠 Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
@@ -129,7 +141,7 @@ I'll meet you there at the scheduled time. Please don't hesitate to reach out if
 ${sig(agent)}`,
   }),
 
-  closing_day: (deal: PipelineDeal, agent: Agent): { subject: string; body: string } => ({
+  closing_day: (deal: PipelineDeal, agent: Agent) => ({
     subject: `🔑 Happy Closing Day! — ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
@@ -148,7 +160,7 @@ It has been my absolute honour to help you through this journey. Congratulations
 ${sig(agent)}`,
   }),
 
-  post_closing_referral: (deal: PipelineDeal, agent: Agent): { subject: string; body: string } => ({
+  post_closing_referral: (deal: PipelineDeal, agent: Agent) => ({
     subject: `🏡 How's the New Home? — ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
@@ -194,24 +206,27 @@ async function isDuplicate(
 
 async function queueEmail(
   supabase: ReturnType<typeof createClient>,
-  deal: PipelineDeal,
+  agentId: string,
+  clientName: string,
+  clientEmail: string,
+  relatedId: string,
   approvalType: string,
   subject: string,
   body: string,
 ): Promise<{ queued: boolean; error?: string }> {
-  if (!deal.client_email) return { queued: false, error: 'no client email' };
+  if (!clientEmail) return { queued: false, error: 'no client email' };
 
-  const dup = await isDuplicate(supabase, deal.agent_id, deal.id, approvalType);
+  const dup = await isDuplicate(supabase, agentId, relatedId, approvalType);
   if (dup) return { queued: false, error: 'duplicate' };
 
   const { error } = await supabase.from('approval_queue').insert({
-    agent_id: deal.agent_id,
-    client_name: deal.client_name || 'Client',
-    client_email: deal.client_email,
+    agent_id: agentId,
+    client_name: clientName || 'Client',
+    client_email: clientEmail,
     approval_type: approvalType,
     email_subject: subject,
     email_body: body,
-    related_id: deal.id,
+    related_id: relatedId,
     status: 'Pending',
   } as QueuedEmail);
 
@@ -222,7 +237,6 @@ async function queueEmail(
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 serve(async (req) => {
-  // Allow manual HTTP triggers (Supabase cron uses POST with empty body)
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -230,19 +244,6 @@ serve(async (req) => {
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
-  }
-
-  // ── Optional bearer token guard ──────────────────────────────────────────────
-  // Set CRON_SECRET in Supabase env to prevent unauthenticated manual triggers.
-  const cronSecret = Deno.env.get('CRON_SECRET');
-  if (cronSecret) {
-    const auth = req.headers.get('authorization');
-    if (auth !== `Bearer ${cronSecret}`) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -255,7 +256,6 @@ serve(async (req) => {
     );
   }
 
-  // Service-role client bypasses RLS — safe for server-side automation
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const today = new Date();
@@ -273,7 +273,7 @@ serve(async (req) => {
   // ── 1. Load all active pipeline deals ──────────────────────────────────────
   const { data: deals, error: dealsErr } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, conditions_deadline, walkthrough_date, closing_date, stage_updated_at')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, inspection_deadline, walkthrough_date, closing_date, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")');
 
   if (dealsErr || !deals) {
@@ -283,72 +283,98 @@ serve(async (req) => {
     );
   }
 
-  // ── 2. Load all agents (one lookup, used per deal) ─────────────────────────
+  // ── 2. Load all agents ─────────────────────────────────────────────────────
   const agentIds = [...new Set(deals.map((d: PipelineDeal) => d.agent_id))];
   const { data: agents } = await supabase
     .from('agents')
-    .select('id, full_name, email, phone')
-    .in('id', agentIds);
+    .select('id, full_name, email, phone');
 
   const agentMap = new Map<string, Agent>();
-  for (const a of agents ?? []) {
-    agentMap.set(a.id, a as Agent);
-  }
+  for (const a of agents ?? []) agentMap.set(a.id, a as Agent);
 
-  // ── 3. Process each deal ───────────────────────────────────────────────────
+  // ── 3. Process each active deal ────────────────────────────────────────────
   for (const deal of deals as PipelineDeal[]) {
     summary.processed++;
     const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
 
-    // ── 3a. Conditions deadline reminders ────────────────────────────────────
-    if (deal.conditions_deadline && deal.stage === 'Conditions') {
-      const condDate = new Date(deal.conditions_deadline);
-      condDate.setHours(0, 0, 0, 0);
-      const daysLeft = Math.round((condDate.getTime() - today.getTime()) / 86_400_000);
+    const daysUntil = (dateStr: string | null): number | null => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr);
+      d.setHours(0, 0, 0, 0);
+      return Math.round((d.getTime() - today.getTime()) / 86_400_000);
+    };
 
-      if (daysLeft === 3) {
-        const tmpl = templates.conditions_reminder_3d(deal, agent);
-        const result = await queueEmail(supabase, deal, 'Conditions Reminder (3 days)', tmpl.subject, tmpl.body);
-        result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
+    // ── 3a. Financing deadline reminders ────────────────────────────────────
+    if (deal.financing_deadline) {
+      const days = daysUntil(deal.financing_deadline);
+      if (days === 3) {
+        const t = templates.financing_reminder_3d(deal, agent);
+        const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Financing Reminder (3 days)', t.subject, t.body);
+        r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
-
-      if (daysLeft === 1) {
-        const tmpl = templates.conditions_reminder_1d(deal, agent);
-        const result = await queueEmail(supabase, deal, 'Conditions Reminder (1 day)', tmpl.subject, tmpl.body);
-        result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
-      }
-    }
-
-    // ── 3b. Walkthrough reminder (1 day before) ──────────────────────────────
-    if (deal.walkthrough_date) {
-      const walkDate = new Date(deal.walkthrough_date);
-      walkDate.setHours(0, 0, 0, 0);
-      const daysLeft = Math.round((walkDate.getTime() - today.getTime()) / 86_400_000);
-
-      if (daysLeft === 1) {
-        const tmpl = templates.walkthrough_reminder(deal, agent);
-        const result = await queueEmail(supabase, deal, 'Walkthrough Reminder (1 day)', tmpl.subject, tmpl.body);
-        result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
+      if (days === 1) {
+        const t = templates.financing_reminder_1d(deal, agent);
+        const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Financing Reminder (1 day)', t.subject, t.body);
+        r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
     }
 
-    // ── 3c. Closing day email ────────────────────────────────────────────────
-    if (deal.closing_date) {
-      const closeDate = new Date(deal.closing_date);
-      closeDate.setHours(0, 0, 0, 0);
-      const daysLeft = Math.round((closeDate.getTime() - today.getTime()) / 86_400_000);
-
-      if (daysLeft === 0) {
-        const tmpl = templates.closing_day(deal, agent);
-        const result = await queueEmail(supabase, deal, 'Happy Closing Day! 🔑', tmpl.subject, tmpl.body);
-        result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
+    // ── 3b. Inspection deadline reminders ───────────────────────────────────
+    if (deal.inspection_deadline) {
+      const days = daysUntil(deal.inspection_deadline);
+      if (days === 3) {
+        const t = templates.inspection_reminder_3d(deal, agent);
+        const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Inspection Reminder (3 days)', t.subject, t.body);
+        r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
+      if (days === 1) {
+        const t = templates.inspection_reminder_1d(deal, agent);
+        const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Inspection Reminder (1 day)', t.subject, t.body);
+        r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
+      }
+    }
+
+    // ── 3c. Walkthrough reminder ─────────────────────────────────────────────
+    if (deal.walkthrough_date && daysUntil(deal.walkthrough_date) === 1) {
+      const t = templates.walkthrough_reminder(deal, agent);
+      const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Walkthrough Reminder', t.subject, t.body);
+      r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
+    }
+
+    // ── 3d. Closing day ──────────────────────────────────────────────────────
+    if (deal.closing_date && daysUntil(deal.closing_date) === 0) {
+      const t = templates.closing_day(deal, agent);
+      const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Closing Day', t.subject, t.body);
+      r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
     }
   }
 
-  // ── 4. Viewing feedback requests (viewing date passed, no feedback yet) ──────
-  //    When a viewing date has passed and no client_feedback is recorded,
-  //    queue a "How did the viewing go?" feedback request email.
+  // ── 4. Post-closing referral (7 days after closing) ───────────────────────
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
+  const eightDaysAgo = new Date(today.getTime() - 8 * 86_400_000).toISOString().slice(0, 10);
+
+  const { data: closedDeals } = await supabase
+    .from('pipeline')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, inspection_deadline, walkthrough_date, closing_date, updated_at')
+    .eq('stage', 'Closed')
+    .gte('closing_date', eightDaysAgo)
+    .lte('closing_date', sevenDaysAgo);
+
+  for (const deal of (closedDeals ?? []) as PipelineDeal[]) {
+    if (!deal.closing_date) continue;
+    const closeDate = new Date(deal.closing_date);
+    closeDate.setHours(0, 0, 0, 0);
+    const daysSince = Math.round((today.getTime() - closeDate.getTime()) / 86_400_000);
+    if (daysSince !== 7) continue;
+    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
+    const t = templates.post_closing_referral(deal, agent);
+    const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Post-Closing Referral', t.subject, t.body);
+    r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
+  }
+
+  // ── 5. Post-viewing feedback requests ─────────────────────────────────────
+  // Any viewing where: date <= today, status = Scheduled, no client_feedback
+  // These are viewings that happened but were never manually marked Completed
   const { data: pastViewings } = await supabase
     .from('viewings')
     .select('id, client_id, property_address, viewing_date, viewing_time, viewing_status')
@@ -358,42 +384,41 @@ serve(async (req) => {
 
   for (const v of (pastViewings ?? [])) {
     if (!v.client_id) continue;
-    // Look up client email + agent_id via client record
+
     const { data: clientRow } = await supabase
       .from('clients')
       .select('id, full_name, email, agent_id')
       .eq('id', v.client_id)
       .single();
+
     if (!clientRow?.email) continue;
 
-    // Attach agent_id from client record
-    v.agent_id = clientRow.agent_id;
-    const agent = agentMap.get(v.agent_id) ?? { id: v.agent_id, full_name: null, email: null, phone: null };
-    const viewDateFmt = new Date(v.viewing_date).toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const firstName = clientRow.full_name?.split(' ')[0] || 'there';
+    const agent = agentMap.get(clientRow.agent_id) ?? { id: clientRow.agent_id, full_name: null, email: null, phone: null };
+    const viewDateFmt = fmtDate(v.viewing_date);
+    const fn = firstName(clientRow.full_name);
 
     const subject = `How Did the Viewing Go? — ${v.property_address}`;
-    const body = `Hi ${firstName},
+    const body = `Hi ${fn},
 
 I hope you enjoyed viewing ${v.property_address} on ${viewDateFmt}!
 
-I'd love to hear your thoughts. Here are a few questions to help guide our next steps:
+I'd love to hear your thoughts — your feedback helps me find the perfect home for you:
 
 🏠 Did the property meet your expectations?
 📐 Did the size and layout work for you?
 💰 Do you feel the asking price is fair?
-❓ Do you have any questions or concerns?
+❓ Any questions or concerns?
 
-Your honest feedback helps me find the perfect home for you. Feel free to reply directly to this email or give me a call.
+Feel free to reply directly to this email or give me a call anytime.
 
 ${sig(agent)}`;
 
-    // Dedup check using viewing id
+    // Dedup check
     const windowStart = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
     const { data: dupCheck } = await supabase
       .from('approval_queue')
       .select('id')
-      .eq('agent_id', v.agent_id)
+      .eq('agent_id', clientRow.agent_id)
       .eq('related_id', v.id)
       .eq('approval_type', 'Post-Viewing Feedback Request')
       .eq('status', 'Pending')
@@ -403,7 +428,7 @@ ${sig(agent)}`;
     if ((dupCheck?.length ?? 0) > 0) { summary.skipped_duplicate++; continue; }
 
     const { error: qErr } = await supabase.from('approval_queue').insert({
-      agent_id: v.agent_id,
+      agent_id: clientRow.agent_id,
       client_name: clientRow.full_name,
       client_email: clientRow.email,
       approval_type: 'Post-Viewing Feedback Request',
@@ -413,64 +438,35 @@ ${sig(agent)}`;
       status: 'Pending',
     });
 
-    if (qErr) { summary.errors.push(`viewing ${v.id}: ${qErr.message}`); }
-    else {
+    if (qErr) {
+      summary.errors.push(`viewing ${v.id}: ${qErr.message}`);
+    } else {
       summary.queued++;
-      // Also mark the viewing as needing follow-up so it doesn't pile up
+      // Mark the viewing as needing follow-up so it doesn't re-queue tomorrow
       await supabase.from('viewings').update({ viewing_status: 'Needs Follow-Up' }).eq('id', v.id);
     }
   }
 
-  // ── 5. Post-closing referral (7 days after closing) ───────────────────────
-  //    Fetch recently-closed deals separately (stage = Closed, closed in last 8 days,
-  //    check if exactly 7 days have passed)
-  const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
-  const eightDaysAgo = new Date(today.getTime() - 8 * 86_400_000).toISOString().slice(0, 10);
-
-  const { data: closedDeals } = await supabase
-    .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, closing_date, conditions_deadline, walkthrough_date, stage_updated_at')
-    .eq('stage', 'Closed')
-    .gte('closing_date', eightDaysAgo)
-    .lte('closing_date', sevenDaysAgo);
-
-  for (const deal of (closedDeals ?? []) as PipelineDeal[]) {
-    if (!deal.closing_date) continue;
-    const closeDate = new Date(deal.closing_date);
-    closeDate.setHours(0, 0, 0, 0);
-    const daysSinceClose = Math.round((today.getTime() - closeDate.getTime()) / 86_400_000);
-    if (daysSinceClose !== 7) continue;
-
-    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
-    const tmpl = templates.post_closing_referral(deal, agent);
-    const result = await queueEmail(supabase, deal, 'Post-Closing Referral Request 🙏', tmpl.subject, tmpl.body);
-    result.queued ? summary.queued++ : result.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${result.error}`);
-  }
-
-  // ── 6. Stale deal detection (stuck > 30 days in same non-terminal stage) ──
-  //    Log to activity_log only — no email queued (Maxwell reviews manually)
+  // ── 6. Stale deal detection (stuck > 30 days with no update) ──────────────
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 86_400_000).toISOString();
 
   const { data: staleDeals } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_name, stage, stage_updated_at')
+    .select('id, agent_id, client_name, stage, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")')
-    .lt('stage_updated_at', thirtyDaysAgo);
+    .lt('updated_at', thirtyDaysAgo);
 
   for (const deal of (staleDeals ?? [])) {
-    if (!deal.stage_updated_at) continue;
-    const dayStuck = Math.round(
-      (today.getTime() - new Date(deal.stage_updated_at).getTime()) / 86_400_000,
-    );
+    if (!deal.updated_at) continue;
+    const dayStuck = Math.round((today.getTime() - new Date(deal.updated_at).getTime()) / 86_400_000);
     await supabase.from('activity_log').insert({
       agent_id: deal.agent_id,
       activity_type: 'STALE_DEAL_ALERT',
-      note: `Deal "${deal.client_name}" has been in stage "${deal.stage}" for ${dayStuck} days. Consider following up.`,
+      note: `Deal "${deal.client_name}" has been in stage "${deal.stage}" for ${dayStuck} days with no updates. Consider following up.`,
       related_id: deal.id,
-    }).select(); // .select() suppresses no-return warning
+    }).select();
   }
 
-  // ── 7. Return summary ──────────────────────────────────────────────────────
   return new Response(JSON.stringify(summary), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

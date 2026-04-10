@@ -164,6 +164,10 @@ const App = {
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 2500);
     // Re-check every 5 minutes while app is open (so agent doesn't have to reload)
     setInterval(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
+    // Load pending offers from clients on dashboard
+    setTimeout(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 3000);
+    // Re-check pending offers every 5 minutes
+    setInterval(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 5 * 60 * 1000);
     // Update approvals badge
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
     // Update client responses badge

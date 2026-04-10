@@ -316,6 +316,15 @@
         <div class="loading"><div class="spinner"></div> Loading...</div>
       </div>
 
+      <!-- Pending Offers from Clients -->
+      <div id="pending-offers-section" style="display:none;">
+        <div class="section-header mt-16">
+          <div class="section-title">⏳ Clients Ready to Offer</div>
+          <div class="section-action" onclick="PendingOffers.loadAll()">Refresh →</div>
+        </div>
+        <div id="pending-offers-list"></div>
+      </div>
+
       <!-- Pipeline snapshot -->
       <div class="section-header mt-16">
         <div class="section-title">Active Pipeline</div>
@@ -1415,6 +1424,8 @@
 <script src="js/viewings.js"></script>
 <script src="js/offers.js"></script>
 <script src="js/notifications.js"></script>
+<script src="js/pendingoffers.js"></script>
+<script src="js/newbuilds.js"></script>
 <script src="js/responses.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/analytics.js"></script>
