@@ -227,7 +227,7 @@ const Viewings = {
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
-        if (typeof Notify !== "undefined" && client?.email && newViewing) {
+        if (typeof Notify !== "undefined" && newViewing) {
           await Notify.onViewingBooked(newViewing, client);
         }
       }

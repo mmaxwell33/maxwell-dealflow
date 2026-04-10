@@ -83,23 +83,26 @@ const Approvals = {
 
     App.toast('📨 Sending email...', 'var(--accent2)');
 
-    if (item.client_email && item.email_subject) {
+    // Parse context_data first so we can use ccEmail in the to-fallback check
+    let htmlBody = null, icsAttachment = null, ccEmail = null;
+    if (item.context_data) {
+      try {
+        const ctx = JSON.parse(item.context_data);
+        htmlBody = ctx.html || null;
+        icsAttachment = ctx.ics || null;
+        ccEmail = ctx.cc || null;
+      } catch {
+        htmlBody = item.context_data;
+      }
+    }
+    // Resolve the primary recipient: client email, or fall back to CC if client has no email
+    const toEmail = item.client_email || ccEmail;
+    const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
+
+    if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
         const agent = currentAgent || {};
-        // context_data may be JSON {html, ics} or plain html string (legacy)
-        let htmlBody = null, icsAttachment = null, ccEmail = null;
-        if (item.context_data) {
-          try {
-            const ctx = JSON.parse(item.context_data);
-            htmlBody = ctx.html || null;
-            icsAttachment = ctx.ics || null;
-            ccEmail = ctx.cc || null;
-          } catch {
-            // legacy: plain html string
-            htmlBody = item.context_data;
-          }
-        }
         const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
           method: 'POST',
           headers: {
@@ -108,8 +111,8 @@ const Approvals = {
             'apikey': SUPABASE_ANON_KEY
           },
           body: JSON.stringify({
-            to: item.client_email,
-            cc: ccEmail,
+            to: toEmail,
+            cc: actualCc,
             subject: item.email_subject,
             body: item.email_body || '',
             html: htmlBody,
