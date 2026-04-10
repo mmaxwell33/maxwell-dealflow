@@ -28,6 +28,16 @@ interface AttachmentData {
   data: string; // base64-encoded file content
 }
 
+// Encode a header value that may contain non-ASCII chars (RFC 2047 Base64)
+function encodeHeader(value: string): string {
+  // Check if any character is outside printable ASCII range
+  if (/[^\x20-\x7E]/.test(value)) {
+    const b64 = btoa(unescape(encodeURIComponent(value)));
+    return `=?UTF-8?B?${b64}?=`;
+  }
+  return value;
+}
+
 function buildRawMime(opts: {
   from: string; to: string; cc?: string | null; subject: string;
   text: string; html?: string | null; ics?: string | null;
@@ -41,7 +51,8 @@ function buildRawMime(opts: {
   lines.push(`From: ${opts.from}`);
   lines.push(`To: ${opts.to}`);
   if (opts.cc) lines.push(`Cc: ${opts.cc}`);
-  lines.push(`Subject: ${opts.subject}`);
+  // Encode subject using RFC 2047 so special chars (em-dash, accents, etc.) survive
+  lines.push(`Subject: ${encodeHeader(opts.subject)}`);
   lines.push('MIME-Version: 1.0');
 
   // Reply threading headers
@@ -187,8 +198,11 @@ serve(async (req) => {
       references: references || null,
     });
 
-    // Step 3: Base64url encode
-    const encoded = btoa(unescape(encodeURIComponent(raw)))
+    // Step 3: Base64url encode using TextEncoder (handles Unicode correctly)
+    const rawBytes = new TextEncoder().encode(raw);
+    let binary = '';
+    rawBytes.forEach(b => binary += String.fromCharCode(b));
+    const encoded = btoa(binary)
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
     // Step 4: Send via Gmail API (include threadId for replies)
