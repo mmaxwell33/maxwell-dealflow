@@ -82,11 +82,41 @@ const App = {
     const errEl = document.getElementById('auth-error');
     errEl.textContent = '';
     if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return; }
+
+    // ── BRUTE-FORCE PROTECTION ────────────────────────────────────────────
+    // Track failed attempts in localStorage — lock out for 15 min after 5 fails
+    const lockKey = 'mdf-login-lock';
+    const attemptsKey = 'mdf-login-attempts';
+    const lockData = JSON.parse(localStorage.getItem(lockKey) || 'null');
+    if (lockData && Date.now() < lockData.until) {
+      const minsLeft = Math.ceil((lockData.until - Date.now()) / 60000);
+      errEl.textContent = `🔒 Too many failed attempts. Try again in ${minsLeft} minute${minsLeft > 1 ? 's' : ''}.`;
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const btn = document.querySelector('.lock-btn') || document.querySelector('.auth-btn');
     if (btn) { btn.textContent = 'Unlocking...'; btn.disabled = true; }
     const { error } = await db.auth.signInWithPassword({ email, password });
     if (btn) { btn.textContent = 'Unlock'; btn.disabled = false; }
-    if (error) { errEl.textContent = error.message; return; }
+
+    if (error) {
+      // Increment failed attempt counter
+      const attempts = parseInt(localStorage.getItem(attemptsKey) || '0') + 1;
+      if (attempts >= 5) {
+        localStorage.setItem(lockKey, JSON.stringify({ until: Date.now() + 15 * 60 * 1000 }));
+        localStorage.removeItem(attemptsKey);
+        errEl.textContent = '🔒 Account locked for 15 minutes due to too many failed attempts.';
+      } else {
+        localStorage.setItem(attemptsKey, String(attempts));
+        const remaining = 5 - attempts;
+        errEl.textContent = `${error.message} (${remaining} attempt${remaining > 1 ? 's' : ''} remaining)`;
+      }
+      return;
+    }
+    // Clear failed attempts on successful login
+    localStorage.removeItem(attemptsKey);
+    localStorage.removeItem(lockKey);
   },
 
   showSignUp() {

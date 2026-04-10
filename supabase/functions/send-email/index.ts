@@ -182,6 +182,27 @@ function quotedPrintableEncode(input: string): string {
   return result;
 }
 
+// ── IN-MEMORY RATE LIMITER ────────────────────────────────────────────────────
+// Limits to 60 emails per hour per agent to prevent abuse / Gmail suspension
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX   = 60;   // max emails per window
+const RATE_LIMIT_WINDOW = 3600000; // 1 hour in ms
+
+function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || (now - entry.windowStart) > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(key, { count: 1, windowStart: now });
+    return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0 };
+  }
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -189,6 +210,16 @@ serve(async (req) => {
 
   try {
     const { to, cc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references } = await req.json();
+
+    // ── RATE LIMIT CHECK ────────────────────────────────────────────────────
+    const rateLimitKey = to?.split('@')[1] || 'default'; // key by sender domain
+    const { allowed, remaining } = checkRateLimit(rateLimitKey);
+    if (!allowed) {
+      return new Response(JSON.stringify({
+        error: 'Rate limit exceeded. Maximum 60 emails per hour. Please try again later.'
+      }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing: to, subject, body' }), {

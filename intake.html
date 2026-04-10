@@ -318,6 +318,15 @@
     <textarea id="f-notes" placeholder="e.g. We need to be near St. Paul's School. Open to older homes that need updating. Would love a double garage. Flexible on closing date..."></textarea>
   </div>
 
+  <!-- HONEYPOT: hidden field — real humans never see or fill this.
+       Bots fill every field they find. If this has a value = bot. -->
+  <div style="display:none;visibility:hidden;position:absolute;left:-9999px;" aria-hidden="true">
+    <input type="text" id="hp-website" name="website" tabindex="-1" autocomplete="off" placeholder="Your website">
+    <input type="text" id="hp-phone2" name="phone2" tabindex="-1" autocomplete="off" placeholder="Second phone">
+  </div>
+  <!-- TIMING CHECK: forms filled in under 3 seconds = bot -->
+  <input type="hidden" id="hp-timestamp" value="">
+
   <button class="btn-submit" onclick="submitIntake()" id="submit-btn">
     🏠 Submit — Let's Find My Home!
   </button>
@@ -440,10 +449,36 @@ function showSection(n) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── SET FORM LOAD TIMESTAMP (for bot timing check) ────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const tsEl = document.getElementById('hp-timestamp');
+  if (tsEl) tsEl.value = String(Date.now());
+});
+
 // ── SUBMIT ────────────────────────────────────────────────────────────────────
 async function submitIntake() {
   const st  = document.getElementById('form-status');
   const btn = document.getElementById('submit-btn');
+
+  // ── BOT DETECTION ──────────────────────────────────────────────────────────
+  // 1. Honeypot fields: if either hidden field has a value, it's a bot
+  const hp1 = document.getElementById('hp-website')?.value || '';
+  const hp2 = document.getElementById('hp-phone2')?.value || '';
+  if (hp1 || hp2) {
+    // Silently succeed — bots should think it worked
+    document.getElementById('sec-5').classList.remove('active');
+    document.getElementById('sec-success')?.classList.add('active');
+    return;
+  }
+  // 2. Timing check: form filled in under 3 seconds = almost certainly a bot
+  const loadTime = parseInt(document.getElementById('hp-timestamp')?.value || '0');
+  const elapsed = Date.now() - loadTime;
+  if (loadTime > 0 && elapsed < 3000) {
+    document.getElementById('sec-5').classList.remove('active');
+    document.getElementById('sec-success')?.classList.add('active');
+    return; // Silently ignore
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
   const firstName = document.getElementById('f-firstname').value.trim();
   const lastName  = document.getElementById('f-lastname').value.trim();
