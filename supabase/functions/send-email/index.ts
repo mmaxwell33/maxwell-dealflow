@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { encode as base64Encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,13 +8,7 @@ const corsHeaders = {
 
 /**
  * Send email via Gmail API using OAuth2 refresh token.
- * No SMTP, no third-party email service, no domain needed.
  * Emails come directly FROM maxwelldelali22@gmail.com — no "on behalf of".
- *
- * Supports reply threading:
- *   thread_id   – Gmail threadId to keep reply in same thread
- *   in_reply_to – Message-ID header of the message being replied to
- *   references  – References header chain for threading
  *
  * Required Supabase secrets:
  *   GMAIL_USER            – your Gmail address
@@ -28,14 +23,22 @@ interface AttachmentData {
   data: string; // base64-encoded file content
 }
 
-// Encode a header value that may contain non-ASCII chars (RFC 2047 Base64)
-function encodeHeader(value: string): string {
-  // Check if any character is outside printable ASCII range
-  if (/[^\x20-\x7E]/.test(value)) {
-    const b64 = btoa(unescape(encodeURIComponent(value)));
-    return `=?UTF-8?B?${b64}?=`;
-  }
-  return value;
+// RFC 2047 encode a header value that contains non-ASCII characters
+function mimeEncodeHeader(value: string): string {
+  // If it's pure ASCII printable, no encoding needed
+  if (!/[^\x20-\x7E]/.test(value)) return value;
+  // Encode as UTF-8 bytes then base64
+  const bytes = new TextEncoder().encode(value);
+  const b64 = base64Encode(bytes);
+  return `=?UTF-8?B?${b64}?=`;
+}
+
+// Convert a Uint8Array to a base64url string (URL-safe, no padding)
+function toBase64Url(bytes: Uint8Array): string {
+  return base64Encode(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 function buildRawMime(opts: {
@@ -43,68 +46,66 @@ function buildRawMime(opts: {
   text: string; html?: string | null; ics?: string | null;
   attachments?: AttachmentData[] | null;
   inReplyTo?: string | null; references?: string | null;
-}): string {
+}): Uint8Array {
   const boundary = `b_${crypto.randomUUID().replace(/-/g, '')}`;
-  const inner = `i_${crypto.randomUUID().replace(/-/g, '')}`;
+  const inner    = `i_${crypto.randomUUID().replace(/-/g, '')}`;
   const lines: string[] = [];
 
+  // ── RFC 5322 headers ──────────────────────────────────────────────────────
   lines.push(`From: ${opts.from}`);
   lines.push(`To: ${opts.to}`);
   if (opts.cc) lines.push(`Cc: ${opts.cc}`);
-  // Encode subject using RFC 2047 so special chars (em-dash, accents, etc.) survive
-  lines.push(`Subject: ${encodeHeader(opts.subject)}`);
+  lines.push(`Subject: ${mimeEncodeHeader(opts.subject)}`);
   lines.push('MIME-Version: 1.0');
-
-  // Reply threading headers
   if (opts.inReplyTo) {
     lines.push(`In-Reply-To: ${opts.inReplyTo}`);
     lines.push(`References: ${opts.references || opts.inReplyTo}`);
   }
 
-  const hasAttachments = (opts.attachments && opts.attachments.length > 0) || opts.ics;
+  const hasAttachments = (opts.attachments && opts.attachments.length > 0) || !!opts.ics;
 
   if (hasAttachments) {
-    // multipart/mixed wraps everything when there are attachments
     lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
     lines.push('');
-    // Body part (text or html+text)
     lines.push(`--${boundary}`);
     if (opts.html) {
       lines.push(`Content-Type: multipart/alternative; boundary="${inner}"`);
       lines.push('');
       lines.push(`--${inner}`);
       lines.push('Content-Type: text/plain; charset=UTF-8');
+      lines.push('Content-Transfer-Encoding: quoted-printable');
       lines.push('');
-      lines.push(opts.text);
+      lines.push(quotedPrintableEncode(opts.text));
       lines.push('');
       lines.push(`--${inner}`);
       lines.push('Content-Type: text/html; charset=UTF-8');
+      lines.push('Content-Transfer-Encoding: quoted-printable');
       lines.push('');
-      lines.push(opts.html);
+      lines.push(quotedPrintableEncode(opts.html));
       lines.push('');
       lines.push(`--${inner}--`);
     } else {
       lines.push('Content-Type: text/plain; charset=UTF-8');
+      lines.push('Content-Transfer-Encoding: quoted-printable');
       lines.push('');
-      lines.push(opts.text);
+      lines.push(quotedPrintableEncode(opts.text));
     }
     lines.push('');
-    // ICS calendar attachment
     if (opts.ics) {
       lines.push(`--${boundary}`);
       lines.push('Content-Type: text/calendar; charset=UTF-8; method=REQUEST');
       lines.push('Content-Transfer-Encoding: base64');
       lines.push('Content-Disposition: attachment; filename="viewing.ics"');
       lines.push('');
+      // ics may already be base64 or raw text
       const icsText = opts.ics;
       if (icsText.startsWith('BEGIN:VCALENDAR')) {
-        lines.push(btoa(unescape(encodeURIComponent(icsText))));
+        lines.push(base64Encode(new TextEncoder().encode(icsText)));
       } else {
         lines.push(icsText);
       }
       lines.push('');
     }
-    // Generic file attachments
     if (opts.attachments) {
       for (const att of opts.attachments) {
         lines.push(`--${boundary}`);
@@ -122,22 +123,63 @@ function buildRawMime(opts: {
     lines.push('');
     lines.push(`--${boundary}`);
     lines.push('Content-Type: text/plain; charset=UTF-8');
+    lines.push('Content-Transfer-Encoding: quoted-printable');
     lines.push('');
-    lines.push(opts.text);
+    lines.push(quotedPrintableEncode(opts.text));
     lines.push('');
     lines.push(`--${boundary}`);
     lines.push('Content-Type: text/html; charset=UTF-8');
+    lines.push('Content-Transfer-Encoding: quoted-printable');
     lines.push('');
-    lines.push(opts.html);
+    lines.push(quotedPrintableEncode(opts.html));
     lines.push('');
     lines.push(`--${boundary}--`);
   } else {
     lines.push('Content-Type: text/plain; charset=UTF-8');
+    lines.push('Content-Transfer-Encoding: quoted-printable');
     lines.push('');
-    lines.push(opts.text);
+    lines.push(quotedPrintableEncode(opts.text));
   }
 
-  return lines.join('\r\n');
+  return new TextEncoder().encode(lines.join('\r\n'));
+}
+
+// Quoted-Printable encode: keeps ASCII printable as-is, encodes everything else
+// This is the correct way to encode email body content with UTF-8 chars
+function quotedPrintableEncode(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let result = '';
+  let lineLen = 0;
+
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    let encoded: string;
+
+    if (b === 0x0D && i + 1 < bytes.length && bytes[i + 1] === 0x0A) {
+      // CRLF — keep as-is, reset line length
+      result += '\r\n';
+      lineLen = 0;
+      i++;
+      continue;
+    } else if (b === 0x0A) {
+      result += '\r\n';
+      lineLen = 0;
+      continue;
+    } else if ((b >= 33 && b <= 126 && b !== 61) || b === 9 || b === 32) {
+      encoded = String.fromCharCode(b);
+    } else {
+      encoded = '=' + b.toString(16).toUpperCase().padStart(2, '0');
+    }
+
+    // Soft line break at 76 chars
+    if (lineLen + encoded.length > 75) {
+      result += '=\r\n';
+      lineLen = 0;
+    }
+    result += encoded;
+    lineLen += encoded.length;
+  }
+  return result;
 }
 
 serve(async (req) => {
@@ -154,21 +196,19 @@ serve(async (req) => {
       });
     }
 
-    const GMAIL_USER = Deno.env.get('GMAIL_USER') || 'maxwelldelali22@gmail.com';
-    const CLIENT_ID = Deno.env.get('GMAIL_CLIENT_ID');
+    const GMAIL_USER    = Deno.env.get('GMAIL_USER') || 'maxwelldelali22@gmail.com';
+    const CLIENT_ID     = Deno.env.get('GMAIL_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('GMAIL_CLIENT_SECRET');
     const REFRESH_TOKEN = Deno.env.get('GMAIL_REFRESH_TOKEN');
-    const fromName = from_name || 'Maxwell Delali Midodzi';
+    const fromName      = from_name || 'Maxwell Delali Midodzi';
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
       return new Response(JSON.stringify({
         error: 'Gmail OAuth not configured. Need GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN in Supabase secrets.',
-      }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Step 1: Get access token from refresh token
+    // Step 1: Get access token
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -184,8 +224,8 @@ serve(async (req) => {
       throw new Error('OAuth token failed: ' + JSON.stringify(tokenData));
     }
 
-    // Step 2: Build MIME message (with optional reply headers)
-    const raw = buildRawMime({
+    // Step 2: Build MIME message as bytes
+    const rawBytes = buildRawMime({
       from: `${fromName} <${GMAIL_USER}>`,
       to,
       cc: cc || null,
@@ -198,14 +238,10 @@ serve(async (req) => {
       references: references || null,
     });
 
-    // Step 3: Base64url encode using TextEncoder (handles Unicode correctly)
-    const rawBytes = new TextEncoder().encode(raw);
-    let binary = '';
-    rawBytes.forEach(b => binary += String.fromCharCode(b));
-    const encoded = btoa(binary)
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // Step 3: Base64url encode the raw bytes directly
+    const encoded = toBase64Url(rawBytes);
 
-    // Step 4: Send via Gmail API (include threadId for replies)
+    // Step 4: Send via Gmail API
     const sendPayload: Record<string, string> = { raw: encoded };
     if (thread_id) sendPayload.threadId = thread_id;
 
@@ -225,14 +261,11 @@ serve(async (req) => {
       throw new Error('Gmail send failed: ' + (sendData.error?.message || JSON.stringify(sendData)));
     }
 
-    // Return Gmail metadata (messageId + threadId) for inbox logging
     return new Response(JSON.stringify({
       success: true,
       gmail_message_id: sendData.id || null,
       gmail_thread_id: sendData.threadId || null,
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err) {
     console.error('Send error:', err);
