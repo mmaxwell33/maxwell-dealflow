@@ -23,7 +23,7 @@ const corsHeaders = {
  */
 
 function buildRawMime(opts: {
-  from: string; to: string; subject: string;
+  from: string; to: string; cc?: string | null; subject: string;
   text: string; html?: string | null; ics?: string | null;
   inReplyTo?: string | null; references?: string | null;
 }): string {
@@ -33,6 +33,7 @@ function buildRawMime(opts: {
 
   lines.push(`From: ${opts.from}`);
   lines.push(`To: ${opts.to}`);
+  if (opts.cc) lines.push(`Cc: ${opts.cc}`);
   lines.push(`Subject: ${opts.subject}`);
   lines.push('MIME-Version: 1.0');
 
@@ -108,7 +109,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, html, ics, from_name, thread_id, in_reply_to, references } = await req.json();
+    const { to, cc, subject, body, html, ics, from_name, thread_id, in_reply_to, references } = await req.json();
 
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: 'Missing: to, subject, body' }), {
@@ -150,6 +151,7 @@ serve(async (req) => {
     const raw = buildRawMime({
       from: `${fromName} <${GMAIL_USER}>`,
       to,
+      cc: cc || null,
       subject,
       text: body,
       html: html || null,

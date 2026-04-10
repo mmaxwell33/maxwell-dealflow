@@ -88,12 +88,13 @@ const Approvals = {
       try {
         const agent = currentAgent || {};
         // context_data may be JSON {html, ics} or plain html string (legacy)
-        let htmlBody = null, icsAttachment = null;
+        let htmlBody = null, icsAttachment = null, ccEmail = null;
         if (item.context_data) {
           try {
             const ctx = JSON.parse(item.context_data);
             htmlBody = ctx.html || null;
             icsAttachment = ctx.ics || null;
+            ccEmail = ctx.cc || null;
           } catch {
             // legacy: plain html string
             htmlBody = item.context_data;
@@ -108,6 +109,7 @@ const Approvals = {
           },
           body: JSON.stringify({
             to: item.client_email,
+            cc: ccEmail,
             subject: item.email_subject,
             body: item.email_body || '',
             html: htmlBody,
@@ -988,7 +990,7 @@ const NewBuilds = {
     `);
   },
 
-  sendClientUpdate(id) {
+  async sendClientUpdate(id) {
     const b = NewBuilds.all.find(x => x.id === id);
     if (!b) return;
     const pm = b.pipeline_milestones || {};
@@ -997,18 +999,68 @@ const NewBuilds = {
     const completedMs = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done);
     const nextMs = NewBuilds.msLabels.find((_, i) => !pm[`step${i+1}`]?.done);
     const customNote = document.getElementById('nb-notify-note')?.value?.trim() || '';
-    const subject = `New Build Update: ${b.lot_address || 'Your Property'} — ${stage}`;
-    const body = `Hi ${b.client_name},\n\nHere's your latest new build progress update:\n\n📋 Current Pipeline Stage: ${stage}\n✅ Milestones Completed: ${done} of 9\n${completedMs.map(m => `   ✓ ${m}`).join('\n')}\n${nextMs ? `\n⏭ Next Milestone: ${nextMs}` : '\n🎉 All milestones complete — congratulations!'}\n${b.est_completion_date ? `\n📅 Estimated Completion Date: ${App.fmtDate(b.est_completion_date)}` : ''}\n${b.deposit_status ? `🏦 Deposit Status: ${b.deposit_status}` : ''}\n${customNote ? `\n📝 Additional Notes:\n${customNote}` : ''}\n\nPlease don't hesitate to reach out if you have any questions or need anything.\n\nBest regards,\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545`;
+
+    // Look up client email
+    const { data: clientData } = await db.from('clients')
+      .select('id, email, full_name').eq('full_name', b.client_name)
+      .eq('agent_id', currentAgent.id).limit(1).single();
+    const clientEmail = clientData?.email || null;
+    const clientId = clientData?.id || null;
+
+    const subject = `New Build Update - ${b.lot_address || 'Your Property'} - ${stage}`;
+    const pct = Math.round((done / 9) * 100);
+    const barColor = done === 9 ? '#22c55e' : done >= 7 ? '#a855f7' : done >= 4 ? '#eab308' : '#3b82f6';
+
+    // Progress bar rows for email
+    const msRows = NewBuilds.msLabels.map((label, i) => {
+      const isDone = pm[`step${i+1}`]?.done;
+      return `<tr><td style="padding:6px 12px;font-size:13px;color:${isDone?'#16a34a':'#888'};">${isDone ? '✓' : '○'} ${label}</td></tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
+<div style="max-width:560px;margin:0 auto;">
+  <p>Hi ${b.client_name.split(' ')[0]},</p>
+  <p>Here is your latest new build progress update for <strong>${b.lot_address || 'your property'}</strong>.</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Pipeline Stage</td><td style="padding:12px;background:#1e293b;color:${barColor};font-weight:700;font-size:14px;">${stage}</td></tr>
+    <tr><td style="padding:10px 12px;color:#555;font-size:13px;">Milestones Complete</td><td style="padding:10px 12px;font-weight:600;">${done} of 9</td></tr>
+    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Completion</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date + 'T12:00:00').toLocaleDateString('en-CA', {month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
+    ${b.builder ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Builder</td><td style="padding:10px 12px;font-weight:600;">${b.builder}</td></tr>` : ''}
+  </table>
+  <!-- Progress bar -->
+  <div style="background:#e5e7eb;height:10px;border-radius:5px;margin:0 0 4px;"><div style="background:${barColor};height:10px;width:${pct}%;border-radius:5px;"></div></div>
+  <p style="font-size:12px;color:#888;margin:0 0 16px;">${pct}% complete</p>
+  <!-- Milestones -->
+  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">${msRows}</table>
+  ${nextMs ? `<p><strong>Next step:</strong> ${nextMs}</p>` : '<p style="color:#16a34a;font-weight:700;">All milestones complete - congratulations!</p>'}
+  ${customNote ? `<p><strong>Additional notes:</strong><br>${customNote}</p>` : ''}
+  <p>I will reach out as soon as there is any update from the builder. Please don't hesitate to contact me if you have any questions.</p>
+</div></body></html>`;
+
+    const plainBody = `Hi ${b.client_name.split(' ')[0]},\n\nNew Build Update - ${b.lot_address || 'Your Property'}\n\nPipeline Stage: ${stage}\nMilestones: ${done} of 9 complete (${pct}%)\n\n${completedMs.map(m => `  ✓ ${m}`).join('\n')}\n${nextMs ? `\nNext: ${nextMs}` : '\nAll milestones complete!'}\n${b.est_completion_date ? `\nEst. Completion: ${b.est_completion_date}` : ''}\n${customNote ? `\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.`;
 
     App.closeModal();
-    App.switchTab('email');
-    setTimeout(() => {
-      const subEl = document.getElementById('email-subject');
-      const bodyEl = document.getElementById('email-body');
-      if (subEl) subEl.value = subject;
-      if (bodyEl) bodyEl.innerHTML = body.replace(/\n/g, '<br>');
-      App.toast('📧 Email pre-filled — select client and hit Send!');
-    }, 400);
+
+    if (clientEmail && typeof Notify !== 'undefined') {
+      await Notify.queue(
+        'New Build Update',
+        clientId, b.client_name, clientEmail,
+        subject, plainBody, b.id,
+        html
+      );
+      App.toast('📬 Build update queued in Approvals — review and send!', 'var(--green)');
+      App.switchTab('approvals');
+    } else {
+      // Fallback: pre-fill Send Email if no client email on record
+      App.switchTab('email');
+      setTimeout(() => {
+        const subEl = document.getElementById('email-subject');
+        const bodyEl = document.getElementById('email-body');
+        if (subEl) subEl.value = subject;
+        if (bodyEl) bodyEl.innerHTML = plainBody.replace(/\n/g, '<br>');
+        App.toast('📧 Email pre-filled — select client and hit Send!');
+      }, 400);
+    }
   },
 
   async save() {

@@ -103,6 +103,20 @@ const Viewings = {
           <label class="form-label">Time</label>
           <input class="form-input" id="vf-time" type="time" value="${viewing?.viewing_time||''}">
         </div>
+        <div class="form-group">
+          <label class="form-label">Duration</label>
+          <select class="form-input form-select" id="vf-duration">
+            <option value="30" ${(!viewing?.viewing_duration||viewing?.viewing_duration===30)?'selected':''}>30 minutes</option>
+            <option value="45" ${viewing?.viewing_duration===45?'selected':''}>45 minutes</option>
+            <option value="60" ${viewing?.viewing_duration===60?'selected':''}>1 hour</option>
+            <option value="90" ${viewing?.viewing_duration===90?'selected':''}>1.5 hours</option>
+            <option value="120" ${viewing?.viewing_duration===120?'selected':''}>2 hours</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CC Email (optional — e.g. second buyer, co-purchaser)</label>
+        <input class="form-input" id="vf-cc" type="email" placeholder="other@email.com" value="${viewing?.cc_email||''}">
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
@@ -170,6 +184,8 @@ const Viewings = {
       list_price: document.getElementById('vf-price').value || null,
       viewing_date: document.getElementById('vf-date').value,
       viewing_time: document.getElementById('vf-time').value || null,
+      viewing_duration: parseInt(document.getElementById('vf-duration')?.value || '30'),
+      cc_email: document.getElementById('vf-cc')?.value.trim() || null,
       offer_due_date: document.getElementById('vf-offer-date').value || null,
       offer_due_time: document.getElementById('vf-offer-time').value || null,
       sellers_direction: document.getElementById('vf-sellers-dir').value || null,

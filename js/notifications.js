@@ -39,7 +39,9 @@ const Notify = {
       if (viewing.list_price) tableRows.push(`<tr><td class="label">List Price</td><td class="value">${App.fmtMoney(viewing.list_price)}</td></tr>`);
       tableRows.push(`<tr><td class="label">Date</td><td class="value">${dateStr}</td></tr>`);
       if (timeStr) tableRows.push(`<tr><td class="label">Time</td><td class="value">${fmt12h(timeStr)}</td></tr>`);
-      tableRows.push(`<tr><td class="label">Duration</td><td class="value">30 minutes</td></tr>`);
+      const durationMins = viewing.viewing_duration || 30;
+      const durationLabel = durationMins < 60 ? `${durationMins} minutes` : durationMins === 60 ? '1 hour' : `${durationMins / 60} hours`;
+      tableRows.push(`<tr><td class="label">Duration</td><td class="value">${durationLabel}</td></tr>`);
       if (viewing.offer_due_date) {
         const offerDue = new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
         tableRows.push(`<tr><td class="label" style="color:#e65c00;">Offers Due</td><td class="value" style="color:#e65c00;font-weight:600;">${offerDue}${viewing.offer_due_time ? ' at ' + fmt12h(viewing.offer_due_time) : ''}</td></tr>`);
@@ -52,7 +54,7 @@ const Notify = {
       if (viewing.viewing_time) {
         const [gh, gm] = viewing.viewing_time.split(':');
         const gStart = new Date(`${viewing.viewing_date}T${gh.padStart(2,'0')}:${gm.padStart(2,'0')}:00`);
-        const gEnd = new Date(gStart.getTime() + 30 * 60 * 1000);
+        const gEnd = new Date(gStart.getTime() + (viewing.viewing_duration || 30) * 60 * 1000);
         gcalStart = gStart.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
         gcalEnd = gEnd.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
       } else {
@@ -679,14 +681,14 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null) {
     // Use agent id, or fall back to auth user id if agent record not in agents table
     const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
     if (!agentId) return;
     // Pack html + ics into context_data as JSON so both survive the single-column storage
     let contextData = null;
-    if (htmlBody || icsBase64) {
-      contextData = JSON.stringify({ html: htmlBody || null, ics: icsBase64 || null });
+    if (htmlBody || icsBase64 || ccEmail) {
+      contextData = JSON.stringify({ html: htmlBody || null, ics: icsBase64 || null, cc: ccEmail || null });
     }
     const insertRow = {
       agent_id: agentId,
@@ -747,8 +749,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       'Viewing Confirmation',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, viewing.id,
-      tmpl.html,    // beautiful HTML email
-      tmpl.ics      // base64 .ics calendar invite
+      tmpl.html,          // beautiful HTML email
+      tmpl.ics,           // base64 .ics calendar invite
+      viewing.cc_email || null  // CC second buyer if present
     );
   },
 
@@ -992,10 +995,16 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   async checkCompletedViewings() {
     if (!currentAgent?.id) return;
 
-    // Get all scheduled/confirmed viewings for this agent (not completed/cancelled)
+    // Get agent's client IDs first (viewings table has no agent_id column)
+    const { data: agentClients } = await db.from('clients')
+      .select('id').eq('agent_id', currentAgent.id);
+    const clientIds = (agentClients || []).map(c => c.id);
+    if (!clientIds.length) return;
+
+    // Get all scheduled/confirmed viewings for this agent's clients
     const { data: viewings } = await db.from('viewings')
       .select('*, clients(full_name, email)')
-      .eq('agent_id', currentAgent.id)
+      .in('client_id', clientIds)
       .in('viewing_status', ['Scheduled', 'Confirmed'])
       .order('viewing_date', { ascending: false });
 
