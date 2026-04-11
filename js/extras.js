@@ -772,53 +772,79 @@ const NewBuilds = {
   // 4 major stages — each completion triggers a client email
   STAGES: [
     {
-      key: 'preapproval',
-      label: '🏦 Pre-Approval',
+      key: 'pre_construction',
+      label: '📋 Pre-Construction',
       pipelineStage: 'Accepted',
-      emailSubject: 'Pre-Approval Update — Your New Build',
-      emailHeadline: 'Your pre-approval has been submitted to the builder',
+      emailOnComplete: true,
+      emailSubject: 'Purchase Agreement Submitted — Your New Build',
+      emailHeadline: 'Your Agreement for Purchase & Sale has been signed and submitted to the lender.',
       steps: [
-        { key: 'letter_obtained',       label: 'Pre-approval letter obtained' },
-        { key: 'sent_to_builder',        label: 'Pre-approval sent to builder' },
-        { key: 'builder_acknowledged',   label: 'Builder acknowledged pre-approval' },
-      ]
-    },
-    {
-      key: 'aps',
-      label: '📝 APS Stage',
-      pipelineStage: 'Conditions',
-      emailSubject: 'Purchase Agreement Update — Your New Build',
-      emailHeadline: 'Your Agreement for Purchase & Sale is complete',
-      steps: [
-        { key: 'lot_visited',            label: 'Lot visited / site walk done' },
-        { key: 'plans_selections',       label: 'Plans & design selections made' },
-        { key: 'aps_drafted',            label: 'APS drafted and reviewed' },
-        { key: 'client_decision',        label: 'Client decision on APS confirmed' },
+        { key: 'builder_contacted',  label: 'Builder contacted',                          silent: true },
+        { key: 'lot_visited',        label: 'Lot visited / site walk done',               silent: true },
+        { key: 'plans_selections',   label: 'Plans & design selections made',             silent: true },
+        { key: 'aps_drafted',        label: 'APS drafted and reviewed with client',       silent: true },
+        { key: 'aps_signed',         label: 'APS signed by client',                       silent: true },
+        { key: 'aps_sent_builder',   label: 'APS sent to builder',                        silent: true },
+        { key: 'aps_sent_lender',    label: 'APS sent to lender for financing',           silent: true },
       ]
     },
     {
       key: 'financing',
-      label: '💰 Final Financing',
+      label: '🏦 Financing',
       pipelineStage: 'Conditions',
+      emailOnComplete: true,
       emailSubject: 'Financing Approved — Your New Build is Firm!',
-      emailHeadline: 'Your financing has been approved — the deal is now firm!',
+      emailHeadline: 'Your financing has been fully approved — the deal is now firm!',
       steps: [
-        { key: 'conditions_submitted',   label: 'Financing conditions submitted' },
-        { key: 'inspection_done',        label: 'Home inspection completed' },
-        { key: 'conditions_waived',      label: 'Financing conditions waived / approved' },
-        { key: 'documents_attached',     label: 'All supporting documents attached' },
+        { key: 'pre_asset_submitted', label: 'Pre-asset submitted to lender',            silent: true },
+        { key: 'pre_asset_approved',  label: 'Pre-asset approved',                       silent: true },
+        { key: 'partial_approval',    label: 'Partial financing approval received',       silent: true },
+        { key: 'full_approval',       label: 'Full financing approval received',          silent: true },
+      ]
+    },
+    {
+      key: 'construction',
+      label: '🏗️ Construction',
+      pipelineStage: 'Conditions',
+      emailOnComplete: false,
+      emailPerStep: true,   // each step ticked = one real-time client email
+      steps: [
+        { key: 'construction_started', label: 'Builder starts construction' },
+        { key: 'foundation',           label: 'Foundation poured' },
+        { key: 'framing',              label: 'Framing complete' },
+        { key: 'roofing',              label: 'Roofing complete' },
+        { key: 'rough_ins',            label: 'Rough-ins (electrical & plumbing)' },
+        { key: 'insulation_drywall',   label: 'Insulation & drywall' },
+        { key: 'cabinets_flooring',    label: 'Cabinets & flooring' },
+        { key: 'finishes',             label: 'Finishes & fixtures' },
+      ]
+    },
+    {
+      key: 'conditions',
+      label: '✅ Conditions & Closing Prep',
+      pipelineStage: 'Conditions',
+      emailOnComplete: true,
+      emailSubject: 'Conditions Met — Your Deal is Completely Firm!',
+      emailHeadline: 'All conditions have been met — your deal is completely firm and we are moving to closing.',
+      steps: [
+        { key: 'inspection_done',    label: 'Home inspection done',                       silent: true },
+        { key: 'conditions_waived',  label: 'Conditions waived',                          silent: true },
+        { key: 'docs_attached',      label: 'All documents attached',                     silent: true },
+        { key: 'lawyer_confirmed',   label: 'Financing confirmed by lawyer',              silent: true },
       ]
     },
     {
       key: 'possession',
       label: '🎉 Possession',
       pipelineStage: 'Closed',
-      emailSubject: '🎉 Possession Confirmed — Congratulations!',
-      emailHeadline: 'Congratulations — possession day is confirmed!',
+      emailOnComplete: true,
+      emailSubject: '🎉 Congratulations — Possession Day!',
+      emailHeadline: 'Congratulations — possession day has arrived! Here is a summary of your journey.',
       steps: [
-        { key: 'final_walkthrough',      label: 'Final walkthrough completed' },
-        { key: 'ps_signed',              label: 'Final P&S agreement signed' },
-        { key: 'closing_docs_sent',      label: 'Closing documents sent to lawyer' },
+        { key: 'final_walkthrough',  label: 'Final walkthrough with client',              silent: true },
+        { key: 'ps_signed',          label: 'P&S agreement signed',                       silent: true },
+        { key: 'closing_docs_sent',  label: 'Closing documents sent to lawyer',           silent: true },
+        { key: 'keys_handed',        label: 'Keys handed to client',                      silent: true },
       ]
     },
   ],
@@ -1000,7 +1026,7 @@ const NewBuilds = {
     }).join('');
   },
 
-  // Called on every checkbox change — silent save, check if stage is now complete
+  // Called on every checkbox change — silent save, smart email logic
   async checkStep(buildId, stageKey, stepKey, checked) {
     const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) return;
@@ -1012,44 +1038,50 @@ const NewBuilds = {
     pm[stageKey].steps[stepKey] = checked;
 
     const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
+    const step = stage.steps.find(s => s.key === stepKey);
     const allStepsDone = stage.steps.every(s => pm[stageKey].steps[s.key]);
     const wasAlreadyDone = b.pipeline_milestones?.[stageKey]?.done;
 
-    // If all steps just completed for this stage → mark stage done
-    if (allStepsDone && !wasAlreadyDone) {
-      pm[stageKey].done = true;
-    } else if (!allStepsDone) {
-      pm[stageKey].done = false;
-    }
+    // Mark stage done/undone based on all steps
+    pm[stageKey].done = allStepsDone;
 
-    // Determine current_stage label from highest completed stage
+    // Current stage label = highest stage that has any activity
     const majorStage = NewBuilds.getCurrentMajorStage(pm);
-    const { done: totalDone, total } = NewBuilds.countAllSteps(pm);
-    const isComplete = majorStage?.key === 'possession' && pm['possession']?.done;
+    const isComplete = pm['possession']?.done === true;
+    const stageLabel = majorStage ? majorStage.label.replace(/[📋🏦🏗️✅🎉]\s*/u, '') : 'Pre-Construction';
 
-    // Silent save to DB
+    // Save to DB (silent for most, always saves)
     await db.from('new_builds').update({
       pipeline_milestones: pm,
-      current_stage: majorStage ? stage.label.replace(/[🏦📝💰🎉]\s*/,'') : (b.current_stage || 'Pre-Approval'),
+      current_stage: stageLabel,
       status: isComplete ? 'Complete' : 'Active',
       updated_at: new Date().toISOString()
     }).eq('id', buildId);
 
-    // Update local cache immediately so UI re-render works
+    // Update local cache + re-render immediately
     b.pipeline_milestones = pm;
     NewBuilds.render(NewBuilds.all);
 
-    // If stage just became fully complete → sync pipeline + queue email
-    if (allStepsDone && !wasAlreadyDone) {
+    // ── CONSTRUCTION STAGE: emailPerStep — each step queues its own email ──
+    if (checked && stage.emailPerStep) {
+      await NewBuilds.syncPipeline(b, stage.pipelineStage);
+      await NewBuilds.autoQueueStageEmail(buildId, stageKey, stepKey);
+      App.toast(`📬 Build update queued: "${step.label}"`, 'var(--green)');
+      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 800);
+      return;
+    }
+
+    // ── ALL OTHER STAGES: emailOnComplete — email only when ALL steps done ──
+    if (stage.emailOnComplete && allStepsDone && !wasAlreadyDone) {
       await NewBuilds.syncPipeline(b, stage.pipelineStage);
       App.toast(`✅ ${stage.label} complete! Client update queued in Approvals.`, 'var(--green)');
-      await NewBuilds.autoQueueStageEmail(buildId, stageKey);
+      await NewBuilds.autoQueueStageEmail(buildId, stageKey, null);
       if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 800);
     }
   },
 
-  // Auto-queue the client email for a completed major stage (no prompt needed)
-  async autoQueueStageEmail(buildId, stageKey) {
+  // Auto-queue client email — stepKey is non-null for construction per-step emails
+  async autoQueueStageEmail(buildId, stageKey, stepKey) {
     const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) return;
     const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
@@ -1065,14 +1097,56 @@ const NewBuilds = {
     if (!clientEmail) return;
 
     const firstName = (b.client_name || 'there').split(' ')[0];
-    const subject = `${stage.emailSubject} — ${b.lot_address || 'Your Property'}`;
-
     const pm = b.pipeline_milestones || {};
+    const property = b.lot_address || 'Your Property';
+
+    // ── CONSTRUCTION: per-step email — highlight just this step ──
+    if (stage.emailPerStep && stepKey) {
+      const step = stage.steps.find(s => s.key === stepKey);
+      const stepLabel = step?.label || stepKey;
+      const subject = `Build Update — ${stepLabel} · ${property}`;
+      const headline = `Your build has reached a new milestone: <strong>${stepLabel}</strong>`;
+
+      // Progress timeline for construction steps only
+      const constructionSteps = stage.steps;
+      const stepTimelineHtml = constructionSteps.map(s => {
+        const isDone = pm[stageKey]?.steps?.[s.key];
+        const isCurrent = s.key === stepKey;
+        return `<tr><td style="padding:7px 14px;font-size:13px;color:${isDone?'#16a34a':isCurrent?'#f59e0b':'#888'};">
+          ${isDone ? '✅' : isCurrent ? '▶️' : '○'} ${s.label}
+        </td></tr>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
+<div style="max-width:560px;margin:0 auto;">
+  <p>Hi ${firstName},</p>
+  <p>Great news — ${headline} for <strong>${property}</strong>.</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">🏗️ Construction Progress</td></tr>
+    ${stepTimelineHtml}
+    ${b.est_completion_date ? `<tr><td style="padding:10px 14px;color:#555;font-size:13px;border-top:1px solid #e5e7eb;">📅 Est. Possession: <strong>${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</strong></td></tr>` : ''}
+  </table>
+  <p>I will keep you updated as your home progresses through each stage. Please don't hesitate to reach out with any questions.</p>
+  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
+</div></body></html>`;
+
+      const completedSteps = constructionSteps.filter(s => pm[stageKey]?.steps?.[s.key]).map(s => `  ✅ ${s.label}`);
+      const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${constructionSteps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will keep you updated as your home progresses through each stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+
+      if (typeof Notify !== 'undefined') {
+        await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
+      }
+      return;
+    }
+
+    // ── ALL OTHER STAGES: full stage completion email ──
+    const subject = `${stage.emailSubject} — ${property}`;
     const stagesHtml = NewBuilds.STAGES.map(s => {
       const done = pm[s.key]?.done;
       const isCurrent = s.key === stageKey;
       return `<tr><td style="padding:8px 12px;font-size:13px;color:${done?'#16a34a':isCurrent?'#f59e0b':'#888'};">
-        ${done ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}
+        ${done ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}
       </td></tr>`;
     }).join('');
 
@@ -1080,27 +1154,21 @@ const NewBuilds = {
 <body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
 <div style="max-width:560px;margin:0 auto;">
   <p>Hi ${firstName},</p>
-  <p>${stage.emailHeadline} for <strong>${b.lot_address || 'your property'}</strong>.</p>
+  <p>${stage.emailHeadline}</p>
+  <p><strong>Property:</strong> ${property}</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
-    <tr><td colspan="2" style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Progress</td></tr>
+    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Journey — Current Progress</td></tr>
     ${stagesHtml}
-    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Possession</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
+    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;border-top:1px solid #e5e7eb;">📅 Est. Possession: <strong>${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</strong></td></tr>` : ''}
   </table>
-  <p>I will be in touch as the build progresses. Please don't hesitate to contact me if you have any questions.</p>
+  <p>I will be in touch as we move to the next stage. Please don't hesitate to contact me if you have any questions.</p>
   <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
 </div></body></html>`;
 
-    const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline} for ${b.lot_address || 'your property'}.\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✓' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}\n${b.est_completion_date ? `\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+    const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline}\n\nProperty: ${property}\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✅' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as we move to the next stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
 
     if (typeof Notify !== 'undefined') {
-      await Notify.queue(
-        'New Build Update',
-        clientId, b.client_name, clientEmail,
-        subject, plainBody, b.id,
-        html,
-        null,
-        b.cc_email || null
-      );
+      await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
     }
   },
 
