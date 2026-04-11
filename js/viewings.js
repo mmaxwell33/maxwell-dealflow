@@ -421,7 +421,11 @@ const Viewings = {
         </div>
         <div class="form-group">
           <label class="form-label">OFFER STATUS</label>
-          <select class="form-input form-select" id="mo-offer-status">
+          <select class="form-input form-select" id="mo-offer-status" onchange="
+            const map = {Submitted:'In Offer',Accepted:'Accepted',Countered:'In Offer',Rejected:'In Offer'};
+            const ps = document.getElementById('mo-pipeline-stage');
+            if (ps) ps.value = map[this.value] || 'In Offer';
+          ">
             <option value="Submitted">Submitted</option>
             <option value="Accepted">Accepted ✅</option>
             <option value="Countered">Countered 🔄</option>
