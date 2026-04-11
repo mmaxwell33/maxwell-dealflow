@@ -1379,9 +1379,7 @@ const NewBuilds = {
     const stageLabel = majorStage ? majorStage.label.replace(/[🏦📝💰🎉]\s*/,'') : 'Getting Started';
     const subject = `New Build Update — ${b.lot_address || 'Your Property'}`;
 
-    const html = NewBuilds.buildEmailHtml({ b, pm, majorStage, done, total, pct, customNote });
-
-    const plainBody = `Hi ${firstName},\n\nNew Build Update — ${b.lot_address || 'Your Property'}\n\nCurrent Stage: ${stageLabel}\nProgress: ${pct}% (${done}/${total} steps)\n\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✓' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}\n${b.est_completion_date ? `\nEst. Possession: ${b.est_completion_date}` : ''}${customNote ? `\n\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+    const plainBody = `Hi ${firstName},\n\nNew Build Update - ${b.lot_address || 'Your Property'}\n\nCurrent Stage: ${stageLabel}\nProgress: ${pct}% (${done}/${total} steps)\n\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? 'Done' : 'Pending'} - ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}${customNote ? `\n\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
 
     App.closeModal();
 
@@ -1389,10 +1387,8 @@ const NewBuilds = {
       const ok = await Notify.queue(
         'New Build Update',
         clientId, b.client_name, clientEmail || null,
-        subject, plainBody, null,  // pass null for relatedId — avoids FK constraint
-        html,
-        null,
-        b.cc_email || null
+        subject, plainBody, null,
+        null, null, null
       );
       if (ok !== false) {
         App.toast('📬 Build update queued in Approvals!', 'var(--green)');
