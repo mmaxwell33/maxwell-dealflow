@@ -1389,17 +1389,35 @@ const NewBuilds = {
     const noteText = customNote ? `\n\nNotes: ${customNote.replace(/[^\x20-\x7E]/g, '')}` : '';
     const plainBody = `Hi ${firstName},\n\nNew Build Update - ${property}\n\nCurrent Stage: ${stageLabel.replace(/[^\x20-\x7E]/g,'')}\nProgress: ${pct}% (${done}/${total} steps)\n\n${stageRows}${possession}${noteText}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
 
+    // Build HTML email in default format
+    const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
+    const agentName  = agent.full_name || 'Maxwell Delali Midodzi';
+    const agentPhone = agent.phone    || '(709) 325-0545';
+    const agentEmail = agent.email    || 'Maxwell.Midodzi@exprealty.com';
+    const agentWeb   = agent.website_url || 'maxwellmidodzi.exprealty.com';
+    const stageRowsHtml = NewBuilds.STAGES.map(s => {
+      const isDone = pm[s.key]?.done;
+      const lbl = s.label.replace(/[^\x20-\x7E]/g,'').trim();
+      return `<tr><td class="lb">${lbl}</td><td class="vl" style="color:${isDone?'#059669':'#888'}">${isDone?'Complete':'Pending'}</td></tr>`;
+    }).join('');
+    const possessionRow = b.est_completion_date ? `<tr><td class="lb">Est. Possession</td><td class="vl">${b.est_completion_date}</td></tr>` : '';
+    const noteHtml = customNote ? `<p style="font-size:14px;background:#fffbeb;padding:12px;border-left:3px solid #f59e0b;border-radius:4px;margin:0 0 16px;">${customNote.replace(/[^\x20-\x7E]/g,'')}</p>` : '';
+    const htmlEmail = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6}.wrap{max-width:560px;margin:0 auto}table.dt{width:100%;border-collapse:collapse;margin:0 0 20px}table.dt td{padding:8px 10px;border-bottom:1px solid #eee;font-size:14px}.lb{color:#888;width:45%}.vl{font-weight:700;color:#222}hr{border:none;border-top:1px solid #eee;margin:24px 0}.sig-name{font-weight:700;font-size:15px;margin:0 0 2px}.sig-line{font-size:13px;color:#555;margin:2px 0}.sig-line a{color:#1a6ef5;text-decoration:none}.confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5}</style></head><body><div class="wrap"><p>Hi ${firstName},</p><p>Here is your latest new build progress update for <strong>${property}</strong>.</p>${noteHtml}<table class="dt">${stageRowsHtml}${possessionRow}<tr><td class="lb">Overall Progress</td><td class="vl" style="color:#1a6ef5">${pct}% (${done}/${total} steps)</td></tr></table><hr><p>Best regards,</p><p class="sig-name">${agentName}</p><p class="sig-line">REALTOR&reg; | eXp Realty</p><p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p><p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p><p class="sig-line"><a href="https://${agentWeb}">${agentWeb}</a></p><p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p></div></body></html>`;
+    const htmlB64 = btoa(unescape(encodeURIComponent(htmlEmail)));
+
     App.closeModal();
 
-    // Direct insert — all fields are ASCII-safe
+    // Direct insert — plain text body + base64 HTML in context_data
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     const { error: qErr } = await db.from('approval_queue').insert({
       agent_id: agentId,
       client_name: (b.client_name || '').replace(/[^\x20-\x7E]/g, '').trim(),
+      client_email: clientEmail || null,
       approval_type: 'New Build Update',
       email_subject: subject,
       email_body: plainBody,
+      context_data: { html: htmlB64, ics: null, cc: b.cc_email || null },
       status: 'Pending'
     });
     if (qErr) {
