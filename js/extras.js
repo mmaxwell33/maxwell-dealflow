@@ -768,6 +768,62 @@ const Reports = {
 // ── NEW BUILDS ──────────────────────────────────────────────────────────────
 const NewBuilds = {
   all: [],
+
+  // 4 major stages — each completion triggers a client email
+  STAGES: [
+    {
+      key: 'preapproval',
+      label: '🏦 Pre-Approval',
+      pipelineStage: 'Accepted',
+      emailSubject: 'Pre-Approval Update — Your New Build',
+      emailHeadline: 'Your pre-approval has been submitted to the builder',
+      steps: [
+        { key: 'letter_obtained',       label: 'Pre-approval letter obtained' },
+        { key: 'sent_to_builder',        label: 'Pre-approval sent to builder' },
+        { key: 'builder_acknowledged',   label: 'Builder acknowledged pre-approval' },
+      ]
+    },
+    {
+      key: 'aps',
+      label: '📝 APS Stage',
+      pipelineStage: 'Conditions',
+      emailSubject: 'Purchase Agreement Update — Your New Build',
+      emailHeadline: 'Your Agreement for Purchase & Sale is complete',
+      steps: [
+        { key: 'lot_visited',            label: 'Lot visited / site walk done' },
+        { key: 'plans_selections',       label: 'Plans & design selections made' },
+        { key: 'aps_drafted',            label: 'APS drafted and reviewed' },
+        { key: 'client_decision',        label: 'Client decision on APS confirmed' },
+      ]
+    },
+    {
+      key: 'financing',
+      label: '💰 Final Financing',
+      pipelineStage: 'Conditions',
+      emailSubject: 'Financing Approved — Your New Build is Firm!',
+      emailHeadline: 'Your financing has been approved — the deal is now firm!',
+      steps: [
+        { key: 'conditions_submitted',   label: 'Financing conditions submitted' },
+        { key: 'inspection_done',        label: 'Home inspection completed' },
+        { key: 'conditions_waived',      label: 'Financing conditions waived / approved' },
+        { key: 'documents_attached',     label: 'All supporting documents attached' },
+      ]
+    },
+    {
+      key: 'possession',
+      label: '🎉 Possession',
+      pipelineStage: 'Closed',
+      emailSubject: '🎉 Possession Confirmed — Congratulations!',
+      emailHeadline: 'Congratulations — possession day is confirmed!',
+      steps: [
+        { key: 'final_walkthrough',      label: 'Final walkthrough completed' },
+        { key: 'ps_signed',              label: 'Final P&S agreement signed' },
+        { key: 'closing_docs_sent',      label: 'Closing documents sent to lawyer' },
+      ]
+    },
+  ],
+
+  // msLabels kept for backwards compat with any old data reads
   msLabels: ['Lot Visited','Pre-Approval Sent to Builder','Plans / Design Stage','Agreement for Purchase & Sale (APS)','Client Decision on APS','Final Purchase & Sale Agreement Sent','All Documents Attached','Final Financing Approval','🎉 Client Takes Possession'],
 
   async load() {
@@ -837,27 +893,82 @@ const NewBuilds = {
     if (el) el.textContent = `${done} / 9 checked`;
   },
 
-  // Maps milestone count → pipeline stage
-  getStage(done) {
-    if (done >= 9) return 'Closed';
-    if (done >= 7) return 'Closing';
-    if (done >= 4) return 'Conditions';
-    return 'Accepted';
+  // Maps major stage key → pipeline stage label
+  getStage(stageKey) {
+    const s = NewBuilds.STAGES.find(x => x.key === stageKey);
+    return s ? s.pipelineStage : 'Accepted';
+  },
+
+  // Get current highest completed major stage for a build
+  getCurrentMajorStage(pm) {
+    let last = null;
+    for (const stage of NewBuilds.STAGES) {
+      if (pm[stage.key]?.done) last = stage;
+    }
+    return last;
+  },
+
+  // Count total steps done across all stages for progress bar
+  countAllSteps(pm) {
+    let done = 0, total = 0;
+    for (const stage of NewBuilds.STAGES) {
+      for (const step of stage.steps) {
+        total++;
+        if (pm[stage.key]?.steps?.[step.key]) done++;
+      }
+    }
+    return { done, total };
   },
 
   render(list) {
     const el = document.getElementById('newbuilds-list');
+    if (!el) return;
     if (!list.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No active builds yet</div><div class="empty-sub">Fill in the form above and click 📐 Create New Build — your build cards with milestone tracking and pipeline sync will appear here.</div></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-text">No active builds yet</div><div class="empty-sub">Click + New Build to add a construction project</div></div>';
       return;
     }
     el.innerHTML = list.map(b => {
       const pm = b.pipeline_milestones || {};
-      const done = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done).length;
-      const pct = Math.round((done / 9) * 100);
-      const pipelineStage = NewBuilds.getStage(done);
-      const barColor = done === 9 ? 'var(--green)' : done >= 7 ? 'var(--purple)' : done >= 4 ? 'var(--yellow)' : 'var(--accent2)';
-      const stageColors = { Closed:'var(--green)', Closing:'var(--purple)', Conditions:'var(--yellow)', Accepted:'var(--accent2)' };
+      const { done, total } = NewBuilds.countAllSteps(pm);
+      const pct = Math.round((done / total) * 100);
+      const majorStage = NewBuilds.getCurrentMajorStage(pm);
+      const pipelineStage = majorStage?.pipelineStage || 'Accepted';
+      const stageColors = { Closed:'var(--green)', Walkthrough:'var(--purple)', Conditions:'var(--yellow)', Accepted:'var(--accent2)' };
+      const barColor = pct === 100 ? 'var(--green)' : pct >= 70 ? 'var(--purple)' : pct >= 40 ? 'var(--yellow)' : 'var(--accent2)';
+
+      // Build grouped stage sections
+      const stageSections = NewBuilds.STAGES.map(stage => {
+        const stagePm = pm[stage.key] || { done: false, steps: {} };
+        const stepsDone = stage.steps.filter(s => stagePm.steps?.[s.key]).length;
+        const stepsTotal = stage.steps.length;
+        const stageDone = stagePm.done;
+        const headerColor = stageDone ? 'var(--green)' : stepsDone > 0 ? 'var(--yellow)' : 'var(--text2)';
+        const headerBg = stageDone ? 'rgba(34,197,94,0.1)' : 'var(--bg)';
+
+        const stepRows = stage.steps.map(step => {
+          const checked = stagePm.steps?.[step.key] || false;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px 6px 14px;font-size:12px;${checked ? 'color:var(--green);' : 'color:var(--text2);'}">
+            <input type="checkbox" onchange="NewBuilds.checkStep('${b.id}','${stage.key}','${step.key}',this.checked)"
+              ${checked ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:var(--green);">
+            <span style="${checked ? 'text-decoration:line-through;opacity:0.7;' : ''}">${step.label}</span>
+            ${checked ? '<span style="margin-left:auto;font-size:10px;opacity:0.6;">✓</span>' : ''}
+          </div>`;
+        }).join('');
+
+        return `<div style="margin-bottom:6px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${headerBg};cursor:pointer;"
+            onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+            <span style="font-size:13px;font-weight:700;color:${headerColor};">
+              ${stageDone ? '✅' : stepsDone > 0 ? '🔄' : '⬜'} ${stage.label}
+            </span>
+            <span style="font-size:11px;font-weight:600;color:${headerColor};background:var(--bg2);padding:2px 8px;border-radius:10px;">
+              ${stepsDone}/${stepsTotal} ${stageDone ? '· Complete' : ''}
+            </span>
+          </div>
+          <div style="background:var(--bg2);">${stepRows}</div>
+        </div>`;
+      }).join('');
+
       return `<div class="card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
           <div style="flex:1;">
@@ -868,9 +979,9 @@ const NewBuilds = {
         </div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
           <span style="color:var(--text2);">Pipeline Stage:</span>
-          <span class="fw-800" style="color:${stageColors[pipelineStage]||'var(--accent2)'};">${pipelineStage} · ${done}/9 milestones</span>
+          <span class="fw-800" style="color:${stageColors[pipelineStage]||'var(--accent2)'};">${pipelineStage} · ${pct}% complete</span>
         </div>
-        <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:10px;position:relative;">
+        <div style="height:6px;background:var(--border);border-radius:4px;margin-bottom:10px;">
           <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.4s;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:var(--text2);margin-bottom:10px;">
@@ -879,69 +990,118 @@ const NewBuilds = {
           ${b.deposit_status ? `<div>🏦 Deposit: <span class="fw-700">${b.deposit_status}</span></div>` : ''}
           ${b.builder_contact ? `<div>👤 Contact: <span class="fw-700">${b.builder_contact}</span></div>` : ''}
         </div>
-        <!-- Interactive Milestones -->
-        <div style="margin-bottom:10px;">
-          ${NewBuilds.msLabels.map((label, i) => {
-            const checked = pm[`step${i+1}`]?.done;
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg);border-radius:5px;margin-bottom:3px;${checked?'border-left:2px solid var(--green);':''}">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;${checked?'color:var(--green);font-weight:600;':'color:var(--text2);'}">
-                <input type="checkbox" class="nb-ms-card-${b.id}" onchange="NewBuilds.liveCount('${b.id}')" ${checked?'checked':''} style="width:14px;height:14px;cursor:pointer;">
-                ${i+1}. ${label}
-              </label>
-              <span style="font-size:10px;${checked?'color:var(--green);':'color:var(--accent2);'}opacity:0.8;">${checked?'✓ Done':'Pending'}</span>
-            </div>`;
-          }).join('')}
-        </div>
-        <div id="nb-stage-preview-${b.id}" style="font-size:12px;color:var(--text2);margin-bottom:8px;"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary btn-sm" onclick="NewBuilds.updateMilestones('${b.id}')">💾 Save &amp; Sync Pipeline</button>
+        <!-- Grouped Stage Sections -->
+        <div style="margin-bottom:10px;">${stageSections}</div>
+        <div id="nb-card-msg-${b.id}" style="margin-top:4px;font-size:12px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
         </div>
-        <div id="nb-card-msg-${b.id}" style="margin-top:6px;font-size:12px;"></div>
       </div>`;
     }).join('');
   },
 
-  liveCount(id) {
-    const boxes = document.querySelectorAll(`.nb-ms-card-${id}`);
-    const done = [...boxes].filter(b => b.checked).length;
-    const stage = NewBuilds.getStage(done);
-    const prev = document.getElementById(`nb-stage-preview-${id}`);
-    if (prev) prev.innerHTML = `→ Pipeline will update to: <span class="fw-700" style="color:var(--accent2);">${stage}</span> (${done}/9)`;
-  },
-
-  async updateMilestones(id) {
-    const b = NewBuilds.all.find(x => x.id === id);
+  // Called on every checkbox change — silent save, check if stage is now complete
+  async checkStep(buildId, stageKey, stepKey, checked) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) return;
-    const boxes = document.querySelectorAll(`.nb-ms-card-${id}`);
-    const milestones = {};
-    boxes.forEach((box, i) => { milestones[`step${i+1}`] = { done: box.checked, label: NewBuilds.msLabels[i] }; });
-    const done = [...boxes].filter(b => b.checked).length;
-    const pipelineStage = NewBuilds.getStage(done);
-    const isComplete = done === 9;
-    const msg = document.getElementById(`nb-card-msg-${id}`);
-    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving...'; }
+    const pm = JSON.parse(JSON.stringify(b.pipeline_milestones || {}));
 
-    // Save milestones to DB
-    await db.from('new_builds').update({
-      pipeline_milestones: milestones,
-      status: isComplete ? 'Complete' : 'Active',
-      updated_at: new Date().toISOString()
-    }).eq('id', id);
+    // Ensure structure exists
+    if (!pm[stageKey]) pm[stageKey] = { done: false, steps: {} };
+    if (!pm[stageKey].steps) pm[stageKey].steps = {};
+    pm[stageKey].steps[stepKey] = checked;
 
-    // Auto-sync pipeline stage + closing date
-    await NewBuilds.syncPipeline(b, pipelineStage);
+    const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
+    const allStepsDone = stage.steps.every(s => pm[stageKey].steps[s.key]);
+    const wasAlreadyDone = b.pipeline_milestones?.[stageKey]?.done;
 
-    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Saved! Pipeline → ${pipelineStage}`; }
-    App.toast(`✅ Milestones saved · Pipeline → ${pipelineStage}`);
-
-    if (isComplete) {
-      setTimeout(() => App.toast('🎉 All milestones complete! Client has taken possession.'), 1000);
+    // If all steps just completed for this stage → mark stage done
+    if (allStepsDone && !wasAlreadyDone) {
+      pm[stageKey].done = true;
+    } else if (!allStepsDone) {
+      pm[stageKey].done = false;
     }
 
-    // After save, offer to notify client
-    setTimeout(() => NewBuilds.notifyClient(id, pipelineStage, done), 600);
-    NewBuilds.load();
+    // Determine current_stage label from highest completed stage
+    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const { done: totalDone, total } = NewBuilds.countAllSteps(pm);
+    const isComplete = majorStage?.key === 'possession' && pm['possession']?.done;
+
+    // Silent save to DB
+    await db.from('new_builds').update({
+      pipeline_milestones: pm,
+      current_stage: majorStage ? stage.label.replace(/[🏦📝💰🎉]\s*/,'') : (b.current_stage || 'Pre-Approval'),
+      status: isComplete ? 'Complete' : 'Active',
+      updated_at: new Date().toISOString()
+    }).eq('id', buildId);
+
+    // Update local cache immediately so UI re-render works
+    b.pipeline_milestones = pm;
+    NewBuilds.render(NewBuilds.all);
+
+    // If stage just became fully complete → sync pipeline + queue email
+    if (allStepsDone && !wasAlreadyDone) {
+      await NewBuilds.syncPipeline(b, stage.pipelineStage);
+      App.toast(`✅ ${stage.label} complete! Client update queued in Approvals.`, 'var(--green)');
+      await NewBuilds.autoQueueStageEmail(buildId, stageKey);
+      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 800);
+    }
+  },
+
+  // Auto-queue the client email for a completed major stage (no prompt needed)
+  async autoQueueStageEmail(buildId, stageKey) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) return;
+    const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
+    if (!stage) return;
+
+    // Look up client
+    const { data: clientData } = await db.from('clients')
+      .select('id, email, full_name')
+      .or(`id.eq.${b.client_id || '00000000-0000-0000-0000-000000000000'},full_name.eq.${b.client_name}`)
+      .eq('agent_id', currentAgent.id).limit(1).maybeSingle();
+    const clientEmail = clientData?.email || null;
+    const clientId = clientData?.id || b.client_id || null;
+    if (!clientEmail) return;
+
+    const firstName = (b.client_name || 'there').split(' ')[0];
+    const subject = `${stage.emailSubject} — ${b.lot_address || 'Your Property'}`;
+
+    const pm = b.pipeline_milestones || {};
+    const stagesHtml = NewBuilds.STAGES.map(s => {
+      const done = pm[s.key]?.done;
+      const isCurrent = s.key === stageKey;
+      return `<tr><td style="padding:8px 12px;font-size:13px;color:${done?'#16a34a':isCurrent?'#f59e0b':'#888'};">
+        ${done ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}
+      </td></tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
+<div style="max-width:560px;margin:0 auto;">
+  <p>Hi ${firstName},</p>
+  <p>${stage.emailHeadline} for <strong>${b.lot_address || 'your property'}</strong>.</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+    <tr><td colspan="2" style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Progress</td></tr>
+    ${stagesHtml}
+    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Possession</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
+  </table>
+  <p>I will be in touch as the build progresses. Please don't hesitate to contact me if you have any questions.</p>
+  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
+</div></body></html>`;
+
+    const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline} for ${b.lot_address || 'your property'}.\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✓' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}\n${b.est_completion_date ? `\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+
+    if (typeof Notify !== 'undefined') {
+      await Notify.queue(
+        'New Build Update',
+        clientId, b.client_name, clientEmail,
+        subject, plainBody, b.id,
+        html,
+        null,
+        b.cc_email || null
+      );
+    }
   },
 
   async syncPipeline(build, pipelineStage) {
@@ -970,29 +1130,27 @@ const NewBuilds = {
     if (typeof Pipeline !== 'undefined') Pipeline.load();
   },
 
-  notifyClient(id, autoStage, autoDone) {
+  notifyClient(id) {
     const b = NewBuilds.all.find(x => x.id === id);
     if (!b) return;
     const pm = b.pipeline_milestones || {};
-    const done = autoDone ?? NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done).length;
-    const stage = autoStage || NewBuilds.getStage(done);
-    const completedMs = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done);
-    const nextMs = NewBuilds.msLabels.find((_, i) => !pm[`step${i+1}`]?.done);
+    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const { done, total } = NewBuilds.countAllSteps(pm);
+    const pct = Math.round((done / total) * 100);
 
     App.openModal(`
       <div class="modal-title">📧 Notify Client — Build Update</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send a progress update to <strong>${b.client_name}</strong>.</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send a manual progress update to <strong>${b.client_name}</strong>.</div>
       <div class="card" style="margin-bottom:12px;font-size:13px;line-height:1.8;">
-        <div>📋 Pipeline Stage: <span class="fw-800" style="color:var(--accent2);">${stage}</span></div>
-        <div>✅ Milestones: <span class="fw-700">${done}/9 completed</span></div>
-        ${b.est_completion_date ? `<div>📅 Est. Completion: <span class="fw-700">${App.fmtDate(b.est_completion_date)}</span></div>` : ''}
-        ${nextMs ? `<div>⏭ Next Step: <span class="fw-700">${nextMs}</span></div>` : '<div style="color:var(--green);font-weight:700;">🎉 All milestones complete!</div>'}
+        <div>📋 Current Stage: <span class="fw-800" style="color:var(--accent2);">${majorStage ? majorStage.label : 'Getting Started'}</span></div>
+        <div>✅ Progress: <span class="fw-700">${pct}% complete (${done}/${total} steps)</span></div>
+        ${b.est_completion_date ? `<div>📅 Est. Possession: <span class="fw-700">${App.fmtDate(b.est_completion_date)}</span></div>` : ''}
       </div>
       <div class="form-group">
-        <label class="form-label">ADD CUSTOM NOTE (OPTIONAL)</label>
+        <label class="form-label">CUSTOM NOTE (OPTIONAL)</label>
         <textarea class="form-input" id="nb-notify-note" rows="3" placeholder="Any specific update for the client..."></textarea>
       </div>
-      <button class="btn btn-primary btn-block" onclick="NewBuilds.sendClientUpdate('${id}')">📨 Open in Email Tab</button>
+      <button class="btn btn-primary btn-block" onclick="NewBuilds.sendClientUpdate('${id}')">📨 Queue in Approvals</button>
     `);
   },
 
@@ -1000,50 +1158,48 @@ const NewBuilds = {
     const b = NewBuilds.all.find(x => x.id === id);
     if (!b) return;
     const pm = b.pipeline_milestones || {};
-    const done = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done).length;
-    const stage = NewBuilds.getStage(done);
-    const completedMs = NewBuilds.msLabels.filter((_, i) => pm[`step${i+1}`]?.done);
-    const nextMs = NewBuilds.msLabels.find((_, i) => !pm[`step${i+1}`]?.done);
+    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const { done, total } = NewBuilds.countAllSteps(pm);
+    const pct = Math.round((done / total) * 100);
     const customNote = document.getElementById('nb-notify-note')?.value?.trim() || '';
 
-    // Look up client email
     const { data: clientData } = await db.from('clients')
-      .select('id, email, full_name').eq('full_name', b.client_name)
-      .eq('agent_id', currentAgent.id).limit(1).single();
+      .select('id, email, full_name').eq('agent_id', currentAgent.id)
+      .or(`id.eq.${b.client_id || '00000000-0000-0000-0000-000000000000'},full_name.eq.${b.client_name}`)
+      .limit(1).maybeSingle();
     const clientEmail = clientData?.email || null;
-    const clientId = clientData?.id || null;
+    const clientId = clientData?.id || b.client_id || null;
 
-    const subject = `New Build Update - ${b.lot_address || 'Your Property'} - ${stage}`;
-    const pct = Math.round((done / 9) * 100);
-    const barColor = done === 9 ? '#22c55e' : done >= 7 ? '#a855f7' : done >= 4 ? '#eab308' : '#3b82f6';
+    const firstName = (b.client_name || 'there').split(' ')[0];
+    const stageLabel = majorStage ? majorStage.label.replace(/[🏦📝💰🎉]\s*/,'') : 'Getting Started';
+    const subject = `New Build Update — ${b.lot_address || 'Your Property'}`;
 
-    // Progress bar rows for email
-    const msRows = NewBuilds.msLabels.map((label, i) => {
-      const isDone = pm[`step${i+1}`]?.done;
-      return `<tr><td style="padding:6px 12px;font-size:13px;color:${isDone?'#16a34a':'#888'};">${isDone ? '✓' : '○'} ${label}</td></tr>`;
+    const stagesHtml = NewBuilds.STAGES.map(s => {
+      const stageDone = pm[s.key]?.done;
+      const isCurrent = majorStage?.key === s.key;
+      return `<tr><td style="padding:8px 12px;font-size:13px;color:${stageDone?'#16a34a':isCurrent?'#f59e0b':'#888'};">
+        ${stageDone ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}
+      </td></tr>`;
     }).join('');
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
 <div style="max-width:560px;margin:0 auto;">
-  <p>Hi ${b.client_name.split(' ')[0]},</p>
+  <p>Hi ${firstName},</p>
   <p>Here is your latest new build progress update for <strong>${b.lot_address || 'your property'}</strong>.</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
-    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Pipeline Stage</td><td style="padding:12px;background:#1e293b;color:${barColor};font-weight:700;font-size:14px;">${stage}</td></tr>
-    <tr><td style="padding:10px 12px;color:#555;font-size:13px;">Milestones Complete</td><td style="padding:10px 12px;font-weight:600;">${done} of 9</td></tr>
-    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Completion</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date + 'T12:00:00').toLocaleDateString('en-CA', {month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
-    ${b.builder ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Builder</td><td style="padding:10px 12px;font-weight:600;">${b.builder}</td></tr>` : ''}
+    <tr><td colspan="2" style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Progress</td></tr>
+    ${stagesHtml}
+    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Possession</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
   </table>
-  <!-- Progress bar -->
-  <div style="background:#e5e7eb;height:10px;border-radius:5px;margin:0 0 4px;"><div style="background:${barColor};height:10px;width:${pct}%;border-radius:5px;"></div></div>
+  <div style="background:#e5e7eb;height:8px;border-radius:4px;margin:0 0 4px;"><div style="background:#3b82f6;height:8px;width:${pct}%;border-radius:4px;"></div></div>
   <p style="font-size:12px;color:#888;margin:0 0 16px;">${pct}% complete</p>
-  <!-- Milestones -->
-  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">${msRows}</table>
-  ${nextMs ? `<p><strong>Next step:</strong> ${nextMs}</p>` : '<p style="color:#16a34a;font-weight:700;">All milestones complete - congratulations!</p>'}
   ${customNote ? `<p><strong>Additional notes:</strong><br>${customNote}</p>` : ''}
-  <p>I will reach out as soon as there is any update from the builder. Please don't hesitate to contact me if you have any questions.</p>
+  <p>I will be in touch as the build progresses. Don't hesitate to reach out with any questions.</p>
+  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
 </div></body></html>`;
 
-    const plainBody = `Hi ${b.client_name.split(' ')[0]},\n\nNew Build Update - ${b.lot_address || 'Your Property'}\n\nPipeline Stage: ${stage}\nMilestones: ${done} of 9 complete (${pct}%)\n\n${completedMs.map(m => `  ✓ ${m}`).join('\n')}\n${nextMs ? `\nNext: ${nextMs}` : '\nAll milestones complete!'}\n${b.est_completion_date ? `\nEst. Completion: ${b.est_completion_date}` : ''}\n${customNote ? `\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.`;
+    const plainBody = `Hi ${firstName},\n\nNew Build Update — ${b.lot_address || 'Your Property'}\n\nCurrent Stage: ${stageLabel}\nProgress: ${pct}% (${done}/${total} steps)\n\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✓' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}\n${b.est_completion_date ? `\nEst. Possession: ${b.est_completion_date}` : ''}${customNote ? `\n\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
 
     App.closeModal();
 
@@ -1053,13 +1209,12 @@ const NewBuilds = {
         clientId, b.client_name, clientEmail,
         subject, plainBody, b.id,
         html,
-        null,           // push_data
-        b.cc_email || null  // CC — co-buyer / spouse
+        null,
+        b.cc_email || null
       );
-      App.toast('📬 Build update queued in Approvals — review and send!', 'var(--green)');
+      App.toast('📬 Build update queued in Approvals!', 'var(--green)');
       App.switchTab('approvals');
     } else {
-      // Fallback: pre-fill Send Email if no client email on record
       App.switchTab('email');
       setTimeout(() => {
         const subEl = document.getElementById('email-subject');
@@ -1079,11 +1234,13 @@ const NewBuilds = {
     const clientId = clientSel.value;
     if (!clientName) { st.style.color='var(--red)'; st.textContent='⚠️ Please select a client'; return; }
     st.textContent = 'Saving...'; st.style.color = 'var(--text2)';
-    const boxes = document.querySelectorAll('#newbuilds-form-wrap .nb-ms');
+    // Initialize empty 4-stage milestone structure
     const milestones = {};
-    boxes.forEach((b, i) => { milestones[`step${i+1}`] = { done: b.checked, label: NewBuilds.msLabels[i] }; });
-    const done = [...boxes].filter(b => b.checked).length;
-    const pipelineStage = NewBuilds.getStage(done);
+    NewBuilds.STAGES.forEach(s => {
+      milestones[s.key] = { done: false, steps: {} };
+      s.steps.forEach(step => { milestones[s.key].steps[step.key] = false; });
+    });
+    const pipelineStage = 'Accepted';
     const lotAddress = document.getElementById('nb-lot-address')?.value.trim() || '';
     const price = parseFloat(document.getElementById('nb-price')?.value) || 0;
     const completion = document.getElementById('nb-completion')?.value || null;
