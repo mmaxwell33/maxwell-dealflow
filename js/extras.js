@@ -90,7 +90,13 @@ const Approvals = {
     if (item.context_data) {
       try {
         const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
-        htmlBody = ctx.html || null;
+        // html may be base64-encoded — decode if it doesn't start with '<'
+        const rawHtml = ctx.html || null;
+        if (rawHtml && !rawHtml.startsWith('<')) {
+          try { htmlBody = decodeURIComponent(escape(atob(rawHtml))); } catch { htmlBody = rawHtml; }
+        } else {
+          htmlBody = rawHtml;
+        }
         icsAttachment = ctx.ics || null;
         ccEmail = ctx.cc || null;
       } catch {

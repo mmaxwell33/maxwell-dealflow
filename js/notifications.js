@@ -884,10 +884,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
-    // Pack html + ics into context_data — pass as object (supabase-js serializes jsonb correctly)
+    // Pack html + ics into context_data — base64-encode html so it's safe ASCII inside JSON
     let contextData = null;
     if (htmlBody || icsBase64 || ccEmail) {
-      contextData = { html: htmlBody || null, ics: icsBase64 || null, cc: ccEmail || null };
+      const safeHtml = htmlBody ? btoa(unescape(encodeURIComponent(htmlBody))) : null;
+      contextData = { html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null };
     }
     const insertRow = {
       agent_id: agentId,
