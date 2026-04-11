@@ -1377,19 +1377,26 @@ const NewBuilds = {
 
     const firstName = (b.client_name || 'there').split(' ')[0];
     const stageLabel = majorStage ? majorStage.label.replace(/[🏦📝💰🎉]\s*/,'') : 'Getting Started';
-    const subject = `New Build Update — ${b.lot_address || 'Your Property'}`;
+    const property = (b.lot_address || 'Your Property').replace(/[^\x20-\x7E]/g, '');
+    const subject = `New Build Update - ${property}`;
 
-    const plainBody = `Hi ${firstName},\n\nNew Build Update - ${b.lot_address || 'Your Property'}\n\nCurrent Stage: ${stageLabel}\nProgress: ${pct}% (${done}/${total} steps)\n\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? 'Done' : 'Pending'} - ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}${customNote ? `\n\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
+    const stageRows = NewBuilds.STAGES.map(s => {
+      const done2 = pm[s.key]?.done ? 'Done' : 'Pending';
+      const lbl = s.label.replace(/[^\x20-\x7E]/g, '').trim();
+      return `  ${done2} - ${lbl}`;
+    }).join('\n');
+    const possession = b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : '';
+    const noteText = customNote ? `\n\nNotes: ${customNote.replace(/[^\x20-\x7E]/g, '')}` : '';
+    const plainBody = `Hi ${firstName},\n\nNew Build Update - ${property}\n\nCurrent Stage: ${stageLabel.replace(/[^\x20-\x7E]/g,'')}\nProgress: ${pct}% (${done}/${total} steps)\n\n${stageRows}${possession}${noteText}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
 
     App.closeModal();
 
-    // Direct insert — bypass Notify.queue to avoid jsonb null issue
+    // Direct insert — all fields are ASCII-safe
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     const { error: qErr } = await db.from('approval_queue').insert({
       agent_id: agentId,
-      client_name: b.client_name,
-      client_email: clientEmail || null,
+      client_name: (b.client_name || '').replace(/[^\x20-\x7E]/g, '').trim(),
       approval_type: 'New Build Update',
       email_subject: subject,
       email_body: plainBody,
