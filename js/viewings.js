@@ -462,6 +462,23 @@ const Viewings = {
           </select>
         </div>
       </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;margin-bottom:10px;">🏦 Deposit Cheque — Due to Seller's Agent Within 24 Hours</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">DEPOSIT AMOUNT ($)</label>
+            <input class="form-input" id="mo-deposit-amt" type="number" placeholder="e.g. 5000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">DEPOSIT DUE BY</label>
+            <input class="form-input" id="mo-deposit-due" type="datetime-local">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+          <input type="checkbox" id="mo-deposit-sent" style="width:16px;height:16px;cursor:pointer;">
+          <label for="mo-deposit-sent" style="cursor:pointer;">Deposit already sent ✅</label>
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">NOTES</label>
         <input class="form-input" id="mo-notes" placeholder="e.g. Seller accepted at asking, waived inspection">
@@ -490,6 +507,13 @@ const Viewings = {
     const closeDate  = document.getElementById('mo-close-date')?.value || null;
     const pipeStage  = document.getElementById('mo-pipeline-stage')?.value || 'In Offer';
     const notes      = document.getElementById('mo-notes')?.value?.trim() || null;
+    const depositAmt  = parseFloat(document.getElementById('mo-deposit-amt')?.value) || null;
+    const depositDue  = document.getElementById('mo-deposit-due')?.value
+      ? new Date(document.getElementById('mo-deposit-due').value).toISOString()
+      : (offerStatus === 'Accepted' && offerDate
+          ? new Date(new Date(offerDate + 'T12:00:00').getTime() + 24 * 60 * 60 * 1000).toISOString()
+          : null);
+    const depositSent = document.getElementById('mo-deposit-sent')?.checked || false;
 
     if (!offerAmt) {
       if (st) { st.textContent = '⚠️ Please enter an offer amount'; st.style.color = 'var(--red)'; }
@@ -534,6 +558,10 @@ const Viewings = {
       financing_date: finDate || null,
       inspection_date: insDate || null,
       closing_date: closeDate || null,
+      deposit_amount: depositAmt,
+      deposit_due_date: depositDue,
+      deposit_sent: depositSent,
+      deposit_sent_at: depositSent ? new Date().toISOString() : null,
       notes: notes,
       updated_at: new Date().toISOString(),
     };
@@ -559,6 +587,9 @@ const Viewings = {
         financing_date: finDate,
         inspection_date: insDate,
         closing_date: closeDate,
+        deposit_amount: depositAmt,
+        deposit_due_date: depositDue,
+        deposit_sent: depositSent,
       };
 
       if (offerStatus === 'Accepted') {

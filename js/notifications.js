@@ -229,18 +229,29 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const insDateFmt = fmtDate(offer.inspection_date);
       const closeDateFmt = fmtDate(offer.closing_date);
 
+      const depositAmtFmt = offer.deposit_amount ? App.fmtMoney(offer.deposit_amount) : null;
+      const depositDueFmt = offer.deposit_due_date
+        ? new Date(offer.deposit_due_date).toLocaleString('en-CA', { weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit' })
+        : null;
+
       // Deal summary table rows — same style as viewing confirmation
       const tableRows = [];
       tableRows.push(`<tr><td class="lb">Property</td><td class="vl"><strong>${offer.property_address}</strong></td></tr>`);
       tableRows.push(`<tr><td class="lb">Your Offer</td><td class="vl" style="color:#1a6ef5;font-weight:700;">${offerAmtFmt}</td></tr>`);
       if (listPriceFmt) tableRows.push(`<tr><td class="lb">List Price</td><td class="vl">${listPriceFmt}</td></tr>`);
       if (offer.conditions) tableRows.push(`<tr><td class="lb">Conditions</td><td class="vl">${offer.conditions}</td></tr>`);
+      if (depositAmtFmt) tableRows.push(`<tr><td class="lb">Deposit</td><td class="vl">${depositAmtFmt}${offer.deposit_sent ? ' <span style="color:#059669;font-weight:700;">✅ Sent</span>' : ' <span style="color:#d97706;font-weight:700;">⏰ Due within 24 hrs</span>'}</td></tr>`);
       if (finDateFmt) tableRows.push(`<tr><td class="lb">Financing By</td><td class="vl">${finDateFmt}</td></tr>`);
       if (insDateFmt) tableRows.push(`<tr><td class="lb">Inspection On</td><td class="vl">${insDateFmt}</td></tr>`);
       if (closeDateFmt) tableRows.push(`<tr><td class="lb">Closing Date</td><td class="vl">${closeDateFmt}</td></tr>`);
 
-      // Checklist rows — numbered, clean
+      // Checklist rows — deposit is always first when accepted
+      const depositItem = offer.deposit_sent
+        ? `🏦 <strong>Deposit Cheque</strong> — ✅ Deposit of ${depositAmtFmt || 'the agreed amount'} has been sent to the seller's agent.`
+        : `🏦 <strong>Deposit Cheque ⚠️ URGENT</strong> — A deposit of ${depositAmtFmt || 'the agreed amount'} must be delivered to the seller's agent <strong>within 24 hours</strong>${depositDueFmt ? ` (by ${depositDueFmt})` : ''}. Please arrange this immediately.`;
+
       const checklistItems = [
+        depositItem,
         offer.conditions
           ? `📋 <strong>Conditions Period</strong> — Your conditions (${offer.conditions}) must be satisfied before the deal is firm.`
           : `📋 <strong>No Conditions</strong> — Your deal is already firm!`,
@@ -309,6 +320,7 @@ Property:     ${offer.property_address}
 Your Offer:   ${offerAmtFmt}${listPriceFmt ? `\nList Price:   ${listPriceFmt}` : ''}${offer.conditions ? `\nConditions:   ${offer.conditions}` : ''}${finDateFmt ? `\nFinancing By: ${finDateFmt}` : ''}${insDateFmt ? `\nInspection:   ${insDateFmt}` : ''}${closeDateFmt ? `\nClosing Date: ${closeDateFmt}` : ''}
 
 YOUR CLOSING CHECKLIST:
+${offer.deposit_sent ? `🏦 Deposit — ✅ ${depositAmtFmt || 'deposit'} sent to seller's agent.` : `🏦 DEPOSIT ⚠️ URGENT — ${depositAmtFmt || 'Deposit'} must reach seller's agent within 24 hours!${depositDueFmt ? ` Due by: ${depositDueFmt}.` : ''}`}
 ${offer.conditions ? `📋 Conditions — ${offer.conditions} must be satisfied before the deal is firm.` : `📋 No conditions — your deal is already firm!`}
 🏦 Financing — stay in close contact with your lender.${finDateFmt ? ` Deadline: ${finDateFmt}.` : ''}
 🔍 Home Inspection — ${insDateFmt ? `scheduled for ${insDateFmt}.` : 'contact me for an inspector referral.'}
