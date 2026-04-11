@@ -1383,27 +1383,25 @@ const NewBuilds = {
 
     App.closeModal();
 
-    if (typeof Notify !== 'undefined') {
-      const ok = await Notify.queue(
-        'New Build Update',
-        clientId, b.client_name, clientEmail || null,
-        subject, plainBody, null,
-        null, null, null
-      );
-      if (ok !== false) {
-        App.toast('📬 Build update queued in Approvals!', 'var(--green)');
-        App.switchTab('approvals');
-        if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
-      }
+    // Direct insert — bypass Notify.queue to avoid jsonb null issue
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    const { error: qErr } = await db.from('approval_queue').insert({
+      agent_id: agentId,
+      client_name: b.client_name,
+      client_email: clientEmail || null,
+      approval_type: 'New Build Update',
+      email_subject: subject,
+      email_body: plainBody,
+      status: 'Pending'
+    });
+    if (qErr) {
+      App.toast('Could not queue: ' + qErr.message, 'var(--red)');
     } else {
-      App.switchTab('email');
-      setTimeout(() => {
-        const subEl = document.getElementById('email-subject');
-        const bodyEl = document.getElementById('email-body');
-        if (subEl) subEl.value = subject;
-        if (bodyEl) bodyEl.innerHTML = plainBody.replace(/\n/g, '<br>');
-        App.toast('📧 Email pre-filled — select client and hit Send!');
-      }, 400);
+      App.toast('Build update queued in Approvals!', 'var(--green)');
+      App.switchTab('approvals');
+      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
+      if (typeof Notify !== 'undefined') Notify.updateBadge();
     }
   },
 
