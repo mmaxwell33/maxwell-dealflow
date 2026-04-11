@@ -1128,13 +1128,18 @@ const NewBuilds = {
     const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
     if (!stage) return;
 
-    // Look up client
-    const { data: clientData } = await db.from('clients')
-      .select('id, email, full_name')
-      .or(`id.eq.${b.client_id || '00000000-0000-0000-0000-000000000000'},full_name.eq.${b.client_name}`)
-      .eq('agent_id', currentAgent.id).limit(1).maybeSingle();
-    const clientEmail = clientData?.email || null;
-    const clientId = clientData?.id || b.client_id || null;
+    // Look up client — robust fallback chain
+    let clientEmail = b.client_email || null;
+    let clientId    = b.client_id || null;
+    if (!clientEmail) {
+      let q = db.from('clients').select('id, email').eq('agent_id', currentAgent.id);
+      const { data: cd } = await (clientId ? q.eq('id', clientId) : q.ilike('full_name', b.client_name || '')).limit(1).maybeSingle();
+      if (!cd && b.client_name) {
+        const { data: cd2 } = await db.from('clients').select('id, email').eq('agent_id', currentAgent.id)
+          .ilike('full_name', `%${(b.client_name||'').split(' ')[0]}%`).limit(1).maybeSingle();
+        if (cd2) { clientEmail = cd2.email; clientId = cd2.id; }
+      } else if (cd) { clientEmail = cd.email; clientId = cd.id; }
+    }
     if (!clientEmail) return;
 
     const firstName = (b.client_name || 'there').split(' ')[0];
@@ -1340,12 +1345,27 @@ const NewBuilds = {
     const pct = Math.round((done / total) * 100);
     const customNote = document.getElementById('nb-notify-note')?.value?.trim() || '';
 
-    const { data: clientData } = await db.from('clients')
-      .select('id, email, full_name').eq('agent_id', currentAgent.id)
-      .or(`id.eq.${b.client_id || '00000000-0000-0000-0000-000000000000'},full_name.eq.${b.client_name}`)
-      .limit(1).maybeSingle();
-    const clientEmail = clientData?.email || null;
-    const clientId = clientData?.id || b.client_id || null;
+    // Look up client — try by client_id first, then fall back to name match
+    let clientEmail = b.client_email || null;
+    let clientId    = b.client_id || null;
+    if (!clientEmail) {
+      let q = db.from('clients').select('id, email, full_name').eq('agent_id', currentAgent.id);
+      if (clientId) {
+        q = q.eq('id', clientId);
+      } else {
+        q = q.ilike('full_name', b.client_name || '');
+      }
+      const { data: cd } = await q.limit(1).maybeSingle();
+      if (!cd && b.client_name) {
+        // last resort: loose name search
+        const { data: cd2 } = await db.from('clients').select('id, email, full_name')
+          .eq('agent_id', currentAgent.id).ilike('full_name', `%${(b.client_name||'').split(' ')[0]}%`).limit(1).maybeSingle();
+        if (cd2) { clientEmail = cd2.email; clientId = cd2.id; }
+      } else if (cd) {
+        clientEmail = cd.email;
+        clientId    = cd.id;
+      }
+    }
 
     const firstName = (b.client_name || 'there').split(' ')[0];
     const stageLabel = majorStage ? majorStage.label.replace(/[🏦📝💰🎉]\s*/,'') : 'Getting Started';
@@ -1357,10 +1377,10 @@ const NewBuilds = {
 
     App.closeModal();
 
-    if (clientEmail && typeof Notify !== 'undefined') {
+    if (typeof Notify !== 'undefined') {
       await Notify.queue(
         'New Build Update',
-        clientId, b.client_name, clientEmail,
+        clientId, b.client_name, clientEmail || '',
         subject, plainBody, b.id,
         html,
         null,
@@ -1368,6 +1388,7 @@ const NewBuilds = {
       );
       App.toast('📬 Build update queued in Approvals!', 'var(--green)');
       App.switchTab('approvals');
+      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 500);
     } else {
       App.switchTab('email');
       setTimeout(() => {
