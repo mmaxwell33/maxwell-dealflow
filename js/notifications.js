@@ -897,13 +897,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       approval_type: type,
       email_subject: emailSubject,
       email_body: emailBody,
-      context_data: contextData,
       status: 'Pending'
     };
-    // Only include related_id if it has a value (avoids schema cache issues if column not yet refreshed)
+    // Only include optional fields when they have actual values — never send null for jsonb columns
+    if (contextData !== null) insertRow.context_data = contextData;
     if (relatedId) insertRow.related_id = relatedId;
-    console.log('Notify.queue insertRow keys:', Object.keys(insertRow));
-    console.log('Notify.queue JSON test:', (() => { try { JSON.stringify(insertRow); return 'OK'; } catch(e) { return e.message; } })());
     const { error } = await db.from('approval_queue').insert(insertRow);
     if (error) {
       console.error('Notify.queue insert error:', error);
