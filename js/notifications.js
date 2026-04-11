@@ -904,7 +904,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const { error } = await db.from('approval_queue').insert(insertRow);
     if (error) {
       console.error('Notify.queue insert error:', error);
-      App.toast(`⚠️ Could not queue approval: ${error.message}`, 'var(--red)');
+      App.toast(`⚠️ ${error.code || ''} ${error.message} | hint: ${error.hint || ''} | details: ${error.details || ''}`, 'var(--red)');
       return false;
     }
     // Update badge
