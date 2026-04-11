@@ -999,7 +999,7 @@ const NewBuilds = {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
           <div style="flex:1;">
             <div class="fw-800" style="font-size:15px;">${b.client_name||'—'}</div>
-            <div class="text-muted" style="font-size:12px;">📍 ${b.lot_address||b.community||'—'} · 🏗️ ${b.builder||'—'}</div>
+            <div class="text-muted" style="font-size:12px;">📍 ${b.lot_address||b.community||'—'} · 🏗️ ${b.builder_name||b.builder||'—'}</div>
           </div>
           <span class="stage-badge badge-viewings">${b.status||'Active'}</span>
         </div>
@@ -1317,10 +1317,10 @@ const NewBuilds = {
       agent_id: currentAgent.id,
       client_name: clientName,
       client_id: clientId || null,
-      builder: document.getElementById('nb-builder')?.value.trim() || '',
+      builder_name: document.getElementById('nb-builder')?.value.trim() || '',
       lot_address: lotAddress,
       purchase_price: price,
-      current_stage: document.getElementById('nb-stage')?.value || 'Lot Identified',
+      current_stage: document.getElementById('nb-stage')?.value || 'Pre-Construction',
       est_completion_date: completion,
       flooring_selection: document.getElementById('nb-flooring')?.value.trim() || '',
       builder_contact: document.getElementById('nb-builder-contact')?.value.trim() || '',
@@ -1339,8 +1339,8 @@ const NewBuilds = {
       // Fallback minimal insert
       const { error: e2 } = await db.from('new_builds').insert({
         agent_id: currentAgent.id, client_name: clientName,
-        builder: document.getElementById('nb-builder')?.value.trim()||'',
-        community: lotAddress, purchase_price: price,
+        builder_name: document.getElementById('nb-builder')?.value.trim()||'',
+        lot_address: lotAddress, purchase_price: price,
         notes: document.getElementById('nb-notes')?.value.trim()||'',
         status: 'Active', pipeline_milestones: milestones
       });
