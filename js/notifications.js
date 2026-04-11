@@ -884,10 +884,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
-    // Pack html + ics into context_data as JSON so both survive the single-column storage
+    // Pack html + ics into context_data — pass as object (supabase-js serializes jsonb correctly)
     let contextData = null;
     if (htmlBody || icsBase64 || ccEmail) {
-      contextData = JSON.stringify({ html: htmlBody || null, ics: icsBase64 || null, cc: ccEmail || null });
+      contextData = { html: htmlBody || null, ics: icsBase64 || null, cc: ccEmail || null };
     }
     const insertRow = {
       agent_id: agentId,

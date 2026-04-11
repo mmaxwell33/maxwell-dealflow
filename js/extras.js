@@ -89,7 +89,7 @@ const Approvals = {
     let htmlBody = null, icsAttachment = null, ccEmail = null;
     if (item.context_data) {
       try {
-        const ctx = JSON.parse(item.context_data);
+        const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
         htmlBody = ctx.html || null;
         icsAttachment = ctx.ics || null;
         ccEmail = ctx.cc || null;
@@ -1382,7 +1382,7 @@ const NewBuilds = {
     if (typeof Notify !== 'undefined') {
       const ok = await Notify.queue(
         'New Build Update',
-        clientId, b.client_name, clientEmail || '',
+        clientId, b.client_name, clientEmail || null,
         subject, plainBody, null,  // pass null for relatedId — avoids FK constraint
         html,
         null,
@@ -2530,7 +2530,7 @@ const SystemTools = {
       client_name: opt.dataset.name,
       approval_type: 'Welcome Email',
       client_email: opt.dataset.email || null,
-      context_data: `Resend welcome email to ${opt.dataset.name} (${opt.dataset.email})`,
+      context_data: { note: `Resend welcome email to ${opt.dataset.name} (${opt.dataset.email})` },
       status: 'Pending'
     });
     if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
