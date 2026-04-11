@@ -551,27 +551,31 @@ const Viewings = {
       client_email: clientEmail || null,
       property_address: propertyAddress,
       offer_amount: offerAmt,
-      offer_date: offerDate,
       stage: pipeStage,
       status: 'Active',
-      conditions: conditions,
-      financing_date: finDate || null,
-      inspection_date: insDate || null,
+      financing_deadline: finDate || null,
+      inspection_deadline: insDate || null,
       closing_date: closeDate || null,
       deposit_amount: depositAmt,
       deposit_due_date: depositDue,
       deposit_sent: depositSent,
       deposit_sent_at: depositSent ? new Date().toISOString() : null,
-      notes: notes,
       updated_at: new Date().toISOString(),
     };
 
+    let pipelineErr = null;
     if (existing?.id) {
-      await db.from('pipeline').update(pipelineData).eq('id', existing.id);
+      const { error: updErr } = await db.from('pipeline').update(pipelineData).eq('id', existing.id);
+      pipelineErr = updErr;
     } else {
       pipelineData.pipeline_id = 'OFFER-' + Date.now();
       pipelineData.acceptance_date = offerDate;
-      await db.from('pipeline').insert(pipelineData);
+      const { error: insErr } = await db.from('pipeline').insert(pipelineData);
+      pipelineErr = insErr;
+    }
+    if (pipelineErr) {
+      if (st) { st.textContent = '❌ Pipeline error: ' + pipelineErr.message; st.style.color = 'var(--red)'; }
+      return;
     }
 
     // 3. Queue email(s) for approval
