@@ -918,6 +918,8 @@ const NewBuilds = {
     wrap.style.display = showing ? 'none' : 'block';
     if (!showing) {
       NewBuilds.populateClients();
+      // Restore any previously typed (but unsaved) draft
+      setTimeout(() => NewBuilds.restoreDraft(), 100);
       wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   },
@@ -1304,6 +1306,37 @@ const NewBuilds = {
     }
   },
 
+  // Save form fields to localStorage so data isn't lost on error
+  saveDraft() {
+    const fields = ['nb-builder','nb-lot-address','nb-price','nb-completion','nb-flooring',
+                    'nb-builder-contact','nb-notes','nb-cc-email','nb-deposit-amount',
+                    'nb-deposit-date','nb-deposit-status','nb-pa-submitted','nb-pa-accepted','nb-stage'];
+    const draft = {};
+    fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) draft[id] = el.value;
+    });
+    const sel = document.getElementById('nb-client-sel');
+    if (sel) draft['nb-client-sel'] = sel.value;
+    try { localStorage.setItem('nb_draft', JSON.stringify(draft)); } catch(e) {}
+  },
+
+  restoreDraft() {
+    try {
+      const raw = localStorage.getItem('nb_draft');
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      Object.entries(draft).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+    } catch(e) {}
+  },
+
+  clearDraft() {
+    try { localStorage.removeItem('nb_draft'); } catch(e) {}
+  },
+
   async save() {
     const st = document.getElementById('nb-status');
     if (!st) return;
@@ -1312,6 +1345,7 @@ const NewBuilds = {
     const clientId = clientSel.value;
     if (!clientName) { st.style.color='var(--red)'; st.textContent='⚠️ Please select a client'; return; }
     st.textContent = 'Saving...'; st.style.color = 'var(--text2)';
+    NewBuilds.saveDraft(); // save to localStorage before attempting DB write
     // Initialize empty 4-stage milestone structure
     const milestones = {};
     NewBuilds.STAGES.forEach(s => {
@@ -1361,6 +1395,7 @@ const NewBuilds = {
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
 
+    NewBuilds.clearDraft(); // clear saved draft on success
     App.toast('✅ New Build created! Pipeline entry auto-created.');
     st.style.color='var(--green)'; st.textContent=`✅ Build created · Pipeline → ${pipelineStage}`;
     NewBuilds.toggleForm();
