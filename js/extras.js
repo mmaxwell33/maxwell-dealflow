@@ -1221,46 +1221,64 @@ const NewBuilds = {
       ? `<p style="font-size:13px;background:#fffbeb;padding:12px 14px;border-radius:6px;border-left:3px solid #f59e0b;margin:0 0 16px;line-height:1.6;">${customNote}</p>`
       : '';
 
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
-<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,0.08);">
+    const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
+    const agentName    = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
+    const agentPhone   = agent.phone    || '(709) 325-0545';
+    const agentEmail   = agent.email    || 'Maxwell.Midodzi@exprealty.com';
+    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
 
-  <h2 style="color:#0f172a;border-bottom:3px solid #0ea5e9;padding:20px 24px 14px;margin:0;">🏗️ New Build Update — ${property}</h2>
-  <p style="color:#64748b;font-size:12px;margin:0;padding:6px 24px 16px;">${b.builder_name ? `Builder: ${b.builder_name}` : ''}</p>
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+  .wrap{max-width:560px;margin:0 auto;}
+  hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+  .sig-name{font-weight:700;font-size:15px;margin:0 0 2px;}
+  .sig-line{font-size:13px;color:#555;margin:2px 0;}
+  .sig-line a{color:#1a6ef5;text-decoration:none;}
+  .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+  .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0ea5e9;margin:20px 0 8px;}
+</style>
+</head>
+<body><div class="wrap">
 
-  <div style="padding:0 24px 20px;">
-    <p style="font-size:15px;color:#1e293b;margin:0 0 16px;">Hi ${firstName},</p>
-    <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 20px;">Here is your latest new build progress update. I'll keep you informed at every major milestone along the way.</p>
+  <p>Hi ${firstName},</p>
+  <p>Here is your latest new build progress update for <strong>${property}</strong>.</p>
+  ${b.builder_name ? `<p style="font-size:13px;color:#64748b;margin:-8px 0 16px;">Builder: ${b.builder_name}</p>` : ''}
 
-    <!-- Pipeline -->
-    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Build Pipeline</h3>
-    <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:20px;"><tr>${pipelineHtml}</tr></table>
+  ${noteHtml}
 
-    <!-- Progress Bar -->
-    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Overall Progress — ${pct}%</h3>
-    <div style="background:#e2e8f0;height:12px;border-radius:6px;overflow:hidden;margin-bottom:4px;">
-      <div style="background:linear-gradient(90deg,#0ea5e9,#10b981);height:12px;width:${pct}%;border-radius:6px;"></div>
-    </div>
-    <p style="font-size:11px;color:#94a3b8;margin:0 0 20px;">${done} of ${total} steps completed</p>
+  <!-- Pipeline -->
+  <p class="section-label">Build Pipeline</p>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:20px;"><tr>${pipelineHtml}</tr></table>
 
-    <!-- Stage Details -->
-    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Stage Breakdown</h3>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px;">
-      ${stageRowsHtml}
-    </table>
-
-    ${possessionHtml}
-    ${noteHtml}
-
-    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 4px;">I will be in touch as your build progresses. Don't hesitate to reach out with any questions.</p>
-    <p style="font-size:14px;color:#374151;margin:0 0 20px;">Best regards,<br><strong>Maxwell</strong></p>
+  <!-- Progress Bar -->
+  <p class="section-label">Overall Progress — ${pct}%</p>
+  <div style="background:#e2e8f0;height:10px;border-radius:6px;overflow:hidden;margin-bottom:4px;">
+    <div style="background:linear-gradient(90deg,#0ea5e9,#10b981);height:10px;width:${pct}%;border-radius:6px;"></div>
   </div>
+  <p style="font-size:12px;color:#94a3b8;margin:4px 0 20px;">${done} of ${total} steps completed</p>
 
-  <p style="font-size:11px;color:#94a3b8;margin:0;padding:14px 24px;border-top:1px solid #e2e8f0;text-align:center;">
-    Maxwell Delali Midodzi &nbsp;·&nbsp; eXp Realty &nbsp;·&nbsp; (709) 325-0545
-  </p>
-</div>
-</body></html>`;
+  <!-- Stage Breakdown -->
+  <p class="section-label">Stage Breakdown</p>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
+    ${stageRowsHtml}
+  </table>
+
+  ${possessionHtml}
+
+  <p>Please don't hesitate to reach out if you have any questions.</p>
+  <p>Looking forward to seeing this build through to possession!</p>
+
+  <hr>
+  <p>Best regards,</p>
+  <p class="sig-name">${agentName}</p>
+  <p class="sig-line">REALTOR® | eXp Realty</p>
+  <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+  <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+  <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+  <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+
+</div></body></html>`;
   },
 
   async syncPipeline(build, pipelineStage) {
