@@ -542,15 +542,29 @@ const Viewings = {
       await db.from('pipeline').insert(pipelineData);
     }
 
-    // 3. Queue offer submitted email for approval
+    // 3. Queue email(s) for approval
     if (clientEmail && typeof Notify !== 'undefined') {
       const agent = currentAgent;
-      const tmpl = Notify.templates.offer_submitted(
-        { full_name: clientName, email: clientEmail },
-        { property_address: propertyAddress, offer_amount: offerAmt, list_price: listPrice, offer_date: offerDate, conditions },
-        agent
-      );
-      await Notify.queue('Offer Submitted', clientId || null, clientName, clientEmail, tmpl.subject, tmpl.body, offer?.id || null);
+      const clientObj = { id: clientId || null, full_name: clientName, email: clientEmail };
+      const offerObj = {
+        property_address: propertyAddress,
+        offer_amount: offerAmt,
+        list_price: listPrice,
+        offer_date: offerDate,
+        conditions,
+        financing_date: finDate,
+        inspection_date: insDate,
+        closing_date: closeDate,
+      };
+
+      if (offerStatus === 'Accepted') {
+        // Offer accepted — queue the rich checklist email with all next steps
+        await Notify.onOfferAcceptedWithChecklist(offerObj, clientObj, offer?.id || null);
+      } else {
+        // Offer submitted / countered / rejected — queue standard submitted email
+        const tmpl = Notify.templates.offer_submitted(clientObj, offerObj, agent);
+        await Notify.queue('Offer Submitted', clientId || null, clientName, clientEmail, tmpl.subject, tmpl.body, offer?.id || null);
+      }
     }
 
     if (st) { st.textContent = '✅ Saved!'; st.style.color = 'var(--green)'; }
