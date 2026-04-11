@@ -876,16 +876,45 @@ const NewBuilds = {
     sel.innerHTML = '<option value="">-- Select Existing Client --</option>' +
       clients.map(c => `<option value="${c.id}" data-name="${c.full_name}">${c.full_name}</option>`).join('');
 
-    // Populate datalists from previously saved builds for autocomplete
+    // Populate datalists — seed with known NL builders + anything from saved builds
     const builds = NewBuilds.all || [];
     const unique = (arr) => [...new Set(arr.filter(Boolean))];
+
+    const knownBuilders = [
+      'McCrowe Homes and Renovations Inc.',
+      'New Victorian Homes',
+      'Westridge Homes',
+      'Broadstreet Properties',
+      'Krisdale Homes',
+      'Rylyn Homes',
+      'EasternEdge Homes',
+      'Fusion Homes',
+      'Southbrook Homes',
+      'Cabot Homes',
+      'Considine Construction',
+      'Trinity Homes NL',
+    ];
+    const savedBuilders = unique(builds.map(b => b.builder_name || b.builder));
+    const allBuilders   = unique([...savedBuilders, ...knownBuilders]);
+
+    const knownFlooring = [
+      'Hardwood / Tile',
+      'Luxury Vinyl Plank (LVP)',
+      'Carpet / Tile',
+      'Engineered Hardwood',
+      'Laminate / Tile',
+      'Polished Concrete',
+    ];
+    const savedFlooring = unique(builds.map(b => b.flooring_selection));
+    const allFlooring   = unique([...savedFlooring, ...knownFlooring]);
+
     const fill = (id, vals) => {
       const dl = document.getElementById(id);
       if (dl) dl.innerHTML = vals.map(v => `<option value="${v}">`).join('');
     };
-    fill('dl-builder-name',    unique(builds.map(b => b.builder_name || b.builder)));
+    fill('dl-builder-name',    allBuilders);
     fill('dl-builder-contact', unique(builds.map(b => b.builder_contact)));
-    fill('dl-flooring',        unique(builds.map(b => b.flooring_selection)));
+    fill('dl-flooring',        allFlooring);
   },
 
   renderStats(list) {
@@ -1112,76 +1141,126 @@ const NewBuilds = {
     const pm = b.pipeline_milestones || {};
     const property = b.lot_address || 'Your Property';
 
-    // ── CONSTRUCTION: per-step email — highlight just this step ──
+    const { done: doneCount, total: totalCount } = NewBuilds.countAllSteps(pm);
+    const pctVal = Math.round((doneCount / totalCount) * 100);
+    const majorStageFull = NewBuilds.getCurrentMajorStage(pm);
+
+    // ── CONSTRUCTION: per-step email ──
     if (stage.emailPerStep && stepKey) {
       const step = stage.steps.find(s => s.key === stepKey);
       const stepLabel = step?.label || stepKey;
-      const subject = `Build Update — ${stepLabel} · ${property}`;
-      const headline = `Your build has reached a new milestone: <strong>${stepLabel}</strong>`;
-
-      // Progress timeline for construction steps only
-      const constructionSteps = stage.steps;
-      const stepTimelineHtml = constructionSteps.map(s => {
-        const isDone = pm[stageKey]?.steps?.[s.key];
-        const isCurrent = s.key === stepKey;
-        return `<tr><td style="padding:7px 14px;font-size:13px;color:${isDone?'#16a34a':isCurrent?'#f59e0b':'#888'};">
-          ${isDone ? '✅' : isCurrent ? '▶️' : '○'} ${s.label}
-        </td></tr>`;
-      }).join('');
-
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
-<div style="max-width:560px;margin:0 auto;">
-  <p>Hi ${firstName},</p>
-  <p>Great news — ${headline} for <strong>${property}</strong>.</p>
-  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
-    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">🏗️ Construction Progress</td></tr>
-    ${stepTimelineHtml}
-    ${b.est_completion_date ? `<tr><td style="padding:10px 14px;color:#555;font-size:13px;border-top:1px solid #e5e7eb;">📅 Est. Possession: <strong>${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</strong></td></tr>` : ''}
-  </table>
-  <p>I will keep you updated as your home progresses through each stage. Please don't hesitate to reach out with any questions.</p>
-  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
-</div></body></html>`;
-
-      const completedSteps = constructionSteps.filter(s => pm[stageKey]?.steps?.[s.key]).map(s => `  ✅ ${s.label}`);
-      const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${constructionSteps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will keep you updated as your home progresses through each stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
-
+      const subject = `🏗️ Build Update — ${stepLabel} · ${property}`;
+      const customNote = `Your build has reached a new milestone: <strong>${stepLabel}</strong>`;
+      const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote, highlightStage: stageKey, highlightStep: stepKey });
+      const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${stage.steps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will keep you updated as your home progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
       if (typeof Notify !== 'undefined') {
         await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
       }
       return;
     }
 
-    // ── ALL OTHER STAGES: full stage completion email ──
+    // ── ALL OTHER STAGES: stage completion email ──
     const subject = `${stage.emailSubject} — ${property}`;
-    const stagesHtml = NewBuilds.STAGES.map(s => {
-      const done = pm[s.key]?.done;
-      const isCurrent = s.key === stageKey;
-      return `<tr><td style="padding:8px 12px;font-size:13px;color:${done?'#16a34a':isCurrent?'#f59e0b':'#888'};">
-        ${done ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}
-      </td></tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
-<div style="max-width:560px;margin:0 auto;">
-  <p>Hi ${firstName},</p>
-  <p>${stage.emailHeadline}</p>
-  <p><strong>Property:</strong> ${property}</p>
-  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
-    <tr><td style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Journey — Current Progress</td></tr>
-    ${stagesHtml}
-    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;border-top:1px solid #e5e7eb;">📅 Est. Possession: <strong>${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</strong></td></tr>` : ''}
-  </table>
-  <p>I will be in touch as we move to the next stage. Please don't hesitate to contact me if you have any questions.</p>
-  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
-</div></body></html>`;
-
+    const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote: stage.emailHeadline, highlightStage: stageKey });
     const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline}\n\nProperty: ${property}\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✅' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as we move to the next stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
-
     if (typeof Notify !== 'undefined') {
       await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
     }
+  },
+
+  // ── Shared rich email HTML builder ──────────────────────────────────────
+  buildEmailHtml({ b, pm, majorStage, done, total, pct, customNote = '', highlightStage = null, highlightStep = null }) {
+    const firstName = (b.client_name || 'there').split(' ')[0];
+    const property  = b.lot_address || 'Your Property';
+
+    // Pipeline dots row
+    const pipelineHtml = NewBuilds.STAGES.map((s, i) => {
+      const stageDone  = pm[s.key]?.done;
+      const isCurrent  = majorStage?.key === s.key;
+      const isHighlight = s.key === highlightStage;
+      const bg   = stageDone ? '#10b981' : (isCurrent || isHighlight) ? '#0ea5e9' : '#e2e8f0';
+      const fg   = stageDone || isCurrent || isHighlight ? '#fff' : '#94a3b8';
+      const num  = stageDone ? '✓' : String(i + 1);
+      const lbl  = s.label.replace(/[📋🏦🏗️✅🎉]\s*/u, '');
+      const lineColor = stageDone ? '#10b981' : '#e2e8f0';
+      const connector = i < NewBuilds.STAGES.length - 1
+        ? `<td style="padding:0;vertical-align:middle;"><div style="height:3px;background:${lineColor};"></div></td>`
+        : '';
+      return `<td style="text-align:center;vertical-align:top;padding:0 2px;width:${Math.floor(100/NewBuilds.STAGES.length)}%;">
+        <div style="width:34px;height:34px;border-radius:50%;background:${bg};color:${fg};font-size:13px;font-weight:700;line-height:34px;margin:0 auto 5px;text-align:center;">${num}</div>
+        <div style="font-size:10px;line-height:1.3;color:${stageDone?'#10b981':(isCurrent||isHighlight)?'#0ea5e9':'#94a3b8'};font-weight:${(isCurrent||isHighlight)?'700':'400'};">${lbl}</div>
+      </td>${connector}`;
+    }).join('');
+
+    // Stage detail rows
+    const stageRowsHtml = NewBuilds.STAGES.map(s => {
+      const stageDone  = pm[s.key]?.done;
+      const isCurrent  = majorStage?.key === s.key;
+      const stepsTotal = s.steps.length;
+      const stepsDone  = s.steps.filter(st => pm[s.key]?.steps?.[st.key]).length;
+      const rowBg  = stageDone ? '#f0fdf4' : isCurrent ? '#f0f9ff' : '#fafafa';
+      const lbl    = s.label.replace(/[📋🏦🏗️✅🎉]\s*/u, '');
+      const icon   = stageDone ? '✅' : isCurrent ? '▶️' : '○';
+      const badge  = stageDone
+        ? `<span style="background:#10b981;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">Complete</span>`
+        : isCurrent
+        ? `<span style="background:#0ea5e9;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">${stepsDone}/${stepsTotal} steps</span>`
+        : `<span style="color:#94a3b8;font-size:11px;">Upcoming</span>`;
+      return `<tr style="background:${rowBg};border-bottom:1px solid #e2e8f0;">
+        <td style="padding:10px 14px;font-size:13px;font-weight:${isCurrent?'700':'400'};color:${stageDone?'#059669':isCurrent?'#0369a1':'#64748b'};">${icon} ${lbl}</td>
+        <td style="padding:10px 14px;text-align:right;">${badge}</td>
+      </tr>`;
+    }).join('');
+
+    const possessionHtml = b.est_completion_date
+      ? `<p style="font-size:13px;background:#f0f9ff;padding:12px 14px;border-radius:6px;border-left:3px solid #0ea5e9;margin:0 0 16px;">
+          📅 <strong>Estimated Possession:</strong> ${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
+        </p>` : '';
+
+    const noteHtml = customNote
+      ? `<p style="font-size:13px;background:#fffbeb;padding:12px 14px;border-radius:6px;border-left:3px solid #f59e0b;margin:0 0 16px;line-height:1.6;">${customNote}</p>`
+      : '';
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,0.08);">
+
+  <h2 style="color:#0f172a;border-bottom:3px solid #0ea5e9;padding:20px 24px 14px;margin:0;">🏗️ New Build Update — ${property}</h2>
+  <p style="color:#64748b;font-size:12px;margin:0;padding:6px 24px 16px;">${b.builder_name ? `Builder: ${b.builder_name}` : ''}</p>
+
+  <div style="padding:0 24px 20px;">
+    <p style="font-size:15px;color:#1e293b;margin:0 0 16px;">Hi ${firstName},</p>
+    <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 20px;">Here is your latest new build progress update. I'll keep you informed at every major milestone along the way.</p>
+
+    <!-- Pipeline -->
+    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Build Pipeline</h3>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:20px;"><tr>${pipelineHtml}</tr></table>
+
+    <!-- Progress Bar -->
+    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Overall Progress — ${pct}%</h3>
+    <div style="background:#e2e8f0;height:12px;border-radius:6px;overflow:hidden;margin-bottom:4px;">
+      <div style="background:linear-gradient(90deg,#0ea5e9,#10b981);height:12px;width:${pct}%;border-radius:6px;"></div>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin:0 0 20px;">${done} of ${total} steps completed</p>
+
+    <!-- Stage Details -->
+    <h3 style="color:#0ea5e9;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Stage Breakdown</h3>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:20px;">
+      ${stageRowsHtml}
+    </table>
+
+    ${possessionHtml}
+    ${noteHtml}
+
+    <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 4px;">I will be in touch as your build progresses. Don't hesitate to reach out with any questions.</p>
+    <p style="font-size:14px;color:#374151;margin:0 0 20px;">Best regards,<br><strong>Maxwell</strong></p>
+  </div>
+
+  <p style="font-size:11px;color:#94a3b8;margin:0;padding:14px 24px;border-top:1px solid #e2e8f0;text-align:center;">
+    Maxwell Delali Midodzi &nbsp;·&nbsp; eXp Realty &nbsp;·&nbsp; (709) 325-0545
+  </p>
+</div>
+</body></html>`;
   },
 
   async syncPipeline(build, pipelineStage) {
@@ -1254,30 +1333,7 @@ const NewBuilds = {
     const stageLabel = majorStage ? majorStage.label.replace(/[🏦📝💰🎉]\s*/,'') : 'Getting Started';
     const subject = `New Build Update — ${b.lot_address || 'Your Property'}`;
 
-    const stagesHtml = NewBuilds.STAGES.map(s => {
-      const stageDone = pm[s.key]?.done;
-      const isCurrent = majorStage?.key === s.key;
-      return `<tr><td style="padding:8px 12px;font-size:13px;color:${stageDone?'#16a34a':isCurrent?'#f59e0b':'#888'};">
-        ${stageDone ? '✅' : isCurrent ? '▶️' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}
-      </td></tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;">
-<div style="max-width:560px;margin:0 auto;">
-  <p>Hi ${firstName},</p>
-  <p>Here is your latest new build progress update for <strong>${b.lot_address || 'your property'}</strong>.</p>
-  <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8f9fa;border-radius:8px;overflow:hidden;">
-    <tr><td colspan="2" style="padding:12px;background:#1e293b;color:#fff;font-weight:700;font-size:14px;">Build Progress</td></tr>
-    ${stagesHtml}
-    ${b.est_completion_date ? `<tr><td style="padding:10px 12px;color:#555;font-size:13px;">Est. Possession</td><td style="padding:10px 12px;font-weight:600;">${new Date(b.est_completion_date+'T12:00:00').toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}</td></tr>` : ''}
-  </table>
-  <div style="background:#e5e7eb;height:8px;border-radius:4px;margin:0 0 4px;"><div style="background:#3b82f6;height:8px;width:${pct}%;border-radius:4px;"></div></div>
-  <p style="font-size:12px;color:#888;margin:0 0 16px;">${pct}% complete</p>
-  ${customNote ? `<p><strong>Additional notes:</strong><br>${customNote}</p>` : ''}
-  <p>I will be in touch as the build progresses. Don't hesitate to reach out with any questions.</p>
-  <p style="color:#888;font-size:13px;">Maxwell Delali Midodzi · eXp Realty · (709) 325-0545</p>
-</div></body></html>`;
+    const html = NewBuilds.buildEmailHtml({ b, pm, majorStage, done, total, pct, customNote });
 
     const plainBody = `Hi ${firstName},\n\nNew Build Update — ${b.lot_address || 'Your Property'}\n\nCurrent Stage: ${stageLabel}\nProgress: ${pct}% (${done}/${total} steps)\n\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✓' : '○'} ${s.label.replace(/[🏦📝💰🎉]\s*/,'')}`).join('\n')}\n${b.est_completion_date ? `\nEst. Possession: ${b.est_completion_date}` : ''}${customNote ? `\n\nNotes: ${customNote}` : ''}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
 
