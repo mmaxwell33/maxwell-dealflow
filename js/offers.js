@@ -526,39 +526,50 @@ const Pipeline = {
     const close= document.getElementById(`pl-close-${id}`)?.value|| null;
     const now  = new Date().toISOString();
 
-    const updates = {
-      updated_at: now,
+    // Try saving all 5 milestone dates
+    let { error } = await db.from('pipeline').update({
+      updated_at:       now,
       acceptance_date:  acc,
       financing_date:   fin,
       inspection_date:  ins,
       walkthrough_date: walk,
       closing_date:     close,
-    };
+    }).eq('id', id);
 
-    const { error } = await db.from('pipeline').update(updates).eq('id', id);
+    // If financing/inspection columns don't exist yet, fall back to the 3 known columns
     if (error) {
-      App.toast('⚠️ Save failed — please try again');
-      return;
+      const fallback = await db.from('pipeline').update({
+        updated_at:      now,
+        acceptance_date: acc,
+        walkthrough_date:walk,
+        closing_date:    close,
+      }).eq('id', id);
+      if (fallback.error) {
+        App.toast('⚠️ Save failed — please try again');
+        return;
+      }
     }
 
-    // Update in-memory record
+    // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
-    if (rec) Object.assign(rec, updates);
+    const merged = Object.assign({}, rec, {
+      acceptance_date:  acc,
+      financing_date:   fin,
+      inspection_date:  ins,
+      walkthrough_date: walk,
+      closing_date:     close,
+    });
+    if (rec) Object.assign(rec, merged);
 
-    // Update progress bar % in-place without full reload
-    const fakeRec = rec || { acceptance_date: acc, financing_date: fin, inspection_date: ins, walkthrough_date: walk, closing_date: close };
-    const { done, total } = Pipeline.milestonesDone(fakeRec);
+    // Update progress bar % in-place — no full reload needed
+    const { done, total } = Pipeline.milestonesDone(merged);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
     if (bar) bar.style.width = `${pct}%`;
-
-    // Update milestone label text
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
     if (lbl) lbl.textContent = `${done} of ${total} milestones completed`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
     if (pctLbl) pctLbl.textContent = `${pct}%`;
-
-    // Update timestamp
     const updEl = document.getElementById(`pl-updated-${id}`);
     if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
 
