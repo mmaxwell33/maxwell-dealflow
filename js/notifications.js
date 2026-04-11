@@ -226,260 +226,110 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const offerAmtFmt = App.fmtMoney(offer.offer_amount);
       const listPriceFmt = offer.list_price ? App.fmtMoney(offer.list_price) : null;
       const finDateFmt = fmtDate(offer.financing_date);
-      const insDeDateFmt = fmtDate(offer.inspection_date);
+      const insDateFmt = fmtDate(offer.inspection_date);
       const closeDateFmt = fmtDate(offer.closing_date);
 
-      // ── Checklist steps with dates where available ─────────────────────────
-      const steps = [
-        {
-          icon: '📋',
-          color: '#4f46e5',
-          bg: '#eff6ff',
-          title: 'Conditions Period',
-          desc: offer.conditions
-            ? `Your conditions (${offer.conditions}) must be satisfied before the deal becomes firm.`
-            : 'Your deal has no conditions — it is already firm! Skip ahead to lawyer prep.',
-          date: null,
-          badge: offer.conditions ? 'Action Required' : 'Firm Deal ✅',
-          badgeColor: offer.conditions ? '#d97706' : '#059669',
-        },
-        {
-          icon: '🏦',
-          color: '#1d4ed8',
-          bg: '#eff6ff',
-          title: 'Financing Approval',
-          desc: finDateFmt
-            ? `Your mortgage lender must confirm full approval. Ensure all documents are submitted on time.`
-            : `Work with your mortgage lender to get full financing approval as soon as possible.`,
-          date: finDateFmt ? `Deadline: ${finDateFmt}` : null,
-          badge: finDateFmt ? 'Deadline Set' : 'Coordinate with Lender',
-          badgeColor: '#1d4ed8',
-        },
-        {
-          icon: '🔍',
-          color: '#059669',
-          bg: '#f0fdf4',
-          title: 'Home Inspection',
-          desc: insDeDateFmt
-            ? `Your home inspection is scheduled. The inspector will assess the property's condition. Any major issues may allow you to renegotiate or waive the condition.`
-            : `A home inspection gives you peace of mind about the property's condition. Contact me if you need an inspector referral.`,
-          date: insDeDateFmt ? `Scheduled: ${insDeDateFmt}` : null,
-          badge: insDeDateFmt ? 'Booked' : 'To Be Arranged',
-          badgeColor: insDeDateFmt ? '#059669' : '#6b7280',
-        },
-        {
-          icon: '⚖️',
-          color: '#7c3aed',
-          bg: '#faf5ff',
-          title: 'Lawyer / Conveyancing',
-          desc: `Your real estate lawyer will handle title transfer, review documents, and prepare closing paperwork. Contact a real estate lawyer in NL as soon as possible if you haven't already.`,
-          date: null,
-          badge: 'Start Now',
-          badgeColor: '#7c3aed',
-        },
-        {
-          icon: '🚶',
-          color: '#0891b2',
-          bg: '#ecfeff',
-          title: 'Final Walkthrough',
-          desc: `Before closing, we'll do a final walkthrough to confirm the property is in the agreed condition, all inclusions are present, and any agreed repairs have been completed.`,
-          date: null,
-          badge: 'Before Closing',
-          badgeColor: '#0891b2',
-        },
-        {
-          icon: '🔑',
-          color: '#16a34a',
-          bg: '#f0fdf4',
-          title: 'Closing Day',
-          desc: closeDateFmt
-            ? `The big day! Your lawyer will finalize all documents and transfer funds. Keys are yours once everything clears.`
-            : `Your lawyer will finalize all documents and transfer funds. Keys are yours once everything clears.`,
-          date: closeDateFmt ? `Target: ${closeDateFmt}` : null,
-          badge: closeDateFmt ? 'Date Confirmed' : 'TBD',
-          badgeColor: '#16a34a',
-        },
+      // Deal summary table rows — same style as viewing confirmation
+      const tableRows = [];
+      tableRows.push(`<tr><td class="lb">Property</td><td class="vl"><strong>${offer.property_address}</strong></td></tr>`);
+      tableRows.push(`<tr><td class="lb">Your Offer</td><td class="vl" style="color:#1a6ef5;font-weight:700;">${offerAmtFmt}</td></tr>`);
+      if (listPriceFmt) tableRows.push(`<tr><td class="lb">List Price</td><td class="vl">${listPriceFmt}</td></tr>`);
+      if (offer.conditions) tableRows.push(`<tr><td class="lb">Conditions</td><td class="vl">${offer.conditions}</td></tr>`);
+      if (finDateFmt) tableRows.push(`<tr><td class="lb">Financing By</td><td class="vl">${finDateFmt}</td></tr>`);
+      if (insDateFmt) tableRows.push(`<tr><td class="lb">Inspection On</td><td class="vl">${insDateFmt}</td></tr>`);
+      if (closeDateFmt) tableRows.push(`<tr><td class="lb">Closing Date</td><td class="vl">${closeDateFmt}</td></tr>`);
+
+      // Checklist rows — numbered, clean
+      const checklistItems = [
+        offer.conditions
+          ? `📋 <strong>Conditions Period</strong> — Your conditions (${offer.conditions}) must be satisfied before the deal is firm.`
+          : `📋 <strong>No Conditions</strong> — Your deal is already firm!`,
+        finDateFmt
+          ? `🏦 <strong>Financing Approval</strong> — Ensure your lender has everything they need. Deadline: ${finDateFmt}.`
+          : `🏦 <strong>Financing Approval</strong> — Stay in close contact with your mortgage lender.`,
+        insDateFmt
+          ? `🔍 <strong>Home Inspection</strong> — Scheduled for ${insDateFmt}. Let me know if you need an inspector referral.`
+          : `🔍 <strong>Home Inspection</strong> — Contact me if you need a referral for a qualified home inspector.`,
+        `⚖️ <strong>Lawyer / Conveyancing</strong> — Contact a real estate lawyer in NL right away to begin the title transfer process.`,
+        `🚶 <strong>Final Walkthrough</strong> — We'll do a final walkthrough before closing to confirm the property is as agreed.`,
+        closeDateFmt
+          ? `🔑 <strong>Closing Day — ${closeDateFmt}</strong> — Your lawyer will finalize all documents and funds. Keys are yours!`
+          : `🔑 <strong>Closing Day</strong> — Your lawyer will finalize all documents and transfer funds. Keys are yours!`,
       ];
 
-      const stepsHTML = steps.map((s, i) => `
-        <tr>
-          <td style="padding:0 0 ${i < steps.length - 1 ? '20px' : '0'} 0;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-              <tr>
-                <td style="background:${s.bg};padding:14px 16px;width:56px;text-align:center;font-size:22px;vertical-align:top;">${s.icon}</td>
-                <td style="padding:14px 16px;vertical-align:top;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td><span style="font-size:15px;font-weight:700;color:#111;">${s.title}</span></td>
-                      <td style="text-align:right;"><span style="font-size:11px;font-weight:700;color:${s.badgeColor};background:${s.bg};padding:3px 8px;border-radius:20px;border:1px solid ${s.badgeColor};">${s.badge}</span></td>
-                    </tr>
-                  </table>
-                  <p style="margin:6px 0 0;font-size:13px;color:#555;line-height:1.6;">${s.desc}</p>
-                  ${s.date ? `<p style="margin:6px 0 0;font-size:12px;font-weight:700;color:${s.color};">📅 ${s.date}</p>` : ''}
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>`).join('');
+      const prepItems = [
+        `Contact your real estate lawyer immediately`,
+        `Stay in close contact with your mortgage lender and respond to requests quickly`,
+        `Book a moving company for your closing date`,
+        `Arrange utility transfers — hydro, water, gas, internet`,
+        `Set up home insurance before closing`,
+        `Update your address with Canada Post, CRA, and your bank after closing`,
+      ];
 
-      // ── Quick facts banner ──────────────────────────────────────────────────
-      const factsHTML = `
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;margin-bottom:28px;">
-          <tr style="background:linear-gradient(135deg,#059669,#047857);">
-            <td colspan="2" style="padding:14px 20px;">
-              <p style="margin:0;font-size:12px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em;">Accepted Offer Summary</p>
-            </td>
-          </tr>
-          <tr style="background:#f0fdf4;border:1px solid #d1fae5;">
-            <td style="padding:12px 20px;font-size:13px;color:#555;border-bottom:1px solid #e5e7eb;">Property</td>
-            <td style="padding:12px 20px;font-size:14px;font-weight:700;color:#111;border-bottom:1px solid #e5e7eb;">${offer.property_address}</td>
-          </tr>
-          <tr style="background:#f0fdf4;">
-            <td style="padding:12px 20px;font-size:13px;color:#555;border-bottom:1px solid #e5e7eb;">Your Offer</td>
-            <td style="padding:12px 20px;font-size:14px;font-weight:800;color:#059669;border-bottom:1px solid #e5e7eb;">${offerAmtFmt}</td>
-          </tr>
-          ${listPriceFmt ? `
-          <tr style="background:#f0fdf4;">
-            <td style="padding:12px 20px;font-size:13px;color:#555;border-bottom:1px solid #e5e7eb;">List Price</td>
-            <td style="padding:12px 20px;font-size:14px;font-weight:700;color:#111;border-bottom:1px solid #e5e7eb;">${listPriceFmt}</td>
-          </tr>` : ''}
-          ${offer.conditions ? `
-          <tr style="background:#f0fdf4;">
-            <td style="padding:12px 20px;font-size:13px;color:#555;border-bottom:1px solid #e5e7eb;">Conditions</td>
-            <td style="padding:12px 20px;font-size:14px;font-weight:700;color:#d97706;border-bottom:1px solid #e5e7eb;">${offer.conditions}</td>
-          </tr>` : ''}
-          ${closeDateFmt ? `
-          <tr style="background:#f0fdf4;">
-            <td style="padding:12px 20px;font-size:13px;color:#555;">Closing Date</td>
-            <td style="padding:12px 20px;font-size:14px;font-weight:700;color:#111;">${closeDateFmt}</td>
-          </tr>` : ''}
-        </table>`;
-
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;max-width:600px;width:100%;">
-
-      <!-- Header banner -->
-      <tr><td style="background:linear-gradient(135deg,#059669,#047857);padding:32px 40px;text-align:center;">
-        <p style="margin:0 0 8px;font-size:40px;line-height:1;">🎉</p>
-        <p style="margin:0 0 4px;font-size:26px;font-weight:800;color:#fff;">Your Offer Was Accepted!</p>
-        <p style="margin:0;font-size:14px;color:rgba(255,255,255,.85);">${offer.property_address}</p>
-      </td></tr>
-
-      <!-- Body -->
-      <tr><td style="padding:32px 40px 28px;">
-        <p style="margin:0 0 20px;font-size:16px;color:#111;">Hi ${firstName},</p>
-        <p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.7;">
-          <strong>Congratulations — your offer has been accepted!</strong> This is a huge milestone and I'm thrilled for you. Here is a full summary of your deal and a step-by-step checklist of everything that needs to happen between now and the day you get your keys. 🔑
-        </p>
-
-        ${factsHTML}
-
-        <p style="margin:0 0 20px;font-size:14px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;">Your Closing Checklist — Step by Step</p>
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-          ${stepsHTML}
-        </table>
-
-        <!-- Moving prep tips -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:28px;overflow:hidden;">
-          <tr><td style="background:#fefce8;padding:14px 20px;border-bottom:1px solid #fde68a;">
-            <p style="margin:0;font-size:13px;font-weight:700;color:#92400e;">📦 Start Planning Now</p>
-          </td></tr>
-          <tr><td style="padding:14px 20px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              ${[
-                '📞 Contact a real estate lawyer right away if you haven\'t already',
-                '🏦 Stay in close contact with your mortgage lender — respond quickly to any requests',
-                '🔍 Confirm your home inspection appointment or call me for a referral',
-                '📦 Start researching moving companies — book early for your target closing date',
-                '🔌 Arrange utility transfers (hydro, water, gas, internet) for your closing date',
-                '🏡 Contact your insurance company to arrange home insurance',
-                '📮 Plan to update your address with Canada Post, CRA, and your bank',
-              ].map(tip => `<tr><td style="padding:5px 0;font-size:13px;color:#333;">${tip}</td></tr>`).join('')}
-            </table>
-          </td></tr>
-        </table>
-
-        <p style="margin:0 0 24px;font-size:14px;color:#555;line-height:1.7;">I'll be guiding you through every single step. Please don't hesitate to call or message me anytime — I'm here to make this as smooth as possible for you.</p>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-          <tr><td align="center">
-            <a href="tel:${agentPhone}" style="display:inline-block;background:linear-gradient(135deg,#059669,#047857);color:#fff;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;">📞 Call Maxwell Now</a>
-          </td></tr>
-        </table>
-      </td></tr>
-
-      <!-- Signature -->
-      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
-        <p style="margin:0 0 2px;font-size:14px;color:#555;">Warm regards,</p>
-        <p style="margin:0 0 2px;font-size:16px;font-weight:800;color:#111;">${agentName}</p>
-        <p style="margin:0 0 4px;font-size:13px;color:#555;">REALTOR® | eXp Realty</p>
-        <p style="margin:0 0 2px;font-size:13px;color:#555;">📞 <a href="tel:${agentPhone}" style="color:#059669;text-decoration:none;">${agentPhone}</a> &nbsp;|&nbsp; ✉️ <a href="mailto:${agentEmail}" style="color:#059669;text-decoration:none;">${agentEmail}</a></p>
-        <p style="margin:2px 0;font-size:12px;color:#888;">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p style="margin:2px 0;font-size:12px;"><a href="https://${agentWebsite}" style="color:#059669;text-decoration:none;">${agentWebsite}</a></p>
-      </td></tr>
-
-      <!-- Confidential -->
-      <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #eee;">
-        <p style="margin:0;font-size:11px;color:#aaa;line-height:1.6;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
+        table.dt tr{border-bottom:1px solid #eee;}
+        table.dt tr:last-child{border-bottom:none;}
+        table.dt td.lb{padding:9px 12px;color:#888;font-size:13px;width:38%;vertical-align:top;}
+        table.dt td.vl{padding:9px 12px;color:#222;font-size:14px;font-weight:500;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+        .checklist-item{padding:10px 0;border-bottom:1px solid #eee;font-size:14px;color:#333;}
+        .checklist-item:last-child{border-bottom:none;}
+        .prep-item{padding:5px 0;font-size:13px;color:#555;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>🎉 <strong>Congratulations — your offer has been accepted!</strong> This is a huge milestone and I'm so excited for you. Here is a summary of your deal and a step-by-step checklist for everything that happens between now and closing day.</p>
+        <table class="dt">${tableRows.join('')}</table>
+        <p><strong>Your Closing Checklist</strong></p>
+        <div>${checklistItems.map(item => `<div class="checklist-item">${item}</div>`).join('')}</div>
+        <p style="margin-top:20px;"><strong>Start Planning Now</strong></p>
+        <div>${prepItems.map(item => `<div class="prep-item">• ${item}</div>`).join('')}</div>
+        <p style="margin-top:20px;">I'll be with you every step of the way. Please don't hesitate to call or message me anytime.</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
 
       const body = `Hi ${firstName},
 
-CONGRATULATIONS! 🎉 Your offer of ${offerAmtFmt} on ${offer.property_address} has been ACCEPTED!
+CONGRATULATIONS — your offer has been accepted! 🎉
 
-═══════════════════════════════════
-DEAL SUMMARY
-═══════════════════════════════════
 Property:     ${offer.property_address}
-Your Offer:   ${offerAmtFmt}${listPriceFmt ? `\nList Price:   ${listPriceFmt}` : ''}${offer.conditions ? `\nConditions:   ${offer.conditions}` : ''}${closeDateFmt ? `\nClosing Date: ${closeDateFmt}` : ''}
+Your Offer:   ${offerAmtFmt}${listPriceFmt ? `\nList Price:   ${listPriceFmt}` : ''}${offer.conditions ? `\nConditions:   ${offer.conditions}` : ''}${finDateFmt ? `\nFinancing By: ${finDateFmt}` : ''}${insDateFmt ? `\nInspection:   ${insDateFmt}` : ''}${closeDateFmt ? `\nClosing Date: ${closeDateFmt}` : ''}
 
-═══════════════════════════════════
-YOUR CLOSING CHECKLIST
-═══════════════════════════════════
+YOUR CLOSING CHECKLIST:
+${offer.conditions ? `📋 Conditions — ${offer.conditions} must be satisfied before the deal is firm.` : `📋 No conditions — your deal is already firm!`}
+🏦 Financing — stay in close contact with your lender.${finDateFmt ? ` Deadline: ${finDateFmt}.` : ''}
+🔍 Home Inspection — ${insDateFmt ? `scheduled for ${insDateFmt}.` : 'contact me for an inspector referral.'}
+⚖️ Lawyer — contact a real estate lawyer right away to begin conveyancing.
+🚶 Final Walkthrough — we'll confirm the property is as agreed before closing.
+🔑 Closing Day${closeDateFmt ? ` — ${closeDateFmt}` : ''} — keys are yours once everything clears!
 
-📋 1. CONDITIONS PERIOD
-${offer.conditions ? `Your conditions (${offer.conditions}) must be met before the deal is firm.` : 'No conditions — your deal is already firm!'}
-${finDateFmt ? `Financing Deadline: ${finDateFmt}` : ''}
-
-🏦 2. FINANCING APPROVAL
-${finDateFmt ? `Deadline: ${finDateFmt} — ensure your lender has everything they need.` : 'Coordinate with your mortgage lender as soon as possible.'}
-
-🔍 3. HOME INSPECTION
-${insDeDateFmt ? `Scheduled: ${insDeDateFmt}` : 'Contact me for a home inspector referral if needed.'}
-
-⚖️ 4. LAWYER / CONVEYANCING
-Contact a real estate lawyer in NL right away to begin the conveyancing process.
-
-🚶 5. FINAL WALKTHROUGH
-We'll do a final walkthrough before closing to confirm everything is as agreed.
-
-🔑 6. CLOSING DAY${closeDateFmt ? ` — ${closeDateFmt}` : ''}
-Keys are yours once your lawyer finalizes all documents and funds are transferred.
-
-═══════════════════════════════════
-THINGS TO START ARRANGING NOW
-═══════════════════════════════════
+START PLANNING NOW:
 • Contact your real estate lawyer immediately
-• Stay in close touch with your mortgage lender
+• Stay in close contact with your mortgage lender
 • Book a moving company for your closing date
 • Arrange utility transfers (hydro, water, gas, internet)
-• Set up home insurance
-• Plan to update your address with Canada Post, CRA, and your bank
+• Set up home insurance before closing
+• Update your address with Canada Post, CRA, and your bank after closing
 
 I'll be with you every step of the way. Call or message me anytime!
 
+Best regards,
 ${agentName}
 REALTOR® | eXp Realty
-Phone: ${agentPhone} | Email: ${agentEmail}
+${agentPhone} | ${agentEmail}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
 ${agentWebsite}
 
@@ -487,7 +337,7 @@ ${agentWebsite}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       return {
-        subject: `🎉 Congratulations — Your Offer Was Accepted! ${offer.property_address}`,
+        subject: `🎉 Congratulations — Your Offer Was Accepted! — ${offer.property_address}`,
         body,
         html
       };
@@ -593,93 +443,58 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
         : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
       const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
-
-      <tr><td style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:28px 40px;text-align:center;">
-        <p style="margin:0;font-size:24px;font-weight:bold;color:#fff;">Ready for the Next Step?</p>
-        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,.85);">${viewing.property_address}</p>
-      </td></tr>
-
-      <tr><td style="padding:32px 40px 24px;">
-        <p style="margin:0 0 16px;font-size:16px;color:#111;">Hi ${firstName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Based on your strong interest in <strong>${viewing.property_address}</strong>, I wanted to reach out about the next step.</p>
-
-        ${listPrice ? `<div style="background:#f0f7ff;border-radius:8px;padding:16px;margin-bottom:20px;text-align:center;">
-          <p style="margin:0;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.05em;">List Price</p>
-          <p style="margin:4px 0 0;font-size:24px;font-weight:bold;color:#1d4ed8;">${listPrice}</p>
-        </div>` : ''}
-
-        <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6;">I've set up a simple page where you can let me know what you'd like to do. You have three options:</p>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:8px;">
-            <p style="margin:0;font-size:14px;"><strong style="color:#059669;">Make an Offer</strong> - Enter your preferred price and any notes</p>
-          </td></tr>
-          <tr><td style="height:8px;"></td></tr>
-          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;">
-            <p style="margin:0;font-size:14px;"><strong style="color:#3b82f6;">Continue Searching</strong> - Keep looking at other options</p>
-          </td></tr>
-          <tr><td style="height:8px;"></td></tr>
-          <tr><td style="padding:12px;background:#f9fafb;border-radius:8px;">
-            <p style="margin:0;font-size:14px;"><strong style="color:#6b7280;">Pass</strong> - This one isn't the right fit</p>
-          </td></tr>
-        </table>
-
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td align="center">
-            <a href="${responseLink}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;padding:16px 40px;border-radius:8px;font-size:16px;font-weight:bold;text-decoration:none;">Let Me Know Your Decision</a>
-          </td></tr>
-        </table>
-
-        <p style="margin:24px 0 0;font-size:14px;color:#666;text-align:center;">No pressure - take your time. I'm here whenever you're ready.</p>
-      </td></tr>
-
-      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
-        <p style="margin:0 0 2px;font-size:14px;color:#555;">Regards,</p>
-        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
-        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR&reg; | eXp Realty</p>
-        <p style="margin:0;font-size:12px;color:#888;">Phone: ${agentPhone} | Email: ${agentEmail}</p>
-        <p style="margin:0;font-size:12px;color:#888;">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p style="margin:4px 0 0;font-size:12px;"><a href="https://maxwellmidodzi.exprealty.com" style="color:#3b82f6;text-decoration:none;">maxwellmidodzi.exprealty.com</a></p>
-      </td></tr>
-
-      <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #eee;">
-        <p style="margin:0;font-size:11px;color:#999;line-height:1.5;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>Based on your strong interest in <strong>${viewing.property_address}</strong>, I wanted to reach out about the next step.</p>
+        ${listPrice ? `<p><strong>List Price:</strong> ${listPrice}</p>` : ''}
+        <p>I've set up a simple page where you can let me know what you'd like to do — just click the button below:</p>
+        <p>• <strong>Make an Offer</strong> — enter your preferred price and any notes<br>• <strong>Continue Searching</strong> — keep looking at other options<br>• <strong>Pass</strong> — this one isn't the right fit</p>
+        <a class="cal-btn" href="${responseLink}">Let Me Know Your Decision</a>
+        <p style="font-size:12px;color:#999;margin:0 0 24px;">No pressure — take your time. I'm here whenever you're ready.</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+        <p class="sig-line"><a href="https://${agentWebsite || 'maxwellmidodzi.exprealty.com'}">${agentWebsite || 'maxwellmidodzi.exprealty.com'}</a></p>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
 
       return {
         subject: `Ready to Make an Offer? - ${viewing.property_address}`,
         body: `Hi ${firstName},
 
 Based on your strong interest in ${viewing.property_address}, I wanted to reach out about the next step.
-
-${listPrice ? `List Price: ${listPrice}\n` : ''}
+${listPrice ? `\nList Price: ${listPrice}\n` : ''}
 I've set up a simple page where you can let me know what you'd like to do:
-
 Click here to respond: ${responseLink}
 
 Your options:
-- Make an Offer (enter your preferred price and any notes)
-- Continue Searching (keep looking at other options)
-- Pass (this one isn't the right fit)
+• Make an Offer — enter your preferred price and any notes
+• Continue Searching — keep looking at other options
+• Pass — this one isn't the right fit
 
-No pressure - take your time. I'm here whenever you're ready!
+No pressure — take your time. I'm here whenever you're ready!
 
+Best regards,
 ${agentName}
-REALTOR | eXp Realty
-Phone: ${agentPhone} | Email: ${agentEmail}
+REALTOR® | eXp Realty
+${agentPhone} | ${agentEmail}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com`,
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`,
         html
       };
     },
@@ -850,59 +665,46 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const estClose = build.est_close_date || build.closing_date;
       const estCloseStr = estClose ? new Date(estClose).toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : null;
 
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
+      const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
 
-      <tr><td style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:28px 40px;text-align:center;">
-        <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Maxwell DealFlow</p>
-        <p style="margin:0;font-size:22px;font-weight:bold;color:#fff;">🏗️ Build Update</p>
-        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,.75);">${build.lot_address || 'Your New Home'}</p>
-      </td></tr>
-
-      <tr><td style="padding:32px 40px 24px;">
-        <p style="margin:0 0 16px;font-size:16px;color:#111;">Hi ${firstName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Exciting news! Your new home at <strong>${build.lot_address}</strong> has reached a new milestone.</p>
-
-        <div style="background:#dbeafe;border-radius:10px;padding:16px 20px;margin-bottom:24px;text-align:center;">
-          <p style="margin:0;font-size:12px;color:#1e40af;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">Current Stage</p>
-          <p style="margin:8px 0 0;font-size:20px;font-weight:800;color:#1d4ed8;">▶️ ${newStage}</p>
-        </div>
-
-        ${estCloseStr ? `<p style="margin:0 0 20px;font-size:14px;color:#555;">📅 <strong>Estimated Possession Date:</strong> ${estCloseStr}</p>` : ''}
-
-        <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em;">Build Progress</p>
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
-          ${stageRows}
-        </table>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-          <tr><td align="center">
-            <a href="${trackerLink}" style="display:inline-block;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:bold;text-decoration:none;">View Full Build Progress →</a>
-          </td></tr>
-        </table>
-
-        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">If you have any questions about this stage or the construction timeline, please don't hesitate to reach out.</p>
-      </td></tr>
-
-      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
-        <p style="margin:0 0 2px;font-size:14px;color:#555;">Warm regards,</p>
-        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
-        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR® | eXp Realty</p>
-        <p style="margin:0;font-size:12px;color:#888;">📞 ${agentPhone} &nbsp;|&nbsp; ✉️ ${agentEmail}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#888;">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-      </td></tr>
-
-      <tr><td style="padding:16px 40px;background:#f9fafb;border-top:1px solid #eee;">
-        <p style="margin:0;font-size:11px;color:#999;line-height:1.5;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+        .stage-row{padding:8px 0;border-bottom:1px solid #eee;font-size:14px;}
+        .stage-row:last-child{border-bottom:none;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>🏗️ Exciting news — your new home at <strong>${build.lot_address}</strong> has reached a new milestone!</p>
+        <p><strong>Current Stage: ▶️ ${newStage}</strong></p>
+        ${estCloseStr ? `<p>📅 <strong>Estimated Possession Date:</strong> ${estCloseStr}</p>` : ''}
+        <p><strong>Build Progress</strong></p>
+        <div>${STAGE_ORDER.map(s => {
+          const isDone = STAGE_ORDER.indexOf(s) < STAGE_ORDER.indexOf(newStage);
+          const isCurrent = s === newStage;
+          const icon = isDone ? '✅' : isCurrent ? '▶️' : '○';
+          const color = isDone ? '#059669' : isCurrent ? '#1a6ef5' : '#9ca3af';
+          const weight = isCurrent ? 'font-weight:700;' : '';
+          return `<div class="stage-row" style="color:${color};${weight}">${icon}&nbsp; ${s}</div>`;
+        }).join('')}</div>
+        <br>
+        <a class="cal-btn" href="${trackerLink}">View Full Build Progress →</a>
+        <p style="font-size:12px;color:#999;margin:0 0 16px;">Click above to view your complete build tracker.</p>
+        <p>If you have any questions about this stage or the construction timeline, please don't hesitate to reach out.</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
+        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
 
       const body = `Hi ${firstName},
 
@@ -1002,52 +804,36 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
           </td>
         </tr>`).join('');
 
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;max-width:600px;width:100%;">
-
-      <tr><td style="padding:32px 40px 24px;">
-        <p style="margin:0 0 8px;font-size:28px;">🎉 <strong style="color:#4f46e5;">Welcome!</strong></p>
-        <p style="margin:0 0 20px;font-size:16px;color:#111;">Hi ${firstName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6;">Thank you for choosing me as your real estate agent! I'm excited to help you find your perfect home.</p>
-        <p style="margin:0 0 20px;font-size:15px;color:#333;">Here's what happens next:</p>
-
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:8px;overflow:hidden;padding:0 16px;">
-          ${stepsHTML}
-        </table>
-
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+        .step-row{padding:12px 0;border-bottom:1px solid #eee;font-size:14px;}
+        .step-row:last-child{border-bottom:none;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>🎉 <strong>Welcome!</strong> Thank you for choosing me as your real estate agent. I'm excited to help you find your perfect home.</p>
+        <p><strong>Here's what happens next:</strong></p>
+        <div>
+          ${steps.map(s => `<div class="step-row"><strong>${s.n}. ${s.title}</strong> — ${s.desc}</div>`).join('')}
+        </div>
         ${criteriaLines.length ? `
-        <div style="margin-top:24px;padding:16px;background:#f9f9f9;border-radius:8px;">
-          <p style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:.05em;">Your Search Criteria on File</p>
-          ${criteriaHTML}
-        </div>` : ''}
-
-        <p style="margin:24px 0 0;font-size:15px;color:#333;line-height:1.6;">Feel free to reach out anytime — I'm here to help!</p>
-      </td></tr>
-
-      <tr><td style="padding:24px 40px;border-top:1px solid #eee;">
-        <p style="margin:0 0 4px;font-size:14px;color:#555;">Regards,</p>
-        <p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#111;">${agentName}</p>
-        <p style="margin:0 0 2px;font-size:13px;color:#555;">REALTOR® | eXp Realty</p>
-      </td></tr>
-
-      <tr><td style="background:#f8f8f8;padding:20px 40px;border-top:1px solid #eee;text-align:center;">
-        <p style="margin:0 0 4px;font-size:12px;color:#888;">Phone: ${agentPhone} | Email: <a href="mailto:${agentEmail}" style="color:#4f46e5;">${agentEmail}</a></p>
-        <p style="margin:0 0 4px;font-size:12px;color:#888;">eXp Realty, ${agentAddress}</p>
-        <p style="margin:0;font-size:12px;color:#888;"><a href="https://${agentWebsite}" style="color:#4f46e5;">${agentWebsite}</a></p>
-      </td></tr>
-
-      <tr><td style="padding:16px 40px;background:#f8f8f8;border-top:1px solid #eee;">
-        <p style="margin:0;font-size:11px;color:#aaa;line-height:1.6;text-align:center;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+        <p style="margin-top:20px;"><strong>Your Search Criteria on File</strong></p>
+        <div>${criteriaHTML}</div>` : ''}
+        <p style="margin-top:20px;">Feel free to reach out anytime — I'm here to help!</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, ${agentAddress}</p>
+        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
 
       const plainText = `Hi ${firstName},
 
@@ -1061,10 +847,10 @@ Here's what happens next:
 
 Feel free to reach out anytime — I'm here to help!
 
-Regards,
+Best regards,
 ${agentName}
 REALTOR® | eXp Realty
-Phone: ${agentPhone} | Email: ${agentEmail}
+${agentPhone} | ${agentEmail}
 eXp Realty, ${agentAddress}
 ${agentWebsite}
 
