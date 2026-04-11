@@ -2,13 +2,15 @@
 const Approvals = {
   async load() {
     const el = document.getElementById('approvals-list');
-    if (!currentAgent?.id) {
-      // Retry after short delay in case agent is still loading
+    // Always use auth.uid() to match RLS policy — same as what Notify.queue inserts
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    if (!agentId) {
       setTimeout(() => Approvals.load(), 800);
       return;
     }
     const { data } = await db.from('approval_queue')
-      .select('*').eq('agent_id', currentAgent.id)
+      .select('*').eq('agent_id', agentId)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false }).limit(50);
     const pending = data || [];

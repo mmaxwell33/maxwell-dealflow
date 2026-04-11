@@ -842,7 +842,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   },
 
   async updateBadge() {
-    const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
     if (!agentId) return;
     const { count } = await db.from('approval_queue')
       .select('*', { count: 'exact', head: true })
