@@ -364,27 +364,13 @@ const Viewings = {
     await db.from('viewings').update({ ...update, updated_at: new Date().toISOString() }).eq('id', viewingId);
 
     if (decision === 'make_offer') {
-      // Prompt for offer amount
-      const amt = prompt('Enter the offer amount the client discussed with you ($):');
-      const note = prompt('Any notes from your conversation? (optional)');
-      if (amt && parseFloat(amt) > 0) {
-        const v = Viewings.all.find(x => x.id === viewingId) || {};
-        const client = Clients.all.find(c => c.id === v.client_id);
-        if (client && currentAgent) {
-          await db.from('pending_offers').insert({
-            viewing_id: viewingId,
-            client_id: v.client_id,
-            agent_id: currentAgent.id,
-            client_name: client.full_name,
-            property_address: v.property_address,
-            list_price: v.list_price,
-            offer_amount: parseFloat(amt),
-            client_note: note || null,
-            status: 'Pending'
-          });
-        }
-      }
-      App.toast('✅ Offer interest recorded. Response link expired.');
+      const v = Viewings.all.find(x => x.id === viewingId) || {};
+      const client = Clients.all.find(c => c.id === v.client_id);
+      await Viewings.load();
+      App.closeModal();
+      // Open full manual offer entry modal
+      setTimeout(() => Viewings.openManualOfferModal(v, client), 300);
+      return;
     } else if (decision === 'cancelled') {
       App.toast('❌ Viewing marked cancelled. Response link expired.');
     } else if (decision === 'rescheduled') {
@@ -406,5 +392,176 @@ const Viewings = {
     App.toast('🗑 Viewing deleted');
     Viewings.load();
     App.loadOverview();
-  }
+  },
+
+  // ── MANUAL OFFER ENTRY MODAL ───────────────────────────────────────────────
+  openManualOfferModal(v, client) {
+    const clientName = client?.full_name || v.client_name || '—';
+    const today = new Date().toISOString().slice(0, 10);
+    App.openModal(`
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">📄 Log Offer Manually</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">
+        ${clientName} · ${v.property_address || '—'}
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">OFFER AMOUNT ($)</label>
+          <input class="form-input" id="mo-offer-amt" type="number" placeholder="e.g. 430000" value="${v.list_price || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ASKING / LIST PRICE ($)</label>
+          <input class="form-input" id="mo-list-price" type="number" placeholder="e.g. 450000" value="${v.list_price || ''}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">OFFER DATE</label>
+          <input class="form-input" id="mo-offer-date" type="date" value="${today}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">OFFER STATUS</label>
+          <select class="form-input form-select" id="mo-offer-status">
+            <option value="Submitted">Submitted</option>
+            <option value="Accepted">Accepted ✅</option>
+            <option value="Countered">Countered 🔄</option>
+            <option value="Rejected">Rejected ❌</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CONDITIONS (optional)</label>
+        <input class="form-input" id="mo-conditions" placeholder="e.g. Financing, Home Inspection">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">FINANCING DATE</label>
+          <input class="form-input" id="mo-fin-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">INSPECTION DATE</label>
+          <input class="form-input" id="mo-ins-date" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">CLOSING DATE</label>
+          <input class="form-input" id="mo-close-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PIPELINE STAGE</label>
+          <select class="form-input form-select" id="mo-pipeline-stage">
+            <option value="In Offer">In Offer</option>
+            <option value="Accepted">Accepted</option>
+            <option value="Conditions">Conditions</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NOTES</label>
+        <input class="form-input" id="mo-notes" placeholder="e.g. Seller accepted at asking, waived inspection">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="Viewings.submitManualOffer('${v.id}','${client?.id || ''}','${clientName.replace(/'/g,"\\'")}','${v.property_address?.replace(/'/g,"\\'") || ''}','${client?.email || ''}')">
+          🚀 Save Offer &amp; Add to Pipeline
+        </button>
+      </div>
+      <div id="mo-status" style="font-size:13px;text-align:center;margin-top:8px;"></div>
+    `);
+  },
+
+  async submitManualOffer(viewingId, clientId, clientName, propertyAddress, clientEmail) {
+    const st = document.getElementById('mo-status');
+    if (st) { st.textContent = 'Saving...'; st.style.color = 'var(--text2)'; }
+
+    const offerAmt   = parseFloat(document.getElementById('mo-offer-amt')?.value) || 0;
+    const listPrice  = parseFloat(document.getElementById('mo-list-price')?.value) || 0;
+    const offerDate  = document.getElementById('mo-offer-date')?.value || null;
+    const offerStatus = document.getElementById('mo-offer-status')?.value || 'Submitted';
+    const conditions = document.getElementById('mo-conditions')?.value?.trim() || null;
+    const finDate    = document.getElementById('mo-fin-date')?.value || null;
+    const insDate    = document.getElementById('mo-ins-date')?.value || null;
+    const closeDate  = document.getElementById('mo-close-date')?.value || null;
+    const pipeStage  = document.getElementById('mo-pipeline-stage')?.value || 'In Offer';
+    const notes      = document.getElementById('mo-notes')?.value?.trim() || null;
+
+    if (!offerAmt) {
+      if (st) { st.textContent = '⚠️ Please enter an offer amount'; st.style.color = 'var(--red)'; }
+      return;
+    }
+
+    // 1. Save to offers table
+    const { data: offer, error: offerErr } = await db.from('offers').insert({
+      agent_id: currentAgent.id,
+      client_id: clientId || null,
+      client_name: clientName,
+      property_address: propertyAddress,
+      list_price: listPrice || null,
+      offer_amount: offerAmt,
+      offer_date: offerDate,
+      status: offerStatus,
+      conditions: conditions,
+      notes: notes,
+    }).select().maybeSingle();
+
+    if (offerErr) {
+      if (st) { st.textContent = '❌ ' + offerErr.message; st.style.color = 'var(--red)'; }
+      return;
+    }
+
+    // 2. Upsert pipeline entry
+    const { data: existing } = await db.from('pipeline')
+      .select('id').eq('agent_id', currentAgent.id)
+      .ilike('client_name', clientName).limit(1).maybeSingle();
+
+    const pipelineData = {
+      agent_id: currentAgent.id,
+      client_name: clientName,
+      client_id: clientId || null,
+      client_email: clientEmail || null,
+      property_address: propertyAddress,
+      offer_amount: offerAmt,
+      offer_date: offerDate,
+      stage: pipeStage,
+      status: 'Active',
+      conditions: conditions,
+      financing_date: finDate || null,
+      inspection_date: insDate || null,
+      closing_date: closeDate || null,
+      notes: notes,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existing?.id) {
+      await db.from('pipeline').update(pipelineData).eq('id', existing.id);
+    } else {
+      pipelineData.pipeline_id = 'OFFER-' + Date.now();
+      pipelineData.acceptance_date = offerDate;
+      await db.from('pipeline').insert(pipelineData);
+    }
+
+    // 3. Queue offer submitted email for approval
+    if (clientEmail && typeof Notify !== 'undefined') {
+      const agent = currentAgent;
+      const tmpl = Notify.templates.offer_submitted(
+        { full_name: clientName, email: clientEmail },
+        { property_address: propertyAddress, offer_amount: offerAmt, list_price: listPrice, offer_date: offerDate, conditions },
+        agent
+      );
+      await Notify.queue('Offer Submitted', clientId || null, clientName, clientEmail, tmpl.subject, tmpl.body, offer?.id || null);
+    }
+
+    if (st) { st.textContent = '✅ Saved!'; st.style.color = 'var(--green)'; }
+    App.toast(`✅ Offer logged & ${clientName} added to Pipeline (${pipeStage})`, 'var(--green)');
+
+    setTimeout(() => {
+      App.closeModal();
+      Viewings.load();
+      App.loadOverview();
+      if (typeof Pipeline !== 'undefined') Pipeline.load();
+      if (typeof Offers !== 'undefined') Offers.load?.();
+    }, 600);
+  },
 };

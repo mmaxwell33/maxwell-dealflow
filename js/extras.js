@@ -1161,7 +1161,7 @@ const NewBuilds = {
       const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote, highlightStage: stageKey, highlightStep: stepKey });
       const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${stage.steps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will keep you updated as your home progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
       if (typeof Notify !== 'undefined') {
-        await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
+        await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, null, html, null, b.cc_email || null);
       }
       return;
     }
@@ -1171,7 +1171,7 @@ const NewBuilds = {
     const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote: stage.emailHeadline, highlightStage: stageKey });
     const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline}\n\nProperty: ${property}\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✅' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as we move to the next stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
     if (typeof Notify !== 'undefined') {
-      await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, b.id, html, null, b.cc_email || null);
+      await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, null, html, null, b.cc_email || null);
     }
   },
 
@@ -1380,17 +1380,19 @@ const NewBuilds = {
     App.closeModal();
 
     if (typeof Notify !== 'undefined') {
-      await Notify.queue(
+      const ok = await Notify.queue(
         'New Build Update',
         clientId, b.client_name, clientEmail || '',
-        subject, plainBody, b.id,
+        subject, plainBody, null,  // pass null for relatedId — avoids FK constraint
         html,
         null,
         b.cc_email || null
       );
-      App.toast('📬 Build update queued in Approvals!', 'var(--green)');
-      App.switchTab('approvals');
-      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 500);
+      if (ok !== false) {
+        App.toast('📬 Build update queued in Approvals!', 'var(--green)');
+        App.switchTab('approvals');
+        if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
+      }
     } else {
       App.switchTab('email');
       setTimeout(() => {
