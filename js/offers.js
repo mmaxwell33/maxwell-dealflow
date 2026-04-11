@@ -409,6 +409,19 @@ const Pipeline = {
     await db.from('deal_checklist').insert(rows);
   },
 
+  // Returns deadline status info for a date string
+  deadlineStatus(dateStr) {
+    if (!dateStr) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(dateStr); d.setHours(0,0,0,0);
+    const diffDays = Math.round((d - today) / 86400000);
+    if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, color: 'var(--red)', icon: '🔴' };
+    if (diffDays === 0) return { label: 'Today!', color: '#f97316', icon: '🟠' };
+    if (diffDays <= 3) return { label: `${diffDays}d left`, color: '#f97316', icon: '🟠' };
+    if (diffDays <= 7) return { label: `${diffDays}d left`, color: '#eab308', icon: '🟡' };
+    return { label: `${diffDays}d away`, color: 'var(--green)', icon: '🟢' };
+  },
+
   render(list) {
     const el = document.getElementById('pipeline-list');
     if (!list.length) {
@@ -425,26 +438,58 @@ const Pipeline = {
       const steps = ['Accepted','Conditions','Closing','Closed'];
       const si = steps.indexOf(d.stage);
       const pct = isClosed ? 100 : isFell ? 0 : Math.max(10, Math.round((Math.max(0,si) / (steps.length-1)) * 100));
-      const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'var(--accent2)';
+
+      // Progress bar color changes by milestone: red if overdue/fell, orange if closing soon, green if closed, blue otherwise
+      let barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'var(--accent2)';
+      if (!isClosed && !isFell && d.closing_date) {
+        const closingStatus = Pipeline.deadlineStatus(d.closing_date);
+        if (closingStatus) {
+          if (closingStatus.color === 'var(--red)') barColor = 'var(--red)';
+          else if (closingStatus.color === '#f97316') barColor = '#f97316';
+          else if (closingStatus.color === '#eab308') barColor = '#eab308';
+        }
+      }
+
       const badge = isClosed ? 'badge-accepted' : isFell ? 'badge-rejected' : si>=2?'badge-viewings':'badge-conditions';
       const statusLine = isClosed ? '<span style="color:var(--green);">✅ Deal Complete</span>' : isFell ? '<span style="color:var(--red);">❌ Deal Fell Through</span>' : `<span style="color:var(--text2);">📋 Stage: ${d.stage}</span>`;
+
+      // Helper to render a deadline field with urgency badge
+      const dateField = (label, icon, inputId, dateVal, isReadonly) => {
+        const st = (!isClosed && !isFell) ? Pipeline.deadlineStatus(dateVal) : null;
+        const urgencyBadge = st ? `<span style="font-size:10px;font-weight:700;color:${st.color};margin-left:4px;">${st.icon} ${st.label}</span>` : '';
+        const borderStyle = st ? `border-color:${st.color === 'var(--green)' ? 'var(--border)' : st.color};` : '';
+        const autoSave = !isClosed && !isFell ? `onchange="Pipeline.autoSaveDates('${d.id}')"` : '';
+        return `<div>
+          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">${icon} ${label}${urgencyBadge}</div>
+          <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" ${autoSave} style="font-size:12px;padding:5px 8px;${borderStyle}" ${isReadonly ? 'readonly' : ''}>
+        </div>`;
+      };
+
+      const updatedAt = d.updated_at ? new Date(d.updated_at) : null;
+      const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
+
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
           <span class="stage-badge ${badge}">${d.stage}</span>
         </div>
-        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:8px;">
-          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
+        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
+          <div id="pl-bar-${d.id}" style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:background 0.4s,width 0.4s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
+          <span>${steps.filter((_,i)=>i>0).map((s,i)=>`<span style="color:${si>i?'var(--green)':si===i+1?barColor:'var(--text3)'}">${s}</span>`).join(' › ')}</span>
+          <span>${pct}%</span>
         </div>
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
         <div style="font-size:13px;margin-bottom:10px;">💰 Offer: <strong>${App.fmtMoney(d.offer_amount)}</strong>${d.deposit_paid?' · 📥 Deposit: Yes':' · 📥 Deposit: No'}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">✅ Acceptance</div><input class="form-input" type="date" id="pl-acc-${d.id}" value="${d.acceptance_date||''}" style="font-size:12px;padding:5px 8px;"></div>
-          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🏦 Financing</div><input class="form-input" type="date" id="pl-fin-${d.id}" value="${d.financing_date||''}" style="font-size:12px;padding:5px 8px;"></div>
-          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🔍 Inspection</div><input class="form-input" type="date" id="pl-ins-${d.id}" value="${d.inspection_date||''}" style="font-size:12px;padding:5px 8px;"></div>
-          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">🚶 Walkthrough</div><input class="form-input" type="date" id="pl-walk-${d.id}" value="${d.walkthrough_date||''}" style="font-size:12px;padding:5px 8px;"></div>
-          <div><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">📅 Closing</div><input class="form-input" type="date" id="pl-close-${d.id}" value="${d.closing_date||''}" style="font-size:12px;padding:5px 8px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+          ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
+          ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
+          ${dateField('Inspection','🔍',`pl-ins-${d.id}`,d.inspection_date)}
+          ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date)}
+          ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date)}
         </div>
+        <div id="pl-save-status-${d.id}" style="font-size:11px;color:var(--text3);min-height:16px;margin-bottom:6px;text-align:right;"></div>
         <button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">💾 Save Dates</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${isClosed ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
@@ -455,7 +500,7 @@ const Pipeline = {
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px;">Updated: ${d.updated_at ? new Date(d.updated_at).toLocaleString() : '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
       </div>`;
     };
 
@@ -503,6 +548,62 @@ const Pipeline = {
     }
     App.toast('💾 Dates saved!');
     Pipeline.load();
+  },
+
+  // Auto-save triggered on date input change — no full reload, just saves & updates timestamp
+  _autoSaveTimers: {},
+  autoSaveDates(id) {
+    // Debounce: wait 800ms after last change before saving
+    clearTimeout(Pipeline._autoSaveTimers[id]);
+    const statusEl = document.getElementById(`pl-save-status-${id}`);
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--text3);">✏️ Unsaved changes…</span>';
+    Pipeline._autoSaveTimers[id] = setTimeout(async () => {
+      const acc   = document.getElementById(`pl-acc-${id}`)?.value;
+      const fin   = document.getElementById(`pl-fin-${id}`)?.value;
+      const ins   = document.getElementById(`pl-ins-${id}`)?.value;
+      const walk  = document.getElementById(`pl-walk-${id}`)?.value;
+      const close = document.getElementById(`pl-close-${id}`)?.value;
+      const now = new Date().toISOString();
+      const updates = { updated_at: now };
+      if (acc   !== undefined) updates.acceptance_date  = acc   || null;
+      if (fin   !== undefined) updates.financing_date   = fin   || null;
+      if (ins   !== undefined) updates.inspection_date  = ins   || null;
+      if (walk  !== undefined) updates.walkthrough_date = walk  || null;
+      if (close !== undefined) updates.closing_date     = close || null;
+      const { error } = await db.from('pipeline').update(updates).eq('id', id);
+      if (!error) {
+        // Update in-memory cache so deadline badges refresh without full reload
+        const rec = Pipeline.all.find(x => x.id === id);
+        if (rec) {
+          Object.assign(rec, updates);
+          if (acc   !== undefined) rec.acceptance_date  = acc   || null;
+          if (fin   !== undefined) rec.financing_date   = fin   || null;
+          if (ins   !== undefined) rec.inspection_date  = ins   || null;
+          if (walk  !== undefined) rec.walkthrough_date = walk  || null;
+          if (close !== undefined) rec.closing_date     = close || null;
+        }
+        // Update the "Updated" timestamp label in-place
+        const updEl = document.getElementById(`pl-updated-${id}`);
+        if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
+        // Update progress bar color live if closing date changed
+        if (close !== undefined) {
+          const bar = document.getElementById(`pl-bar-${id}`);
+          if (bar && rec && !['Closed','Fell Through'].includes(rec.stage)) {
+            let barColor = 'var(--accent2)';
+            if (close) {
+              const cs = Pipeline.deadlineStatus(close);
+              if (cs?.color === 'var(--red)') barColor = 'var(--red)';
+              else if (cs?.color === '#f97316') barColor = '#f97316';
+              else if (cs?.color === '#eab308') barColor = '#eab308';
+            }
+            bar.style.background = barColor;
+          }
+        }
+        if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ Saved at ${new Date(now).toLocaleTimeString()}</span>`;
+      } else {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Save failed — try Save Dates</span>';
+      }
+    }, 800);
   },
 
   async closeDeal(id) {
