@@ -784,11 +784,14 @@ const NewBuilds = {
   async populateClients() {
     const sel = document.getElementById('nb-client-sel');
     if (!sel) return;
-    let clients = window.Clients?.all || [];
-    if (!clients.length && currentAgent?.id) {
+    // Always fetch fresh from DB to guarantee dropdown is populated
+    let clients = [];
+    if (currentAgent?.id) {
       const { data } = await db.from('clients').select('id,full_name').eq('agent_id', currentAgent.id).order('full_name');
       clients = data || [];
     }
+    // Fallback to in-memory cache if DB fetch returned nothing
+    if (!clients.length) clients = window.Clients?.all || [];
     sel.innerHTML = '<option value="">-- Select Existing Client --</option>' +
       clients.map(c => `<option value="${c.id}" data-name="${c.full_name}">${c.full_name}</option>`).join('');
   },
