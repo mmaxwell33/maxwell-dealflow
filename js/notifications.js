@@ -802,9 +802,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
   async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null) {
-    // Use agent id, or fall back to auth user id if agent record not in agents table
-    const agentId = currentAgent?.id || (await db.auth.getUser())?.data?.user?.id;
-    if (!agentId) return;
+    // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
     // Pack html + ics into context_data as JSON so both survive the single-column storage
     let contextData = null;
     if (htmlBody || icsBase64 || ccEmail) {
