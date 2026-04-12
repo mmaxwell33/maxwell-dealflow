@@ -446,12 +446,13 @@ const Pipeline = {
       const badge = isClosed ? 'badge-accepted' : isFell ? 'badge-rejected' : si>=2?'badge-viewings':'badge-conditions';
       const statusLine = isClosed ? '<span style="color:var(--green);">✅ Deal Complete</span>' : isFell ? '<span style="color:var(--red);">❌ Deal Fell Through</span>' : `<span style="color:var(--text2);">📋 Stage: ${d.stage}</span>`;
 
-      // Clean date field — no badges, no coloured borders
+      // Clean date field — live progress preview on change
       const dateField = (label, icon, inputId, dateVal) => {
         const readonly = isClosed || isFell;
+        const onChange = readonly ? '' : `oninput="Pipeline.previewProgress('${d.id}')"`;
         return `<div>
           <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">${icon} ${label}</div>
-          <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" style="font-size:12px;padding:5px 8px;" ${readonly ? 'readonly' : ''}>
+          <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" style="font-size:12px;padding:5px 8px;" ${onChange} ${readonly ? 'readonly' : ''}>
         </div>`;
       };
 
@@ -467,7 +468,7 @@ const Pipeline = {
           <div id="pl-bar-${d.id}" style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
-          <span id="pl-milestone-lbl-${d.id}">${done} of ${total} milestones completed</span>
+          <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${done} of ${total} milestones passed ⓘ</span>
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
@@ -518,6 +519,24 @@ const Pipeline = {
     if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
   },
 
+  // Live-update progress bar as dates are typed — no DB write
+  previewProgress(id) {
+    const acc  = document.getElementById(`pl-acc-${id}`)?.value  || null;
+    const fin  = document.getElementById(`pl-fin-${id}`)?.value  || null;
+    const ins  = document.getElementById(`pl-ins-${id}`)?.value  || null;
+    const walk = document.getElementById(`pl-walk-${id}`)?.value || null;
+    const close= document.getElementById(`pl-close-${id}`)?.value|| null;
+    const preview = { acceptance_date: acc, financing_date: fin, inspection_date: ins, walkthrough_date: walk, closing_date: close };
+    const { done, total } = Pipeline.milestonesDone(preview);
+    const pct = Math.round((done / total) * 100);
+    const bar = document.getElementById(`pl-bar-${id}`);
+    if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
+    const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
+    if (lbl) lbl.textContent = `${done} of ${total} milestones passed ⓘ`;
+    const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
+    if (pctLbl) pctLbl.textContent = `${pct}%`;
+  },
+
   async saveDates(id) {
     const acc  = document.getElementById(`pl-acc-${id}`)?.value  || null;
     const fin  = document.getElementById(`pl-fin-${id}`)?.value  || null;
@@ -565,9 +584,9 @@ const Pipeline = {
     const { done, total } = Pipeline.milestonesDone(merged);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
-    if (bar) bar.style.width = `${pct}%`;
+    if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
-    if (lbl) lbl.textContent = `${done} of ${total} milestones completed`;
+    if (lbl) lbl.textContent = `${done} of ${total} milestones passed ⓘ`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
     if (pctLbl) pctLbl.textContent = `${pct}%`;
     const updEl = document.getElementById(`pl-updated-${id}`);
