@@ -629,12 +629,13 @@
             <input class="form-input" id="email-cc" placeholder="person1@email.com, person2@email.com">
           </div>
           <div class="form-group">
-            <label class="form-label">ATTACHMENT LINK (OPTIONAL)</label>
-            <input class="form-input" id="email-attachment" placeholder="Paste Google Drive link (optional)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">UPLOAD FILE (OPTIONAL)</label>
-            <input type="file" id="email-file" class="form-input" style="padding:8px;cursor:pointer;">
+            <label class="form-label">ATTACHMENTS (OPTIONAL — PDF, WORD, IMAGES · MAX 5 MB EACH)</label>
+            <div class="attach-picker" onclick="document.getElementById('email-files-input').click()">
+              📎 Click to attach files (or drag &amp; drop)
+              <input type="file" id="email-files-input" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xlsx,.csv,.txt" style="display:none;"
+                onchange="EmailSend.addFiles(this.files,'email');this.value=''">
+            </div>
+            <div id="email-file-chips" class="file-chips"></div>
           </div>
           <div style="display:flex;gap:10px;">
             <button class="btn btn-outline" onclick="EmailSend.preview()">👁 Preview</button>
@@ -684,18 +685,16 @@
             <input class="form-input" id="ext-cc" placeholder="person1@email.com, person2@email.com">
           </div>
           <div class="form-group">
-            <label class="form-label">ATTACHMENT LINK (OPTIONAL)</label>
-            <input class="form-input" id="ext-attachment" placeholder="Paste Google Drive link (optional)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">UPLOAD FILE (OPTIONAL)</label>
-            <div class="drop-zone" id="ext-drop-zone"
-              onclick="document.getElementById('ext-file').click()"
+            <label class="form-label">ATTACHMENTS (OPTIONAL — PDF, WORD, IMAGES · MAX 5 MB EACH)</label>
+            <div class="attach-picker"
+              onclick="document.getElementById('ext-files-input').click()"
               ondragover="event.preventDefault()"
-              ondrop="EmailSend.handleDrop(event)">
-              🔗 Drag &amp; Drop Files Here or Click to Add
-              <input type="file" id="ext-file" style="display:none;" onchange="EmailSend.showDropFile(this)">
+              ondrop="EmailSend.handleExtDrop(event)">
+              📎 Click to attach files (or drag &amp; drop)
+              <input type="file" id="ext-files-input" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xlsx,.csv,.txt" style="display:none;"
+                onchange="EmailSend.addFiles(this.files,'ext');this.value=''">
             </div>
+            <div id="ext-file-chips" class="file-chips"></div>
           </div>
           <button class="btn btn-primary" onclick="EmailSend.sendExternal()">📨 Send External Email</button>
           <div id="ext-status" style="margin-top:10px;font-size:13px;"></div>

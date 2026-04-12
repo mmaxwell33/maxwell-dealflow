@@ -899,20 +899,106 @@ const Pipeline = {
     const id = Pipeline._roomId;
     const el = document.getElementById('room-docs-list');
     if (!el || !id) return;
-    const defaultDocs = [
-      'Accepted Offer Agreement', 'Home Inspection Report',
-      'Mortgage Approval Letter', 'Title Search / Certificate',
-      'Home Insurance Proof', 'Final Walkthrough Notes',
-      'Deposit Receipt', 'Closing Statement / Adjustment'
+
+    // Document checklist with category groups, required/optional flags
+    const CATS = [
+      {
+        name: 'Agreement & Offer',
+        icon: '📄',
+        docs: [
+          { name: 'Accepted Offer to Purchase',          req: true  },
+          { name: 'Counter-Offer / Amendment (if any)',  req: false },
+          { name: 'Buyer Representation Agreement',      req: true  },
+          { name: 'Schedule A — Additional Clauses',     req: false },
+        ]
+      },
+      {
+        name: 'Financial & Mortgage',
+        icon: '🏦',
+        docs: [
+          { name: 'Mortgage Pre-Approval Letter',        req: true  },
+          { name: 'Deposit Receipt / Proof of Funds',    req: true  },
+          { name: 'Financing Condition Waiver',          req: false },
+          { name: 'Mortgage Commitment Letter',          req: false },
+        ]
+      },
+      {
+        name: 'Inspection & Due Diligence',
+        icon: '🔍',
+        docs: [
+          { name: 'Home Inspection Report',              req: true  },
+          { name: 'Inspection Condition Waiver',         req: true  },
+          { name: 'Septic / Well Inspection (if rural)', req: false },
+          { name: 'Condo Status Certificate',            req: false },
+        ]
+      },
+      {
+        name: 'Title & Closing',
+        icon: '🔑',
+        docs: [
+          { name: 'Title Search / Certificate',          req: true  },
+          { name: 'Closing Statement / Adjustment Sheet',req: true  },
+          { name: 'Final Walkthrough Confirmation',      req: true  },
+          { name: 'Transfer / Deed of Land',             req: true  },
+        ]
+      },
+      {
+        name: 'Insurance & Additional',
+        icon: '🛡️',
+        docs: [
+          { name: 'Home Insurance Binder / Proof',       req: true  },
+          { name: 'UFFI / Insulation Warranty',          req: false },
+          { name: 'Chattels & Fixtures List',            req: false },
+          { name: 'Strata / HOA Docs (if applicable)',   req: false },
+        ]
+      }
     ];
-    const checked = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
-    el.innerHTML = defaultDocs.map((doc, i) => {
-      const isChecked = checked.includes(i);
-      return `<div class="room-doc-item ${isChecked ? 'checked' : ''}" onclick="Pipeline.toggleDoc(${i})">
-        <span style="font-size:18px;">${isChecked ? '✅' : '⬜'}</span>
-        <span style="font-size:13px;font-weight:${isChecked?'600':'400'};color:${isChecked?'var(--green)':'var(--text)'};">${App.esc(doc)}</span>
+
+    // Flatten for index-based storage
+    const ALL_DOCS = CATS.flatMap(c => c.docs);
+    const checked  = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
+    const reqTotal = ALL_DOCS.filter(d => d.req).length;
+    const reqDone  = ALL_DOCS.filter((d, i) => d.req && checked.includes(i)).length;
+    const allDone  = ALL_DOCS.filter((d, i) => checked.includes(i)).length;
+    const pct      = reqTotal ? Math.round(reqDone / reqTotal * 100) : 0;
+
+    // Progress header
+    let html = `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:700;color:var(--text);">${reqDone} of ${reqTotal} required docs completed</span>
+          <span style="font-size:12px;color:var(--text2);">${allDone} / ${ALL_DOCS.length} total</span>
+        </div>
+        <div style="background:var(--border);border-radius:6px;height:6px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':pct>=60?'var(--accent)':'var(--accent2)'};border-radius:6px;transition:width .3s;"></div>
+        </div>
       </div>`;
-    }).join('');
+
+    let globalIdx = 0;
+    for (const cat of CATS) {
+      html += `<div class="rdoc-category">
+        <div class="rdoc-cat-header">${cat.icon} ${cat.name}</div>`;
+      cat.docs.forEach((doc, localIdx) => {
+        const i = globalIdx++;
+        const done = checked.includes(i);
+        const badge = doc.req
+          ? `<span class="rdoc-badge rdoc-req">Required</span>`
+          : `<span class="rdoc-badge rdoc-opt">If Applicable</span>`;
+        html += `
+        <div class="room-doc-item ${done ? 'checked' : ''}" onclick="Pipeline.toggleDoc(${i})">
+          <div class="rdoc-check ${done ? 'rdoc-check-done' : ''}">
+            ${done ? '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+          </div>
+          <div class="rdoc-body">
+            <span class="rdoc-name ${done ? 'rdoc-name-done' : ''}">${App.esc(doc.name)}</span>
+            ${badge}
+          </div>
+          <span class="rdoc-num">${(localIdx + 1).toString().padStart(2, '0')}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    el.innerHTML = html;
   },
 
   toggleDoc(idx) {

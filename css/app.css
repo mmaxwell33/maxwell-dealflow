@@ -773,6 +773,16 @@ body.theme-light input[type="date"]{color-scheme:light;}
 .drop-zone{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--text2);font-size:13px;cursor:pointer;transition:border-color 0.2s,background 0.2s;}
 .drop-zone:hover{border-color:var(--accent2);background:rgba(59,130,246,0.04);}
 
+/* ── ATTACH PICKER & FILE CHIPS ── */
+.attach-picker{border:2px dashed var(--border);border-radius:8px;padding:14px 18px;text-align:center;color:var(--text2);font-size:13px;cursor:pointer;transition:border-color .2s,background .2s;user-select:none;}
+.attach-picker:hover{border-color:var(--accent);background:rgba(91,91,214,.05);}
+.file-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.file-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(91,91,214,.1);border:1px solid rgba(91,91,214,.25);border-radius:20px;padding:4px 10px 4px 8px;font-size:12px;color:var(--text1);max-width:240px;}
+.file-chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+.file-chip button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 2px;transition:color .15s;}
+.file-chip button:hover{color:var(--red);}
+body.theme-light .file-chip{background:rgba(91,91,214,.08);border-color:rgba(91,91,214,.2);}
+
 /* ── ANALYTICS STAT YELLOW ── */
 .stat-yellow{border-top:3px solid var(--yellow);}
 .stat-yellow .stat-num{color:var(--yellow);}
@@ -952,8 +962,22 @@ body.theme-light input[type="date"]{color-scheme:light;}
 .room-party-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
 .room-timeline-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
 .room-tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;}
-.room-doc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;}
+.room-doc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;transition:border-color .15s,background .15s;}
 .room-doc-item:hover{border-color:var(--accent);}
 .room-doc-item.checked{border-color:var(--green);background:rgba(16,185,129,.05);}
+/* SkySlope-inspired doc checklist */
+.rdoc-category{margin-bottom:18px;}
+.rdoc-cat-header{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+.rdoc-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;}
+.rdoc-check-done{background:var(--green);border-color:var(--green);}
+.rdoc-body{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.rdoc-name{font-size:13px;color:var(--text);}
+.rdoc-name-done{text-decoration:line-through;color:var(--text3);}
+.rdoc-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.03em;}
+.rdoc-req{background:rgba(239,68,68,.1);color:#ef4444;}
+.rdoc-opt{background:rgba(107,114,128,.1);color:var(--text3);}
+.rdoc-num{font-size:11px;font-weight:700;color:var(--text3);min-width:24px;text-align:right;}
+body.theme-light .rdoc-req{background:rgba(239,68,68,.08);}
+body.theme-light .rdoc-opt{background:rgba(107,114,128,.08);}
 body.theme-light .room-tab{color:var(--text2);}
 body.theme-light .room-tab.active{color:var(--accent);border-bottom-color:var(--accent);}

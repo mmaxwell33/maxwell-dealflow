@@ -79,26 +79,54 @@ const Approvals = {
 
   _data: [],
 
+  _sending: new Set(), // in-memory lock — prevents double-tapping Approve
+
   async approve(id) {
+    // ── SEND LOCK — block if already in flight ──────────────────────────────
+    if (Approvals._sending.has(id)) {
+      App.toast('⏳ Already sending this email — please wait', 'var(--yellow)');
+      return;
+    }
+    Approvals._sending.add(id);
+
     const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
-    if (!item) return;
+    if (!item) { Approvals._sending.delete(id); return; }
+
+    // ── DEDUP CHECK — block if same email already sent in last 24h ──────────
+    try {
+      const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
+      const { data: dupes } = await db.from('approval_queue')
+        .select('id')
+        .eq('agent_id', item.agent_id)
+        .eq('client_email', item.client_email || '')
+        .eq('email_subject', item.email_subject || '')
+        .eq('status', 'Approved')
+        .gte('updated_at', oneDayAgo)
+        .neq('id', id)
+        .limit(1);
+      if (dupes?.length) {
+        App.toast('🛡️ Duplicate blocked — this exact email was already sent to this recipient within 24h', 'var(--yellow)');
+        Approvals._sending.delete(id);
+        return;
+      }
+    } catch { /* non-blocking — continue if check fails */ }
 
     App.toast('📨 Sending email...', 'var(--accent2)');
 
-    // Parse context_data first so we can use ccEmail in the to-fallback check
-    let htmlBody = null, icsAttachment = null, ccEmail = null;
+    // Parse context_data — html, ics, cc, and real file attachments
+    let htmlBody = null, icsAttachment = null, ccEmail = null, fileAttachments = null;
     if (item.context_data) {
       try {
         const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
-        // html may be base64-encoded — decode if it doesn't start with '<'
         const rawHtml = ctx.html || null;
         if (rawHtml && !rawHtml.startsWith('<')) {
           try { htmlBody = decodeURIComponent(escape(atob(rawHtml))); } catch { htmlBody = rawHtml; }
         } else {
           htmlBody = rawHtml;
         }
-        icsAttachment = ctx.ics || null;
-        ccEmail = ctx.cc || null;
+        icsAttachment   = ctx.ics         || null;
+        ccEmail         = ctx.cc          || null;
+        fileAttachments = ctx.attachments || null; // [{filename,mime_type,data}]
       } catch {
         htmlBody = item.context_data;
       }
@@ -125,6 +153,7 @@ const Approvals = {
             body: item.email_body || '',
             html: htmlBody,
             ics: icsAttachment,
+            attachments: fileAttachments || null,
             from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
             from_email: null
           })
@@ -134,6 +163,7 @@ const Approvals = {
           const errMsg = result.error || result.message || JSON.stringify(result);
           App.toast(`❌ Email failed: ${errMsg}`, 'var(--red)');
           console.error('Email send error:', result);
+          Approvals._sending.delete(id);
           return;
         }
         // Log sent email to inbox for threading
@@ -162,6 +192,8 @@ const Approvals = {
         App.toast(`✅ Email sent to ${item.client_name}!`, 'var(--green)');
       } catch (err) {
         App.toast(`❌ Error: ${err.message}`, 'var(--red)');
+      } finally {
+        Approvals._sending.delete(id);
       }
     } else {
       // No email on file — just mark approved
@@ -170,6 +202,7 @@ const Approvals = {
       Approvals.load();
       if (typeof Notify !== "undefined") Notify.updateBadge();
       App.toast('✅ Approved and logged!', 'var(--green)');
+      Approvals._sending.delete(id);
     }
   },
 
@@ -1529,6 +1562,42 @@ const NewBuilds = {
 
 // ── EMAIL SEND ──────────────────────────────────────────────────────────────
 const EmailSend = {
+  _emailFiles: [],  // [{filename, mime_type, data}] — files attached to client email
+  _extFiles:   [],  // [{filename, mime_type, data}] — files attached to external email
+
+  async addFiles(files, type) {
+    const arr = type === 'email' ? EmailSend._emailFiles : EmailSend._extFiles;
+    const MAX = 5 * 1024 * 1024; // 5 MB per file
+    for (const file of Array.from(files)) {
+      if (file.size > MAX) { App.toast(`⚠️ ${file.name} exceeds 5 MB — skipped`, 'var(--yellow)'); continue; }
+      const data = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      arr.push({ filename: file.name, mime_type: file.type || 'application/octet-stream', data });
+    }
+    EmailSend.renderFileChips(type);
+  },
+
+  removeFile(type, idx) {
+    const arr = type === 'email' ? EmailSend._emailFiles : EmailSend._extFiles;
+    arr.splice(idx, 1);
+    EmailSend.renderFileChips(type);
+  },
+
+  renderFileChips(type) {
+    const arr = type === 'email' ? EmailSend._emailFiles : EmailSend._extFiles;
+    const el  = document.getElementById(type === 'email' ? 'email-file-chips' : 'ext-file-chips');
+    if (!el) return;
+    el.innerHTML = arr.map((f, i) => `
+      <div class="file-chip">
+        📎 <span>${App.esc(f.filename)}</span>
+        <button onclick="EmailSend.removeFile('${type}',${i})" title="Remove">✕</button>
+      </div>`).join('');
+  },
+
   templates: {
     viewing_scheduled: { subject: 'Your Viewing is Confirmed! 🏠', body: `Hi [CLIENT_NAME],\n\nGreat news! Your property viewing has been scheduled. I'm looking forward to showing you the property and helping you find your perfect home.\n\nPlease don't hesitate to reach out if you have any questions beforehand.\n\nBest regards,\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
     offer_submitted: { subject: 'Your Offer Has Been Submitted 📄', body: `Hi [CLIENT_NAME],\n\nI wanted to let you know that your offer has been officially submitted. I'll keep you updated as soon as we hear back from the sellers.\n\nFeel free to reach out if you have any questions.\n\nBest regards,\nMaxwell Delali Midodzi\neXp Realty | (709) 325-0545` },
@@ -1660,20 +1729,20 @@ const EmailSend = {
     const subject = document.getElementById('email-subject').value.trim();
     const bodyText = EmailSend.getBodyText('email-body');
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
-    const attachment = document.getElementById('email-attachment').value.trim();
     const cc = document.getElementById('email-cc')?.value.trim() || null;
-    // Build professional signature + disclaimer (matches viewing confirmed emails)
-    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment, cc);
-    // Build branded HTML email
-    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, attachment);
+    const files = EmailSend._emailFiles.length ? [...EmailSend._emailFiles] : null;
+    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, '', cc);
+    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, files?.map(f=>f.filename).join(', ') || '');
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
-    // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fb, null, htmlBody, null, cc);
+      await Notify.queue('Client Email', opt.value, opt.dataset.name, opt.dataset.email, subject, fb, null, htmlBody, null, cc, files);
     }
-    App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued for approval: ${subject}`);
+    App.logActivity('EMAIL_QUEUED', opt.dataset.name, opt.dataset.email, `Email queued: ${subject}${files ? ` (${files.length} attachment${files.length>1?'s':''})` : ''}`);
+    // Clear attachments after queuing
+    EmailSend._emailFiles = [];
+    EmailSend.renderFileChips('email');
     st.style.color = 'var(--green)';
-    st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
+    st.textContent = `✅ Queued${files ? ` with ${files.length} attachment${files.length>1?'s':''}` : ''} — tap 📬 to review & send!`;
     App.toast('📬 Email queued — check Approvals to send it', 'var(--accent2)');
   },
 
@@ -1684,36 +1753,27 @@ const EmailSend = {
     const subject = document.getElementById('ext-subject').value.trim();
     const bodyText = EmailSend.getBodyText('ext-body');
     const cc = document.getElementById('ext-cc').value.trim();
-    const attachment = document.getElementById('ext-attachment').value.trim();
+    const files = EmailSend._extFiles.length ? [...EmailSend._extFiles] : null;
     if (!toEmail) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Recipient email is required'; return; }
     if (!subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
-    // Build professional signature + disclaimer (matches viewing confirmed emails)
-    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, attachment, cc);
-    // Build branded HTML email
-    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, attachment);
+    const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, '', cc);
+    const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, files?.map(f=>f.filename).join(', ') || '');
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
-    // ── QUEUE FOR YOUR APPROVAL — nothing goes to client until you approve ──
     if (typeof Notify !== "undefined") {
-      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody, null, cc || null);
+      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody, null, cc || null, files);
     }
+    // Clear attachments after queuing
+    EmailSend._extFiles = [];
+    EmailSend.renderFileChips('ext');
     st.style.color = 'var(--green)';
-    st.textContent = '✅ Sent to Approvals — tap the 📬 badge to review & send!';
+    st.textContent = `✅ Queued${files ? ` with ${files.length} attachment${files.length>1?'s':''}` : ''} — tap 📬 to review & send!`;
     App.toast('📬 Email queued — check Approvals to send it', 'var(--accent2)');
   },
 
-  handleDrop(event) {
+  handleExtDrop(event) {
     event.preventDefault();
-    const files = event.dataTransfer.files;
-    if (files.length) {
-      const dz = document.getElementById('ext-drop-zone');
-      dz.textContent = `📎 ${files[0].name} (${(files[0].size/1024).toFixed(1)} KB) — attached`;
-    }
-  },
-
-  showDropFile(input) {
-    if (input.files.length) {
-      const dz = document.getElementById('ext-drop-zone');
-      dz.textContent = `📎 ${input.files[0].name} — ready to attach`;
+    if (event.dataTransfer.files.length) {
+      EmailSend.addFiles(event.dataTransfer.files, 'ext');
     }
   }
 };

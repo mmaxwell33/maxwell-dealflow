@@ -879,16 +879,19 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
-    // Pack html + ics into context_data — base64-encode html so it's safe ASCII inside JSON
+    // Pack html + ics + real file attachments into context_data
     let contextData = null;
-    if (htmlBody || icsBase64 || ccEmail) {
+    if (htmlBody || icsBase64 || ccEmail || fileAttachments?.length) {
       const safeHtml = htmlBody ? btoa(unescape(encodeURIComponent(htmlBody))) : null;
-      contextData = { html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null };
+      contextData = {
+        html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null,
+        attachments: fileAttachments?.length ? fileAttachments : null
+      };
     }
     const insertRow = {
       agent_id: agentId,
