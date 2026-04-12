@@ -143,8 +143,18 @@ const App = {
     const initials = (currentAgent.full_name || currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
     const initialsEl = document.getElementById('topbar-initials');
     if (initialsEl) initialsEl.textContent = initials;
-    document.getElementById('topbar-name').textContent = currentAgent.full_name || currentAgent.name || 'Maxwell';
-    document.getElementById('topbar-brokerage').textContent = currentAgent.brokerage || 'eXp Realty';
+    // Sidebar profile card sync
+    const sbInitials = document.getElementById('sb-profile-initials');
+    if (sbInitials) sbInitials.textContent = initials;
+    const sbName = document.getElementById('sb-profile-name');
+    if (sbName) sbName.textContent = (currentAgent.full_name || currentAgent.name || 'Maxwell').split(' ').slice(0,2).join(' ');
+    const sbRole = document.getElementById('sb-profile-role');
+    if (sbRole) sbRole.textContent = currentAgent.brokerage || 'eXp Realty';
+    // Null-safe for removed topbar text elements
+    const tnEl = document.getElementById('topbar-name');
+    if (tnEl) tnEl.textContent = currentAgent.full_name || currentAgent.name || 'Maxwell';
+    const tbEl = document.getElementById('topbar-brokerage');
+    if (tbEl) tbEl.textContent = currentAgent.brokerage || 'eXp Realty';
     // Show app
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -261,6 +271,37 @@ const App = {
     const ov = document.getElementById('sidebar-overlay');
     if (sb) sb.classList.remove('open');
     if (ov) ov.style.display = 'none';
+  },
+
+  // ── Profile Dropdown (sidebar footer) ──
+  toggleProfileMenu() {
+    const menu = document.getElementById('sb-profile-menu');
+    const card = document.getElementById('sb-profile-card');
+    if (!menu) return;
+    const isOpen = menu.style.display === 'block';
+    menu.style.display = isOpen ? 'none' : 'block';
+    if (card) card.classList.toggle('open', !isOpen);
+    // Close when clicking outside
+    if (!isOpen) {
+      setTimeout(() => {
+        document.addEventListener('click', App._closeProfileOnOutside, { once: true });
+      }, 10);
+    }
+  },
+
+  _closeProfileOnOutside(e) {
+    const menu = document.getElementById('sb-profile-menu');
+    const card = document.getElementById('sb-profile-card');
+    if (menu && !menu.contains(e.target) && card && !card.contains(e.target)) {
+      App.closeProfileMenu();
+    }
+  },
+
+  closeProfileMenu() {
+    const menu = document.getElementById('sb-profile-menu');
+    const card = document.getElementById('sb-profile-card');
+    if (menu) menu.style.display = 'none';
+    if (card) card.classList.remove('open');
   },
 
   // ── Mobile FAB (Floating Action Button) ──

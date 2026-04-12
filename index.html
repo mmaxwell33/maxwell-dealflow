@@ -74,26 +74,28 @@
 <!-- MAIN APP -->
 <div id="app" style="display:none;">
 
-  <!-- TOP BAR (header only — no tabs) -->
+  <!-- TOP BAR (clean — logo left, actions right) -->
   <div id="topbar">
     <!-- Hamburger for mobile -->
     <button class="tb-hamburger" onclick="App.toggleSidebar()" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
-    <div class="tb-avatar" id="topbar-avatar" onclick="App.switchTab('settings')" style="cursor:pointer;overflow:hidden;" title="Click to edit profile">
+    <!-- App logo / wordmark -->
+    <div class="tb-logo">Deal<span>Flow</span></div>
+    <!-- Spacer -->
+    <div style="flex:1;"></div>
+    <!-- Pending badge (moved here, compact) -->
+    <div id="pending-badge" class="tb-badge" style="display:none;">0 Pending</div>
+    <!-- AI button (icon only on desktop, text on wider screens) -->
+    <button class="tb-btn tb-btn-purple tb-ai-btn" onclick="App.toggleAI()" title="Ask AI">🤖 <span class="tb-btn-label">Ask AI</span></button>
+    <!-- Notification bell -->
+    <button class="tb-icon-btn" onclick="App.switchTab('approvals')" title="Approvals" id="tb-bell-btn">
+      🔔<span class="tb-bell-dot" id="tb-bell-dot" style="display:none;"></span>
+    </button>
+    <!-- Avatar — opens profile dropdown in sidebar -->
+    <div class="tb-avatar" id="topbar-avatar" onclick="App.toggleProfileMenu()" style="cursor:pointer;overflow:hidden;" title="Profile & Account">
       <img id="topbar-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
       <span id="topbar-initials">MD</span>
-    </div>
-    <div class="tb-info">
-      <div class="tb-name" id="topbar-name">Maxwell Delali Midodzi</div>
-      <div class="tb-role" id="topbar-brokerage">eXp Realty</div>
-    </div>
-    <div id="pending-badge" class="tb-badge" style="display:none;">0 Pending</div>
-    <div class="tb-actions">
-      <button class="tb-btn tb-btn-grey" onclick="App.switchTab('viewings')">📅 Schedule Viewing</button>
-      <button class="tb-btn tb-btn-purple" onclick="App.toggleAI()">🤖 Ask AI</button>
-      <button class="tb-btn tb-btn-green" onclick="App.switchTab('pipeline')">🚀 Pipeline</button>
-      <button class="tb-btn tb-btn-blue" onclick="Clients.openAdd()">➕ Add Client</button>
     </div>
   </div>
 
@@ -238,20 +240,28 @@
 
       </div><!-- /sb-scroll -->
 
-      <!-- BOTTOM: Server info + Logout -->
+      <!-- BOTTOM: Profile card with dropdown -->
       <div class="sb-footer">
-        <div class="sb-server-info">
-          <span style="opacity:0.5;font-size:10px;">Hosted on</span>
-          <span style="font-weight:700;color:var(--accent2);">Vercel</span>
-          <span style="opacity:0.4;font-size:10px;">DB: Supabase</span>
+        <div class="sb-profile-card" id="sb-profile-card" onclick="App.toggleProfileMenu()">
+          <div class="sb-profile-avatar" id="sb-profile-avatar-wrap">
+            <img id="sb-profile-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
+            <span id="sb-profile-initials">MD</span>
+          </div>
+          <div class="sb-profile-info">
+            <div class="sb-profile-name" id="sb-profile-name">Maxwell Delali</div>
+            <div class="sb-profile-role" id="sb-profile-role">eXp Realty</div>
+          </div>
+          <span class="sb-profile-chevron" id="sb-profile-chevron">⌃</span>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="sb-footer-btn" onclick="App.switchTab('settings')">
-            ⚙️ Settings
-          </button>
-          <button class="sb-footer-btn sb-footer-btn-red" onclick="App.confirmSignOut()">
-            🔓 Logout
-          </button>
+        <!-- Profile dropdown menu -->
+        <div class="sb-profile-menu" id="sb-profile-menu" style="display:none;">
+          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">👤 Account Details</button>
+          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">🔑 Change Password</button>
+          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">🖼️ Profile Picture</button>
+          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">⚙️ Settings</button>
+          <button class="sb-profile-item" onclick="App.switchTab('notifications');App.closeProfileMenu();">🔔 Notifications</button>
+          <div class="sb-profile-sep"></div>
+          <button class="sb-profile-item sb-profile-item-danger" onclick="App.confirmSignOut()">🔓 Logout</button>
         </div>
       </div>
 

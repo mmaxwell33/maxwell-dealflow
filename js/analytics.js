@@ -144,8 +144,10 @@ const Analytics = {
   renderViewingsOverTime(viewings) {
     const dateMap = {};
     viewings.forEach(v => {
-      if (!v.viewing_date) return;
-      const d = v.viewing_date.substring(0, 10);
+      // Support viewing_date, date, or created_at field names
+      const raw = v.viewing_date || v.date || v.created_at;
+      if (!raw) return;
+      const d = raw.substring(0, 10);
       dateMap[d] = (dateMap[d] || 0) + 1;
     });
     const dates = Object.keys(dateMap).sort().slice(-30);
@@ -176,7 +178,8 @@ const Analytics = {
   renderViewingsPerClient(viewings) {
     const clientMap = {};
     viewings.forEach(v => {
-      const n = v.client_name || '';
+      // Support client_name, name, or client field names
+      const n = v.client_name || v.name || v.client || '';
       // Skip blank, timestamp-like, or non-name entries
       if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
       clientMap[n] = (clientMap[n] || 0) + 1;
@@ -284,7 +287,8 @@ const Analytics = {
     const ctx = document.getElementById('chart-viewing-status');
     if (!ctx) return;
     if (!statuses.length) {
-      ctx.parentElement.innerHTML += '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px;">No viewing data yet</div>';
+      ctx.style.display = 'none';
+      ctx.parentElement.insertAdjacentHTML('beforeend', '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px;">No viewing status data yet — update viewing statuses to see this chart.</div>');
       return;
     }
     Analytics.charts['viewing-status'] = new Chart(ctx.getContext('2d'), {

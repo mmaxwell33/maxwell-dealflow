@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maxwell DealFlow CRM — Upgrade Recommendations</title>
+<style>
+  :root {
+    /* RECOMMENDED NEW THEME — Slate Pro */
+    --bg: #0b0f1a;
+    --bg2: #111827;
+    --card: #1a2235;
+    --border: #263147;
+    --accent: #2563eb;
+    --accent2: #60a5fa;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --purple: #7c3aed;
+    --cyan: #06b6d4;
+    --gold: #d97706;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #475569;
+    --glass-bg: rgba(26, 34, 53, 0.55);
+    --glass-border: rgba(96, 165, 250, 0.18);
+    --glass-blur: blur(18px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #060b14;
+    color: #e2e8f0;
+    line-height: 1.6;
+  }
+
+  /* ── REPORT LAYOUT ── */
+  .report-wrap { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .report-header {
+    text-align: center;
+    padding: 48px 24px 40px;
+    background: linear-gradient(135deg, #0b0f1a 0%, #111827 100%);
+    border-bottom: 1px solid #263147;
+    margin-bottom: 40px;
+  }
+  .report-header h1 { font-size: 28px; font-weight: 900; color: #fff; margin-bottom: 8px; }
+  .report-header p { font-size: 14px; color: #94a3b8; }
+  .report-badge {
+    display: inline-block; background: rgba(37,99,235,0.2); border: 1px solid rgba(96,165,250,0.3);
+    color: #60a5fa; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* ── SECTION CARDS ── */
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: #60a5fa; margin-bottom: 20px; padding-bottom: 10px;
+    border-bottom: 1px solid #1e3a5f;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-num {
+    width: 24px; height: 24px; border-radius: 50%; background: #2563eb;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0;
+  }
+  .card {
+    background: #1a2235; border: 1px solid #263147; border-radius: 14px;
+    padding: 24px; margin-bottom: 16px;
+  }
+  .card h3 { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .card p, .card li { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+  .card ul { padding-left: 18px; }
+  .highlight { color: #60a5fa; font-weight: 700; }
+  .green { color: #10b981; }
+  .red { color: #ef4444; }
+  .yellow { color: #f59e0b; }
+  .purple { color: #a78bfa; }
+
+  /* ── STATUS PILLS ── */
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .pill-keep { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .pill-fix { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+  .pill-remove { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+  .pill-new { background: rgba(37,99,235,0.15); color: #60a5fa; border: 1px solid rgba(37,99,235,0.3); }
+
+  /* ── 2-COL GRID ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+  /* ── BEFORE / AFTER MOCKUPS ── */
+  .mockup-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #475569; margin-bottom: 8px;
+  }
+
+  /* ── TOPBAR MOCK ── */
+  .mock-topbar {
+    display: flex; align-items: center; gap: 10px;
+    background: #111827; border: 1px solid #263147; border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 10px;
+  }
+  .mock-avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 900; color: #fff;
+    box-shadow: 0 0 0 2px #111827, 0 0 0 3px rgba(96,165,250,0.35);
+  }
+  .mock-name { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+  .mock-role { font-size: 11px; color: #60a5fa; font-weight: 600; }
+  .mock-actions { margin-left: auto; display: flex; gap: 6px; }
+  .mock-btn { padding: 6px 12px; border-radius: 7px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+  .mock-btn-blue { background: #2563eb; color: #fff; }
+  .mock-btn-grey { background: rgba(255,255,255,0.06); border: 1px solid #263147; color: #94a3b8; }
+  .mock-btn-green { background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
+  .mock-btn-purple { background: #2e1065; color: #c4b5fd; border: 1px solid #4c1d95; }
+  .mock-logo { font-size: 14px; font-weight: 900; color: #fff; }
+  .mock-logo span { color: #60a5fa; }
+
+  /* ── SIDEBAR FOOTER MOCK ── */
+  .mock-sidebar-footer {
+    background: #111827; border: 1px solid #263147; border-radius: 12px; overflow: hidden;
+  }
+  .mock-user-row {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    border-bottom: 1px solid #263147; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .mock-user-row:hover { background: rgba(255,255,255,0.04); }
+  .mock-user-info { flex: 1; min-width: 0; }
+  .mock-user-name { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+  .mock-user-role { font-size: 11px; color: #60a5fa; }
+  .mock-chevron { color: #475569; font-size: 12px; }
+  .mock-dropdown {
+    background: #0f1729; padding: 6px;
+  }
+  .mock-dd-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-radius: 7px; font-size: 12px; color: #94a3b8; cursor: pointer;
+  }
+  .mock-dd-item:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+  .mock-dd-item.danger { color: #fca5a5; }
+  .mock-dd-item.danger:hover { background: rgba(239,68,68,0.1); }
+  .mock-dd-sep { height: 1px; background: #263147; margin: 4px 0; }
+
+  /* ── GLASS CARD MOCK ── */
+  .mock-glass {
+    background: rgba(26,34,53,0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(96,165,250,0.18);
+    border-radius: 14px; padding: 20px;
+    position: relative; overflow: hidden;
+  }
+  .mock-glass::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  }
+
+  /* ── COLOR SWATCHES ── */
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .swatch {
+    width: 48px; height: 48px; border-radius: 10px;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 4px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.7);
+  }
+
+  /* ── ANALYTICS DIAGNOSIS ── */
+  .diag-row {
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px;
+    background: rgba(255,255,255,0.02); border: 1px solid #263147; border-radius: 10px;
+    margin-bottom: 10px;
+  }
+  .diag-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+  .diag-title { font-size: 13px; font-weight: 800; color: #e2e8f0; margin-bottom: 4px; }
+  .diag-text { font-size: 12px; color: #94a3b8; }
+  .diag-fix {
+    margin-top: 6px; padding: 6px 10px; background: rgba(37,99,235,0.1);
+    border-left: 2px solid #2563eb; border-radius: 4px;
+    font-size: 11px; color: #93c5fd; font-weight: 600;
+  }
+
+  /* ── FIGMA PROMPTS ── */
+  .prompt-box {
+    background: #0f1a2e; border: 1px solid #1e3a5f;
+    border-radius: 10px; padding: 16px; margin-bottom: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+    color: #93c5fd; line-height: 1.7; white-space: pre-wrap;
+    position: relative;
+  }
+  .prompt-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    color: #475569; margin-bottom: 8px; font-family: -apple-system, sans-serif;
+  }
+
+  /* ── MOBILE MOCKUP ── */
+  .phone-frame {
+    width: 260px; background: #111827; border: 2px solid #263147;
+    border-radius: 36px; padding: 16px 12px; margin: 0 auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .phone-notch {
+    width: 80px; height: 12px; background: #060b14;
+    border-radius: 10px; margin: 0 auto 16px;
+  }
+  .phone-header {
+    background: #1a2235; border-radius: 10px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .phone-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 900; color: #fff; flex-shrink: 0;
+  }
+  .phone-name { font-size: 10px; font-weight: 700; color: #fff; }
+  .phone-role { font-size: 9px; color: #60a5fa; }
+  .phone-bell { margin-left: auto; font-size: 14px; }
+  .phone-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .phone-stat {
+    background: #1a2235; border-radius: 8px; padding: 10px 8px; text-align: center;
+    border-top: 2px solid;
+  }
+  .phone-stat-num { font-size: 18px; font-weight: 900; }
+  .phone-stat-lbl { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .phone-nav {
+    display: flex; justify-content: space-around; background: rgba(26,34,53,0.85);
+    backdrop-filter: blur(12px); border-radius: 16px; padding: 10px 6px;
+    border: 1px solid rgba(96,165,250,0.15); margin-top: 10px;
+  }
+  .phone-nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .phone-nav-icon { font-size: 16px; }
+  .phone-nav-lbl { font-size: 8px; color: #64748b; }
+  .phone-nav-item.active .phone-nav-lbl { color: #60a5fa; }
+
+  /* ── TESTING GUIDE ── */
+  .test-section { margin-bottom: 20px; }
+  .test-title { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+  .test-row {
+    display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px;
+    border-left: 2px solid #263147; margin-bottom: 6px;
+  }
+  .test-row.pass { border-color: #10b981; }
+  .test-row.warn { border-color: #f59e0b; }
+  .test-row.check { border-color: #2563eb; }
+  .test-num { font-size: 11px; font-weight: 800; color: #475569; min-width: 22px; }
+  .test-desc { font-size: 13px; color: #94a3b8; }
+  .test-exp { font-size: 11px; color: #475569; margin-top: 2px; }
+
+  /* ── SKILL GUIDE ── */
+  .skill-rule {
+    display: flex; gap: 12px; padding: 12px 16px;
+    background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 8px;
+  }
+  .skill-tag {
+    background: rgba(37,99,235,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3);
+    padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    white-space: nowrap; align-self: flex-start; margin-top: 2px;
+  }
+  .skill-desc { font-size: 12px; color: #94a3b8; }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px 12px; color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #263147; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(38,49,71,0.6); color: #94a3b8; }
+  td:first-child { color: #e2e8f0; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── TOC ── */
+  .toc { background: #111827; border: 1px solid #1e3a5f; border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc-title { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #60a5fa; margin-bottom: 12px; }
+  .toc-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(38,49,71,0.5); text-decoration: none; color: #94a3b8; font-size: 13px; }
+  .toc-item:last-child { border-bottom: none; }
+  .toc-item:hover { color: #e2e8f0; }
+  .toc-n { width: 22px; height: 22px; border-radius: 50%; background: rgba(37,99,235,0.2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #60a5fa; }
+
+  hr.divider { border: none; border-top: 1px solid #1e3a5f; margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div class="report-badge">Upgrade Recommendations</div>
+  <h1>Maxwell DealFlow CRM — Full Audit & Design Roadmap</h1>
+  <p>Prepared for: Maxwell Delali Midodzi &nbsp;|&nbsp; eXp Realty &nbsp;|&nbsp; April 2026</p>
+</div>
+
+<div class="report-wrap">
+
+  <!-- TOC -->
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <a class="toc-item" href="#skill"><div class="toc-n">1</div> Safe-Update Skill Protocol</a>
+    <a class="toc-item" href="#theme"><div class="toc-n">2</div> Professional Color Theme — "Slate Pro"</a>
+    <a class="toc-item" href="#glass"><div class="toc-n">3</div> Apple Liquid Glass Effect</a>
+    <a class="toc-item" href="#header"><div class="toc-n">4</div> Topbar & Profile Simplification (BEFORE / AFTER)</a>
+    <a class="toc-item" href="#sidebar"><div class="toc-n">5</div> Sidebar Footer — Smart Profile Dropdown</a>
+    <a class="toc-item" href="#agentportal"><div class="toc-n">6</div> Agent Portal Audit — What Stays, What Goes</a>
+    <a class="toc-item" href="#analytics"><div class="toc-n">7</div> Analytics Bug Diagnosis & Fix Plan</a>
+    <a class="toc-item" href="#mobile"><div class="toc-n">8</div> Mobile Interface Preview</a>
+    <a class="toc-item" href="#figma"><div class="toc-n">9</div> Figma UX Workflow — Prompts & Claude Integration</a>
+    <a class="toc-item" href="#testing"><div class="toc-n">10</div> Full User Testing Guide</a>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 1. SAFE UPDATE SKILL -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="skill">
+    <div class="section-title"><span class="section-num">1</span> Safe-Update Skill Protocol — "Surgical Update Mode"</div>
+
+    <div class="card">
+      <h3>The Problem We're Solving</h3>
+      <p>Every time a new feature was requested, the old approach was to regenerate large sections of code — which caused working features to break. The new approach uses what we call <span class="highlight">Surgical Update Mode</span>: a set of strict rules Claude follows when making any change to this codebase.</p>
+    </div>
+
+    <div class="card">
+      <h3>The 5 Rules of Surgical Update Mode</h3>
+      <div class="skill-rule">
+        <div class="skill-tag">RULE 1</div>
+        <div class="skill-desc"><strong style="color:#e2e8f0;">Never rewrite — only insert or patch.</strong> Every change targets a specific named function, section comment, or element ID. Claude identifies the exact insertion point (e.g. "after the <code style="color:#93c5fd;">/* ── TOP BAR ── */</code> comment") and adds/changes only those lines.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">RULE 2</div>
+        <div class="skill-desc"><strong style="color:#e2e8f0;">Changes are shown as diffs first.</strong> Before any edit is applied, a before/after preview is shown. You approve. Then it's applied.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">RULE 3</div>
+        <div class="skill-desc"><strong style="color:#e2e8f0;">One file, one feature, one commit.</strong> Each update only touches the minimal files needed. If adding a profile dropdown, only the HTML and CSS are touched — JS is separate.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">RULE 4</div>
+        <div class="skill-desc"><strong style="color:#e2e8f0;">CSS uses the existing variable system.</strong> No hardcoded colors — every new style uses the <code style="color:#93c5fd;">:root</code> CSS variables already defined. This means a theme change updates every element at once.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">RULE 5</div>
+        <div class="skill-desc"><strong style="color:#e2e8f0;">Web research before implementation.</strong> Before adding a new feature, Claude searches for the latest, most stable technique for that feature and uses that approach — not an outdated method.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>How to Trigger This Mode Every Time</h3>
+      <p>Start every future CRM update request with this phrase:</p>
+      <div class="prompt-box">"Using Surgical Update Mode for Maxwell DealFlow CRM: [describe what you want].
+Do NOT rewrite any working sections. Show me the exact lines being changed before applying.
+Search for the latest best practice before implementing."</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 2. COLOR THEME -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="theme">
+    <div class="section-title"><span class="section-num">2</span> Professional Color Theme — "Slate Pro"</div>
+
+    <div class="card">
+      <h3>Why Your Current Colors Are Harsh</h3>
+      <p>Your current background is <code style="color:#93c5fd;">#0d1117</code> (GitHub dark) — very cool, very techy, but for a real estate professional it reads as "developer tool," not "premium CRM." The accent blue <code style="color:#93c5fd;">#1a56db</code> is also quite saturated, which strains the eyes over long sessions.</p>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>❌ Current Palette</h3>
+        <div class="swatch-row">
+          <div class="swatch" style="background:#0d1117;">#0d1117</div>
+          <div class="swatch" style="background:#161b22;">#161b22</div>
+          <div class="swatch" style="background:#1c2333;">#1c2333</div>
+          <div class="swatch" style="background:#1a56db;">#1a56db</div>
+          <div class="swatch" style="background:#3b82f6;">#3b82f6</div>
+          <div class="swatch" style="background:#8b5cf6;">#8b5cf6</div>
+        </div>
+        <p style="margin-top:12px;font-size:12px;">Harsh contrast, GitHub-developer feel, not real-estate premium.</p>
+      </div>
+      <div class="card">
+        <h3>✅ Recommended — "Slate Pro"</h3>
+        <div class="swatch-row">
+          <div class="swatch" style="background:#0b0f1a;">#0b0f1a</div>
+          <div class="swatch" style="background:#111827;">#111827</div>
+          <div class="swatch" style="background:#1a2235;">#1a2235</div>
+          <div class="swatch" style="background:#2563eb;">#2563eb</div>
+          <div class="swatch" style="background:#60a5fa;">#60a5fa</div>
+          <div class="swatch" style="background:#7c3aed;">#7c3aed</div>
+        </div>
+        <p style="margin-top:12px;font-size:12px;">Deeper navy base, cooler blue tone — professional, premium, easy on the eyes.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Two Alternative Themes You Could Also Consider</h3>
+      <div class="two-col" style="margin-top:12px;">
+        <div>
+          <div class="mockup-label">OPTION B — "Midnight Indigo" (warmer)</div>
+          <div class="swatch-row">
+            <div class="swatch" style="background:#0c0a1a;">#0c0a1a</div>
+            <div class="swatch" style="background:#13102b;">#13102b</div>
+            <div class="swatch" style="background:#1e1a3f;">#1e1a3f</div>
+            <div class="swatch" style="background:#6d28d9;">#6d28d9</div>
+            <div class="swatch" style="background:#a78bfa;">#a78bfa</div>
+          </div>
+          <p style="font-size:12px;margin-top:8px;">Deeper purple-navy — sophisticated, luxury real estate feel.</p>
+        </div>
+        <div>
+          <div class="mockup-label">OPTION C — "Forest Executive" (nature + trust)</div>
+          <div class="swatch-row">
+            <div class="swatch" style="background:#080f10;">#080f10</div>
+            <div class="swatch" style="background:#0d1a1c;">#0d1a1c</div>
+            <div class="swatch" style="background:#132529;">#132529</div>
+            <div class="swatch" style="background:#0d9488;">#0d9488</div>
+            <div class="swatch" style="background:#2dd4bf;">#2dd4bf</div>
+          </div>
+          <p style="font-size:12px;margin-top:8px;">Teal-dark — fresh, modern, trust-building. Popular with Canadian real estate brands.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>How to Apply the Theme Change (Safe Way)</h3>
+      <p>Because your entire CSS uses <code style="color:#93c5fd;">:root</code> variables, a full theme change requires editing only <strong>8 lines</strong> at the top of <code style="color:#93c5fd;">css/app.css</code>. Nothing else changes. This is 100% safe.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 3. APPLE LIQUID GLASS -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="glass">
+    <div class="section-title"><span class="section-num">3</span> Apple Liquid Glass Effect — What It Is & Where to Use It</div>
+
+    <div class="card">
+      <h3>What Is It?</h3>
+      <p>Apple announced <strong class="highlight">Liquid Glass</strong> at WWDC 2025 — it's a new design language introduced in iOS 26, macOS Tahoe, and visionOS 26. It's Apple's biggest UI overhaul in 10 years. The effect creates a translucent, frosted-glass panel that dynamically bends and refracts the background behind it — like looking through real glass.</p>
+      <p style="margin-top:8px;">In CSS, the core technique is already available — it's called <strong class="highlight">glassmorphism</strong>, using <code style="color:#93c5fd;">backdrop-filter: blur()</code>. Apple's version is more advanced (using real-time light refraction) but we can achieve 90% of the visual feel with pure CSS.</p>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>Glass CSS — The Recipe</h3>
+        <div class="prompt-box">/* Liquid Glass Card */
+.glass-card {
+  background: rgba(26, 34, 53, 0.55);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}</div>
+      </div>
+      <div class="card">
+        <h3>Live Preview — Glass Card</h3>
+        <div style="background: linear-gradient(135deg,#1e3a5f,#2d1b69); padding:20px; border-radius:12px;">
+          <div class="mock-glass">
+            <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:1px;margin-bottom:8px;">PIPELINE VALUE</div>
+            <div style="font-size:28px;font-weight:900;color:#60a5fa;">$1,240,000</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">3 active deals</div>
+          </div>
+        </div>
+        <p style="margin-top:10px;font-size:12px;">This is the glass effect on your stat cards. Clean, premium, easy on the eyes.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Where to Apply Glass in Your CRM</h3>
+      <table>
+        <tr><th>Element</th><th>Glass?</th><th>Why</th></tr>
+        <tr><td>Top Bar</td><td><span class="pill pill-new">YES</span></td><td>Subtle glass instead of flat background — adds depth</td></tr>
+        <tr><td>Stat Cards (Overview)</td><td><span class="pill pill-new">YES</span></td><td>Makes numbers pop, easier on the eye</td></tr>
+        <tr><td>Lock Screen Box</td><td><span class="pill pill-keep">ALREADY HAS IT</span></td><td>Your login box already uses backdrop-filter ✅</td></tr>
+        <tr><td>Sidebar</td><td><span class="pill pill-fix">PARTIAL</span></td><td>Sidebar stays solid — glass sidebar causes readability issues</td></tr>
+        <tr><td>Mobile Bottom Nav</td><td><span class="pill pill-new">YES</span></td><td>Glass bottom nav bar = perfect iOS 26 feel</td></tr>
+        <tr><td>AI Panel</td><td><span class="pill pill-new">YES</span></td><td>Glass overlay for AI drawer = premium feel</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 4. TOPBAR BEFORE / AFTER -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="header">
+    <div class="section-title"><span class="section-num">4</span> Topbar Simplification — BEFORE & AFTER</div>
+
+    <div class="card">
+      <h3>The Problem You Identified</h3>
+      <p>Your current topbar has: avatar + "Maxwell Delali Midodzi" + "eXp Realty" + Pending badge + 4 action buttons. On top of that, the sidebar already shows "DealFlow / Maxwell CRM." That's <span class="red">two branding areas competing</span> and a very cluttered header.</p>
+    </div>
+
+    <div class="card">
+      <div class="mockup-label">❌ BEFORE — Current Topbar (too busy)</div>
+      <div class="mock-topbar">
+        <div class="mock-avatar">MD</div>
+        <div>
+          <div class="mock-name">Maxwell Delali Midodzi</div>
+          <div class="mock-role">eXp Realty</div>
+        </div>
+        <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;">0 Pending</span>
+        <div class="mock-actions">
+          <div class="mock-btn mock-btn-grey" style="font-size:10px;">📅 Schedule Viewing</div>
+          <div class="mock-btn mock-btn-purple" style="font-size:10px;">🤖 Ask AI</div>
+          <div class="mock-btn mock-btn-green" style="font-size:10px;">🚀 Pipeline</div>
+          <div class="mock-btn mock-btn-blue" style="font-size:10px;">➕ Add Client</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#64748b;">Too much text, too many buttons, repeated branding from sidebar.</p>
+    </div>
+
+    <div class="card">
+      <div class="mockup-label">✅ AFTER — Recommended Clean Topbar</div>
+      <div class="mock-topbar" style="background: rgba(17,24,39,0.75); backdrop-filter:blur(16px); border-color: rgba(96,165,250,0.15);">
+        <!-- Just app name on left -->
+        <div class="mock-logo">Deal<span>Flow</span></div>
+        <!-- spacer -->
+        <div style="flex:1;"></div>
+        <!-- Notification bell + avatar only -->
+        <div style="font-size:18px;cursor:pointer;color:#64748b;" title="Notifications">🔔</div>
+        <div class="mock-avatar" style="cursor:pointer;" title="Account & Settings">MD</div>
+      </div>
+      <p style="font-size:12px;color:#64748b;margin-top:8px;">Your name + account controls move to the sidebar footer dropdown (see section 5). Action buttons move to Quick Actions on the Overview screen where they already live. Result: clean, breathable header.</p>
+    </div>
+
+    <div class="card">
+      <h3>📌 Recommendation Summary</h3>
+      <table>
+        <tr><th>Current Element</th><th>Action</th><th>Goes Where</th></tr>
+        <tr><td>Maxwell Delali Midodzi + eXp Realty (topbar)</td><td><span class="pill pill-remove">REMOVE</span></td><td>Already in sidebar — duplicate. Keep only in sidebar footer profile.</td></tr>
+        <tr><td>4 action buttons in topbar</td><td><span class="pill pill-remove">REMOVE</span></td><td>Already in Quick Actions on Overview. Remove from topbar.</td></tr>
+        <tr><td>Pending badge</td><td><span class="pill pill-fix">MOVE</span></td><td>Move to sidebar Approvals item as a badge count.</td></tr>
+        <tr><td>🤖 Ask AI button</td><td><span class="pill pill-keep">KEEP (icon only)</span></td><td>Keep as an icon button in topbar — just the robot icon, no text.</td></tr>
+        <tr><td>Avatar</td><td><span class="pill pill-keep">KEEP</span></td><td>Stays — now clicking it opens profile dropdown in sidebar footer area.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 5. SIDEBAR FOOTER PROFILE DROPDOWN -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="sidebar">
+    <div class="section-title"><span class="section-num">5</span> Sidebar Footer — Smart Profile Dropdown</div>
+
+    <div class="card">
+      <h3>What You Asked For</h3>
+      <p>Instead of showing your full login name and separate Settings + Logout buttons at the bottom, you want a <strong class="highlight">clean profile card</strong> — click it to open a dropdown with: Account Details, Change Password, Profile Picture, Settings, Logout.</p>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="mockup-label">❌ BEFORE — Current Sidebar Footer</div>
+        <div class="mock-sidebar-footer">
+          <div style="padding:10px 14px;font-size:11px;color:#475569;border-bottom:1px solid #263147;">
+            <span style="font-size:9px;opacity:0.5;">Hosted on</span> <span style="color:#60a5fa;font-weight:700;">Vercel</span>
+            <span style="font-size:9px;opacity:0.4;"> · DB: Supabase</span>
+          </div>
+          <div style="display:flex;gap:8px;padding:10px 14px;">
+            <div style="flex:1;padding:8px;border-radius:7px;font-size:11px;background:rgba(255,255,255,0.05);border:1px solid #263147;color:#94a3b8;text-align:center;">⚙️ Settings</div>
+            <div style="flex:1;padding:8px;border-radius:7px;font-size:11px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#fca5a5;text-align:center;">🔓 Logout</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:#64748b;margin-top:8px;">Clunky, shows server info nobody needs to see, no name visible.</p>
+      </div>
+
+      <div class="card">
+        <div class="mockup-label">✅ AFTER — Profile Dropdown</div>
+        <div class="mock-sidebar-footer">
+          <div class="mock-user-row">
+            <div class="mock-avatar" style="width:32px;height:32px;font-size:11px;">MD</div>
+            <div class="mock-user-info">
+              <div class="mock-user-name">Maxwell Delali</div>
+              <div class="mock-user-role">eXp Realty</div>
+            </div>
+            <span class="mock-chevron">▲</span>
+          </div>
+          <div class="mock-dropdown">
+            <div class="mock-dd-item">👤 Account Details</div>
+            <div class="mock-dd-item">🔑 Change Password</div>
+            <div class="mock-dd-item">🖼️ Profile Picture</div>
+            <div class="mock-dd-item">⚙️ Settings</div>
+            <div class="mock-dd-item">🔔 Notifications</div>
+            <div class="mock-dd-sep"></div>
+            <div class="mock-dd-item danger">🔓 Logout</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:#64748b;margin-top:8px;">Clean, professional, like Slack/Notion/Linear. Everything is one click away.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 6. AGENT PORTAL AUDIT -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="agentportal">
+    <div class="section-title"><span class="section-num">6</span> Agent Portal Audit — What Stays, What Goes</div>
+
+    <div class="card">
+      <h3>Current State</h3>
+      <p>The Agent Portal lives in the <strong>Admin</strong> section (hidden by default — good). It lets you create isolated accounts for other agents. The feature itself is genuinely useful if you ever grow a team or invite another agent. The issue is the <span class="yellow">Admin section also contains Cleanup and System tabs</span> that have limited value in daily use.</p>
+    </div>
+
+    <table style="margin:0;">
+      <tr><th>Item</th><th>Keep?</th><th>Recommendation</th></tr>
+      <tr><td>Agent Portal tab</td><td><span class="pill pill-keep">KEEP</span></td><td>Useful for future team growth. Keep hidden in Admin. Rename to "Invite Agent".</td></tr>
+      <tr><td>Agent Portal — "How It Works" card</td><td><span class="pill pill-keep">KEEP</span></td><td>Good explainer, leave as-is.</td></tr>
+      <tr><td>Agent Portal — Guide section (collapsible)</td><td><span class="pill pill-keep">KEEP</span></td><td>Stays collapsed by default, good.</td></tr>
+      <tr><td>Cleanup tab</td><td><span class="pill pill-fix">SIMPLIFY</span></td><td>Keep but merge with System tab to reduce clutter.</td></tr>
+      <tr><td>System tab</td><td><span class="pill pill-fix">SIMPLIFY</span></td><td>Merge with Cleanup into one "System Maintenance" tab.</td></tr>
+      <tr><td>"Hosted on Vercel / DB: Supabase" in sidebar footer</td><td><span class="pill pill-remove">REMOVE</span></td><td>You don't need to see this. Moves into Settings if ever needed.</td></tr>
+      <tr><td>Admin section label in sidebar</td><td><span class="pill pill-keep">KEEP</span></td><td>Stays collapsed — out of the way.</td></tr>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 7. ANALYTICS DIAGNOSIS -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="analytics">
+    <div class="section-title"><span class="section-num">7</span> Analytics Bug Diagnosis — Why Charts Are Empty</div>
+
+    <div class="card">
+      <h3>Root Cause Analysis</h3>
+      <p>After reviewing your <code style="color:#93c5fd;">analytics.js</code> code, I found <strong class="red">3 specific bugs</strong> causing the empty charts. No data is lost — it's a data-field naming mismatch and empty-state handling issue.</p>
+    </div>
+
+    <div class="diag-row">
+      <div class="diag-icon">📅</div>
+      <div>
+        <div class="diag-title">BUG 1 — "Viewings Over Time" is Empty</div>
+        <div class="diag-text">The chart only reads <code style="color:#93c5fd;">v.viewing_date</code>. But when viewings were entered, the field may be stored as <code style="color:#93c5fd;">date</code> or <code style="color:#93c5fd;">created_at</code> in your Supabase table. Since no records have <code style="color:#93c5fd;">viewing_date</code> populated, the <code style="color:#93c5fd;">dates</code> array is empty → blank chart.</div>
+        <div class="diag-fix">FIX: Change line 147 in analytics.js from <code>if (!v.viewing_date) return;</code> to <code>const raw = v.viewing_date || v.date || v.created_at; if (!raw) return;</code></div>
+      </div>
+    </div>
+
+    <div class="diag-row">
+      <div class="diag-icon">👤</div>
+      <div>
+        <div class="diag-title">BUG 2 — "Viewings Per Client" is Empty</div>
+        <div class="diag-text">The chart reads <code style="color:#93c5fd;">v.client_name</code> from viewings records. If your viewings were booked without a <code style="color:#93c5fd;">client_name</code> field (or if the field is called <code style="color:#93c5fd;">name</code> or linked via <code style="color:#93c5fd;">client_id</code>), every row is filtered out and the chart shows empty.</div>
+        <div class="diag-fix">FIX: Add fallback: <code>const n = v.client_name || v.name || v.client || '';</code> — and ensure Viewings.openAdd() always saves client_name when booking.</div>
+      </div>
+    </div>
+
+    <div class="diag-row">
+      <div class="diag-icon">🥧</div>
+      <div>
+        <div class="diag-title">BUG 3 — "Viewing Status" Shows No Graph</div>
+        <div class="diag-text">The chart reads <code style="color:#93c5fd;">v.viewing_status || v.status</code>. If your viewings were saved without a status field, <code style="color:#93c5fd;">statusMap</code> is empty. The code shows "No viewing data yet" text but leaves the canvas behind it — which causes a visual glitch (text over blank canvas).</div>
+        <div class="diag-fix">FIX: When statusMap is empty, hide the canvas entirely with <code>ctx.style.display='none'</code> before showing the message.</div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color: rgba(16,185,129,0.3);">
+      <h3 class="green">✅ The Good News</h3>
+      <p>Your <strong>Pipeline Breakdown</strong>, <strong>Stage Distribution</strong>, and <strong>Budget Distribution</strong> charts work because they read from clients data (which has consistent fields). The viewings-based charts fail because viewings records have inconsistent field names. These are 3 targeted one-line fixes — no rewrite needed.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 8. MOBILE INTERFACE -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="mobile">
+    <div class="section-title"><span class="section-num">8</span> Mobile Interface — Design Preview</div>
+
+    <div class="card">
+      <h3>Current Mobile State</h3>
+      <p>Your app already has a hamburger menu and some responsive CSS. But the mobile experience has issues: the topbar is too cluttered on small screens, the bottom nav doesn't exist (so navigation is buried inside the hamburger), and notification interaction requires going back to desktop to act on them.</p>
+    </div>
+
+    <div class="two-col" style="align-items:start;">
+      <div class="card">
+        <h3>Recommended Mobile Changes</h3>
+        <table>
+          <tr><th>Change</th><th>Priority</th></tr>
+          <tr><td>Glass bottom navigation bar (5 key tabs)</td><td><span class="pill pill-new">HIGH</span></td></tr>
+          <tr><td>Topbar shows only logo + bell + avatar on mobile</td><td><span class="pill pill-new">HIGH</span></td></tr>
+          <tr><td>Push notifications on mobile (PWA)</td><td><span class="pill pill-new">HIGH</span></td></tr>
+          <tr><td>Swipe gestures to navigate between tabs</td><td><span class="pill pill-fix">MEDIUM</span></td></tr>
+          <tr><td>Quick-action floating button (+ Add)</td><td><span class="pill pill-fix">MEDIUM</span></td></tr>
+          <tr><td>Notification badge on bell icon</td><td><span class="pill pill-fix">MEDIUM</span></td></tr>
+        </table>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;">
+        <h3 style="margin-bottom:16px;align-self:flex-start;">📱 Mobile Preview</h3>
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <!-- Phone Header -->
+          <div class="phone-header">
+            <div class="phone-avatar">MD</div>
+            <div>
+              <div class="phone-name">Maxwell Delali</div>
+              <div class="phone-role">eXp Realty</div>
+            </div>
+            <div class="phone-bell">🔔</div>
+          </div>
+          <!-- Stats -->
+          <div class="phone-stats">
+            <div class="phone-stat" style="border-color:#60a5fa;">
+              <div class="phone-stat-num" style="color:#60a5fa;">12</div>
+              <div class="phone-stat-lbl">Active Clients</div>
+            </div>
+            <div class="phone-stat" style="border-color:#10b981;">
+              <div class="phone-stat-num" style="color:#10b981;">5</div>
+              <div class="phone-stat-lbl">Viewings</div>
+            </div>
+            <div class="phone-stat" style="border-color:#a78bfa;">
+              <div class="phone-stat-num" style="color:#a78bfa;">3</div>
+              <div class="phone-stat-lbl">In Pipeline</div>
+            </div>
+            <div class="phone-stat" style="border-color:#f59e0b;">
+              <div class="phone-stat-num" style="color:#f59e0b;">2</div>
+              <div class="phone-stat-lbl">Follow Up</div>
+            </div>
+          </div>
+          <!-- Recent Item Preview -->
+          <div style="background:#1a2235;border-radius:8px;padding:10px 10px;font-size:10px;color:#94a3b8;margin-bottom:6px;">
+            <div style="color:#fff;font-weight:700;margin-bottom:2px;">🏠 Sarah Johnson — Viewing today 2pm</div>
+            <div>123 Maple Drive · Status: Confirmed</div>
+          </div>
+          <div style="background:#1a2235;border-radius:8px;padding:10px 10px;font-size:10px;color:#94a3b8;margin-bottom:6px;">
+            <div style="color:#fff;font-weight:700;margin-bottom:2px;">📄 Michael Chen — Offer submitted</div>
+            <div>456 Oak Ave · $485,000</div>
+          </div>
+          <!-- Glass Bottom Nav -->
+          <div class="phone-nav">
+            <div class="phone-nav-item active">
+              <div class="phone-nav-icon">🏠</div>
+              <div class="phone-nav-lbl" style="color:#60a5fa;">Home</div>
+            </div>
+            <div class="phone-nav-item">
+              <div class="phone-nav-icon">👥</div>
+              <div class="phone-nav-lbl">Clients</div>
+            </div>
+            <div class="phone-nav-item">
+              <div class="phone-nav-icon">📅</div>
+              <div class="phone-nav-lbl">Viewings</div>
+            </div>
+            <div class="phone-nav-item">
+              <div class="phone-nav-icon">🚀</div>
+              <div class="phone-nav-lbl">Pipeline</div>
+            </div>
+            <div class="phone-nav-item">
+              <div class="phone-nav-icon">⚙️</div>
+              <div class="phone-nav-lbl">Settings</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 9. FIGMA WORKFLOW -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="figma">
+    <div class="section-title"><span class="section-num">9</span> Figma UX Workflow — Prompts & Claude Integration</div>
+
+    <div class="card">
+      <h3>The Workflow: Figma → Claude → Code</h3>
+      <p>Here is the professional workflow used by product teams to go from design to code without losing quality:</p>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:#60a5fa;font-weight:700;">
+        <span>1. You brief Figma AI</span> → <span>2. Figma designs screens</span> → <span>3. You export to Claude</span> → <span>4. Claude converts to code</span> → <span>5. You approve before deploy</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Prompt 1 — Give to Figma AI (to design your CRM UI)</h3>
+      <div class="prompt-label">PASTE THIS INTO FIGMA AI DESIGN ASSISTANT</div>
+      <div class="prompt-box">Design a dark-mode real estate CRM dashboard called "Maxwell DealFlow CRM" for a
+single agent (Maxwell Delali Midodzi, eXp Realty based in Edmonton, Canada).
+
+DESIGN STYLE:
+- Theme: Deep navy-slate dark mode. Primary color #0b0f1a, cards #1a2235, accent blue #2563eb,
+  light blue #60a5fa, purple #7c3aed. Clean, premium, minimal.
+- Apply subtle glassmorphism (backdrop-filter blur) to stat cards and the top bar.
+- Typography: System UI / -apple-system. Headers bold 800 weight. Labels uppercase 10px.
+- NO gradients on backgrounds. Gradients only on accent elements and avatars.
+
+SCREENS TO DESIGN:
+1. Dashboard Overview — 6 stat cards (Active Clients, Total Clients, Viewings, Follow-Up, Pipeline, Closed),
+   4 Quick Action cards, Recent Activity feed, Pipeline snapshot.
+2. Clients List — Search bar, filter tabs (Active / Archive), client cards with stage pill and last contact.
+3. Viewings — Calendar-style list with Today / Upcoming / Done filters. Each card shows client name,
+   address, time, status pill.
+4. Analytics — 8 stat cards + 6 chart areas: Pipeline Breakdown (donut), Clients by City (bar),
+   Viewings Over Time (line), Viewings Per Client (bar), Budget Distribution (pie), Viewing Status (pie).
+5. Mobile version — Glass bottom navigation bar with 5 tabs: Home, Clients, Viewings, Pipeline, Settings.
+
+LAYOUT:
+- Desktop: Fixed left sidebar (220px) + top bar (58px) + scrollable main content.
+- Sidebar has collapsible section groups: Clients, Deals, Finance, Communication, Admin.
+- Sidebar footer: Single profile card (avatar + name + role) that expands into a dropdown with
+  Account Details, Change Password, Profile Picture, Settings, Logout.
+- Top bar: Logo left, notification bell + avatar right only. NO text buttons in top bar.
+
+IMPORTANT: Keep it professional enough for a high-end real estate agent, but simple enough
+that a non-designer client could easily navigate it.</div>
+    </div>
+
+    <div class="card">
+      <h3>Prompt 2 — Exporting from Figma to Claude</h3>
+      <div class="prompt-label">AFTER FIGMA DESIGN IS COMPLETE — PASTE INTO CLAUDE WITH SCREENSHOTS</div>
+      <div class="prompt-box">I have a Figma design for my Maxwell DealFlow CRM. I am attaching screenshots of each screen.
+
+Using Surgical Update Mode:
+- DO NOT rewrite any working JavaScript or Supabase logic
+- Only update: css/app.css (theme variables and component styles) and index.html (layout/structure only)
+- Match the design exactly: colors, spacing, border radius, card styles, topbar layout, sidebar footer dropdown
+- Use the existing CSS variable system — update :root variables first, then component styles
+- Show me a diff of every change before applying it
+
+Files you should be aware of (do not touch the logic inside them):
+- js/app.js — core app logic
+- js/analytics.js — chart rendering
+- js/clients.js, viewings.js, offers.js etc. — module logic
+- css/app.css — ONLY file you should edit for styling
+- index.html — layout changes only (no JS inline changes)
+
+Start with: css/app.css :root variable block update. Show it to me first.</div>
+    </div>
+
+    <div class="card">
+      <h3>Connecting Figma to Claude — The Dev Mode Bridge</h3>
+      <p>Figma has a built-in <strong class="highlight">Dev Mode</strong> (paid Figma plan) that exports component CSS and measurements. Here's how to connect it to Claude:</p>
+      <div class="skill-rule">
+        <div class="skill-tag">STEP 1</div>
+        <div class="skill-desc">In Figma, switch to Dev Mode (bottom toolbar). Select any component. Copy the CSS it generates.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">STEP 2</div>
+        <div class="skill-desc">Take a full-page screenshot of each Figma screen. Export as PNG at 1.5x resolution.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">STEP 3</div>
+        <div class="skill-desc">Paste both the screenshots and the CSS export into Claude (here in Cowork) along with Prompt 2 above.</div>
+      </div>
+      <div class="skill-rule">
+        <div class="skill-tag">STEP 4</div>
+        <div class="skill-desc">Claude reads the design visually and the CSS measurements precisely → produces surgical edits to your existing files.</div>
+      </div>
+      <p style="margin-top:12px;font-size:12px;color:#64748b;">Note: The free "Figma to Claude" MCP plugin is in beta — for now, the screenshot + Prompt 2 method is the most reliable approach.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 10. TESTING GUIDE -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="section" id="testing">
+    <div class="section-title"><span class="section-num">10</span> Full User Testing Guide</div>
+
+    <div class="card">
+      <h3>How to Use This Guide</h3>
+      <p>Give this section to your tester. Each item has a test action and an expected result. Mark ✅ Pass / ❌ Fail / ⚠️ Partial. For any Fail, note what happened instead.</p>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">🔐 Authentication</div>
+      <div class="test-row pass"><div class="test-num">T01</div><div><div class="test-desc">Open the app URL. Confirm the lock screen shows with clock, date, and 3 sliding house photos.</div><div class="test-exp">Expected: Slideshow rotates every ~5s. Clock shows live time.</div></div></div>
+      <div class="test-row pass"><div class="test-num">T02</div><div><div class="test-desc">Enter wrong email/password. Click Unlock.</div><div class="test-exp">Expected: Red error message appears. App does not open.</div></div></div>
+      <div class="test-row pass"><div class="test-num">T03</div><div><div class="test-desc">Enter correct credentials. Click Unlock.</div><div class="test-exp">Expected: Lock screen slides away. Dashboard (Overview) appears.</div></div></div>
+      <div class="test-row check"><div class="test-num">T04</div><div><div class="test-desc">Press Ctrl+L after logging in.</div><div class="test-exp">Expected: App locks again, lock screen reappears.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">🏠 Overview / Dashboard</div>
+      <div class="test-row check"><div class="test-num">T05</div><div><div class="test-desc">After login, confirm the 6 stat cards load with real numbers (not dashes or "—").</div><div class="test-exp">Expected: Numbers appear within 3 seconds.</div></div></div>
+      <div class="test-row check"><div class="test-num">T06</div><div><div class="test-desc">Click each Quick Action card (Add Client, Schedule Viewing, Submit Offer, Ask AI).</div><div class="test-exp">Expected: Each opens the correct form or screen.</div></div></div>
+      <div class="test-row check"><div class="test-num">T07</div><div><div class="test-desc">Check Recent Activity section. Confirm it shows client events or a "no activity" message (not a permanent loading spinner).</div><div class="test-exp">Expected: Data or empty-state message, no stuck spinner.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">👥 Clients</div>
+      <div class="test-row check"><div class="test-num">T08</div><div><div class="test-desc">Navigate to Clients. Click "+ Add". Fill in name, email, phone, stage. Save.</div><div class="test-exp">Expected: New client appears in the list immediately.</div></div></div>
+      <div class="test-row check"><div class="test-num">T09</div><div><div class="test-desc">Type a name in the search bar.</div><div class="test-exp">Expected: List filters in real-time to matching clients.</div></div></div>
+      <div class="test-row check"><div class="test-num">T10</div><div><div class="test-desc">Click a client row. Edit a field. Save.</div><div class="test-exp">Expected: Changes persist after navigating away and back.</div></div></div>
+      <div class="test-row check"><div class="test-num">T11</div><div><div class="test-desc">Click "Archive" tab. Confirm archived clients appear separately.</div><div class="test-exp">Expected: Archived list loads, badge shows count.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">📅 Viewings</div>
+      <div class="test-row check"><div class="test-num">T12</div><div><div class="test-desc">Book a new viewing. Select a client from the dropdown. Set date, address, time. Save.</div><div class="test-exp">Expected: Viewing appears in list. Overview stat updates.</div></div></div>
+      <div class="test-row check"><div class="test-num">T13</div><div><div class="test-desc">Filter by "Today" and "Upcoming".</div><div class="test-exp">Expected: List filters correctly. No crashes.</div></div></div>
+      <div class="test-row warn"><div class="test-num">T14</div><div><div class="test-desc">Mark a viewing as "Completed".</div><div class="test-exp">Expected: Status pill updates. Viewing moves to "Done" filter.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">📊 Analytics</div>
+      <div class="test-row warn"><div class="test-num">T15</div><div><div class="test-desc">Navigate to Analytics. Check stat cards load (Active/Total clients, Pipeline Value, Conversion Rate).</div><div class="test-exp">Expected: All 8 stat cards show real numbers, not "—".</div></div></div>
+      <div class="test-row warn"><div class="test-num">T16</div><div><div class="test-desc">Check "Pipeline Breakdown" donut chart.</div><div class="test-exp">Expected: Shows client stages as colored segments. (Bug risk: may be empty if no client stages set.)</div></div></div>
+      <div class="test-row warn"><div class="test-num">T17</div><div><div class="test-desc">Check "Viewings Over Time" line chart.</div><div class="test-exp">Expected: ⚠️ KNOWN BUG — likely empty. See Section 7 of this report for the fix.</div></div></div>
+      <div class="test-row warn"><div class="test-num">T18</div><div><div class="test-desc">Check "Viewings Per Client" bar chart.</div><div class="test-exp">Expected: ⚠️ KNOWN BUG — likely empty. See Section 7.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">📱 Mobile (Install as PWA)</div>
+      <div class="test-row check"><div class="test-num">T19</div><div><div class="test-desc">Open the app URL on an iPhone or Android phone. Look for "Add to Home Screen" prompt.</div><div class="test-exp">Expected: Browser shows install banner or option in share menu.</div></div></div>
+      <div class="test-row check"><div class="test-num">T20</div><div><div class="test-desc">Install the PWA. Open from home screen. Confirm it loads without browser chrome.</div><div class="test-exp">Expected: Runs like a native app, full screen.</div></div></div>
+      <div class="test-row check"><div class="test-num">T21</div><div><div class="test-desc">Navigate between tabs using the hamburger menu on mobile.</div><div class="test-exp">Expected: Sidebar slides in. Tap outside to close.</div></div></div>
+      <div class="test-row check"><div class="test-num">T22</div><div><div class="test-desc">Try adding a client on mobile. Confirm form is usable on small screen (inputs not cut off).</div><div class="test-exp">Expected: Form scrolls, inputs full width, keyboard doesn't block Save button.</div></div></div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">⚙️ Settings & Profile</div>
+      <div class="test-row check"><div class="test-num">T23</div><div><div class="test-desc">Navigate to Settings. Upload a profile photo.</div><div class="test-exp">Expected: Photo appears in topbar avatar and lock screen within seconds.</div></div></div>
+      <div class="test-row check"><div class="test-num">T24</div><div><div class="test-desc">Change your display name in Settings. Save. Reload page.</div><div class="test-exp">Expected: Updated name persists after reload.</div></div></div>
+    </div>
+
+    <div class="card" style="border-color:rgba(16,185,129,0.3);margin-top:20px;">
+      <h3 class="green">Testing Summary Sheet</h3>
+      <table>
+        <tr><th>#</th><th>Feature</th><th>Tests</th><th>Result (fill in)</th></tr>
+        <tr><td>1</td><td>Authentication</td><td>T01–T04</td><td>___/4 Pass</td></tr>
+        <tr><td>2</td><td>Overview / Dashboard</td><td>T05–T07</td><td>___/3 Pass</td></tr>
+        <tr><td>3</td><td>Clients</td><td>T08–T11</td><td>___/4 Pass</td></tr>
+        <tr><td>4</td><td>Viewings</td><td>T12–T14</td><td>___/3 Pass</td></tr>
+        <tr><td>5</td><td>Analytics</td><td>T15–T18</td><td>___/4 Pass (2 known bugs)</td></tr>
+        <tr><td>6</td><td>Mobile / PWA</td><td>T19–T22</td><td>___/4 Pass</td></tr>
+        <tr><td>7</td><td>Settings & Profile</td><td>T23–T24</td><td>___/2 Pass</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- NEXT STEPS -->
+  <div class="section">
+    <div class="section-title">📋 Recommended Next Steps — In Order</div>
+    <div class="card">
+      <table>
+        <tr><th>Priority</th><th>Action</th><th>Effort</th></tr>
+        <tr><td><span class="pill pill-remove">URGENT</span></td><td>Fix the 3 analytics bugs (Viewings Over Time, Per Client, Status)</td><td>~30 min — 3 line changes</td></tr>
+        <tr><td><span class="pill pill-new">PHASE 1</span></td><td>Apply Slate Pro color theme (CSS :root update only)</td><td>~15 min — 8 line changes</td></tr>
+        <tr><td><span class="pill pill-new">PHASE 1</span></td><td>Simplify topbar (remove name text + 4 buttons, keep logo + bell + avatar)</td><td>~20 min — HTML only</td></tr>
+        <tr><td><span class="pill pill-new">PHASE 1</span></td><td>Build sidebar footer profile dropdown</td><td>~45 min — HTML + CSS + ~15 lines JS</td></tr>
+        <tr><td><span class="pill pill-fix">PHASE 2</span></td><td>Add glass effect to stat cards + topbar</td><td>~20 min — CSS only</td></tr>
+        <tr><td><span class="pill pill-fix">PHASE 2</span></td><td>Add mobile glass bottom navigation bar</td><td>~1 hour — CSS + HTML</td></tr>
+        <tr><td><span class="pill pill-fix">PHASE 2</span></td><td>Design in Figma using Prompt 1 from Section 9</td><td>Design time varies</td></tr>
+        <tr><td><span class="pill pill-keep">PHASE 3</span></td><td>Full UI implementation from Figma designs via Claude Prompt 2</td><td>2–3 sessions with Claude</td></tr>
+        <tr><td><span class="pill pill-keep">PHASE 3</span></td><td>Full testing with testing guide (Section 10)</td><td>1–2 hours with tester</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:24px;color:#334155;font-size:12px;">
+    Maxwell DealFlow CRM — Upgrade Report · Generated by Claude in Cowork Mode · April 2026
+  </div>
+</div>
+
+</body>
+</html>
