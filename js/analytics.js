@@ -67,8 +67,8 @@ const Analytics = {
 
     Analytics.renderPipelineBreakdown(cl);
     Analytics.renderClientsByCity(cl);
-    Analytics.renderViewingsOverTime(vi);
-    Analytics.renderViewingsPerClient(vi);
+    Analytics.renderViewingsOverTime(vi, cl);
+    Analytics.renderViewingsPerClient(vi, cl);
     Analytics.renderStageDistribution(cl);
     Analytics.renderBudgetDistribution(cl);
     Analytics.renderViewingStatus(vi);
@@ -141,19 +141,31 @@ const Analytics = {
     });
   },
 
-  renderViewingsOverTime(viewings) {
+  renderViewingsOverTime(viewings, clients) {
     const dateMap = {};
     viewings.forEach(v => {
-      // Support viewing_date, date, or created_at field names
-      const raw = v.viewing_date || v.date || v.created_at;
+      // Try every possible date field name
+      const raw = v.viewing_date || v.date || v.scheduled_date || v.appointment_date || v.visit_date || v.created_at;
       if (!raw) return;
-      const d = raw.substring(0, 10);
+      const d = String(raw).substring(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return; // skip malformed dates
       dateMap[d] = (dateMap[d] || 0) + 1;
     });
     const dates = Object.keys(dateMap).sort().slice(-30);
     Analytics.destroy('viewings-time');
     const ctx = document.getElementById('chart-viewings-time');
     if (!ctx) return;
+    // Clean up any old empty-state message
+    const old = ctx.parentElement.querySelector('.chart-empty-msg');
+    if (old) old.remove();
+    ctx.style.display = '';
+    // Show empty state if no date data
+    if (!dates.length) {
+      ctx.style.display = 'none';
+      ctx.parentElement.insertAdjacentHTML('beforeend',
+        '<div class="chart-empty-msg" style="text-align:center;color:var(--text2);padding:40px 20px;font-size:13px;">📅 No viewings recorded yet — add viewings to see this chart.</div>');
+      return;
+    }
     Analytics.charts['viewings-time'] = new Chart(ctx.getContext('2d'), {
       type: 'line',
       data: {
@@ -175,11 +187,21 @@ const Analytics = {
     });
   },
 
-  renderViewingsPerClient(viewings) {
+  renderViewingsPerClient(viewings, clients) {
+    clients = clients || [];
+    // Build client id → full_name lookup so we can resolve client_id foreign keys
+    const idToName = {};
+    clients.forEach(c => {
+      if (c.id) idToName[String(c.id)] = c.full_name || c.name || '';
+    });
     const clientMap = {};
     viewings.forEach(v => {
-      // Support client_name, name, or client field names
-      const n = v.client_name || v.name || v.client || '';
+      // Try direct name fields first
+      let n = v.client_name || v.name || v.client || v.contact_name || '';
+      // Fallback: resolve via client_id foreign key
+      if (!n && (v.client_id || v.clientId)) {
+        n = idToName[String(v.client_id || v.clientId)] || '';
+      }
       // Skip blank, timestamp-like, or non-name entries
       if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
       clientMap[n] = (clientMap[n] || 0) + 1;
@@ -188,6 +210,17 @@ const Analytics = {
     Analytics.destroy('viewings-client');
     const ctx = document.getElementById('chart-viewings-client');
     if (!ctx) return;
+    // Clean up any old empty-state message
+    const old = ctx.parentElement.querySelector('.chart-empty-msg');
+    if (old) old.remove();
+    ctx.style.display = '';
+    // Show empty state if no client data
+    if (!sorted.length) {
+      ctx.style.display = 'none';
+      ctx.parentElement.insertAdjacentHTML('beforeend',
+        '<div class="chart-empty-msg" style="text-align:center;color:var(--text2);padding:40px 20px;font-size:13px;">👤 No viewings per client yet — add viewings with client names to see this chart.</div>');
+      return;
+    }
     Analytics.charts['viewings-client'] = new Chart(ctx.getContext('2d'), {
       type: 'bar',
       data: {
@@ -275,9 +308,11 @@ const Analytics = {
     // Dynamically collect all statuses actually in the data
     const statusMap = {};
     viewings.forEach(v => {
-      const s = v.viewing_status || v.status || 'Unknown';
+      const s = v.viewing_status || v.status || '';
+      if (!s) return; // skip records with no status field
       statusMap[s] = (statusMap[s] || 0) + 1;
     });
+    // Filter out generic 'Unknown' entries — only show real status values
     const palette = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
     const entries = Object.entries(statusMap).sort((a,b) => b[1]-a[1]);
     const statuses = entries.map(([s]) => s);
@@ -286,9 +321,14 @@ const Analytics = {
     Analytics.destroy('viewing-status');
     const ctx = document.getElementById('chart-viewing-status');
     if (!ctx) return;
+    // Clean up any old empty-state message
+    const old = ctx.parentElement.querySelector('.chart-empty-msg-status');
+    if (old) old.remove();
+    ctx.style.display = '';
     if (!statuses.length) {
       ctx.style.display = 'none';
-      ctx.parentElement.insertAdjacentHTML('beforeend', '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px;">No viewing status data yet — update viewing statuses to see this chart.</div>');
+      ctx.parentElement.insertAdjacentHTML('beforeend',
+        '<div class="chart-empty-msg-status" style="text-align:center;color:var(--text2);padding:40px 20px;font-size:13px;">🔍 No viewing status data yet — update viewing statuses to see this chart.</div>');
       return;
     }
     Analytics.charts['viewing-status'] = new Chart(ctx.getContext('2d'), {
@@ -374,9 +414,13 @@ const Analytics = {
   },
 
   renderViewingsData(clients, viewings) {
+    // Build client id → full_name lookup
+    const idToName = {};
+    clients.forEach(c => { if (c.id) idToName[String(c.id)] = c.full_name || c.name || ''; });
     const viewingMap = {};
     viewings.forEach(v => {
-      const n = v.client_name || '';
+      let n = v.client_name || v.name || v.client || v.contact_name || '';
+      if (!n && (v.client_id || v.clientId)) n = idToName[String(v.client_id || v.clientId)] || '';
       if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
       viewingMap[n] = (viewingMap[n] || 0) + 1;
     });
