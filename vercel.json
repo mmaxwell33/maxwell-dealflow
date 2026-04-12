@@ -3,7 +3,11 @@
   "outputDirectory": ".",
   "framework": null,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/respond", "destination": "/respond.html" },
+    { "source": "/build",   "destination": "/build.html" },
+    { "source": "/portal",  "destination": "/portal.html" },
+    { "source": "/intake",  "destination": "/intake.html" },
+    { "source": "/(.*)",    "destination": "/index.html" }
   ],
   "headers": [
     {
