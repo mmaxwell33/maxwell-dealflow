@@ -42,7 +42,7 @@ const Viewings = {
           <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;cursor:pointer;">${v.property_address || 'No address'}</div>
           <span style="font-size:11px;font-weight:700;color:${statusColor[v.viewing_status]||'var(--text2)'};">${v.viewing_status||'Scheduled'}</span>
         </div>
-        <div class="text-muted" style="font-size:12px;margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${v.clients?.full_name || '—'}</div>
+        <div class="text-muted" style="font-size:12px;margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
           <span>📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
           ${v.list_price ? `<span class="text-accent fw-700">${App.fmtMoney(v.list_price)}</span>` : ''}

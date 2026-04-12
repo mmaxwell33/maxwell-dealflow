@@ -65,7 +65,7 @@ const Clients = {
             ${App.initials(c.full_name)}
           </div>
           <div style="flex:1;min-width:0;">
-            <div class="client-name">${c.full_name}</div>
+            <div class="client-name">${App.privateName(c.full_name)}</div>
             <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
           </div>
           ${App.stageBadge(c.stage)}
@@ -89,7 +89,7 @@ const Clients = {
             ${App.initials(c.full_name)}
           </div>
           <div style="flex:1;min-width:0;">
-            <div class="client-name">${c.full_name}</div>
+            <div class="client-name">${App.privateName(c.full_name)}</div>
             <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
             ${c.archived_at ? `<div style="font-size:11px;color:var(--text2);">Archived ${App.fmtDate(c.archived_at)}</div>` : ''}
           </div>
@@ -118,7 +118,7 @@ const Clients = {
           <div class="client-row" style="opacity:0.75;">
             <div class="client-avatar" style="background:#64748b;">${App.initials(c.full_name)}</div>
             <div style="flex:1;min-width:0;">
-              <div class="client-name">${c.full_name}</div>
+              <div class="client-name">${App.privateName(c.full_name)}</div>
               <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">

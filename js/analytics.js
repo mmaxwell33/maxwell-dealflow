@@ -371,7 +371,7 @@ const Analytics = {
       <tbody>${scored.slice(0, 10).map(c => {
         const color = c.score >= 60 ? '#10b981' : c.score >= 30 ? '#f59e0b' : '#ef4444';
         return `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:8px 0;font-weight:600;color:var(--accent2);">${c.full_name}</td>
+          <td style="padding:8px 0;font-weight:600;">${App.privateName(c.full_name)}</td>
           <td style="padding:8px 0;color:var(--text2);">${c.stage || '—'}</td>
           <td style="padding:8px 0;text-align:right;">
             <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
@@ -408,7 +408,7 @@ const Analytics = {
       </tr></thead>
       <tbody>${overdue.slice(0, 8).map(c => `
         <tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:8px 0;font-weight:600;color:var(--accent2);">${c.full_name}</td>
+          <td style="padding:8px 0;font-weight:600;">${App.privateName(c.full_name)}</td>
           <td style="padding:8px 0;color:var(--text2);">${c.stage || '—'}</td>
           <td style="padding:8px 0;text-align:right;font-weight:700;color:var(--red);">${c.days} days</td>
         </tr>`).join('')}</tbody>
@@ -441,7 +441,7 @@ const Analytics = {
       </tr></thead>
       <tbody>${rows.map(([name, count]) => `
         <tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:10px 0;font-weight:600;color:var(--accent2);">${name}</td>
+          <td style="padding:10px 0;font-weight:600;">${App.privateName(name)}</td>
           <td style="padding:10px 0;color:var(--text2);">${emailMap[name] || '—'}</td>
           <td style="padding:10px 0;text-align:right;font-weight:800;">${count}</td>
         </tr>`).join('')}</tbody>

@@ -634,6 +634,35 @@ const App = {
     return name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || '?';
   },
 
+  // ── Privacy: mask client names, click to reveal ──
+  privateName(fullName) {
+    if (!fullName) return '<span style="color:var(--text3);">—</span>';
+    const parts = fullName.trim().split(/\s+/);
+    const first = parts[0];
+    const lastInit = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() + '.' : '';
+    const masked = lastInit ? `${first} ${lastInit}` : first;
+    const safe = App.esc(fullName);
+    return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to reveal full name">${masked}<span class="pname-eye">👁</span></span>`;
+  },
+
+  revealName(el) {
+    const full = el.getAttribute('data-full');
+    if (!full) return;
+    el.classList.add('pname-open');
+    el.innerHTML = `${full}<span class="pname-eye pname-lock" onclick="event.stopPropagation();App.hideName(this.parentElement)">🔒</span>`;
+  },
+
+  hideName(el) {
+    if (!el) return;
+    const full = el.getAttribute('data-full');
+    const parts = (full || '').trim().split(/\s+/);
+    const first = parts[0] || '';
+    const lastInit = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() + '.' : '';
+    const masked = lastInit ? `${first} ${lastInit}` : first;
+    el.classList.remove('pname-open');
+    el.innerHTML = `${masked}<span class="pname-eye">👁</span>`;
+  },
+
   fmtDate(d) {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('en-CA', { month:'short', day:'numeric' });
