@@ -321,9 +321,24 @@ const Viewings = {
     const v = Viewings.all.find(x => x.id === id) || {};
     const client = Clients.all.find(c => c.id === v.client_id);
     const clientObj = { ...client, email: client?.email || '(no email on file)' };
+    const firstName = clientObj.full_name?.split(' ')[0] || 'your client';
 
     if (typeof Notify !== "undefined") {
+      // Queue follow-up email and immediately auto-approve it — no manual Approvals stop
       await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
+      // Find the queued row and approve it right away
+      const { data: { user } } = await db.auth.getUser();
+      const agentId = user?.id || currentAgent?.id;
+      if (agentId) {
+        const { data: queued } = await db.from('approval_queue')
+          .select('id').eq('agent_id', agentId).eq('status', 'Pending')
+          .eq('approval_type', 'Post-Viewing Follow-Up').eq('related_id', id)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (queued?.id && typeof Approvals !== 'undefined') {
+          setTimeout(() => Approvals.approve(queued.id), 500);
+        }
+      }
+
       if (feedback === 'interested') {
         // Generate a unique response token so client can respond via the web page
         const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -337,13 +352,36 @@ const Viewings = {
         });
         const viewingWithToken = { ...v, client_feedback: feedback, _responseToken: token };
         await Notify.onReadyToOffer(viewingWithToken, clientObj);
+        // Auto-approve the "Ready to Make an Offer?" email too
+        if (agentId) {
+          const { data: offerQ } = await db.from('approval_queue')
+            .select('id').eq('agent_id', agentId).eq('status', 'Pending')
+            .eq('approval_type', 'Ready to Make an Offer?').eq('related_id', id)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (offerQ?.id && typeof Approvals !== 'undefined') {
+            setTimeout(() => Approvals.approve(offerQ.id), 1200);
+          }
+        }
       }
     }
 
-    App.toast(feedback === 'interested' ? '🌟 Offer invitation queued in Approvals' : feedback === 'good' ? '✅ Follow-up email queued in Approvals' : '📬 Continue searching email queued in Approvals');
+    // Show contextual toast with what just happened — no "check Approvals" needed
+    const toastMsg = feedback === 'interested'
+      ? `🌟 ${firstName} — follow-up + offer invitation sent automatically`
+      : feedback === 'good'
+      ? `✅ ${firstName} — follow-up email sent automatically`
+      : `📬 ${firstName} — "keep searching" email sent automatically`;
+    App.toast(toastMsg, 'var(--green)');
+
     await Viewings.load();
     App.closeModal();
-    setTimeout(() => Viewings.openDetail(id), 400);
+
+    // If Very Interested — open offer prep modal right away so you can start the offer
+    if (feedback === 'interested') {
+      setTimeout(() => Viewings.openManualOfferModal(v, client), 600);
+    } else {
+      setTimeout(() => Viewings.openDetail(id), 400);
+    }
   },
 
   // Manual override — agent records client decision without waiting for email response
