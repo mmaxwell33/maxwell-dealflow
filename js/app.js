@@ -64,6 +64,8 @@ const App = {
         if (e.data?.type === 'SWITCH_TAB') App.switchTab(e.data.tab);
       });
     }
+    // Apply saved theme or auto day/night
+    App.applyAutoTheme();
     // Check existing session
     const { data: { session } } = await db.auth.getSession();
     if (session) {
@@ -74,6 +76,60 @@ const App = {
       if (event === 'SIGNED_IN' && session) await App.onSignedIn(session.user);
       if (event === 'SIGNED_OUT') App.showAuth();
     });
+  },
+
+  // ── Day / Night Theme ────────────────────────────────────────────────────
+  applyAutoTheme() {
+    const saved = localStorage.getItem('df-theme');
+    if (saved === 'light') {
+      document.body.classList.add('theme-light');
+      App._updateThemeBtn(true);
+    } else if (saved === 'dark') {
+      document.body.classList.remove('theme-light');
+      App._updateThemeBtn(false);
+    } else {
+      // Auto: light 7am–7pm, dark otherwise
+      const h = new Date().getHours();
+      const isDay = h >= 7 && h < 19;
+      document.body.classList.toggle('theme-light', isDay);
+      App._updateThemeBtn(isDay);
+    }
+  },
+
+  cycleTheme() {
+    const saved = localStorage.getItem('df-theme');
+    const isLight = document.body.classList.contains('theme-light');
+    if (!saved) {
+      // Auto → force to opposite of current
+      const newTheme = isLight ? 'dark' : 'light';
+      localStorage.setItem('df-theme', newTheme);
+      document.body.classList.toggle('theme-light', newTheme === 'light');
+      App._updateThemeBtn(newTheme === 'light');
+    } else if (saved === 'light') {
+      localStorage.setItem('df-theme', 'dark');
+      document.body.classList.remove('theme-light');
+      App._updateThemeBtn(false);
+    } else if (saved === 'dark') {
+      // Back to auto
+      localStorage.removeItem('df-theme');
+      App.applyAutoTheme();
+    }
+  },
+
+  _updateThemeBtn(isLight) {
+    const btn = document.getElementById('tb-theme-btn');
+    if (!btn) return;
+    const saved = localStorage.getItem('df-theme');
+    if (!saved) {
+      btn.textContent = '🌗';
+      btn.title = 'Theme: Auto (click to toggle)';
+    } else if (isLight) {
+      btn.textContent = '☀️';
+      btn.title = 'Theme: Light (click for Dark)';
+    } else {
+      btn.textContent = '🌙';
+      btn.title = 'Theme: Dark (click for Auto)';
+    }
   },
 
   async signIn() {
@@ -347,7 +403,7 @@ const App = {
       const name = (v.clients && v.clients.full_name) || 'Client';
       const addr = v.property_address || v.address || 'Property';
       const time = v.viewing_time ? v.viewing_time.slice(0, 5) : '';
-      items.push({ icon: '🏠', bg: 'rgba(217,119,87,0.15)', color: '#d97757', title: `Viewing Today${time ? ' at ' + time : ''}`, text: `${name} — ${addr}`, tag: 'Today' });
+      items.push({ icon: '🏠', bg: 'rgba(91,91,214,0.15)', color: '#7c7cff', title: `Viewing Today${time ? ' at ' + time : ''}`, text: `${name} — ${addr}`, tag: 'Today' });
     });
     (tomorrowV || []).forEach(v => {
       const name = (v.clients && v.clients.full_name) || 'Client';
@@ -661,6 +717,27 @@ const App = {
     const masked = lastInit ? `${first} ${lastInit}` : first;
     el.classList.remove('pname-open');
     el.innerHTML = `${masked}<span class="pname-eye">👁</span>`;
+  },
+
+  // ── Privacy: mask email + phone, click to reveal ──
+  privateContact(email, phone) {
+    const maskEmail = (e) => {
+      if (!e) return '';
+      const at = e.indexOf('@');
+      if (at < 1) return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal">${e[0]}•••<span class="pname-eye">👁</span></span>`;
+      const user = e.slice(0, at);
+      const domain = e.slice(at + 1);
+      const masked = user.length > 2 ? `${user[0]}${'•'.repeat(Math.min(user.length - 1, 4))}@${domain}` : `${user[0]}•@${domain}`;
+      return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal email">${masked}<span class="pname-eye">👁</span></span>`;
+    };
+    const maskPhone = (p) => {
+      if (!p) return '';
+      const digits = p.replace(/\D/g, '');
+      const masked = digits.length >= 7 ? `${p.slice(0,3)} •••-${digits.slice(-4)}` : `${p.slice(0,3)}•••`;
+      return `<span class="pname" data-full="${App.esc(p)}" onclick="App.revealName(this)" title="Click to reveal phone">${masked}<span class="pname-eye">👁</span></span>`;
+    };
+    const parts = [maskEmail(email), maskPhone(phone)].filter(Boolean);
+    return parts.join(' · ');
   },
 
   fmtDate(d) {

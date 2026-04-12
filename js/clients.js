@@ -66,7 +66,7 @@ const Clients = {
           </div>
           <div style="flex:1;min-width:0;">
             <div class="client-name">${App.privateName(c.full_name)}</div>
-            <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
+            <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
           </div>
           ${App.stageBadge(c.stage)}
         </div>`).join('') + `</div>`;
@@ -90,7 +90,7 @@ const Clients = {
           </div>
           <div style="flex:1;min-width:0;">
             <div class="client-name">${App.privateName(c.full_name)}</div>
-            <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
+            <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
             ${c.archived_at ? `<div style="font-size:11px;color:var(--text2);">Archived ${App.fmtDate(c.archived_at)}</div>` : ''}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -119,7 +119,7 @@ const Clients = {
             <div class="client-avatar" style="background:#64748b;">${App.initials(c.full_name)}</div>
             <div style="flex:1;min-width:0;">
               <div class="client-name">${App.privateName(c.full_name)}</div>
-              <div class="client-meta">${c.email || ''} · ${c.phone || ''}</div>
+              <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
               <button class="btn btn-sm btn-green" style="font-size:11px;padding:4px 8px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
