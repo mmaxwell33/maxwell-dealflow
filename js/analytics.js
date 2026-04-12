@@ -172,8 +172,8 @@ const Analytics = {
         labels: dates.map(d => d.substring(5)),
         datasets: [{
           data: dates.map(d => dateMap[d] || 0),
-          borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)',
-          borderWidth: 2, pointBackgroundColor: '#3b82f6', pointRadius: 4, fill: true, tension: 0.4
+          borderColor: '#d97757', backgroundColor: 'rgba(217,119,87,0.1)',
+          borderWidth: 2, pointBackgroundColor: '#d97757', pointRadius: 4, fill: true, tension: 0.4
         }]
       },
       options: {

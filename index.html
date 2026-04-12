@@ -89,13 +89,25 @@
     <!-- AI button (icon only on desktop, text on wider screens) -->
     <button class="tb-btn tb-btn-purple tb-ai-btn" onclick="App.toggleAI()" title="Ask AI">🤖 <span class="tb-btn-label">Ask AI</span></button>
     <!-- Notification bell -->
-    <button class="tb-icon-btn" onclick="App.switchTab('approvals')" title="Approvals" id="tb-bell-btn">
-      🔔<span class="tb-bell-dot" id="tb-bell-dot" style="display:none;"></span>
+    <button class="tb-icon-btn" onclick="App.toggleNotifPanel(event)" title="Notifications" id="tb-bell-btn">
+      🔔<span class="tb-bell-count" id="tb-bell-count" style="display:none;"></span>
     </button>
     <!-- Avatar — opens profile dropdown in sidebar -->
     <div class="tb-avatar" id="topbar-avatar" onclick="App.toggleProfileMenu()" style="cursor:pointer;overflow:hidden;" title="Profile & Account">
       <img id="topbar-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
       <span id="topbar-initials">MD</span>
+    </div>
+  </div>
+
+  <!-- NOTIFICATION PANEL -->
+  <div id="notif-panel" style="display:none;">
+    <div class="notif-header">
+      <span class="notif-title-text">🔔 Notifications</span>
+      <button class="notif-close" onclick="App.closeNotifPanel()">✕</button>
+    </div>
+    <div id="notif-list"><div class="notif-loading">Loading…</div></div>
+    <div class="notif-footer">
+      <button onclick="App.switchTab('approvals');App.closeNotifPanel();" style="background:none;border:none;color:var(--accent2);font-size:12px;font-weight:600;cursor:pointer;padding:4px;">View All Approvals →</button>
     </div>
   </div>
 
@@ -806,39 +818,26 @@
     <!-- AGENT PORTAL SCREEN -->
     <div id="screen-agentportal" class="screen" style="padding:16px;">
       <div class="section-header" style="margin-bottom:16px;">
-        <div class="section-title">🚀 Agent Portal Deployment</div>
+        <div class="section-title">Agent Portal</div>
       </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Deploy a new CRM portal for another agent. Each agent gets their own isolated account — they <strong>cannot</strong> see your data, clients, or transactions.</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Give another agent their own DealFlow CRM. Each agent gets a completely isolated account with their own clients, deals, and data.</div>
 
-      <!-- How It Works -->
-      <div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent2);">
-        <div class="fw-800" style="color:var(--accent2);margin-bottom:10px;">ℹ️ How It Works</div>
-        <ul style="font-size:13px;color:var(--text2);line-height:2;margin:0;padding-left:18px;">
-          <li>A new agent account is created in the system</li>
-          <li>The agent gets their own login with their own data</li>
-          <li>Their data is completely isolated — you don't see theirs, they don't see yours</li>
-          <li>A welcome email is sent to the agent with login instructions</li>
-        </ul>
-      </div>
-
-      <!-- Agent Portal Guide (collapsible) -->
-      <div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="AgentPortal.toggleGuide()">
-          <div class="fw-800">📖 Agent Portal Guide</div>
-          <span id="guide-arrow" style="font-size:14px;transition:transform 0.2s;">▶</span>
+      <!-- Quick info bar -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;background:rgba(217,119,87,0.08);border:1px solid rgba(217,119,87,0.18);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text2);">
+          🔒 <strong style="color:var(--text);">Fully isolated</strong> — each agent's data is private
         </div>
-        <div id="portal-guide" style="display:none;margin-top:12px;font-size:13px;color:var(--text2);line-height:1.8;">
-          <p><strong>Step 1:</strong> Fill in the agent's full name and email below.</p>
-          <p><strong>Step 2:</strong> Click "Deploy Agent Portal" — a Supabase Auth invite will be sent to their email.</p>
-          <p><strong>Step 3:</strong> The agent clicks the invite link, sets their password, and logs in.</p>
-          <p><strong>Step 4:</strong> Their account is live — completely isolated from yours.</p>
-          <p style="color:var(--yellow);">⚠️ Make sure the email is correct before deploying. Invites cannot be recalled.</p>
+        <div style="flex:1;min-width:160px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.18);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text2);">
+          📧 <strong style="color:var(--text);">Invite by email</strong> — agent sets their own password
+        </div>
+        <div style="flex:1;min-width:160px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.18);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text2);">
+          ⚠️ <strong style="color:var(--text);">Double-check</strong> email — invites can't be recalled
         </div>
       </div>
 
       <!-- Deployment Form -->
       <div class="card">
-        <div style="font-size:15px;font-weight:800;margin-bottom:16px;">📋 New Agent Details</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:16px;">New Agent Details</div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">AGENT FULL NAME *</label><input class="form-input" id="ap-name" placeholder="e.g. Jane Smith"></div>
           <div class="form-group"><label class="form-label">AGENT EMAIL *</label><input class="form-input" id="ap-email" type="email" placeholder="agent@email.com"></div>
@@ -858,7 +857,7 @@
             </select>
           </div>
         </div>
-        <button class="btn btn-green" style="margin-top:8px;" onclick="AgentPortal.deploy()">🚀 Deploy Agent Portal</button>
+        <button class="btn btn-green" style="margin-top:8px;" onclick="AgentPortal.deploy()">Deploy Agent Account</button>
         <div id="ap-msg" style="margin-top:10px;font-size:13px;text-align:center;"></div>
       </div>
 

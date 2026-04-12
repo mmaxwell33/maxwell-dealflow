@@ -180,6 +180,8 @@ const App = {
     setInterval(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 5 * 60 * 1000);
     // Update approvals badge
     setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
+    // Load notification bell count
+    setTimeout(() => App.loadNotifications(), 2200);
     // Update client responses badge
     setTimeout(() => { if (typeof Responses !== "undefined") Responses.updateBadge(); }, 1800);
     // Update inbox unread badge
@@ -302,6 +304,98 @@ const App = {
     const card = document.getElementById('sb-profile-card');
     if (menu) menu.style.display = 'none';
     if (card) card.classList.remove('open');
+  },
+
+  // ── Notification Panel ──
+  toggleNotifPanel(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('notif-panel');
+    if (!panel) return;
+    const isOpen = panel.style.display === 'flex';
+    panel.style.display = isOpen ? 'none' : 'flex';
+    panel.style.flexDirection = 'column';
+    if (!isOpen) {
+      App.loadNotifications();
+      setTimeout(() => {
+        document.addEventListener('click', App._closeNotifOnOutside, { once: true });
+      }, 50);
+    }
+  },
+
+  async loadNotifications() {
+    const el = document.getElementById('notif-list');
+    if (!el || !currentAgent?.id) return;
+    el.innerHTML = '<div class="notif-loading">Loading…</div>';
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const tomorrow = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+    const weekAgo = new Date(now - 7 * 86400000).toISOString();
+    const [
+      { data: todayV },
+      { data: tomorrowV },
+      { data: pending },
+      { data: recentClients }
+    ] = await Promise.all([
+      db.from('viewings').select('*, clients(full_name)').eq('viewing_date', today).neq('viewing_status', 'Completed'),
+      db.from('viewings').select('*, clients(full_name)').eq('viewing_date', tomorrow).neq('viewing_status', 'Completed'),
+      db.from('approval_queue').select('*').eq('agent_id', currentAgent.id).eq('status', 'Pending'),
+      db.from('clients').select('id,full_name,stage,updated_at').eq('agent_id', currentAgent.id)
+        .gte('created_at', weekAgo).order('created_at', { ascending: false }).limit(3)
+    ]);
+    const items = [];
+    (todayV || []).forEach(v => {
+      const name = (v.clients && v.clients.full_name) || 'Client';
+      const addr = v.property_address || v.address || 'Property';
+      const time = v.viewing_time ? v.viewing_time.slice(0, 5) : '';
+      items.push({ icon: '🏠', bg: 'rgba(217,119,87,0.15)', color: '#d97757', title: `Viewing Today${time ? ' at ' + time : ''}`, text: `${name} — ${addr}`, tag: 'Today' });
+    });
+    (tomorrowV || []).forEach(v => {
+      const name = (v.clients && v.clients.full_name) || 'Client';
+      const addr = v.property_address || v.address || 'Property';
+      items.push({ icon: '📅', bg: 'rgba(6,182,212,0.15)', color: '#06b6d4', title: 'Viewing Tomorrow', text: `${name} — ${addr}`, tag: 'Tomorrow' });
+    });
+    (pending || []).forEach(a => {
+      items.push({ icon: '✅', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', title: 'Pending Approval', text: a.subject || a.type || 'Needs your review', tag: 'Pending' });
+    });
+    (recentClients || []).forEach(c => {
+      items.push({ icon: '👤', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', title: 'New Client Added', text: c.full_name + (c.stage ? ' — ' + c.stage : ''), tag: 'New' });
+    });
+    // Update bell badge
+    const badge = document.getElementById('tb-bell-count');
+    if (badge) {
+      if (items.length > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = items.length > 9 ? '9+' : String(items.length);
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    if (!items.length) {
+      el.innerHTML = '<div class="notif-empty">🎉 All caught up!<br><span style="font-size:11px;color:var(--text3);">No pending notifications</span></div>';
+      return;
+    }
+    el.innerHTML = items.map(item => `
+      <div class="notif-item">
+        <div class="notif-icon" style="background:${item.bg};color:${item.color};">${item.icon}</div>
+        <div class="notif-body">
+          <div class="notif-item-title">${item.title}</div>
+          <div class="notif-item-text">${item.text}</div>
+        </div>
+        <div class="notif-time">${item.tag}</div>
+      </div>`).join('');
+  },
+
+  _closeNotifOnOutside(e) {
+    const panel = document.getElementById('notif-panel');
+    const bell = document.getElementById('tb-bell-btn');
+    if (panel && !panel.contains(e.target) && bell && !bell.contains(e.target)) {
+      panel.style.display = 'none';
+    }
+  },
+
+  closeNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    if (panel) panel.style.display = 'none';
   },
 
   // ── Mobile FAB (Floating Action Button) ──
