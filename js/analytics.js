@@ -16,7 +16,7 @@ const Analytics = {
       { data: approvals }
     ] = await Promise.all([
       db.from('clients').select('*').eq('agent_id', agentId),
-      db.from('viewings').select('*').eq('agent_id', agentId),
+      db.from('viewings').select('*, clients(full_name, email)').order('viewing_date', { ascending: false }).limit(500),
       db.from('pipeline').select('*').eq('agent_id', agentId),
       db.from('commissions').select('*').eq('agent_id', agentId),
       db.from('approval_queue').select('*').eq('agent_id', agentId).eq('status', 'Pending')
@@ -196,9 +196,11 @@ const Analytics = {
     });
     const clientMap = {};
     viewings.forEach(v => {
-      // Try direct name fields first
-      let n = v.client_name || v.name || v.client || v.contact_name || '';
-      // Fallback: resolve via client_id foreign key
+      // Primary: joined clients relation (matches how Viewings tab works)
+      let n = (v.clients && v.clients.full_name) || '';
+      // Fallback: direct name fields
+      if (!n) n = v.client_name || v.name || v.client || v.contact_name || '';
+      // Fallback: resolve via client_id foreign key lookup
       if (!n && (v.client_id || v.clientId)) {
         n = idToName[String(v.client_id || v.clientId)] || '';
       }
@@ -419,7 +421,8 @@ const Analytics = {
     clients.forEach(c => { if (c.id) idToName[String(c.id)] = c.full_name || c.name || ''; });
     const viewingMap = {};
     viewings.forEach(v => {
-      let n = v.client_name || v.name || v.client || v.contact_name || '';
+      let n = (v.clients && v.clients.full_name) || '';
+      if (!n) n = v.client_name || v.name || v.client || v.contact_name || '';
       if (!n && (v.client_id || v.clientId)) n = idToName[String(v.client_id || v.clientId)] || '';
       if (!n || n.length > 60 || /^\d|GMT|UTC|Standard Time/i.test(n)) return;
       viewingMap[n] = (viewingMap[n] || 0) + 1;
