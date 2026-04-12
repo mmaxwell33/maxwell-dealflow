@@ -489,6 +489,7 @@ const Pipeline = {
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.openRoom('${d.id}')">🤝 Room</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
       </div>`;
@@ -771,5 +772,156 @@ const Pipeline = {
     await Pipeline.generateChecklist(pipelineId, fakeOffer, client, d.acceptance_date || new Date().toISOString().slice(0,10));
     App.toast('✅ Checklist generated!');
     await Pipeline.openChecklist(pipelineId);
+  },
+
+  // ── TRANSACTION ROOM ──────────────────────────────────────────────────────
+  _roomId: null,
+
+  openRoom(id) {
+    const d = Pipeline.all.find(x => x.id === id);
+    if (!d) return;
+    Pipeline._roomId = id;
+
+    const modal = document.getElementById('room-modal');
+    const title = document.getElementById('room-deal-title');
+    const sub   = document.getElementById('room-deal-sub');
+    if (title) title.textContent = `🤝 Transaction Room — ${d.client_name || 'Deal'}`;
+    if (sub)   sub.textContent   = `${d.property_address || ''} · $${Number(d.offer_amount||0).toLocaleString('en-CA')}`;
+
+    // Default parties if none saved yet
+    const saved = JSON.parse(localStorage.getItem(`df-room-${id}`) || 'null');
+    if (!saved) {
+      const defaults = [
+        { name: currentAgent?.full_name || 'Maxwell', role: 'Agent', email: currentAgent?.email || '', phone: '' },
+        { name: d.client_name || 'Buyer', role: 'Buyer', email: d.client_email || '', phone: '' }
+      ];
+      localStorage.setItem(`df-room-${id}`, JSON.stringify(defaults));
+    }
+
+    Pipeline.roomTab('parties', document.querySelector('.room-tab'));
+    Pipeline.renderParties();
+    if (modal) modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  },
+
+  closeRoom() {
+    const modal = document.getElementById('room-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    Pipeline._roomId = null;
+  },
+
+  roomTab(name, btn) {
+    document.querySelectorAll('.room-tab').forEach(b => b.classList.remove('active'));
+    ['parties','timeline','docs'].forEach(p => {
+      const el = document.getElementById(`room-panel-${p}`);
+      if (el) el.style.display = p === name ? 'block' : 'none';
+    });
+    if (btn) btn.classList.add('active');
+    if (name === 'parties')  Pipeline.renderParties();
+    if (name === 'timeline') Pipeline.renderTimeline();
+    if (name === 'docs')     Pipeline.renderDocs();
+  },
+
+  renderParties() {
+    const id = Pipeline._roomId;
+    const el = document.getElementById('room-parties-list');
+    if (!el || !id) return;
+    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
+    const roleColors = { Agent:'var(--accent2)', Buyer:'var(--green)', 'Mortgage Broker':'var(--yellow)', 'Lawyer / Notary':'var(--purple)', 'Home Inspector':'var(--cyan)', 'Lender / Bank':'var(--orange, #f97316)', default:'var(--text2)' };
+    el.innerHTML = parties.length ? parties.map((p, i) => `
+      <div class="room-party-row">
+        <div class="room-party-avatar" style="background:${roleColors[p.role]||roleColors.default};">${(p.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;">${App.esc(p.name)}</div>
+          <div style="font-size:12px;color:var(--text2);">${App.esc(p.role)}${p.email ? ' · ' + App.esc(p.email) : ''}${p.phone ? ' · ' + App.esc(p.phone) : ''}</div>
+        </div>
+        ${i >= 2 ? `<button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px;" onclick="Pipeline.removeParty(${i})" title="Remove">✕</button>` : ''}
+      </div>`).join('') : '<div style="color:var(--text2);font-size:13px;text-align:center;padding:16px;">No parties yet.</div>';
+  },
+
+  addParty() {
+    const id = Pipeline._roomId;
+    if (!id) return;
+    const name  = document.getElementById('room-new-name')?.value.trim();
+    const role  = document.getElementById('room-new-role')?.value;
+    const email = document.getElementById('room-new-email')?.value.trim();
+    const phone = document.getElementById('room-new-phone')?.value.trim();
+    if (!name) { App.toast('⚠️ Enter a name'); return; }
+    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
+    parties.push({ name, role, email, phone });
+    localStorage.setItem(`df-room-${id}`, JSON.stringify(parties));
+    ['room-new-name','room-new-email','room-new-phone'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
+    Pipeline.renderParties();
+    App.toast(`✅ ${name} added to room`);
+  },
+
+  removeParty(idx) {
+    const id = Pipeline._roomId;
+    if (!id) return;
+    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
+    parties.splice(idx, 1);
+    localStorage.setItem(`df-room-${id}`, JSON.stringify(parties));
+    Pipeline.renderParties();
+  },
+
+  renderTimeline() {
+    const id = Pipeline._roomId;
+    const el = document.getElementById('room-timeline-list');
+    if (!el || !id) return;
+    const d = Pipeline.all.find(x => x.id === id);
+    if (!d) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const milestones = [
+      { label: 'Acceptance',   icon: '✅', date: d.acceptance_date },
+      { label: 'Financing',    icon: '🏦', date: d.financing_date },
+      { label: 'Inspection',   icon: '🔍', date: d.inspection_date },
+      { label: 'Walkthrough',  icon: '🚶', date: d.walkthrough_date },
+      { label: 'Closing',      icon: '🏠', date: d.closing_date }
+    ];
+    el.innerHTML = milestones.map(m => {
+      const dt = m.date ? new Date(m.date + 'T00:00:00') : null;
+      const past   = dt && dt <= today;
+      const today_ = dt && dt.getTime() === today.getTime();
+      const color  = !dt ? 'var(--text3)' : past ? 'var(--green)' : today_ ? 'var(--yellow)' : 'var(--accent2)';
+      const status = !dt ? 'No date set' : past ? 'Completed' : today_ ? 'Today!' : `${App.fmtDate(m.date)} (upcoming)`;
+      return `<div class="room-timeline-item">
+        <div class="room-tl-dot" style="background:${color};"></div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">${m.icon} ${m.label}</div>
+          <div style="font-size:12px;color:${color};">${status}</div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  renderDocs() {
+    const id = Pipeline._roomId;
+    const el = document.getElementById('room-docs-list');
+    if (!el || !id) return;
+    const defaultDocs = [
+      'Accepted Offer Agreement', 'Home Inspection Report',
+      'Mortgage Approval Letter', 'Title Search / Certificate',
+      'Home Insurance Proof', 'Final Walkthrough Notes',
+      'Deposit Receipt', 'Closing Statement / Adjustment'
+    ];
+    const checked = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
+    el.innerHTML = defaultDocs.map((doc, i) => {
+      const isChecked = checked.includes(i);
+      return `<div class="room-doc-item ${isChecked ? 'checked' : ''}" onclick="Pipeline.toggleDoc(${i})">
+        <span style="font-size:18px;">${isChecked ? '✅' : '⬜'}</span>
+        <span style="font-size:13px;font-weight:${isChecked?'600':'400'};color:${isChecked?'var(--green)':'var(--text)'};">${App.esc(doc)}</span>
+      </div>`;
+    }).join('');
+  },
+
+  toggleDoc(idx) {
+    const id = Pipeline._roomId;
+    if (!id) return;
+    const checked = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
+    const pos = checked.indexOf(idx);
+    if (pos === -1) checked.push(idx); else checked.splice(pos, 1);
+    localStorage.setItem(`df-room-docs-${id}`, JSON.stringify(checked));
+    Pipeline.renderDocs();
   }
 };

@@ -948,8 +948,61 @@
     <!-- SYSTEM SCREEN -->
     <div id="screen-system" class="screen" style="padding:16px;">
       <div class="section-header" style="margin-bottom:16px;">
-        <div class="section-title">🔒 System</div>
-        <button class="btn btn-outline btn-sm" onclick="SystemTools.openTheme()">🎨 Dashboard Theme</button>
+        <div class="section-title">⚙️ System</div>
+        <button class="btn btn-outline btn-sm" onclick="SystemTools.openTheme()">🎨 Theme</button>
+      </div>
+
+      <!-- ── LIVE HEALTH DASHBOARD ── -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">🏥 System Health</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:14px;">Live Status</div>
+          <button class="btn btn-outline btn-sm" onclick="SystemTools.runHealthCheck()">🔄 Run Check</button>
+        </div>
+        <div id="health-status-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="health-tile" id="ht-db"><span class="health-dot idle"></span> Database</div>
+          <div class="health-tile" id="ht-auth"><span class="health-dot idle"></span> Auth</div>
+          <div class="health-tile" id="ht-email"><span class="health-dot idle"></span> Email Service</div>
+          <div class="health-tile" id="ht-queue"><span class="health-dot idle"></span> Approval Queue</div>
+        </div>
+        <div id="health-summary" style="margin-top:12px;font-size:12px;color:var(--text2);">Click Run Check to scan all systems.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+          <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+            <div style="font-size:20px;font-weight:800;color:var(--accent2);" id="hc-clients">—</div>
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Active Clients</div>
+          </div>
+          <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+            <div style="font-size:20px;font-weight:800;color:var(--accent2);" id="hc-deals">—</div>
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Open Deals</div>
+          </div>
+          <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+            <div style="font-size:20px;font-weight:800;color:var(--yellow);" id="hc-pending">—</div>
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Pending Emails</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEST RUNNER ── -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);text-transform:uppercase;margin:0 0 8px 4px;">🧪 Test Runner</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:14px;">Automated Tests</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="SystemTools.runTests()">▶ Run All</button>
+            <button class="btn btn-outline btn-sm" onclick="SystemTools.emailTestReport()">📧 Email Report</button>
+          </div>
+        </div>
+        <div id="test-runner-list" style="font-size:13px;color:var(--text2);">
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-auth">⬜ Auth — user session valid</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-db">⬜ Database — can read clients table</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-write">⬜ Database — write &amp; rollback test</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-pipeline">⬜ Pipeline — all deals have client IDs</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-email">⬜ Email service — edge function reachable</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-neg-email">⬜ Negative — invalid email rejected</div>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);" id="tr-neg-empty">⬜ Negative — empty client name rejected</div>
+          <div style="padding:8px 0;" id="tr-storage">⬜ Storage — localStorage accessible</div>
+        </div>
+        <div id="test-runner-summary" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>
       </div>
 
       <!-- DATA & ANALYTICS -->
@@ -1283,6 +1336,36 @@
           <button class="btn btn-primary" style="margin-top:16px;" onclick="Settings.saveNotifs()">💾 Save Preferences</button>
           <div id="set-notif-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
+
+        <!-- AUTO-APPROVE CARD -->
+        <div class="settings-card" style="margin-top:14px;">
+          <div class="settings-card-title">⚡ Auto-Approve Emails</div>
+          <div class="settings-card-sub">These email types will be sent automatically without manual review in the Approvals tab.</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Viewing Confirmations &amp; Updates</div><div class="set-toggle-sub">Viewing booked / rescheduled / post-viewing follow-ups</div></div>
+              <input type="checkbox" class="set-toggle" id="auto-viewing">
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Offer Emails</div><div class="set-toggle-sub">Offer accepted, countered, rejected notifications</div></div>
+              <input type="checkbox" class="set-toggle" id="auto-offer">
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Pipeline Reminders</div><div class="set-toggle-sub">Financing, inspection, walkthrough &amp; closing countdown emails</div></div>
+              <input type="checkbox" class="set-toggle" id="auto-reminder">
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Follow-Up Emails</div><div class="set-toggle-sub">Scheduled client follow-up messages</div></div>
+              <input type="checkbox" class="set-toggle" id="auto-followup">
+            </label>
+            <label class="set-toggle-row">
+              <div><div class="set-toggle-title">Morning Summary</div><div class="set-toggle-sub">Daily morning briefing emails</div></div>
+              <input type="checkbox" class="set-toggle" id="auto-morning">
+            </label>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;" onclick="Settings.saveAutoApprove()">⚡ Save Auto-Approve</button>
+          <div id="set-auto-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
       </div>
 
       <!-- DATA TAB -->
@@ -1418,6 +1501,62 @@
   <div class="modal" id="modal-content">
     <div class="modal-handle"></div>
     <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- TRANSACTION ROOM MODAL -->
+<div id="room-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;overflow-y:auto;padding:16px;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(96vw,620px);margin:0 auto;padding:0 0 24px;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0;">
+      <div>
+        <div style="font-size:17px;font-weight:800;" id="room-deal-title">🤝 Transaction Room</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;" id="room-deal-sub"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="Pipeline.closeRoom()">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin:16px 20px 0;padding-bottom:0;" id="room-tabs">
+      <button class="room-tab active" onclick="Pipeline.roomTab('parties',this)">👥 Parties</button>
+      <button class="room-tab" onclick="Pipeline.roomTab('timeline',this)">📅 Timeline</button>
+      <button class="room-tab" onclick="Pipeline.roomTab('docs',this)">📁 Documents</button>
+    </div>
+
+    <!-- PARTIES TAB -->
+    <div id="room-panel-parties" style="padding:16px 20px;">
+      <div id="room-parties-list" style="margin-bottom:12px;"></div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:8px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;">Add Party</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <input class="form-input" id="room-new-name" placeholder="Full name" style="font-size:13px;padding:8px 10px;">
+          <select class="form-input form-select" id="room-new-role" style="font-size:13px;padding:8px 10px;">
+            <option>Mortgage Broker</option>
+            <option>Lawyer / Notary</option>
+            <option>Home Inspector</option>
+            <option>Lender / Bank</option>
+            <option>Co-Agent</option>
+            <option>Seller Agent</option>
+            <option>Other</option>
+          </select>
+          <input class="form-input" id="room-new-email" placeholder="Email (optional)" style="font-size:13px;padding:8px 10px;">
+          <input class="form-input" id="room-new-phone" placeholder="Phone (optional)" style="font-size:13px;padding:8px 10px;">
+        </div>
+        <button class="btn btn-primary btn-sm" style="width:100%;" onclick="Pipeline.addParty()">+ Add to Room</button>
+      </div>
+    </div>
+
+    <!-- TIMELINE TAB -->
+    <div id="room-panel-timeline" style="display:none;padding:16px 20px;">
+      <div id="room-timeline-list"></div>
+    </div>
+
+    <!-- DOCS TAB -->
+    <div id="room-panel-docs" style="display:none;padding:16px 20px;">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Tap any document to mark it received.</div>
+      <div id="room-docs-list"></div>
+    </div>
   </div>
 </div>
 

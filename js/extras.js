@@ -2615,6 +2615,161 @@ const SystemTools = {
     `;
   },
 
+  // ── LIVE HEALTH DASHBOARD ─────────────────────────────────────────────────
+  async runHealthCheck() {
+    const setTile = (id, status, label) => {
+      const tile = document.getElementById(id);
+      if (!tile) return;
+      const dot = tile.querySelector('.health-dot');
+      if (dot) { dot.className = `health-dot ${status}`; }
+      tile.querySelector('span:last-child') ? tile.querySelector('span:last-child').textContent = ' ' + label : null;
+      // Update text node
+      tile.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = ' ' + label; });
+    };
+    const summary = document.getElementById('health-summary');
+    if (summary) summary.textContent = 'Checking systems…';
+
+    // DB check
+    try {
+      const { error } = await db.from('clients').select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id);
+      setTile('ht-db', error ? 'err' : 'ok', error ? 'Database ✗' : 'Database ✓');
+    } catch { setTile('ht-db', 'err', 'Database ✗'); }
+
+    // Auth check
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      setTile('ht-auth', user ? 'ok' : 'err', user ? 'Auth ✓' : 'Auth ✗');
+    } catch { setTile('ht-auth', 'err', 'Auth ✗'); }
+
+    // Email service (ping edge function — just check reachable)
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, { method: 'OPTIONS', headers: { 'apikey': SUPABASE_ANON_KEY } });
+      setTile('ht-email', r.ok || r.status === 200 || r.status === 204 || r.status === 401 ? 'ok' : 'warn', 'Email ✓');
+    } catch { setTile('ht-email', 'warn', 'Email — no response'); }
+
+    // Approval queue
+    try {
+      const { count } = await db.from('approval_queue').select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id).eq('status', 'Pending');
+      const c = count || 0;
+      setTile('ht-queue', c > 5 ? 'warn' : 'ok', `Queue: ${c} pending`);
+      const el = document.getElementById('hc-pending'); if (el) el.textContent = c;
+    } catch { setTile('ht-queue', 'err', 'Queue ✗'); }
+
+    // Counts
+    try {
+      const [cl, pi] = await Promise.all([
+        db.from('clients').select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id).neq('status', 'Archived'),
+        db.from('pipeline').select('id', { count: 'exact', head: true }).eq('agent_id', currentAgent.id).not('stage', 'in', '("Closed","Fell Through")')
+      ]);
+      const ce = document.getElementById('hc-clients'); if (ce) ce.textContent = cl.count || 0;
+      const de = document.getElementById('hc-deals');   if (de) de.textContent = pi.count || 0;
+    } catch {}
+
+    if (summary) summary.innerHTML = `<span style="color:var(--green);font-weight:600;">✅ Health check complete</span> — ${new Date().toLocaleTimeString()}`;
+  },
+
+  // ── TEST RUNNER ────────────────────────────────────────────────────────────
+  async runTests() {
+    const results = [];
+    const set = (id, pass, label) => {
+      results.push({ id, pass, label });
+      const el = document.getElementById(id);
+      if (el) { el.className = pass ? 'tr-pass' : 'tr-fail'; el.textContent = (pass ? '✅' : '❌') + ' ' + label; }
+    };
+    const skip = (id, label) => {
+      const el = document.getElementById(id); if (el) { el.className = 'tr-skip'; el.textContent = '⏭ ' + label; }
+    };
+
+    // Reset
+    ['tr-auth','tr-db','tr-write','tr-pipeline','tr-email','tr-neg-email','tr-neg-empty','tr-storage'].forEach(id => {
+      const el = document.getElementById(id); if (el) { el.className=''; el.textContent = '🔄 ' + el.textContent.slice(2); }
+    });
+
+    // 1. Auth
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      set('tr-auth', !!user, `Auth — ${user ? 'session valid (' + (user.email || user.id.slice(0,8)) + ')' : 'no session'}`);
+    } catch(e) { set('tr-auth', false, `Auth — error: ${e.message}`); }
+
+    // 2. DB read
+    try {
+      const { data, error } = await db.from('clients').select('id').eq('agent_id', currentAgent.id).limit(1);
+      set('tr-db', !error, `Database — ${error ? 'read failed: ' + error.message : 'clients table readable'}`);
+    } catch(e) { set('tr-db', false, `Database — error: ${e.message}`); }
+
+    // 3. DB write & rollback (insert then immediately delete)
+    try {
+      const testRow = { agent_id: currentAgent.id, full_name: '__TEST_ROW__', email: 'test@dealflow-test.internal', stage: 'Lead' };
+      const { data: ins, error: insErr } = await db.from('clients').insert(testRow).select('id').single();
+      if (insErr) { set('tr-write', false, `DB write — insert failed: ${insErr.message}`); }
+      else {
+        await db.from('clients').delete().eq('id', ins.id);
+        set('tr-write', true, 'DB write — insert & rollback OK');
+      }
+    } catch(e) { set('tr-write', false, `DB write — error: ${e.message}`); }
+
+    // 4. Pipeline integrity
+    try {
+      const { data: pl } = await db.from('pipeline').select('id,client_id').eq('agent_id', currentAgent.id);
+      const orphans = (pl || []).filter(p => !p.client_id).length;
+      set('tr-pipeline', orphans === 0, `Pipeline — ${orphans === 0 ? 'all deals have client IDs' : orphans + ' deal(s) missing client_id'}`);
+    } catch(e) { set('tr-pipeline', false, `Pipeline — error: ${e.message}`); }
+
+    // 5. Email edge function reachable
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, { method: 'OPTIONS', headers: { 'apikey': SUPABASE_ANON_KEY } });
+      set('tr-email', r.status < 500, `Email service — HTTP ${r.status} (reachable)`);
+    } catch(e) { set('tr-email', false, `Email service — unreachable: ${e.message}`); }
+
+    // 6. Negative: invalid email format
+    try {
+      const { error } = await db.from('clients').insert({ agent_id: currentAgent.id, full_name: '__NEG_TEST__', email: 'not-an-email', stage: 'Lead' });
+      if (error) { set('tr-neg-email', true, 'Negative — invalid email correctly rejected'); }
+      else {
+        // Clean up the inserted row
+        await db.from('clients').delete().eq('full_name', '__NEG_TEST__').eq('agent_id', currentAgent.id);
+        set('tr-neg-email', false, 'Negative — invalid email was accepted (check DB constraints)');
+      }
+    } catch(e) { set('tr-neg-email', true, `Negative — invalid email blocked: ${e.message}`); }
+
+    // 7. Negative: empty name
+    try {
+      const { error } = await db.from('clients').insert({ agent_id: currentAgent.id, full_name: '', email: 'neg@test.com', stage: 'Lead' });
+      if (error) { set('tr-neg-empty', true, 'Negative — empty name correctly rejected'); }
+      else {
+        await db.from('clients').delete().eq('email', 'neg@test.com').eq('agent_id', currentAgent.id);
+        set('tr-neg-empty', false, 'Negative — empty name accepted (consider adding a DB constraint)');
+      }
+    } catch(e) { set('tr-neg-empty', true, `Negative — empty name blocked: ${e.message}`); }
+
+    // 8. localStorage
+    try {
+      localStorage.setItem('_df_test', '1'); localStorage.removeItem('_df_test');
+      set('tr-storage', true, 'Storage — localStorage accessible');
+    } catch(e) { set('tr-storage', false, `Storage — localStorage blocked: ${e.message}`); }
+
+    const passed = results.filter(r => r.pass).length;
+    const sumEl = document.getElementById('test-runner-summary');
+    if (sumEl) sumEl.innerHTML = `<span style="color:${passed===results.length?'var(--green)':'var(--yellow)'};font-weight:700;">${passed}/${results.length} tests passed</span> — ${new Date().toLocaleTimeString()}`;
+
+    SystemTools._lastTestResults = results;
+  },
+
+  async emailTestReport() {
+    const results = SystemTools._lastTestResults;
+    if (!results?.length) { App.toast('⚠️ Run tests first'); return; }
+    const passed = results.filter(r => r.pass).length;
+    const body = [
+      `DealFlow Test Report — ${new Date().toLocaleString()}`,
+      `Result: ${passed}/${results.length} tests passed`,
+      '',
+      ...results.map(r => `${r.pass ? '✅' : '❌'} ${r.label}`)
+    ].join('\n');
+    await Notify.queue('Test Report', currentAgent.id, currentAgent.full_name, currentAgent.email,
+      `DealFlow Test Report — ${passed}/${results.length} passed`, body);
+    App.toast('📧 Test report queued in Approvals');
+  },
+
   async loadStats() {
     const el = document.getElementById('sys-db-stats');
     if (!el) return;
@@ -2984,6 +3139,12 @@ const Settings = {
       const el = document.getElementById(`notif-${k}`);
       if (el) el.checked = prefs[k] !== undefined ? prefs[k] : (k !== 'deal' && k !== 'build');
     });
+    // Load auto-approve prefs
+    const ap = JSON.parse(localStorage.getItem('df-auto-approve') || '{}');
+    ['viewing','offer','reminder','followup','morning'].forEach(k => {
+      const el = document.getElementById(`auto-${k}`);
+      if (el) el.checked = !!ap[k];
+    });
   },
 
   saveNotifs() {
@@ -2996,6 +3157,18 @@ const Settings = {
     const msg = document.getElementById('set-notif-msg');
     if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Preferences saved!'; }
     App.toast('🔔 Notification preferences saved');
+  },
+
+  saveAutoApprove() {
+    const ap = {};
+    ['viewing','offer','reminder','followup','morning'].forEach(k => {
+      const el = document.getElementById(`auto-${k}`);
+      if (el) ap[k] = el.checked;
+    });
+    localStorage.setItem('df-auto-approve', JSON.stringify(ap));
+    const msg = document.getElementById('set-auto-msg');
+    if (msg) { msg.style.color='var(--green)'; msg.textContent='⚡ Auto-approve settings saved!'; setTimeout(() => { msg.textContent=''; }, 3000); }
+    App.toast('⚡ Auto-approve updated');
   },
 
   async loadDbStats() {

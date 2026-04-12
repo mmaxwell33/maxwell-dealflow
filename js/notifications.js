@@ -902,11 +902,27 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // Only include optional fields when they have actual values — never send null for jsonb columns
     if (contextData !== null) insertRow.context_data = contextData;
     if (relatedId) insertRow.related_id = relatedId;
-    const { error } = await db.from('approval_queue').insert(insertRow);
+    const { data: queued, error } = await db.from('approval_queue').insert(insertRow).select('id').single();
     if (error) {
       console.error('Notify.queue insert error:', error);
       App.toast(`⚠️ ${error.code || ''} ${error.message} | hint: ${error.hint || ''} | details: ${error.details || ''}`, 'var(--red)');
       return false;
+    }
+    // ── AUTO-APPROVE CHECK ──────────────────────────────────────────────
+    const ap = JSON.parse(localStorage.getItem('df-auto-approve') || '{}');
+    const t = type.toLowerCase();
+    const shouldAuto = (
+      (ap.viewing  && (t.startsWith('viewing') || t.startsWith('post-viewing'))) ||
+      (ap.offer    && t.includes('offer')) ||
+      (ap.reminder && (t.includes('reminder') || t.includes('countdown') || t.includes('closing day'))) ||
+      (ap.followup && t.includes('follow-up')) ||
+      (ap.morning  && t.includes('morning'))
+    );
+    if (shouldAuto && queued?.id) {
+      setTimeout(() => { if (typeof Approvals !== 'undefined') Approvals.approve(queued.id); }, 700);
+      Notify.updateBadge();
+      App.toast(`⚡ Auto-sending: ${type}`, 'var(--green)');
+      return true;
     }
     // Update badge
     Notify.updateBadge();
