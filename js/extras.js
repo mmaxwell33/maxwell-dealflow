@@ -1746,6 +1746,13 @@ const EmailSend = {
     App.toast('📬 Email queued — check Approvals to send it', 'var(--accent2)');
   },
 
+  autoGreet() {
+    const n = document.getElementById('ext-name')?.value.trim();
+    const b = document.getElementById('ext-body');
+    if (!n || !b || b.innerText.trim()) return;
+    b.innerHTML = '<p>Hi ' + n.split(' ')[0] + ',</p><p><br></p>';
+  },
+
   async sendExternal() {
     const st = document.getElementById('ext-status');
     const toEmail = document.getElementById('ext-email').value.trim();
