@@ -1778,6 +1778,102 @@ const EmailSend = {
   }
 };
 
+// ── BROADCAST EMAIL ──────────────────────────────────────────────────────────
+const Broadcast = {
+  _clients:  [],
+  _selected: new Set(),
+
+  async load() {
+    const { data } = await db.from('clients')
+      .select('id, full_name, email, status, label')
+      .order('full_name', { ascending: true });
+    Broadcast._clients = (data || []).filter(c => c.email);
+    Broadcast._selected.clear();
+    Broadcast.renderList();
+    Broadcast.updateCount();
+  },
+
+  renderList(filter) {
+    filter = filter || document.getElementById('bc-filter')?.value || 'all';
+    const el = document.getElementById('bc-client-list');
+    if (!el) return;
+    let list = Broadcast._clients;
+    if (filter === 'buyers')  list = list.filter(c => (c.label||'').toLowerCase().includes('buyer')  || (c.status||'').toLowerCase().includes('buyer'));
+    if (filter === 'sellers') list = list.filter(c => (c.label||'').toLowerCase().includes('seller') || (c.status||'').toLowerCase().includes('seller'));
+    if (filter === 'active')  list = list.filter(c => c.status && !['Inactive','Closed'].includes(c.status));
+    if (!list.length) {
+      el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No clients with email addresses match this filter.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(c => {
+      const on = Broadcast._selected.has(c.id);
+      return `<div class="bc-row${on?' bc-row-on':''}" onclick="Broadcast.toggle('${c.id}')">
+        <div class="bc-chk${on?' bc-chk-on':''}">${on?'✓':''}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(c.full_name)}</div>
+          <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(c.email)}${c.status?' · '+c.status:''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    Broadcast.updateCount();
+  },
+
+  toggle(id) {
+    if (Broadcast._selected.has(id)) Broadcast._selected.delete(id);
+    else Broadcast._selected.add(id);
+    Broadcast.renderList();
+  },
+
+  selectAll() {
+    Broadcast._clients.forEach(c => Broadcast._selected.add(c.id));
+    Broadcast.renderList();
+  },
+
+  clearAll() {
+    Broadcast._selected.clear();
+    Broadcast.renderList();
+  },
+
+  updateCount() {
+    const n   = Broadcast._selected.size;
+    const btn = document.getElementById('bc-send-btn');
+    const lbl = document.getElementById('bc-count-lbl');
+    if (lbl) lbl.textContent = n ? `${n} selected` : 'No clients selected';
+    if (btn) {
+      btn.disabled      = n === 0;
+      btn.textContent   = n ? `📨 Send to ${n} client${n>1?'s':''}` : '📨 Send (select clients first)';
+    }
+  },
+
+  async send() {
+    const subject  = (document.getElementById('bc-subject')?.value  || '').trim();
+    const bodyEl   = document.getElementById('bc-body');
+    const bodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : '';
+    const bodyHtml = bodyEl ? bodyEl.innerHTML : '';
+    if (!subject)   { App.toast('⚠️ Subject required', 'var(--red)'); return; }
+    if (!bodyText)  { App.toast('⚠️ Message required', 'var(--red)'); return; }
+    if (!Broadcast._selected.size) { App.toast('⚠️ Select at least one client', 'var(--red)'); return; }
+
+    const btn = document.getElementById('bc-send-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Queuing…'; }
+
+    const selected = Broadcast._clients.filter(c => Broadcast._selected.has(c.id));
+    const wrappedHtml = typeof EmailSend !== 'undefined' ? EmailSend.wrapHtml(bodyText, '', '') : bodyHtml;
+
+    let queued = 0;
+    for (const c of selected) {
+      await Notify.queue('Broadcast Email', c.id, c.full_name, c.email, subject, bodyText, null, wrappedHtml);
+      queued++;
+    }
+
+    App.toast(`✅ ${queued} email${queued>1?'s':''} queued for approval`, 'var(--green)');
+    Broadcast._selected.clear();
+    if (document.getElementById('bc-subject'))  document.getElementById('bc-subject').value  = '';
+    if (bodyEl) bodyEl.innerHTML = '';
+    Broadcast.renderList();
+  }
+};
+
 // ── INBOX ────────────────────────────────────────────────────────────────────
 const Inbox = {
   _all: [],

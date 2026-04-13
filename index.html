@@ -189,6 +189,9 @@
             <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
               <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
             </button>
+            <button class="nav-item" data-tab="calendar" onclick="App.switchTab('calendar')">
+              <span class="nav-icon">📆</span><span class="nav-label">Calendar</span>
+            </button>
           </div>
         </div>
 
@@ -218,6 +221,9 @@
           <div class="sb-group-items">
             <button class="nav-item" data-tab="email" onclick="App.switchTab('email')">
               <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
+            </button>
+            <button class="nav-item" data-tab="broadcast" onclick="App.switchTab('broadcast')">
+              <span class="nav-icon">📣</span><span class="nav-label">Broadcast</span>
             </button>
             <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
               <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
@@ -791,6 +797,82 @@
       </div>
       <div id="checklist-list">
         <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- CALENDAR SCREEN -->
+    <div id="screen-calendar" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:18px;font-weight:800;">📆 Calendar</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="btn btn-outline btn-sm" onclick="Calendar.prev()" id="cal-prev-btn">‹ Prev</button>
+          <span id="cal-month-label" style="font-size:14px;font-weight:700;min-width:140px;text-align:center;"></span>
+          <button class="btn btn-outline btn-sm" onclick="Calendar.next()" id="cal-next-btn">Next ›</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm cal-view-btn active" data-view="month" onclick="Calendar.setView('month')">📅 Month</button>
+          <button class="btn btn-outline btn-sm cal-view-btn" data-view="list" onclick="Calendar.setView('list')">📋 List</button>
+          <button class="btn btn-outline btn-sm" onclick="Calendar.goToday()">Today</button>
+        </div>
+      </div>
+      <!-- Calendar content (month grid or list) -->
+      <div id="calendar-content" class="card" style="padding:12px;margin-bottom:14px;"></div>
+      <!-- Upcoming events strip (shown in month view) -->
+      <div class="card" id="cal-upcoming-card" style="padding:12px 16px;">
+        <div style="font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Upcoming Events</div>
+        <div id="cal-upcoming"></div>
+      </div>
+    </div>
+
+    <!-- BROADCAST SCREEN -->
+    <div id="screen-broadcast" class="screen" style="padding:16px;">
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">📣 Broadcast Email</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Send one email to multiple clients at once. All messages queue through Approvals before sending.</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        <!-- Left: Client Selector -->
+        <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="font-size:12px;font-weight:700;">SELECT RECIPIENTS</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="Broadcast.selectAll()">All</button>
+              <button class="btn btn-outline btn-sm" onclick="Broadcast.clearAll()">Clear</button>
+            </div>
+          </div>
+          <div style="padding:10px 12px;border-bottom:1px solid var(--border);">
+            <select class="form-input" id="bc-filter" style="font-size:12px;padding:5px 8px;" onchange="Broadcast.renderList(this.value)">
+              <option value="all">All clients with email</option>
+              <option value="active">Active clients only</option>
+              <option value="buyers">Buyers only</option>
+              <option value="sellers">Sellers only</option>
+            </select>
+          </div>
+          <div id="bc-client-list" style="overflow-y:auto;max-height:380px;"></div>
+          <div style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--text3);" id="bc-count-lbl">No clients selected</div>
+        </div>
+
+        <!-- Right: Compose -->
+        <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;">COMPOSE MESSAGE</div>
+          <div class="form-group">
+            <label class="form-label">SUBJECT LINE</label>
+            <input class="form-input" id="bc-subject" placeholder="e.g. Market Update — April 2026">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label class="form-label">MESSAGE BODY</label>
+            <div class="rte-toolbar">
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>B</b></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('italic')"><i>I</i></button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('insertUnorderedList')">•</button>
+              <button type="button" class="rte-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('removeFormat')">Tx</button>
+            </div>
+            <div class="rte-editor" id="bc-body" contenteditable="true" placeholder="Write your message here... It will be personalized with each client's name." style="min-height:200px;"></div>
+          </div>
+          <button class="btn btn-primary btn-block" id="bc-send-btn" onclick="Broadcast.send()" disabled>📨 Send (select clients first)</button>
+          <div style="font-size:11px;color:var(--text3);">💡 Tip: Each email queues individually in Approvals — you can review before they send.</div>
+        </div>
+
       </div>
     </div>
 
@@ -1465,6 +1547,14 @@
       <span class="fab-action-icon" style="background:linear-gradient(135deg,#1a56db,#7c3aed);">🤖</span>
       <span class="fab-action-label">Ask AI</span>
     </button>
+    <button class="fab-action" onclick="App.closeFab();App.switchTab('calendar')">
+      <span class="fab-action-icon" style="background:#5b5bd6;">📆</span>
+      <span class="fab-action-label">Calendar</span>
+    </button>
+    <button class="fab-action" onclick="App.closeFab();App.switchTab('broadcast')">
+      <span class="fab-action-icon" style="background:#0891b2;">📣</span>
+      <span class="fab-action-label">Broadcast Email</span>
+    </button>
   </div>
   <button id="mobile-fab" style="display:none;" onclick="App.toggleFab()">➕</button>
 
@@ -1577,5 +1667,6 @@
 <script src="js/analytics.js"></script>
 <script src="js/tracker.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/calendar.js"></script>
 </body>
 </html>

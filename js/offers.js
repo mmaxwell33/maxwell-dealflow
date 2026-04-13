@@ -490,6 +490,8 @@ const Pipeline = {
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openRoom('${d.id}')">🤝 Room</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
       </div>`;
@@ -1009,5 +1011,164 @@ const Pipeline = {
     if (pos === -1) checked.push(idx); else checked.splice(pos, 1);
     localStorage.setItem(`df-room-docs-${id}`, JSON.stringify(checked));
     Pipeline.renderDocs();
+  },
+
+  // ── Client Portal ─────────────────────────────────────────────────────────
+  sharePortal(dealId) {
+    const d = (Pipeline._deals || []).find(x => x.id === dealId);
+    if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
+
+    const today = new Date().toISOString().slice(0,10);
+    const milestones = [
+      { label: 'Offer Accepted',         date: d.acceptance_date,  done: !!(d.acceptance_date  && d.acceptance_date  <= today) },
+      { label: 'Financing Condition',    date: d.financing_date,   done: !!(d.financing_date   && d.financing_date   <= today) },
+      { label: 'Inspection Condition',   date: d.inspection_date,  done: !!(d.inspection_date  && d.inspection_date  <= today) },
+      { label: 'Final Walkthrough',      date: d.walkthrough_date, done: !!(d.walkthrough_date && d.walkthrough_date <= today) },
+      { label: 'Closing Day',            date: d.closing_date,     done: !!(d.closing_date     && d.closing_date     <= today) }
+    ];
+
+    const agentName = currentAgent?.full_name || currentAgent?.name || 'Maxwell Midodzi';
+    const agentEmail = currentAgent?.email || '';
+    const agentPhone = currentAgent?.phone || '';
+
+    const payload = {
+      clientName:       d.client_name || '',
+      address:          d.property_address || '',
+      stage:            d.stage || '',
+      offerAmount:      d.offer_amount || null,
+      acceptance_date:  d.acceptance_date  || null,
+      financing_date:   d.financing_date   || null,
+      inspection_date:  d.inspection_date  || null,
+      walkthrough_date: d.walkthrough_date || null,
+      closing_date:     d.closing_date     || null,
+      milestones,
+      agent: { name: agentName, email: agentEmail, phone: agentPhone, brokerage: 'eXp Realty' },
+      generated: new Date().toISOString()
+    };
+
+    const token   = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+    const url     = `${baseUrl}portal.html?t=${token}`;
+
+    App.openModal(`
+      <div class="modal-title">🔗 Client Portal Link</div>
+      <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:11px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>App.toast('✅ Link copied!','var(--green)'))">📋 Copy Link</button>
+        <button class="btn btn-outline" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">👁 Preview</button>
+      </div>
+    `);
+  },
+
+  // ── PDF Deal Summary ──────────────────────────────────────────────────────
+  exportPdf(dealId) {
+    const d = (Pipeline._deals || []).find(x => x.id === dealId);
+    if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
+
+    const esc  = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const fmtD = s => s ? new Date(s+'T12:00:00').toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) : '—';
+    const fmtM = n => n ? '$' + Number(n).toLocaleString() : '—';
+    const today = new Date().toISOString().slice(0,10);
+
+    const milestones = [
+      { label: 'Offer Accepted',       icon: '✅', date: d.acceptance_date  },
+      { label: 'Financing Condition',  icon: '🏦', date: d.financing_date   },
+      { label: 'Inspection Condition', icon: '🔍', date: d.inspection_date  },
+      { label: 'Final Walkthrough',    icon: '🚶', date: d.walkthrough_date },
+      { label: 'Closing Day',          icon: '🔑', date: d.closing_date     }
+    ];
+    const done = milestones.filter(m => m.date && m.date <= today).length;
+    const pct  = Math.round(done / milestones.length * 100);
+
+    const msRows = milestones.map(m => {
+      const isDone  = m.date && m.date <= today;
+      const isToday = m.date === today;
+      return `<tr>
+        <td style="padding:8px 12px;font-size:13px;">${m.icon} ${m.label}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:${isDone?700:400};color:${isDone?'#10b981':isToday?'#f59e0b':'#374151'};">${fmtD(m.date)}</td>
+        <td style="padding:8px 12px;font-size:12px;color:${isDone?'#10b981':'#9ca3af'};font-weight:700;">${isDone?'✓ Done':'Pending'}</td>
+      </tr>`;
+    }).join('');
+
+    const agentName = currentAgent?.full_name || currentAgent?.name || 'Maxwell Midodzi';
+    const agentEmail = currentAgent?.email || '';
+    const agentPhone = currentAgent?.phone || '';
+    const now = new Date().toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'});
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Deal Summary — ${esc(d.client_name||'Deal')}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111;padding:32px;}
+      .header{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #5b5bd6;}
+      .logo{width:44px;height:44px;background:#5b5bd6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;}
+      h1{font-size:22px;font-weight:800;color:#111;}
+      .sub{font-size:12px;color:#6b7280;margin-top:2px;}
+      .section{margin-bottom:24px;}
+      .section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:10px;}
+      .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+      .info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;}
+      .info-lbl{font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;}
+      .info-val{font-size:14px;font-weight:700;color:#111;}
+      table{width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;}
+      th{background:#f3f4f6;padding:9px 12px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;}
+      tr:nth-child(even){background:#fff;}
+      .prog-bar{height:8px;background:#e5e7eb;border-radius:8px;overflow:hidden;margin:6px 0;}
+      .prog-fill{height:100%;background:#5b5bd6;border-radius:8px;}
+      .agent-box{display:flex;align-items:center;gap:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;}
+      .agent-av{width:42px;height:42px;border-radius:50%;background:#5b5bd6;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;}
+      .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;}
+      @media print{body{padding:20px;}button{display:none;}}
+    </style>
+    </head><body>
+    <div class="header">
+      <div class="logo">MD</div>
+      <div>
+        <h1>${esc(d.client_name||'Deal Summary')}</h1>
+        <div class="sub">📍 ${esc(d.property_address||'—')} · Stage: ${esc(d.stage||'—')} · Generated ${now}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Deal Overview</div>
+      <div class="info-grid">
+        <div class="info-box"><div class="info-lbl">Offer Amount</div><div class="info-val">${fmtM(d.offer_amount)}</div></div>
+        <div class="info-box"><div class="info-lbl">Stage</div><div class="info-val">${esc(d.stage||'—')}</div></div>
+        <div class="info-box"><div class="info-lbl">Deposit Paid</div><div class="info-val">${d.deposit_paid?'Yes':'No'}</div></div>
+        <div class="info-box">
+          <div class="info-lbl">Progress (${pct}%)</div>
+          <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;"></div></div>
+          <div style="font-size:11px;color:#6b7280;">${done} of ${milestones.length} milestones</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Milestone Dates</div>
+      <table><thead><tr><th>Milestone</th><th>Date</th><th>Status</th></tr></thead><tbody>${msRows}</tbody></table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Your Agent</div>
+      <div class="agent-box">
+        <div class="agent-av">${(agentName||'MA').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+        <div>
+          <div style="font-size:14px;font-weight:700;">${esc(agentName)}</div>
+          <div style="font-size:12px;color:#6b7280;">eXp Realty${agentEmail?' · '+esc(agentEmail):''}${agentPhone?' · '+esc(agentPhone):''}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Generated by Maxwell DealFlow CRM · Confidential</div>
+
+    <div style="text-align:center;margin-top:20px;">
+      <button onclick="window.print()" style="padding:10px 24px;background:#5b5bd6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Print / Save PDF</button>
+    </div>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
   }
 };

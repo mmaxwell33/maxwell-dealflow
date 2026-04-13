@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Deal Status — Maxwell DealFlow</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0d1117;--bg2:#161b22;--card:#1a2030;
+      --accent:#5b5bd6;--accent2:#6366f1;
+      --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;--teal:#14b8a6;--purple:#8b5cf6;
+      --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+      --border:rgba(255,255,255,0.08);
+    }
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:0;}
+    .header{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;}
+    .logo{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;flex-shrink:0;}
+    .logo-text{font-size:16px;font-weight:800;color:var(--text);}
+    .logo-sub{font-size:11px;color:var(--text3);}
+    .main{max-width:560px;margin:0 auto;padding:20px 16px 60px;}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+    .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.04em;}
+    .badge-accepted{background:rgba(16,185,129,.15);color:var(--green);}
+    .badge-conditions{background:rgba(91,91,214,.15);color:var(--accent2);}
+    .badge-closing{background:rgba(249,115,22,.15);color:var(--orange);}
+    .badge-closed{background:rgba(16,185,129,.2);color:var(--green);}
+    .badge-fell{background:rgba(239,68,68,.15);color:var(--red);}
+    .prog-bar{height:7px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;margin:10px 0 4px;}
+    .prog-fill{height:100%;border-radius:6px;transition:width .5s;}
+    .section-label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .date-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+    .date-row:last-child{border-bottom:none;}
+    .date-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0;}
+    .date-label{flex:1;font-size:13px;color:var(--text2);}
+    .date-val{font-size:13px;font-weight:700;color:var(--text);}
+    .date-val.past{color:var(--green);}
+    .date-val.today{color:var(--yellow);}
+    .date-val.none{color:var(--text3);font-weight:400;}
+    .milestone-row{display:flex;align-items:center;gap:10px;padding:8px 0;}
+    .ms-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;}
+    .ms-check.done{background:var(--green);border-color:var(--green);}
+    .ms-label{font-size:13px;color:var(--text);}
+    .ms-label.done{color:var(--text3);text-decoration:line-through;}
+    .agent-row{display:flex;align-items:center;gap:12px;}
+    .agent-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;}
+    .agent-name{font-size:14px;font-weight:700;color:var(--text);}
+    .agent-biz{font-size:11px;color:var(--text3);}
+    .contact-links{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+    .contact-btn{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--text);text-decoration:none;font-weight:600;transition:background .15s;}
+    .contact-btn:hover{background:rgba(91,91,214,.15);}
+    .error-box{text-align:center;padding:60px 20px;}
+    .error-icon{font-size:48px;margin-bottom:16px;}
+    .error-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;}
+    .error-sub{font-size:14px;color:var(--text2);}
+    .powered{text-align:center;font-size:11px;color:var(--text3);padding:20px 0 8px;}
+    .powered a{color:var(--accent2);text-decoration:none;}
+    @media print{
+      .header{background:#fff;border-bottom:1px solid #e5e7eb;}
+      body{background:#fff;color:#111;}
+      .card{background:#f9fafb;border:1px solid #e5e7eb;box-shadow:none;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">MD</div>
+  <div>
+    <div class="logo-text">DealFlow</div>
+    <div class="logo-sub">Maxwell CRM · Deal Status Portal</div>
+  </div>
+</div>
+
+<div class="main" id="main">
+  <div class="error-box"><div class="error-icon">⏳</div><div class="error-title">Loading…</div></div>
+</div>
+
+<script>
+(function () {
+  const main = document.getElementById('main');
+
+  // Decode token from URL
+  let deal = null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('t');
+    if (!raw) throw new Error('no token');
+    deal = JSON.parse(atob(raw));
+  } catch (e) {
+    main.innerHTML = `<div class="error-box">
+      <div class="error-icon">🔒</div>
+      <div class="error-title">Invalid or expired link</div>
+      <div class="error-sub">Please contact your agent for an updated link.</div>
+    </div>`;
+    return;
+  }
+
+  const esc  = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmtD = s => {
+    if (!s) return null;
+    const d = new Date(s + 'T12:00:00');
+    return d.toLocaleDateString('en-CA', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  };
+  const today = new Date().toISOString().slice(0,10);
+  const dateClass = s => {
+    if (!s) return 'none';
+    if (s < today) return 'past';
+    if (s === today) return 'today';
+    return '';
+  };
+
+  // Stage badge
+  const stageBadge = (stage) => {
+    const map = {
+      'Accepted': 'badge-accepted',
+      'Conditions': 'badge-conditions',
+      'Closing': 'badge-closing',
+      'Closed': 'badge-closed',
+      'Fell Through': 'badge-fell'
+    };
+    return `<span class="badge ${map[stage]||'badge-conditions'}">${esc(stage||'In Progress')}</span>`;
+  };
+
+  // Progress
+  const ms = deal.milestones || [];
+  const done = ms.filter(m => m.done).length;
+  const pct  = ms.length ? Math.round(done / ms.length * 100) : 0;
+  const barCol = pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--accent)' : 'var(--accent2)';
+
+  // Dates section
+  const datesHtml = [
+    { icon: '✅', label: 'Acceptance Date',  val: deal.acceptance_date  },
+    { icon: '🏦', label: 'Financing Date',   val: deal.financing_date   },
+    { icon: '🔍', label: 'Inspection Date',  val: deal.inspection_date  },
+    { icon: '🚶', label: 'Walkthrough Date', val: deal.walkthrough_date },
+    { icon: '🔑', label: 'Closing Date',     val: deal.closing_date     }
+  ].filter(d => d.val).map(d => `
+    <div class="date-row">
+      <span class="date-icon">${d.icon}</span>
+      <span class="date-label">${d.label}</span>
+      <span class="date-val ${dateClass(d.val)}">${fmtD(d.val)||'—'}</span>
+    </div>`).join('');
+
+  // Milestones
+  const msHtml = ms.map(m => `
+    <div class="milestone-row">
+      <div class="ms-check ${m.done ? 'done' : ''}">${m.done ? '✓' : ''}</div>
+      <span class="ms-label ${m.done ? 'done' : ''}">${esc(m.label)}</span>
+    </div>`).join('');
+
+  // Agent contact
+  const agent = deal.agent || {};
+  const initials = (agent.name||'MA').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const contactLinks = [
+    agent.email ? `<a href="mailto:${esc(agent.email)}" class="contact-btn">✉️ Email</a>` : '',
+    agent.phone ? `<a href="tel:${esc(agent.phone)}" class="contact-btn">📞 Call</a>` : '',
+    agent.phone ? `<a href="sms:${esc(agent.phone)}" class="contact-btn">💬 Text</a>` : ''
+  ].filter(Boolean).join('');
+
+  // Generated date
+  const genDate = deal.generated ? new Date(deal.generated).toLocaleDateString('en-CA', { month:'short', day:'numeric', year:'numeric' }) : '';
+
+  main.innerHTML = `
+    <!-- Deal Header -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;">${esc(deal.clientName||'Your Deal')}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:3px;">📍 ${esc(deal.address||'Property address')}</div>
+        </div>
+        ${stageBadge(deal.stage)}
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${barCol};"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);">
+        <span>${done} of ${ms.length} milestones completed</span>
+        <span>${pct}%</span>
+      </div>
+      ${deal.offerAmount ? `<div style="margin-top:12px;font-size:13px;">💰 Offer: <strong style="color:var(--text);">$${Number(deal.offerAmount).toLocaleString()}</strong></div>` : ''}
+    </div>
+
+    <!-- Key Dates -->
+    ${datesHtml ? `<div class="card">
+      <div class="section-label">Key Dates</div>
+      ${datesHtml}
+    </div>` : ''}
+
+    <!-- Milestones -->
+    ${msHtml ? `<div class="card">
+      <div class="section-label">Milestones</div>
+      ${msHtml}
+    </div>` : ''}
+
+    <!-- Agent Card -->
+    <div class="card">
+      <div class="section-label">Your Agent</div>
+      <div class="agent-row">
+        <div class="agent-avatar">${initials}</div>
+        <div>
+          <div class="agent-name">${esc(agent.name||'Maxwell')}</div>
+          <div class="agent-biz">${esc(agent.brokerage||'eXp Realty')}</div>
+        </div>
+      </div>
+      ${contactLinks ? `<div class="contact-links">${contactLinks}</div>` : ''}
+    </div>
+
+    ${genDate ? `<div class="powered">Generated ${genDate} · <a href="#">Maxwell DealFlow CRM</a></div>` : ''}
+  `;
+})();
+</script>
+</body>
+</html>
