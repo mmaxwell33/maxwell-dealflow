@@ -1244,6 +1244,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
     const now = new Date();
     let completedCount = 0;
+    const justCompletedIds = [];
 
     for (const v of viewings) {
       if (!v.viewing_date) continue;
@@ -1285,6 +1286,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         }).eq('id', v.id);
 
         completedCount++;
+        justCompletedIds.push(v.id);
 
         const clientName = v.clients?.full_name || 'your client';
         const address = v.property_address || 'the property';
@@ -1305,13 +1307,37 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       }
     }
 
-    // If any viewings were auto-completed, refresh the viewings list and show toast
+    // If any viewings were auto-completed — show feedback modal automatically
     if (completedCount > 0) {
-      if (typeof Viewings !== "undefined") await Viewings.load();
+      if (typeof Viewings !== 'undefined') {
+        await Viewings.load();
+        // Pop the agent feedback modal so they don't have to tap anything
+        setTimeout(() => Viewings.agentFeedbackModal(justCompletedIds[0]), 600);
+      }
       App.toast(
-        `${completedCount} viewing${completedCount > 1 ? 's' : ''} completed — tap to record feedback`,
+        `🏠 ${completedCount} viewing${completedCount > 1 ? 's' : ''} done — how did it go?`,
         'var(--accent2)'
       );
+    }
+
+    // ── Also surface feedback modal for viewings already Completed but no response yet ──
+    // Handles the push-tap scenario: agent taps notification, opens app,
+    // checkCompletedViewings runs — viewing is already Completed but agent never responded
+    if (completedCount === 0 && typeof Viewings !== 'undefined') {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const { data: needsReply } = await db.from('viewings')
+        .select('id')
+        .in('client_id', clientIds)
+        .eq('viewing_status', 'Completed')
+        .is('client_feedback', null)
+        .is('client_response', null)
+        .gte('updated_at', twoHoursAgo)
+        .limit(1)
+        .maybeSingle();
+      if (needsReply?.id) {
+        await Viewings.load();
+        setTimeout(() => Viewings.agentFeedbackModal(needsReply.id), 600);
+      }
     }
   }
 };
