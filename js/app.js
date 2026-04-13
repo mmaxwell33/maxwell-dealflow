@@ -311,7 +311,7 @@ const App = {
         .eq('agent_id', user.id);
       if (!subs?.length) return;
       const { data: { session } } = await db.auth.getSession();
-      await fetch(typeof PUSH_FUNCTION_URL !== 'undefined' ? PUSH_FUNCTION_URL : '', {
+      const res = await fetch(typeof PUSH_FUNCTION_URL !== 'undefined' ? PUSH_FUNCTION_URL : '', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -326,6 +326,8 @@ const App = {
           }))
         })
       });
+      const json = await res.json().catch(() => ({}));
+      console.log('[Push] Edge fn →', res.status, json);
     } catch (err) {
       console.warn('[Push] sendWebPush failed:', err.message);
     }
