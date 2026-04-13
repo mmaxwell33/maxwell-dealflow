@@ -312,8 +312,49 @@ const Viewings = {
     App.toast('✅ Viewing marked completed');
     await Viewings.load();
     App.closeModal();
-    // Reopen detail with feedback prompt
-    setTimeout(() => Viewings.openDetail(id), 400);
+    // Show agent feedback modal — how did the viewing go?
+    setTimeout(() => Viewings.agentFeedbackModal(id), 400);
+  },
+
+  // ── AGENT FEEDBACK MODAL ─────────────────────────────────────────────────
+  // Fires right after agent taps "Mark Completed" — collects how it went
+  agentFeedbackModal(id) {
+    const v = Viewings.all.find(x => x.id === id) || {};
+    const client = Clients.all.find(c => c.id === v.client_id);
+    const clientName = client?.full_name || v.client_name || 'Client';
+    App.openModal(`
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">🏠 How did the viewing go?</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">${clientName} · ${v.property_address || '—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn btn-primary" style="padding:14px 8px;font-size:14px;font-weight:700;"
+          onclick="Viewings.confirmOffer('${id}')">✅ Good</button>
+        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+          onclick="Viewings.manualOverride('${id}','rescheduled')">📅 Reschedule</button>
+        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;border-color:var(--red);color:var(--red);"
+          onclick="Viewings.manualOverride('${id}','not_a_fit')">❌ Pass</button>
+        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+          onclick="Viewings.manualOverride('${id}','continue_searching')">🔍 Keep Searching</button>
+      </div>
+    `);
+  },
+
+  // ── OFFER CONFIRMATION MODAL ──────────────────────────────────────────────
+  // Fires when agent taps "Good" — asks if they want to send offer invitation
+  confirmOffer(id) {
+    const v = Viewings.all.find(x => x.id === id) || {};
+    const client = Clients.all.find(c => c.id === v.client_id);
+    const clientName = client?.full_name || v.client_name || 'Client';
+    const firstName = clientName.split(' ')[0];
+    App.openModal(`
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">🌟 Great viewing!</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Is ${firstName} ready to move forward with an offer?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn btn-primary" style="padding:14px 8px;font-size:14px;font-weight:700;"
+          onclick="Viewings.recordFeedback('${id}','interested')">🏠 Yes — Send Offer Invitation</button>
+        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+          onclick="Viewings.recordFeedback('${id}','good')">🔍 No — Keep Searching</button>
+      </div>
+    `);
   },
 
   async recordFeedback(id, feedback) {
