@@ -259,6 +259,76 @@ const App = {
         App.pushNotify('🔔 Notifications On', 'You will be alerted when approvals need your attention.', 'approvals');
       }
     }
+    // Always try to subscribe for Web Push (works even if permission was already granted)
+    if (Notification.permission === 'granted') {
+      await App.subscribePush();
+    }
+  },
+
+  // Subscribe this device to Web Push and save the subscription to Supabase
+  async subscribePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      const reg = await navigator.serviceWorker.ready;
+      // Check if already subscribed
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        // Convert VAPID public key from base64url to Uint8Array
+        const keyStr = (typeof VAPID_PUBLIC_KEY !== 'undefined') ? VAPID_PUBLIC_KEY : '';
+        if (!keyStr) return;
+        const pad = keyStr.length % 4 === 0 ? '' : '='.repeat(4 - keyStr.length % 4);
+        const raw = atob((keyStr + pad).replace(/-/g, '+').replace(/_/g, '/'));
+        const keyBytes = Uint8Array.from(raw, c => c.charCodeAt(0));
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: keyBytes
+        });
+      }
+      // Save subscription to Supabase so the edge function can reach this device
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
+      const subJson = sub.toJSON();
+      await db.from('push_subscriptions').upsert({
+        agent_id: user.id,
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys?.p256dh,
+        auth: subJson.keys?.auth,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'endpoint' });
+      console.log('[Push] Subscription saved for this device');
+    } catch (err) {
+      console.warn('[Push] Subscribe failed:', err.message);
+    }
+  },
+
+  // Send a real Web Push to all of Maxwell's subscribed devices via edge function
+  async sendWebPush(title, body, tab = 'approvals') {
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
+      const { data: subs } = await db.from('push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('agent_id', user.id);
+      if (!subs?.length) return;
+      const { data: { session } } = await db.auth.getSession();
+      await fetch(typeof PUSH_FUNCTION_URL !== 'undefined' ? PUSH_FUNCTION_URL : '', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'apikey': typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : ''
+        },
+        body: JSON.stringify({
+          title, body, tab,
+          subscriptions: subs.map(s => ({
+            endpoint: s.endpoint,
+            keys: { p256dh: s.p256dh, auth: s.auth }
+          }))
+        })
+      });
+    } catch (err) {
+      console.warn('[Push] sendWebPush failed:', err.message);
+    }
   },
 
   async checkNewIntakes() {
@@ -286,20 +356,24 @@ const App = {
   },
 
   pushNotify(title, body, tab = 'approvals') {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const n = new Notification(title, {
-      body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      tag: tab,           // replaces previous notification with same tag (no spam)
-      renotify: true,
-      data: { tab }
-    });
-    n.onclick = () => {
-      window.focus();
-      App.switchTab(tab);
-      n.close();
-    };
+    // 1. In-app browser notification (works when app is open)
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification(title, {
+        body,
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: tab,
+        renotify: true,
+        data: { tab }
+      });
+      n.onclick = () => {
+        window.focus();
+        App.switchTab(tab);
+        n.close();
+      };
+    }
+    // 2. Real Web Push to ALL devices — fires even when app is closed / phone is locked
+    App.sendWebPush(title, body, tab);
   },
 
   showAuth() {
@@ -540,6 +614,8 @@ const App = {
     if (tab === 'cleanup') Cleanup.init();
     if (tab === 'system') SystemTools.load();
     if (tab === 'settings') Settings.load();
+    if (tab === 'calendar') Calendar.load();
+    if (tab === 'broadcast') Broadcast.load();
   },
 
   toggleAI() {
