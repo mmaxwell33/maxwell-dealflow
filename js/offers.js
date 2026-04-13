@@ -462,7 +462,7 @@ const Pipeline = {
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
-          <span class="stage-badge ${badge}">${d.stage}</span>
+          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : 'IN PROGRESS'}</span>
         </div>
         <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
           <div id="pl-bar-${d.id}" style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
