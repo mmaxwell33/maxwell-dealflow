@@ -820,7 +820,7 @@ const App = {
 
   fmtDate(d) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString('en-CA', { month:'short', day:'numeric' });
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-CA', { month:'short', day:'numeric' });
   },
 
   fmtMoney(n) {
