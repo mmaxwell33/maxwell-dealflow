@@ -327,7 +327,7 @@ const App = {
         })
       });
       const json = await res.json().catch(() => ({}));
-      console.log('[Push] Edge fn →', res.status, json);
+      console.log('[Push] Edge fn →', res.status, JSON.stringify(json));
     } catch (err) {
       console.warn('[Push] sendWebPush failed:', err.message);
     }
