@@ -42,17 +42,19 @@ async function vapidAuth(
   const payload = b64u.enc(new TextEncoder().encode(JSON.stringify({ aud, exp: now + 43200, sub: subject })));
   const msg     = new TextEncoder().encode(`${header}.${payload}`);
 
-  // Import private key as PKCS8 (Deno requires this format for ECDSA signing)
-  // Build minimal PKCS8 DER for a raw 32-byte P-256 private key
-  const pkcs8 = buildPkcs8(privKeyRaw);
+  // Import private key as JWK (reliable across Deno versions; avoids PKCS8 DER encoding issues)
   const signingKey = await crypto.subtle.importKey(
-    'pkcs8', pkcs8,
+    'jwk',
+    { kty: 'EC', crv: 'P-256', d: b64u.enc(privKeyRaw),
+      x: b64u.enc(pubKeyRaw.slice(1, 33)), y: b64u.enc(pubKeyRaw.slice(33, 65)),
+      ext: true, key_ops: ['sign'] },
     { name: 'ECDSA', namedCurve: 'P-256' },
     false, ['sign'],
   );
 
-  const sigDer = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, signingKey, msg);
-  const sig    = b64u.enc(derToIeee(new Uint8Array(sigDer)));
+  // Web Crypto (Deno) returns IEEE P1363 format directly — no DER conversion needed
+  const sigRaw = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, signingKey, msg);
+  const sig    = b64u.enc(new Uint8Array(sigRaw));
   const jwt    = `${header}.${payload}.${sig}`;
 
   const pubB64 = b64u.enc(pubKeyRaw);
