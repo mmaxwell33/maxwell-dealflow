@@ -189,7 +189,7 @@
 const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 
-let rec = null, viewing = null, client = null;
+let rec = null;
 
 async function sb(path, opts={}) {
   const r = await fetch(SB_URL+'/rest/v1/'+path, {
@@ -209,15 +209,15 @@ async function init(){
   const t=new URLSearchParams(location.search).get('t');
   if(!t){show('expired');return;}
   try{
-    const rows=await sb(`viewing_responses?token=eq.${encodeURIComponent(t)}&select=*,viewings(id,property_address,list_price,mls_number),clients(id,full_name,email,agent_id)`);
+    const rows=await sb(`viewing_responses?token=eq.${encodeURIComponent(t)}&select=*`);
     if(!rows?.length){show('expired');return;}
-    rec=rows[0]; viewing=rec.viewings; client=rec.clients;
+    rec=rows[0];
     if(rec.expired||rec.responded_at||new Date(rec.expires_at)<new Date()){show('expired');return;}
-    const fn=client?.full_name?.split(' ')[0]||'there';
+    const fn=(rec.client_name||'').split(' ')[0]||'there';
     document.getElementById('greeting').textContent=`Hi ${fn},`;
-    document.getElementById('prop-address').textContent=viewing?.property_address||'—';
-    if(viewing?.list_price) document.getElementById('prop-price').textContent='$'+Number(viewing.list_price).toLocaleString('en-CA',{maximumFractionDigits:0});
-    if(viewing?.mls_number) document.getElementById('prop-mls').textContent='MLS# '+viewing.mls_number;
+    document.getElementById('prop-address').textContent=rec.property_address||'—';
+    if(rec.list_price) document.getElementById('prop-price').textContent='$'+Number(rec.list_price).toLocaleString('en-CA',{maximumFractionDigits:0});
+    if(rec.mls_number) document.getElementById('prop-mls').textContent='MLS# '+rec.mls_number;
     show('main');
   }catch(e){show('expired');}
 }
@@ -254,17 +254,12 @@ async function submitDecision(choice){
     // Mark response as used
     await sb(`viewing_responses?id=eq.${rec.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({decision,offer_amount:offerAmount,client_note:clientNote,not_fit_reason:notFitReason,responded_at:new Date().toISOString(),expired:true})});
 
-    // Update viewing
-    const vu={client_response:decision,updated_at:new Date().toISOString()};
-    if(decision==='make_offer'&&offerAmount) vu.offer_amount=offerAmount;
-    await sb(`viewings?id=eq.${viewing.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify(vu)});
-
     // If offer — create pending_offer for agent dashboard
     if(decision==='make_offer'){
       await sb('pending_offers',{method:'POST',prefer:'return=minimal',body:JSON.stringify({
-        viewing_id:viewing.id, client_id:client.id, agent_id:client.agent_id,
-        client_name:client.full_name, property_address:viewing.property_address,
-        list_price:viewing.list_price, offer_amount:offerAmount, client_note:clientNote, status:'Pending'
+        viewing_id:rec.viewing_id, client_id:rec.client_id, agent_id:rec.agent_id,
+        client_name:rec.client_name, property_address:rec.property_address,
+        list_price:rec.list_price, offer_amount:offerAmount, client_note:clientNote, status:'Pending'
       })});
     }
 

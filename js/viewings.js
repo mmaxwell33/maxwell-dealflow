@@ -389,6 +389,12 @@ const Viewings = {
         await db.from('viewing_responses').insert({
           viewing_id: id,
           client_id: v.client_id,
+          agent_id: agentId || null,
+          property_address: v.property_address || null,
+          list_price: v.list_price || null,
+          mls_number: v.mls_number || null,
+          client_name: clientObj.full_name || null,
+          client_email: clientObj.email || null,
           token,
           expires_at: expiresAt,
           expired: false
