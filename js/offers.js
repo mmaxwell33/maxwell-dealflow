@@ -1101,7 +1101,7 @@ const Pipeline = {
 
   // ── Client Portal ─────────────────────────────────────────────────────────
   sharePortal(dealId) {
-    const d = (Pipeline._deals || []).find(x => x.id === dealId);
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
 
     const today = new Date().toISOString().slice(0,10);
@@ -1149,7 +1149,7 @@ const Pipeline = {
 
   // ── PDF Deal Summary ──────────────────────────────────────────────────────
   exportPdf(dealId) {
-    const d = (Pipeline._deals || []).find(x => x.id === dealId);
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
 
     const esc  = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
