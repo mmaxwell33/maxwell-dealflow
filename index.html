@@ -412,10 +412,12 @@
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('submitted',this)">Submitted</button>
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('accepted',this)">Accepted</button>
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('pipeline',this)">Pipeline</button>
+        <button class="btn btn-outline btn-sm" onclick="Offers.filter('requests',this)" id="btn-requests-tab">📬 Requests <span id="requests-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px;"></span></button>
       </div>
       <div id="offers-list">
         <div class="loading"><div class="spinner"></div> Loading...</div>
       </div>
+      <div id="requests-list" style="display:none;"></div>
     </div>
 
     <!-- PIPELINE SCREEN -->

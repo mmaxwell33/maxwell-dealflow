@@ -10,12 +10,23 @@ const Offers = {
       .order('created_at', { ascending: false });
     Offers.all = data || [];
     Offers.render(Offers.all);
+    if (typeof PendingRequests !== 'undefined') PendingRequests.loadBadge();
   },
 
   filter(f, btn) {
     document.querySelectorAll('#screen-offers .btn').forEach(b => {
       b.className = b === btn ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
     });
+    const offersList   = document.getElementById('offers-list');
+    const requestsList = document.getElementById('requests-list');
+    if (f === 'requests') {
+      if (offersList)   offersList.style.display   = 'none';
+      if (requestsList) requestsList.style.display = 'block';
+      PendingRequests.load();
+      return;
+    }
+    if (offersList)   offersList.style.display   = 'block';
+    if (requestsList) requestsList.style.display = 'none';
     const filtered = Offers.all.filter(o => {
       if (f === 'all') return true;
       if (f === 'submitted') return o.status === 'Submitted';
@@ -1170,5 +1181,91 @@ const Pipeline = {
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
+  }
+};
+
+// ── PENDING REQUESTS (client offer submissions from respond page) ────────────
+const PendingRequests = {
+  all: [],
+
+  async load() {
+    if (!currentAgent?.id) return;
+    const el = document.getElementById('requests-list');
+    if (el) el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+    const { data } = await db.from('pending_offers')
+      .select('*')
+      .eq('agent_id', currentAgent.id)
+      .eq('status', 'Pending')
+      .order('created_at', { ascending: false });
+    PendingRequests.all = data || [];
+    PendingRequests.render(PendingRequests.all);
+    PendingRequests._updateBadge(PendingRequests.all.length);
+  },
+
+  async loadBadge() {
+    if (!currentAgent?.id) return;
+    const { data } = await db.from('pending_offers')
+      .select('id')
+      .eq('agent_id', currentAgent.id)
+      .eq('status', 'Pending');
+    PendingRequests._updateBadge((data || []).length);
+  },
+
+  _updateBadge(count) {
+    const badge = document.getElementById('requests-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  },
+
+  render(list) {
+    const el = document.getElementById('requests-list');
+    if (!el) return;
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No pending requests</div><div class="empty-sub">Client offer requests from your viewing links will appear here</div></div>`;
+      return;
+    }
+    el.innerHTML = list.map(r => `
+      <div class="card" style="margin-bottom:10px;border-left:3px solid var(--accent2);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;">${r.property_address || '—'}</div>
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:var(--bg2);color:var(--accent2);">📬 New</span>
+        </div>
+        <div class="text-muted" style="font-size:12px;margin-bottom:4px;">👤 ${r.client_name || '—'}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+          <span class="text-accent fw-700">${r.offer_amount ? App.fmtMoney(r.offer_amount) : 'No amount given'}</span>
+          <span class="text-muted">${App.fmtDate((r.created_at||'').slice(0,10))}</span>
+        </div>
+        ${r.client_note ? `<div style="background:var(--bg);border-radius:6px;padding:8px;font-size:12px;color:var(--text2);margin-bottom:8px;">💬 "${App.esc(r.client_note)}"</div>` : ''}
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="PendingRequests.prepare('${r.id}')">📄 Prepare Offer →</button>
+          <button class="btn btn-outline btn-sm" onclick="PendingRequests.dismiss('${r.id}')">✕ Dismiss</button>
+        </div>
+      </div>`).join('');
+  },
+
+  async prepare(id) {
+    const r = PendingRequests.all.find(x => x.id === id);
+    if (!r) return;
+    await db.from('pending_offers').update({ status: 'Processing', updated_at: new Date().toISOString() }).eq('id', id);
+    Offers._showForm(r.client_id, r.client_name);
+    setTimeout(() => {
+      const addr = document.getElementById('of-address');
+      const amt  = document.getElementById('of-amount');
+      const lp   = document.getElementById('of-listprice');
+      if (addr) addr.value = r.property_address || '';
+      if (amt)  amt.value  = r.offer_amount || '';
+      if (lp)   lp.value   = r.list_price || '';
+    }, 150);
+    PendingRequests.load();
+  },
+
+  async dismiss(id) {
+    await db.from('pending_offers').update({ status: 'Dismissed', updated_at: new Date().toISOString() }).eq('id', id);
+    PendingRequests.load();
   }
 };
