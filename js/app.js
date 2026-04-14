@@ -871,7 +871,10 @@ const App = {
 
   fmtDate(d) {
     if (!d) return '—';
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-CA', { month:'short', day:'numeric' });
+    const s = String(d).slice(0, 10); // always YYYY-MM-DD even if DB returns full timestamp
+    const dt = new Date(s + 'T12:00:00'); // noon = immune to any ± UTC offset
+    if (isNaN(dt)) return '—';
+    return dt.toLocaleDateString('en-CA', { month:'short', day:'numeric' });
   },
 
   fmtMoney(n) {
