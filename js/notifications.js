@@ -450,6 +450,7 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
+      const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
       const responseLink = viewing._responseToken
         ? `https://maxwell-dealflow.vercel.app/respond?t=${viewing._responseToken}`
         : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
