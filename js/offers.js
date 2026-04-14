@@ -404,10 +404,10 @@ const Pipeline = {
     const acceptDate = offer.offer_date || today;
 
     // Insert pipeline record and get its ID back
-    const { data: pipelineRow, error } = await db.from('pipeline').insert({
+    const _pInsert = {
+      pipeline_id: crypto.randomUUID(),
       agent_id: currentAgent.id,
       client_id: offer.client_id,
-      offer_id: offer.id,
       client_name: client?.full_name || offer.client_name,
       client_email: client?.email || '',
       property_address: offer.property_address,
@@ -415,24 +415,22 @@ const Pipeline = {
       acceptance_date: acceptDate,
       stage: 'Accepted',
       status: 'Active'
-    }).select('id').single();
+    };
+    const { data: pipelineRow, error } = await db.from('pipeline')
+      .insert(_pInsert).select('id').single();
 
+    let pipelineId = pipelineRow?.id || null;
     if (error) {
+      console.warn('Pipeline insert error:', error.message);
       // Fallback: insert without select (older Supabase RLS configs)
-      await db.from('pipeline').insert({
-        agent_id: currentAgent.id,
-        client_id: offer.client_id,
-        client_name: client?.full_name || offer.client_name,
-        client_email: client?.email || '',
-        property_address: offer.property_address,
-        offer_amount: offer.offer_amount,
-        acceptance_date: acceptDate,
-        stage: 'Accepted',
-        status: 'Active'
-      });
+      await db.from('pipeline').insert(_pInsert);
+      // Re-fetch the new row's ID so checklist generation can proceed
+      const { data: latest } = await db.from('pipeline')
+        .select('id').eq('agent_id', currentAgent.id)
+        .eq('property_address', offer.property_address)
+        .order('created_at', { ascending: false }).limit(1).single();
+      pipelineId = latest?.id || null;
     }
-
-    const pipelineId = pipelineRow?.id || null;
 
     // Auto-generate 22-task closing checklist
     await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
