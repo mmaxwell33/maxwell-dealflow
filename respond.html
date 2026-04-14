@@ -192,10 +192,10 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 let rec = null;
 
 async function sb(path, opts={}) {
-  const r = await fetch(SB_URL+'/rest/v1/'+path, {
-    ...opts,
-    headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:opts.prefer||'return=representation', ...(opts.headers||{}) }
-  });
+  const method=(opts.method||'GET').toUpperCase();
+  const hdrs={ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', ...(opts.headers||{}) };
+  if(method!=='GET') hdrs['Prefer']=opts.prefer||'return=minimal';
+  const r = await fetch(SB_URL+'/rest/v1/'+path, { ...opts, headers:hdrs });
   if(!r.ok){ const e=await r.json().catch(()=>{}); throw new Error(e?.message||r.statusText); }
   return r.json().catch(()=>null);
 }
