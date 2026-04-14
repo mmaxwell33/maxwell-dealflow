@@ -121,6 +121,11 @@ const Offers = {
         <label class="form-label">Notes</label>
         <textarea class="form-input" id="of-notes" rows="2" placeholder="Agent notes..."></textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">⏰ When do you expect the seller to respond?</label>
+        <input class="form-input" id="of-response-due" type="datetime-local">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Optional — system will remind you at this time if no response is logged yet</div>
+      </div>
       <button class="btn btn-primary btn-block" onclick="Offers.save()">📄 Submit Offer</button>
       <div id="of-status-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
@@ -150,7 +155,9 @@ const Offers = {
       offer_date: document.getElementById('of-date').value,
       status: status,
       conditions: document.getElementById('of-conditions').value.trim(),
-      agent_notes: document.getElementById('of-notes').value.trim()
+      agent_notes: document.getElementById('of-notes').value.trim(),
+      seller_response_due: document.getElementById('of-response-due')?.value ? new Date(document.getElementById('of-response-due').value).toISOString() : null,
+      followup_notified: false
     }).select().single();
 
     if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
@@ -202,12 +209,14 @@ const Offers = {
       ${o.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📝 Notes</div><div style="font-size:13px;">${App.esc(o.agent_notes)}</div></div>` : ''}
       ${isPending ? `
       <div style="background:var(--bg2);border:2px solid var(--accent2);border-radius:10px;padding:14px;margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📬 Seller Response?</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">📬 Seller Response?</div>
+        ${o.seller_response_due ? `<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;">⏰ Follow-up scheduled: <strong>${new Date(o.seller_response_due).toLocaleString()}</strong></div>` : ''}
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select the seller's response to automatically notify your buyer:</div>
         <div style="display:grid;gap:8px;">
           <button class="btn btn-green" onclick="Offers.sellerAccepted('${o.id}')">✅ Seller Accepted — Offer is firm!</button>
           <button class="btn btn-outline" onclick="Offers.sellerCountered('${o.id}')" style="border-color:var(--purple);color:var(--purple);">🔄 Seller Countered — Enter counter amount</button>
           <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}')">❌ Seller Rejected — Notify buyer</button>
+          <button class="btn btn-outline" onclick="Offers.snoozeFollowUp('${o.id}')" style="border-color:var(--yellow);color:var(--yellow);">⏳ Still Waiting — Set new reminder</button>
         </div>
       </div>` : o.status === 'Accepted' ? `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>` : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
       <button class="btn btn-outline btn-block" style="margin-top:4px;" onclick="App.closeModal()">Close</button>
@@ -305,6 +314,75 @@ const Offers = {
     }
     App.closeModal();
     Offers.load(); Clients.load(); Pipeline.load(); App.loadOverview();
+  },
+
+  // ── SELLER FOLLOW-UP AUTOMATION ───────────────────────────────────────────
+  async checkFollowUps() {
+    if (!currentAgent?.id) return;
+    try {
+      const now = new Date().toISOString();
+      const { data } = await db.from('offers')
+        .select('id, property_address, offer_amount, clients(full_name)')
+        .eq('agent_id', currentAgent.id)
+        .in('status', ['Submitted', 'Conditions'])
+        .eq('followup_notified', false)
+        .lte('seller_response_due', now)
+        .not('seller_response_due', 'is', null);
+      if (!data?.length) return;
+      for (const o of data) {
+        App.pushNotify(
+          `⏰ Seller Response Due`,
+          `${o.property_address || 'Offer'} — Did the seller respond? Tap to log: Accepted, Countered, or Rejected`,
+          'offers'
+        );
+        App.toast(`⏰ Follow-up: ${o.property_address} — open offer to log seller response`, 'var(--yellow)');
+        await db.from('offers').update({ followup_notified: true }).eq('id', o.id);
+        const local = Offers.all.find(x => x.id === o.id);
+        if (local) local.followup_notified = true;
+      }
+    } catch(e) {}
+  },
+
+  snoozeFollowUp(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const now = new Date();
+    const plus1h  = new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString().slice(0,16);
+    const plus2h  = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString().slice(0,16);
+    const plus4h  = new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString().slice(0,16);
+    const tomorrow = new Date(now.getTime() + 20 * 60 * 60 * 1000).toISOString().slice(0,16);
+    App.openModal(`
+      <div class="modal-title">⏳ Still Waiting — Set Reminder</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">📍 ${App.esc(o.property_address)}</div>
+      <div style="display:grid;gap:8px;margin-bottom:14px;">
+        <button class="btn btn-outline" onclick="Offers.saveSnooze('${id}','${plus1h}')" style="text-align:left;">⏰ In 1 hour</button>
+        <button class="btn btn-outline" onclick="Offers.saveSnooze('${id}','${plus2h}')" style="text-align:left;">⏰ In 2 hours</button>
+        <button class="btn btn-outline" onclick="Offers.saveSnooze('${id}','${plus4h}')" style="text-align:left;">⏰ In 4 hours</button>
+        <button class="btn btn-outline" onclick="Offers.saveSnooze('${id}','${tomorrow}')" style="text-align:left;">🌅 Tomorrow morning</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Or pick a specific time</label>
+        <input class="form-input" id="snooze-time" type="datetime-local" value="${plus2h}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Offers.saveSnooze('${id}',document.getElementById('snooze-time').value)">💾 Set Reminder</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async saveSnooze(id, datetime) {
+    if (!datetime) { App.toast('⚠️ Pick a time first', 'var(--red)'); return; }
+    await db.from('offers').update({
+      seller_response_due: new Date(datetime).toISOString(),
+      followup_notified: false,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    const local = Offers.all.find(x => x.id === id);
+    if (local) { local.seller_response_due = new Date(datetime).toISOString(); local.followup_notified = false; }
+    App.closeModal();
+    App.toast(`⏰ Reminder set for ${new Date(datetime).toLocaleString()}`, 'var(--yellow)');
+    setTimeout(() => Offers.openDetail(id), 300);
   }
 };
 

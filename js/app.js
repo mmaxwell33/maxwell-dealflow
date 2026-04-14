@@ -252,6 +252,9 @@ const App = {
     setTimeout(() => App.checkNewRequests(), 4500);
     // Subscribe to real-time offer requests (instant notification when client submits)
     setTimeout(() => App.subscribeToRequests(), 5000);
+    // Check for overdue seller response follow-ups on login + every 5 minutes
+    setTimeout(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 6000);
+    setInterval(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 5 * 60 * 1000);
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
