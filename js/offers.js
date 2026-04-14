@@ -546,6 +546,29 @@ const Pipeline = {
       const updatedAt = d.updated_at ? new Date(d.updated_at) : null;
       const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
 
+      // ── Deposit 48-hour deadline tracker ──────────────────────────────────────
+      const depositBlock = (() => {
+        const markBtn = `<button class="btn btn-sm" style="background:var(--green);color:#fff;font-size:11px;padding:3px 8px;white-space:nowrap;" onclick="Pipeline.markDepositPaid('${d.id}')">✅ Mark Paid</button>`;
+        if (d.deposit_paid) {
+          return `<div style="padding:4px 10px;background:rgba(34,197,94,0.1);border:1px solid var(--green);border-radius:6px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:10px;">📥 Deposit: ✅ Paid</div>`;
+        }
+        if (!d.acceptance_date || isClosed || isFell) {
+          return `<div style="padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><span>📥 Deposit not yet paid</span>${!isClosed&&!isFell?markBtn:''}</div>`;
+        }
+        const deadline = new Date(d.acceptance_date + 'T00:00:00');
+        deadline.setHours(deadline.getHours() + 48);
+        const diffMs = deadline - Date.now();
+        const diffH  = Math.floor(Math.abs(diffMs) / 3600000);
+        const diffM  = Math.floor((Math.abs(diffMs) % 3600000) / 60000);
+        if (diffMs <= 0) {
+          return `<div style="padding:6px 10px;background:rgba(220,38,38,0.12);border:1px solid var(--red);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><span style="color:var(--red);font-weight:700;font-size:12px;">🔴 Deposit OVERDUE — ${diffH}h past due</span>${markBtn}</div>`;
+        }
+        const color = diffH < 6 ? 'var(--red)' : diffH < 24 ? 'var(--yellow)' : 'var(--accent2)';
+        const bg    = diffH < 6 ? 'rgba(220,38,38,0.08)' : diffH < 24 ? 'rgba(234,179,8,0.08)' : 'var(--bg)';
+        const left  = diffH > 0 ? `${diffH}h ${diffM}m` : `${diffM}m`;
+        return `<div style="padding:6px 10px;background:${bg};border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><span style="color:${color};font-weight:600;font-size:12px;">⏰ Deposit due in ${left}</span>${markBtn}</div>`;
+      })();
+
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
@@ -559,7 +582,8 @@ const Pipeline = {
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
-        <div style="font-size:13px;margin-bottom:10px;">💰 Offer: <strong>${App.fmtMoney(d.offer_amount)}</strong>${d.deposit_paid?' · 📥 Deposit: Yes':' · 📥 Deposit: No'}</div>
+        <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
+        ${depositBlock}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
@@ -682,6 +706,17 @@ const Pipeline = {
     if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
 
     App.toast('💾 Dates saved!');
+  },
+
+  async markDepositPaid(id) {
+    const { error } = await db.from('pipeline')
+      .update({ deposit_paid: true, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) { App.toast('⚠️ Could not mark deposit paid'); return; }
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (rec) rec.deposit_paid = true;
+    App.toast('📥 Deposit marked as paid!');
+    Pipeline.render();
   },
 
   async closeDeal(id) {
