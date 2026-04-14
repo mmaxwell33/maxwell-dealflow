@@ -1271,12 +1271,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         }
       }
 
-      // Determine when to trigger: right after viewing if urgent, or +1hr buffer if not
+      // Determine when to trigger: right after viewing if urgent, or +5 min buffer if not
       let triggerTime;
       if (hasUrgentDeadline) {
         triggerTime = viewingEndTime; // No buffer — notify immediately after viewing ends
       } else {
-        triggerTime = new Date(viewingEndTime.getTime() + 60 * 60 * 1000); // 1 hour buffer
+        triggerTime = new Date(viewingEndTime.getTime() + 5 * 60 * 1000); // 5 min buffer
       }
 
       if (now > triggerTime) {
