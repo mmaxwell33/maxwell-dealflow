@@ -419,10 +419,7 @@ const Viewings = {
     await Viewings.load();
     App.closeModal();
 
-    // If Very Interested — open offer prep modal right away so you can start the offer
-    if (feedback === 'interested') {
-      setTimeout(() => Viewings.openManualOfferModal(v, client), 600);
-    } else {
+    if (feedback !== 'interested') {
       setTimeout(() => Viewings.openDetail(id), 400);
     }
   },
