@@ -761,7 +761,7 @@ const App = {
         return `<div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div class="fw-700">${d.client_name || 'Unknown'}</div>
-            <span class="stage-badge badge-accepted">${d.stage || 'Active'}</span>
+            <span class="stage-badge badge-accepted">In Progress</span>
           </div>
           <div class="text-muted" style="font-size:12px;margin-bottom:10px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
           <div class="pipeline-bar">${stages.map((s,i)=>`<div class="pipeline-step ${i===si?'active':i<si?'done':''}"></div>`).join('')}</div>
@@ -827,7 +827,7 @@ const App = {
     const lastInit = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() + '.' : '';
     const masked = lastInit ? `${first} ${lastInit}` : first;
     const safe = App.esc(fullName);
-    return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to reveal full name">${masked}<span class="pname-eye">👁</span></span>`;
+    return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to expand">${first}<span class="pname-eye">›</span></span>`;
   },
 
   revealName(el) {
