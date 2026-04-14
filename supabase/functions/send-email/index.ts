@@ -42,7 +42,7 @@ function toBase64Url(bytes: Uint8Array): string {
 }
 
 function buildRawMime(opts: {
-  from: string; to: string; cc?: string | null; subject: string;
+  from: string; to: string; cc?: string | null; bcc?: string | null; subject: string;
   text: string; html?: string | null; ics?: string | null;
   attachments?: AttachmentData[] | null;
   inReplyTo?: string | null; references?: string | null;
@@ -55,6 +55,7 @@ function buildRawMime(opts: {
   lines.push(`From: ${opts.from}`);
   lines.push(`To: ${opts.to}`);
   if (opts.cc) lines.push(`Cc: ${opts.cc}`);
+  if (opts.bcc) lines.push(`Bcc: ${opts.bcc}`);
   lines.push(`Subject: ${mimeEncodeHeader(opts.subject)}`);
   lines.push('MIME-Version: 1.0');
   if (opts.inReplyTo) {
@@ -209,7 +210,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, cc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references } = await req.json();
+    const { to, cc, bcc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references } = await req.json();
 
     // ── RATE LIMIT CHECK ────────────────────────────────────────────────────
     const rateLimitKey = to?.split('@')[1] || 'default'; // key by sender domain
@@ -260,6 +261,7 @@ serve(async (req) => {
       from: `${fromName} <${GMAIL_USER}>`,
       to,
       cc: cc || null,
+      bcc: bcc || null,
       subject,
       text: body,
       html: html || null,

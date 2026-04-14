@@ -2199,16 +2199,30 @@ const Inbox = {
         ${emailCards}
       </div>
       <div style="border:1px solid var(--border);border-radius:8px;background:var(--card);padding:10px 12px;">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;">↩️ Reply to ${App.esc(thread.contact)}</div>
-        <div style="display:flex;gap:6px;margin-bottom:4px;">
-          <div style="font-size:12px;color:var(--text2);white-space:nowrap;align-self:center;">To:</div>
-          <div style="font-size:12px;flex:1;color:var(--text);">${App.esc(thread.contactEmail)}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+          <button id="inbox-mode-reply" onclick="Inbox.setMode('reply','${threadId}')" style="font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:600;">↩ Reply</button>
+          <button id="inbox-mode-forward" onclick="Inbox.setMode('forward','${threadId}')" style="font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;">⮕ Forward</button>
+          <input type="hidden" id="inbox-compose-mode" value="reply">
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-          <label style="font-size:12px;color:var(--text2);white-space:nowrap;">CC:</label>
-          <input id="inbox-reply-cc" type="email" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;height:28px;" placeholder="cc@email.com (optional)">
+        <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">
+          <div style="font-size:12px;color:var(--text2);white-space:nowrap;min-width:52px;">To:</div>
+          <div id="inbox-to-static" style="font-size:12px;flex:1;color:var(--text);">${App.esc(thread.contactEmail)}</div>
+          <input id="inbox-to-input" type="email" class="form-input" style="display:none;flex:1;padding:4px 8px;font-size:12px;height:28px;" placeholder="recipient@email.com">
         </div>
-        <div class="inbox-reply-toolbar" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+        <div id="inbox-subject-row" style="display:none;gap:6px;margin-bottom:4px;align-items:center;">
+          <div style="font-size:12px;color:var(--text2);white-space:nowrap;min-width:52px;">Subject:</div>
+          <input id="inbox-fwd-subject" type="text" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;height:28px;" value="Fwd: ${App.esc(thread.subject)}">
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:2px;align-items:center;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;min-width:52px;">CC:</label>
+          <input id="inbox-reply-cc" type="email" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;height:28px;" placeholder="cc@email.com">
+          <button onclick="var r=document.getElementById('inbox-bcc-row');r.style.display=r.style.display==='flex'?'none':'flex';" style="font-size:11px;color:var(--accent2);background:none;border:none;cursor:pointer;white-space:nowrap;padding:0 6px;">+ BCC</button>
+        </div>
+        <div id="inbox-bcc-row" style="display:none;gap:6px;margin-bottom:6px;align-items:center;">
+          <label style="font-size:12px;color:var(--text2);white-space:nowrap;min-width:52px;">BCC:</label>
+          <input id="inbox-reply-bcc" type="email" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;height:28px;" placeholder="bcc@email.com">
+        </div>
+        <div class="inbox-reply-toolbar" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:6px;">
           <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('bold')" title="Bold"><b>B</b></button>
           <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('italic')" title="Italic"><i>I</i></button>
           <button onclick="document.getElementById('inbox-reply-editor').focus();document.execCommand('underline')" title="Underline"><u>U</u></button>
@@ -2268,6 +2282,53 @@ const Inbox = {
     if (chipEl) chipEl.remove();
   },
 
+  // ── SWITCH REPLY / FORWARD MODE ───────────────────────────────────────────
+  setMode(mode, threadId) {
+    const thread = Inbox._threads.find(t => t.threadId === threadId);
+    if (!thread) return;
+    const modeInput    = document.getElementById('inbox-compose-mode');
+    const replyBtn     = document.getElementById('inbox-mode-reply');
+    const fwdBtn       = document.getElementById('inbox-mode-forward');
+    const toStatic     = document.getElementById('inbox-to-static');
+    const toInput      = document.getElementById('inbox-to-input');
+    const subjectRow   = document.getElementById('inbox-subject-row');
+    const editor       = document.getElementById('inbox-reply-editor');
+    if (!modeInput) return;
+    modeInput.value = mode;
+    const activeStyle  = 'font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:600;';
+    const inactiveStyle= 'font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;';
+    if (mode === 'forward') {
+      if (replyBtn)   replyBtn.style.cssText   = inactiveStyle;
+      if (fwdBtn)     fwdBtn.style.cssText     = activeStyle;
+      if (toStatic)   toStatic.style.display   = 'none';
+      if (toInput)  { toInput.style.display = 'block'; toInput.style.flex = '1'; toInput.value = ''; toInput.placeholder = 'Forward to…'; }
+      if (subjectRow) subjectRow.style.display = 'flex';
+      // Pre-fill editor with quoted forwarded message
+      if (editor) {
+        const lastMsg = thread.messages[thread.messages.length - 1];
+        const fwdDate = lastMsg.created_at ? new Date(lastMsg.created_at).toLocaleString() : '';
+        const fwdFrom = lastMsg.direction === 'received'
+          ? (lastMsg.sender_name || lastMsg.sender_email || thread.contact)
+          : (currentAgent?.full_name || 'Maxwell Midodzi');
+        const fwdBody = (lastMsg.body || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        editor.innerHTML = `<br><br><div style="color:var(--text2);border-left:3px solid var(--border);padding-left:8px;margin-top:8px;font-size:12px;">---------- Forwarded message ----------<br>From: ${App.esc(fwdFrom)}<br>Date: ${App.esc(fwdDate)}<br>Subject: ${App.esc(thread.subject)}<br>To: ${App.esc(thread.contactEmail)}<br><br>${fwdBody}</div>`;
+        editor.focus();
+        const range = document.createRange();
+        range.setStart(editor, 0);
+        range.collapse(true);
+        const sel = window.getSelection();
+        if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+      }
+    } else {
+      if (replyBtn)   replyBtn.style.cssText   = activeStyle;
+      if (fwdBtn)     fwdBtn.style.cssText     = inactiveStyle;
+      if (toStatic)   toStatic.style.display   = 'block';
+      if (toInput)    toInput.style.display    = 'none';
+      if (subjectRow) subjectRow.style.display = 'none';
+      if (editor)     editor.innerHTML         = '';
+    }
+  },
+
   // ── SEND REPLY ────────────────────────────────────────────────────────────
   async sendReply(threadId) {
     const thread = Inbox._threads.find(t => t.threadId === threadId);
@@ -2279,21 +2340,34 @@ const Inbox = {
 
     if (!textContent) { App.toast('⚠️ Type a reply first'); return; }
 
-    const ccEmail = document.getElementById('inbox-reply-cc')?.value.trim() || null;
+    const mode      = document.getElementById('inbox-compose-mode')?.value || 'reply';
+    const isForward = mode === 'forward';
+    const ccEmail   = document.getElementById('inbox-reply-cc')?.value.trim() || null;
+    const bccEmail  = document.getElementById('inbox-reply-bcc')?.value.trim() || null;
     const attachments = (Inbox._pendingAttachments || []).slice();
 
     const btn = document.getElementById('inbox-reply-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
 
     try {
-      const agent = currentAgent || {};
+      const agent    = currentAgent || {};
       const agentEmail = agent.email || 'maxwelldelali22@gmail.com';
-      const toEmail = thread.contactEmail;
-      const subject = thread.subject.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`;
 
-      // Get threading headers from the last message in thread
-      const lastMsg = thread.messages[thread.messages.length - 1];
-      const gmailThreadId = (threadId.startsWith('solo_') ? null : threadId);
+      // Mode-specific To / Subject
+      const toEmail  = isForward
+        ? (document.getElementById('inbox-to-input')?.value.trim() || '')
+        : thread.contactEmail;
+      const subject  = isForward
+        ? (document.getElementById('inbox-fwd-subject')?.value.trim() || `Fwd: ${thread.subject}`)
+        : (thread.subject.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`);
+
+      if (!toEmail) { App.toast('⚠️ Enter a recipient email'); if (btn) { btn.disabled = false; btn.textContent = '📤 Send'; } return; }
+
+      // Threading headers — forward starts a fresh thread, reply chains
+      const lastMsg      = thread.messages[thread.messages.length - 1];
+      const gmailThreadId= isForward ? null : (threadId.startsWith('solo_') ? null : threadId);
+      const inReplyTo    = isForward ? null : (lastMsg.in_reply_to || lastMsg.gmail_message_id || null);
+      const references   = isForward ? null : (lastMsg.in_reply_to || null);
 
       // Build plain text body + signature
       const { plainSig, fullBody } = EmailSend.buildSignedBody(textContent, null, ccEmail || null);
@@ -2311,14 +2385,15 @@ const Inbox = {
         body: JSON.stringify({
           to: toEmail,
           cc: ccEmail || null,
+          bcc: bccEmail || null,
           subject,
           body: fullBody,
           html: htmlBody,
           attachments: attachments.length ? attachments : null,
           from_name: agent.full_name || agent.name || 'Maxwell Midodzi',
           thread_id: gmailThreadId,
-          in_reply_to: lastMsg.in_reply_to || lastMsg.gmail_message_id || null,
-          references: lastMsg.in_reply_to || null
+          in_reply_to: inReplyTo,
+          references
         })
       });
       const result = await res.json();
@@ -2328,7 +2403,7 @@ const Inbox = {
       await db.from('email_inbox').insert({
         agent_id: currentAgent.id,
         direction: 'sent',
-        recipient_name: thread.contact,
+        recipient_name: isForward ? toEmail : thread.contact,
         recipient_email: toEmail,
         sender_name: agent.full_name || agent.name || '',
         sender_email: agentEmail,
@@ -2343,11 +2418,11 @@ const Inbox = {
       // Clear pending attachments
       Inbox._pendingAttachments = [];
 
-      App.toast('✅ Reply sent!', 'var(--green)');
+      App.toast(isForward ? '✅ Message forwarded!' : '✅ Reply sent!', 'var(--green)');
       App.closeModal();
       await Inbox.load(); // Refresh threads
     } catch (err) {
-      App.toast(`❌ Reply failed: ${err.message}`, 'var(--red)');
+      App.toast(`❌ ${isForward ? 'Forward' : 'Reply'} failed: ${err.message}`, 'var(--red)');
       if (btn) { btn.disabled = false; btn.textContent = '📤 Send'; }
     }
   },
