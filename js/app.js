@@ -248,6 +248,10 @@ const App = {
     setTimeout(() => App.requestNotifyPermission(), 3000);
     // Check for new intake form submissions and notify agent
     setTimeout(() => App.checkNewIntakes(), 4000);
+    // Check for pending client offer requests and notify agent
+    setTimeout(() => App.checkNewRequests(), 4500);
+    // Subscribe to real-time offer requests (instant notification when client submits)
+    setTimeout(() => App.subscribeToRequests(), 5000);
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
@@ -354,6 +358,50 @@ const App = {
       // Update the Form Responses tab badge if it exists
       const badge = document.getElementById('formresponses-badge');
       if (badge) { badge.textContent = count; badge.style.display = 'inline'; }
+    } catch(e) {}
+  },
+
+  async checkNewRequests() {
+    try {
+      if (!currentAgent?.id) return;
+      const { data, error } = await db.from('pending_offers')
+        .select('id, client_name, property_address, created_at')
+        .eq('agent_id', currentAgent.id)
+        .eq('status', 'Pending')
+        .order('created_at', { ascending: false });
+      if (error || !data?.length) return;
+      const count = data.length;
+      const latest = data[0];
+      App.pushNotify(
+        `📬 ${count} New Offer Request${count > 1 ? 's' : ''}`,
+        `${latest.client_name || 'A client'} is interested in ${latest.property_address || 'a property'} — tap to review`,
+        'offers'
+      );
+      App.toast(`📬 ${count} new offer request${count > 1 ? 's' : ''} waiting — check Requests tab`, 'var(--accent2)');
+      if (typeof PendingRequests !== 'undefined') PendingRequests._updateBadge(count);
+    } catch(e) {}
+  },
+
+  subscribeToRequests() {
+    try {
+      if (!currentAgent?.id) return;
+      db.channel('pending-offers-' + currentAgent.id)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'pending_offers',
+          filter: `agent_id=eq.${currentAgent.id}`
+        }, (payload) => {
+          const r = payload.new;
+          App.pushNotify(
+            '📬 New Offer Request!',
+            `${r.client_name || 'A client'} wants to make an offer on ${r.property_address || 'a property'}`,
+            'offers'
+          );
+          App.toast('📬 New offer request just came in — check Requests tab', 'var(--accent2)');
+          if (typeof PendingRequests !== 'undefined') PendingRequests.loadBadge();
+        })
+        .subscribe();
     } catch(e) {}
   },
 
