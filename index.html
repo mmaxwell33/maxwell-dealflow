@@ -1292,6 +1292,7 @@
         <button class="stab" onclick="Settings.showTab('notifications',this)">🔔 Notifications</button>
         <button class="stab" onclick="Settings.showTab('data',this)">🗄️ Data</button>
         <button class="stab" onclick="Settings.showTab('security',this)">🔒 Security</button>
+        <button class="stab" onclick="Settings.showTab('diagnostics',this)">🩺 Diagnostics</button>
       </div>
 
       <!-- PROFILE TAB -->
@@ -1423,8 +1424,19 @@
         <!-- AUTO-APPROVE CARD -->
         <div class="settings-card" style="margin-top:14px;">
           <div class="settings-card-title">⚡ Auto-Approve Emails</div>
-          <div class="settings-card-sub">These email types will be sent automatically without manual review in the Approvals tab.</div>
-          <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
+          <div class="settings-card-sub">Choose whether emails go straight to clients or wait for your approval first.</div>
+          <!-- Master toggle -->
+          <div style="margin-top:14px;padding:12px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-size:14px;font-weight:800;color:var(--text);">🔀 Master Switch</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:3px;" id="auto-master-label">Toggle individual email types below, or flip this to control all at once.</div>
+            </div>
+            <label class="set-toggle-row" style="margin:0;flex-shrink:0;">
+              <input type="checkbox" class="set-toggle" id="auto-master-toggle" onchange="Settings.handleMasterToggle(this)">
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:8px;margin-bottom:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Or control individually:</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:8px;">
             <label class="set-toggle-row">
               <div><div class="set-toggle-title">Viewing Confirmations &amp; Updates</div><div class="set-toggle-sub">Viewing booked / rescheduled / post-viewing follow-ups</div></div>
               <input type="checkbox" class="set-toggle" id="auto-viewing">
@@ -1520,6 +1532,20 @@
           <div class="settings-card-title">📱 Active Session</div>
           <div style="font-size:13px;color:var(--text2);line-height:2;margin-top:8px;" id="set-session-info">Loading...</div>
           <button class="btn" style="margin-top:12px;background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3);" onclick="App.confirmSignOut()">🔓 Sign Out Now</button>
+        </div>
+      </div>
+
+      <!-- DIAGNOSTICS TAB -->
+      <div id="stab-diagnostics" class="stab-panel" style="display:none;">
+        <div class="settings-card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div class="settings-card-title">🩺 System Diagnostics</div>
+              <div class="settings-card-sub">Live health check of every component — Supabase, email, push, edge functions, service worker. Tap Run to scan.</div>
+            </div>
+            <button class="btn btn-primary" id="diag-run-btn" onclick="Settings.runDiagnostics()" style="white-space:nowrap;">▶ Run Diagnostics</button>
+          </div>
+          <div id="diag-results" style="margin-top:14px;"></div>
         </div>
       </div>
 

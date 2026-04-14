@@ -3272,6 +3272,7 @@ const Settings = {
     if (panel) panel.style.display = 'block';
     if (btn) btn.classList.add('active');
     if (name === 'data') Settings.loadDbStats();
+    if (name === 'diagnostics') Settings.runDiagnostics();
   },
 
   fillProfile() {
@@ -3379,10 +3380,21 @@ const Settings = {
     });
     // Load auto-approve prefs
     const ap = JSON.parse(localStorage.getItem('df-auto-approve') || '{}');
-    ['viewing','offer','reminder','followup','morning'].forEach(k => {
+    const keys = ['viewing','offer','reminder','followup','morning'];
+    keys.forEach(k => {
       const el = document.getElementById(`auto-${k}`);
       if (el) el.checked = !!ap[k];
     });
+    // Sync master toggle — on if ALL individual toggles are on
+    const masterEl = document.getElementById('auto-master-toggle');
+    if (masterEl) {
+      const allOn = keys.every(k => !!ap[k]);
+      masterEl.checked = allOn;
+      const lbl = document.getElementById('auto-master-label');
+      if (lbl) lbl.textContent = allOn
+        ? '✅ All emails send automatically — no approval needed'
+        : 'Toggle individual email types below, or flip this to control all at once.';
+    }
   },
 
   saveNotifs() {
@@ -3485,6 +3497,145 @@ const Settings = {
       <div>📦 <strong>Version:</strong> Maxwell DealFlow v2.0</div>
     `;
   }
+};
+
+// ── MASTER APPROVAL TOGGLE ────────────────────────────────────────────────
+Settings.handleMasterToggle = function(cb) {
+  const isOn = cb.checked;
+  ['viewing','offer','reminder','followup','morning'].forEach(id => {
+    const el = document.getElementById(`auto-${id}`);
+    if (el) el.checked = isOn;
+  });
+  const lbl = document.getElementById('auto-master-label');
+  if (lbl) lbl.textContent = isOn
+    ? '✅ All emails send automatically — no approval needed'
+    : '🔴 All emails require your approval before sending to clients';
+  Settings.saveAutoApprove();
+};
+
+// ── SYSTEM DIAGNOSTICS ────────────────────────────────────────────────────
+Settings.runDiagnostics = async function() {
+  const btn = document.getElementById('diag-run-btn');
+  const out = document.getElementById('diag-results');
+  if (!out) return;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning…'; }
+  const checks = [];
+
+  const card = (label, status, detail, healCode) => {
+    const color = status === 'ok' ? 'var(--green)' : status === 'warn' ? 'var(--yellow)' : 'var(--red)';
+    const icon  = status === 'ok' ? '✅' : status === 'warn' ? '⚠️' : '🔴';
+    const btn   = healCode ? `<button class="btn btn-sm btn-outline" style="font-size:11px;white-space:nowrap;flex-shrink:0;" onclick="${healCode}">🔧 Fix</button>` : '';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:6px;border-left:3px solid ${color};">
+      <span style="font-size:17px;line-height:1.3;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${label}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${detail}</div>
+      </div>${btn}
+    </div>`;
+  };
+
+  const render = () => { out.innerHTML = checks.map(c => card(c.l, c.s, c.d, c.h)).join(''); };
+
+  // 1. Agent session
+  checks.push(currentAgent?.id
+    ? { l:'Agent Session', s:'ok', d:`Logged in as ${currentAgent.full_name||currentAgent.email||'—'}` }
+    : { l:'Agent Session', s:'fail', d:'No session found — please sign out and sign back in' });
+  render();
+
+  // 2. Supabase DB
+  try {
+    const { error } = await db.from('agents').select('id').eq('id', currentAgent?.id||'').limit(1);
+    if (error) throw error;
+    checks.push({ l:'Supabase Database', s:'ok', d:'Connection active — read/write working' });
+  } catch(e) {
+    checks.push({ l:'Supabase Database', s:'fail', d:`Cannot reach DB: ${e.message}`, h:`window.open('https://supabase.com','_blank')` });
+  }
+  render();
+
+  // 3. Push subscriptions
+  try {
+    const { data: subs } = await db.from('push_subscriptions').select('id').eq('agent_id', currentAgent?.id||'');
+    const n = subs?.length || 0;
+    checks.push(n > 0
+      ? { l:'Web Push Notifications', s:'ok', d:`${n} device(s) subscribed — push alerts will deliver` }
+      : { l:'Web Push Notifications', s:'warn', d:'No push subscriptions — you will not receive background alerts', h:`App.subscribePush&&App.subscribePush().then(()=>App.toast('Push re-registered!'))` });
+  } catch(e) {
+    checks.push({ l:'Web Push Notifications', s:'warn', d:`Could not check subscriptions: ${e.message}` });
+  }
+  render();
+
+  // 4. Service Worker
+  if ('serviceWorker' in navigator) {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    checks.push(regs.length > 0
+      ? { l:'Service Worker', s:'ok', d:'Registered — offline mode and push delivery enabled' }
+      : { l:'Service Worker', s:'warn', d:'Not registered — push notifications and offline mode may not work', h:`navigator.serviceWorker.register('/sw.js').then(()=>App.toast('Service worker registered!'))` });
+  } else {
+    checks.push({ l:'Service Worker', s:'warn', d:'Not supported by this browser — use Chrome or Safari 16.4+' });
+  }
+  render();
+
+  // 5–7. Edge function pings (OPTIONS = reachable)
+  const funcs = [
+    { name:'Email Sending (send-email)',    slug:'send-email' },
+    { name:'Gmail Inbox Sync (fetch-inbox)', slug:'fetch-inbox' },
+    { name:'Morning Briefing',              slug:'morning-briefing' },
+    { name:'Seller Follow-Ups (cron)',      slug:'check-followups' },
+  ];
+  for (const fn of funcs) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/${fn.slug}`, { method:'OPTIONS', headers:{ 'apikey': SUPABASE_ANON_KEY } });
+      checks.push((r.ok || r.status === 204)
+        ? { l:fn.name, s:'ok', d:'Edge function reachable and responding' }
+        : { l:fn.name, s:'warn', d:`Responded with status ${r.status} — check Supabase function logs` });
+    } catch(e) {
+      checks.push({ l:fn.name, s:'fail', d:`Unreachable: ${e.message} — check Supabase Edge Functions dashboard` });
+    }
+    render();
+  }
+
+  // 8. Key table record counts
+  try {
+    const tables = ['clients','viewings','pipeline','offers'];
+    const results = await Promise.all(tables.map(t =>
+      db.from(t).select('id',{count:'exact',head:true}).eq('agent_id',currentAgent?.id||'').then(({count})=>({t,n:count||0})).catch(()=>({t,n:'?'}))
+    ));
+    checks.push({ l:'Database Tables', s:'ok', d:results.map(r=>`${r.t}: ${r.n}`).join(' · ') });
+  } catch(e) {
+    checks.push({ l:'Database Tables', s:'warn', d:`Could not count records: ${e.message}` });
+  }
+  render();
+
+  // 9. PWA mode
+  const pwa = window.matchMedia('(display-mode:standalone)').matches || navigator.standalone;
+  checks.push(pwa
+    ? { l:'PWA / App Mode', s:'ok', d:'Running as installed app — full PWA mode active' }
+    : { l:'PWA / App Mode', s:'warn', d:'Running in browser — install to your home screen for best experience and push reliability' });
+  render();
+
+  // 10. Approval queue backlog
+  try {
+    const { count } = await db.from('approval_queue').select('id',{count:'exact',head:true}).eq('agent_id',currentAgent?.id||'').eq('status','pending');
+    const n = count || 0;
+    checks.push(n === 0
+      ? { l:'Approval Queue', s:'ok', d:'Queue is clear — no pending emails awaiting approval' }
+      : { l:'Approval Queue', s:'warn', d:`${n} email(s) waiting for your approval`, h:`App.switchTab('approvals')` });
+  } catch(e) {
+    checks.push({ l:'Approval Queue', s:'warn', d:`Could not check queue: ${e.message}` });
+  }
+  render();
+
+  // Summary bar
+  const fails = checks.filter(c=>c.s==='fail').length;
+  const warns = checks.filter(c=>c.s==='warn').length;
+  const [bg, color, msg] = fails > 0
+    ? ['rgba(239,68,68,0.1)','var(--red)',`🔴 ${fails} critical issue(s) — action required`]
+    : warns > 0
+    ? ['rgba(234,179,8,0.1)','var(--yellow)',`⚠️ ${warns} warning(s) — system is functional, some items need attention`]
+    : ['rgba(34,197,94,0.1)','var(--green)','✅ All systems operational'];
+  out.innerHTML += `<div style="margin-top:10px;padding:10px 14px;border-radius:8px;background:${bg};color:${color};font-weight:700;font-size:13px;">${msg}</div>`;
+
+  if (btn) { btn.disabled=false; btn.textContent='🔄 Run Again'; }
 };
 
 // patch saveApiKey into Settings
