@@ -1250,11 +1250,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     for (const v of viewings) {
       if (!v.viewing_date) continue;
 
-      // Calculate when the viewing actually ends (start + 30 min viewing duration)
+      // Calculate when the viewing actually ends (start + actual viewing duration)
       let viewingEndTime;
       if (v.viewing_time) {
         viewingEndTime = new Date(v.viewing_date + 'T' + v.viewing_time);
-        viewingEndTime.setMinutes(viewingEndTime.getMinutes() + 30); // 30 min viewing
+        viewingEndTime.setMinutes(viewingEndTime.getMinutes() + (v.viewing_duration || 30)); // use saved duration
       } else {
         viewingEndTime = new Date(v.viewing_date + 'T23:59:59');
       }

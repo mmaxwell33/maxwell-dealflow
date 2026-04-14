@@ -106,6 +106,8 @@ const Viewings = {
         <div class="form-group">
           <label class="form-label">Duration</label>
           <select class="form-input form-select" id="vf-duration">
+            <option value="10" ${viewing?.viewing_duration===10?'selected':''}>10 minutes</option>
+            <option value="15" ${viewing?.viewing_duration===15?'selected':''}>15 minutes</option>
             <option value="30" ${(!viewing?.viewing_duration||viewing?.viewing_duration===30)?'selected':''}>30 minutes</option>
             <option value="45" ${viewing?.viewing_duration===45?'selected':''}>45 minutes</option>
             <option value="60" ${viewing?.viewing_duration===60?'selected':''}>1 hour</option>
