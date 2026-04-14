@@ -716,7 +716,7 @@ const Pipeline = {
     const rec = Pipeline.all?.find(x => x.id === id);
     if (rec) rec.deposit_paid = true;
     App.toast('📥 Deposit marked as paid!');
-    Pipeline.render();
+    Pipeline.render(Pipeline.all);
   },
 
   async closeDeal(id) {
