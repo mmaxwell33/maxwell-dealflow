@@ -6,3 +6,8 @@ supabase/.DS_Store
 supabase/.temp/
 supabase/functions/.DS_Store
 .claude/
+*.docx
+Maxwell_DealFlow_Visual_Guide.html
+.DS_Store
+supabase/.temp/
+.claude/
