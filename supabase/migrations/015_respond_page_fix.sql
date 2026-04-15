@@ -50,8 +50,12 @@ DROP POLICY IF EXISTS "viewing_responses_anon_update" ON viewing_responses;
 CREATE POLICY "viewing_responses_anon_update" ON viewing_responses
   FOR UPDATE USING (expired = false AND expires_at > now());
 
--- ── 3. VIEWINGS — allow anon to set client_response via valid token ──────────
--- Drops any existing anon update policy first, then recreates
+-- ── 3. VIEWINGS — add missing columns + allow anon update via valid token ────
+-- These columns may have been created manually; ADD COLUMN IF NOT EXISTS is safe
+ALTER TABLE viewings ADD COLUMN IF NOT EXISTS client_response text;
+ALTER TABLE viewings ADD COLUMN IF NOT EXISTS client_feedback text;
+ALTER TABLE viewings ADD COLUMN IF NOT EXISTS offer_amount numeric;
+
 DROP POLICY IF EXISTS "viewings_anon_client_response" ON viewings;
 CREATE POLICY "viewings_anon_client_response" ON viewings
   FOR UPDATE USING (
