@@ -516,13 +516,22 @@ const Commission = {
       </div>`;
   },
 
+  // Auto-status from close_date: future=Pending, 0-2d=Closed, 2d+=Paid
+  statusFrom(c) {
+    if (!c.close_date) return 'Pending';
+    const diff = (Date.now() - new Date(c.close_date + 'T12:00:00').getTime()) / 86400000;
+    if (diff < 0) return 'Pending';
+    if (diff < 2) return 'Closed';
+    return 'Paid';
+  },
+
   renderSummary(list) {
     const totalVolume = list.reduce((s, c) => s + (c.sale_price || 0), 0);
     const grossComm = list.reduce((s, c) => s + (c.gross_commission || 0), 0);
     const hst = list.reduce((s, c) => s + (c.hst_collected || 0), 0);
     const brokerFees = list.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
     const netEarnings = list.reduce((s, c) => s + (c.agent_net || 0), 0);
-    const closedDeals = list.filter(c => c.status === 'Paid').length;
+    const closedDeals = list.filter(c => Commission.statusFrom(c) === 'Paid').length;
 
     const banner = document.getElementById('comm-net-display');
     if (banner) banner.textContent = App.fmtMoney(netEarnings);
@@ -564,7 +573,9 @@ const Commission = {
               <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fees||0)}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.agent_net||0)}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
-              <td style="padding:11px 14px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
+              <td style="padding:11px 14px;text-align:center;">${(s=>
+                `<span class="stage-badge ${s==='Paid'?'badge-accepted':s==='Closed'?'badge-default':'badge-conditions'}">${s}</span>`
+              )(Commission.statusFrom(c))}</td>
             </tr>`).join('')}</tbody>
         </table>
       </div>`;
@@ -592,7 +603,7 @@ const Commission = {
       agent_id: currentAgent.id, client_name: clientName, property_address: property,
       sale_price: salePrice, commission_rate: rate, gross_commission: gross,
       hst_collected: hst, brokerage_fee_rate: brokerPct, brokerage_fees: brokerFee,
-      agent_net: net, close_date: closeDate, status: 'Pending'
+      agent_net: net, close_date: closeDate, status: 'Closed'
     });
     if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
     App.toast('✅ Commission recorded!');
