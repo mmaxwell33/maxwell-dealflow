@@ -519,9 +519,9 @@ const Commission = {
   renderSummary(list) {
     const totalVolume = list.reduce((s, c) => s + (c.sale_price || 0), 0);
     const grossComm = list.reduce((s, c) => s + (c.gross_commission || 0), 0);
-    const hst = list.reduce((s, c) => s + (c.tax_amount || 0), 0);
-    const brokerFees = list.reduce((s, c) => s + (c.brokerage_fee_amount || 0), 0);
-    const netEarnings = list.reduce((s, c) => s + (c.net_commission || c.amount || 0), 0);
+    const hst = list.reduce((s, c) => s + (c.hst_collected || 0), 0);
+    const brokerFees = list.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
+    const netEarnings = list.reduce((s, c) => s + (c.agent_net || 0), 0);
     const closedDeals = list.filter(c => c.status === 'Paid').length;
 
     const banner = document.getElementById('comm-net-display');
@@ -560,9 +560,9 @@ const Commission = {
               <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${c.client_name||'—'}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.property_address||'—'}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
-              <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.tax_amount||0)}</td>
-              <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fee_amount||0)}</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.net_commission||c.amount||0)}</td>
+              <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
+              <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fees||0)}</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.agent_net||0)}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
               <td style="padding:11px 14px;text-align:center;"><span class="stage-badge ${c.status==='Paid'?'badge-accepted':'badge-conditions'}">${c.status||'Pending'}</span></td>
             </tr>`).join('')}</tbody>
@@ -590,9 +590,9 @@ const Commission = {
     const closeDate = document.getElementById('cm-close-date')?.value || null;
     const { error } = await db.from('commissions').insert({
       agent_id: currentAgent.id, client_name: clientName, property_address: property,
-      sale_price: salePrice, gross_commission: gross, tax_amount: hst,
-      brokerage_fee_amount: brokerFee, net_commission: net,
-      close_date: closeDate, status: 'Pending'
+      sale_price: salePrice, commission_rate: rate, gross_commission: gross,
+      hst_collected: hst, brokerage_fee_rate: brokerPct, brokerage_fees: brokerFee,
+      agent_net: net, close_date: closeDate, status: 'Pending'
     });
     if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
     App.toast('✅ Commission recorded!');
@@ -612,12 +612,12 @@ const Reports = {
       db.from('clients').select('stage,status').eq('agent_id', currentAgent.id),
       db.from('pipeline').select('stage').eq('agent_id', currentAgent.id),
       db.from('viewings').select('viewing_status').eq('agent_id', currentAgent.id),
-      db.from('commissions').select('net_commission,amount,status').eq('agent_id', currentAgent.id)
+      db.from('commissions').select('agent_net,status').eq('agent_id', currentAgent.id)
     ]);
     const activeClients = (clients||[]).filter(c => c.status !== 'Lost').length;
     const closedDeals = (pipeline||[]).filter(p => p.stage === 'Closed').length;
     const totalViewings = (viewings||[]).length;
-    const totalNet = (commissions||[]).reduce((s,c) => s + (c.net_commission||c.amount||0), 0);
+    const totalNet = (commissions||[]).reduce((s,c) => s + (c.agent_net||0), 0);
     const el = document.getElementById('rpt-quick-stats');
     if (el) el.innerHTML = `
       <div class="card"><div class="fw-800" style="margin-bottom:12px;">📈 Quick Overview</div>
