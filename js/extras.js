@@ -592,7 +592,7 @@ const Commission = {
       agent_id: currentAgent.id, client_name: clientName, property_address: property,
       sale_price: salePrice, gross_commission: gross, tax_amount: hst,
       brokerage_fee_amount: brokerFee, net_commission: net,
-      amount: net, close_date: closeDate, status: 'Pending'
+      close_date: closeDate, status: 'Pending'
     });
     if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
     App.toast('✅ Commission recorded!');
