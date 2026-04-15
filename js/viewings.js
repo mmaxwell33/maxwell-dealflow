@@ -385,7 +385,7 @@ const Viewings = {
       if (feedback === 'interested') {
         // Generate a unique response token so client can respond via the web page
         const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+        const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days
         await db.from('viewing_responses').insert({
           viewing_id: id,
           client_id: v.client_id,
