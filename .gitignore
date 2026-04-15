@@ -1,0 +1,8 @@
+*.docx
+Maxwell_DealFlow_Visual_Guide.html
+meridian_*
+.DS_Store
+supabase/.DS_Store
+supabase/.temp/
+supabase/functions/.DS_Store
+.claude/
