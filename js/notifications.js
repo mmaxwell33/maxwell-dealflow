@@ -221,7 +221,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
       const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
 
-      const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : null;
+      const fmtDate = (d) => d ? new Date(String(d).slice(0,10) + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : null;
 
       const offerAmtFmt = App.fmtMoney(offer.offer_amount);
       const listPriceFmt = offer.list_price ? App.fmtMoney(offer.list_price) : null;
