@@ -723,9 +723,14 @@ const Pipeline = {
     const close = document.getElementById(`pl-close-${id}`)?.value || new Date().toISOString().slice(0,10);
     await db.from('pipeline').update({ stage: 'Closed', closing_date: close, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
-    // Update client stage to Closed
+    // Update client stage to Closed and auto-archive (can be reactivated later via Restore)
     if (d?.client_id) {
-      await db.from('clients').update({ stage: 'Closed', updated_at: new Date().toISOString() }).eq('id', d.client_id);
+      await db.from('clients').update({
+        stage: 'Closed',
+        status: 'Archived',
+        archived_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq('id', d.client_id);
     }
     await App.logActivity('DEAL_CLOSED', d?.client_name, d?.client_email, `Deal closed: ${d?.property_address}`, d?.client_id);
     // Queue closing congratulations email for approval
@@ -733,7 +738,7 @@ const Pipeline = {
       const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
       await Notify.onDealClosed(d, client);
     }
-    App.toast('✅ Deal marked Closed! 🎉 Congrats email queued in Approvals.');
+    App.toast('✅ Deal closed & client archived! 🎉 Congrats email queued in Approvals.');
     Pipeline.load(); Clients.load(); App.loadOverview();
   },
 
@@ -763,8 +768,18 @@ const Pipeline = {
 
   async revertClose(id) {
     await db.from('pipeline').update({ stage: 'Closing', updated_at: new Date().toISOString() }).eq('id', id);
-    App.toast('🔄 Deal reverted to Closing');
-    Pipeline.load();
+    const d = Pipeline.all.find(x => x.id === id);
+    // Un-archive client since the close was reverted
+    if (d?.client_id) {
+      await db.from('clients').update({
+        stage: 'Closing',
+        status: 'Active',
+        archived_at: null,
+        updated_at: new Date().toISOString()
+      }).eq('id', d.client_id);
+    }
+    App.toast('🔄 Deal reverted — client restored to active');
+    Pipeline.load(); Clients.load();
   },
 
   openStageModal(id) {

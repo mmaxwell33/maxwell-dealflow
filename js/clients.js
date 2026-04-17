@@ -371,9 +371,10 @@ const Clients = {
     await db.from('clients').update({
       status: 'Active',
       archived_at: null,
+      stage: 'Searching',
       updated_at: new Date().toISOString()
     }).eq('id', id);
-    App.toast(`✅ ${name} restored to active clients!`, 'var(--green)');
+    App.toast(`✅ ${name} reactivated — ready for a new search!`, 'var(--green)');
     Clients.load();
     App.loadOverview();
   },
