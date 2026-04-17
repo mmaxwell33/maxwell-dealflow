@@ -165,7 +165,7 @@ const Calendar = {
   },
 
   _upcomingRow(e, hideDate = false) {
-    return `<div class="cal-upcm-item">
+    return `<div class="cal-upcm-item cal-upcm-${e.type}">
       <div class="cal-dot cal-dot-${e.type}" style="flex-shrink:0;margin-top:3px;"></div>
       <div style="flex:1;min-width:0;">
         <div class="cal-upcm-label">${e.icon} ${e.label}</div>
