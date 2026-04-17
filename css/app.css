@@ -1001,10 +1001,51 @@ body.theme-light .room-tab.active{color:var(--accent);border-bottom-color:var(--
 .cal-list-meta{font-size:11px;color:var(--text3);}
 .cal-view-btn{opacity:.5;}
 .cal-view-btn.active{opacity:1;border-color:var(--accent);color:var(--accent);}
+
+/* Chips in month grid */
+.cal-chip{display:block;font-size:10px;font-weight:600;padding:2px 5px;margin-top:2px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid var(--accent);background:rgba(91,91,214,.12);color:var(--text1);}
+.cal-chip-viewing    {border-left-color:#38bdf8;background:rgba(56,189,248,.12);}
+.cal-chip-accepted   {border-left-color:#10b981;background:rgba(16,185,129,.12);}
+.cal-chip-financing  {border-left-color:#f59e0b;background:rgba(245,158,11,.12);}
+.cal-chip-inspection {border-left-color:#8b5cf6;background:rgba(139,92,246,.12);}
+.cal-chip-walkthrough{border-left-color:#ec4899;background:rgba(236,72,153,.12);}
+.cal-chip-closing    {border-left-color:#ef4444;background:rgba(239,68,68,.12);}
+.cal-chip-more{display:block;font-size:10px;font-weight:700;color:var(--text3);padding:2px 5px;margin-top:2px;}
+
+/* Type dots (legend + upcoming) */
+.cal-dot-viewing    {background:#38bdf8;}
+.cal-dot-accepted   {background:#10b981;}
+.cal-dot-financing  {background:#f59e0b;}
+.cal-dot-inspection {background:#8b5cf6;}
+.cal-dot-walkthrough{background:#ec4899;}
+.cal-dot-closing    {background:#ef4444;}
+
+/* Legend strip */
+.cal-legend{display:flex;flex-wrap:wrap;gap:14px;padding:10px 4px 2px;margin-top:10px;border-top:1px solid var(--border);}
+.cal-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);}
+.cal-legend-item .cal-dot{width:8px;height:8px;margin:0;}
+
+/* Upcoming events list */
+.cal-upcm-date-hdr{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;padding:12px 0 4px;margin-top:4px;border-bottom:1px solid var(--border);}
+.cal-upcm-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.cal-upcm-item:last-child{border-bottom:none;}
+.cal-upcm-label{font-size:13px;font-weight:700;color:var(--text1);margin-bottom:2px;}
+.cal-upcm-meta{font-size:11px;color:var(--text3);}
+.cal-upcm-date{font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0;padding-top:2px;}
+
+/* List view */
+.cal-list-section{margin-bottom:14px;}
+.cal-list-hdr{font-size:12px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+
+/* Day detail modal row */
+.cal-day-ev{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:8px;background:var(--card);border:1px solid var(--border);}
+
 /* Calendar mobile */
 @media(max-width:640px){
   .cal-cell{min-height:44px;padding:3px;}
   .cal-cell-num{font-size:10px;}
+  .cal-chip{font-size:9px;padding:1px 4px;}
+  .cal-legend{gap:10px;}
 }
 
 /* ── BROADCAST EMAIL ───────────────────────────────────────────────────────── */

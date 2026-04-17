@@ -110,7 +110,7 @@ const Calendar = {
         <div class="cal-date-num${isTd?' cal-today-num':''}">${day}</div>`;
       const show  = evs.slice(0,2);
       const extra = evs.length - 2;
-      show.forEach(e => { html += `<div class="cal-chip cal-chip-${e.type}">${e.icon} ${e.label}</div>`; });
+      show.forEach(e => { html += `<div class="cal-chip cal-chip-${e.type}">${e.label}</div>`; });
       if (extra > 0) html += `<div class="cal-chip-more">+${extra}</div>`;
       html += `</div>`;
     }
@@ -149,17 +149,29 @@ const Calendar = {
       el.innerHTML = `<div class="empty-state" style="padding:16px;"><div class="empty-icon">📅</div><div class="empty-text">No upcoming events</div></div>`;
       return;
     }
-    el.innerHTML = upcoming.map(e => Calendar._upcomingRow(e)).join('');
+    // Group by date with a header per day
+    let lastDate = null;
+    let rows = '';
+    upcoming.forEach(e => {
+      if (e.date !== lastDate) {
+        const d = new Date(e.date + 'T12:00:00');
+        const hdr = d.toLocaleDateString('en-CA', { weekday:'short', month:'short', day:'numeric' });
+        rows += `<div class="cal-upcm-date-hdr">${hdr}</div>`;
+        lastDate = e.date;
+      }
+      rows += Calendar._upcomingRow(e, true);
+    });
+    el.innerHTML = rows;
   },
 
-  _upcomingRow(e) {
+  _upcomingRow(e, hideDate = false) {
     return `<div class="cal-upcm-item">
       <div class="cal-dot cal-dot-${e.type}" style="flex-shrink:0;margin-top:3px;"></div>
       <div style="flex:1;min-width:0;">
         <div class="cal-upcm-label">${e.icon} ${e.label}</div>
         <div class="cal-upcm-meta">${App.esc(e.client)}${e.sub ? ' · ' + App.esc(e.sub.split(',')[0]) : ''}${e.time ? ' · ⏰ ' + e.time : ''}</div>
       </div>
-      <div class="cal-upcm-date">${App.fmtDate(e.date)}</div>
+      ${hideDate ? '' : `<div class="cal-upcm-date">${App.fmtDate(e.date)}</div>`}
     </div>`;
   },
 
