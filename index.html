@@ -293,14 +293,39 @@
     <!-- OVERVIEW SCREEN -->
     <div id="screen-overview" class="screen active" style="padding:16px;">
 
-      <!-- 6-stat grid -->
+      <!-- Hero greeting v2 -->
+      <div class="hero2">
+        <div class="hero2-date" id="hero-date">—</div>
+        <div class="hero2-title" id="hero-greeting">Welcome back</div>
+        <div class="hero2-sub" id="hero-sub" style="font-size:14px;color:var(--text2);margin-top:6px;">Here's your day at a glance.</div>
+      </div>
+
+      <!-- 6-stat grid v2 -->
       <div class="stats-row-2">
-        <div class="stat-card stat-blue"><div class="stat-num" id="stat-active">—</div><div class="stat-label">Active Clients</div></div>
-        <div class="stat-card stat-purple"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total Clients</div></div>
-        <div class="stat-card stat-green"><div class="stat-num" id="stat-viewings">—</div><div class="stat-label">Viewings Booked</div></div>
-        <div class="stat-card stat-red" id="followup-card" onclick="App.switchTab('clients')"><div class="stat-num" id="stat-followup">—</div><div class="stat-label">Needs Follow-Up</div></div>
-        <div class="stat-card stat-cyan"><div class="stat-num" id="stat-pipeline">—</div><div class="stat-label">In Pipeline</div></div>
-        <div class="stat-card stat-gold"><div class="stat-num" id="stat-closed">—</div><div class="stat-label">Closed Deals</div></div>
+        <div class="stat2" onclick="App.switchTab('clients')" style="cursor:pointer;">
+          <div class="stat2-lbl">Active Clients</div>
+          <div class="stat2-num" id="stat-active">—</div>
+        </div>
+        <div class="stat2">
+          <div class="stat2-lbl">Total Clients</div>
+          <div class="stat2-num" id="stat-total">—</div>
+        </div>
+        <div class="stat2" onclick="App.switchTab('viewings')" style="cursor:pointer;">
+          <div class="stat2-lbl">Viewings Booked</div>
+          <div class="stat2-num" id="stat-viewings">—</div>
+        </div>
+        <div class="stat2" id="followup-card" onclick="App.switchTab('clients')" style="cursor:pointer;">
+          <div class="stat2-lbl">Needs Follow-Up</div>
+          <div class="stat2-num" id="stat-followup">—</div>
+        </div>
+        <div class="stat2" onclick="App.switchTab('pipeline')" style="cursor:pointer;">
+          <div class="stat2-lbl">In Pipeline</div>
+          <div class="stat2-num" id="stat-pipeline">—</div>
+        </div>
+        <div class="stat2">
+          <div class="stat2-lbl">Closed Deals</div>
+          <div class="stat2-num" id="stat-closed">—</div>
+        </div>
       </div>
 
       <!-- Quick Actions -->
@@ -327,12 +352,17 @@
         </div>
       </div>
 
-      <!-- Needs Follow-Up Alert -->
-      <div id="followup-alert" style="display:none;cursor:pointer;" class="followup-alert" onclick="App.switchTab('clients')" title="Tap to view clients">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:18px;">⚠️</span>
-          <span class="fw-700" style="color:#f59e0b;">Needs Follow-Up</span>
-          <span class="followup-count" id="followup-count-badge">0</span>
+      <!-- Needs Follow-Up Alert v2 -->
+      <div id="followup-alert" class="card2 followup-alert" style="display:none;cursor:pointer;margin-top:16px;" onclick="App.switchTab('clients')" title="Tap to view clients">
+        <div class="card2-header" style="margin-bottom:10px;">
+          <div>
+            <div class="card2-title" style="display:flex;align-items:center;gap:8px;">
+              <span>⚠️</span> Needs Follow-Up
+              <span class="pill2 pill2-amber" id="followup-count-badge">0</span>
+            </div>
+            <div class="card2-sub">Clients not touched in 7+ days</div>
+          </div>
+          <span class="pill2 pill2-neutral">Tap to view →</span>
         </div>
         <div id="followup-list"></div>
       </div>

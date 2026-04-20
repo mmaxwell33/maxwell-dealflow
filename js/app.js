@@ -704,6 +704,29 @@ const App = {
       db.from('pipeline').select('*').eq('agent_id',agentId).not('stage','in','("Closed","Fell Through")').limit(3)
     ]);
 
+    // Hero greeting (Phase 2.B.2)
+    try {
+      const heroDateEl = document.getElementById('hero-date');
+      const heroGreetingEl = document.getElementById('hero-greeting');
+      const heroSubEl = document.getElementById('hero-sub');
+      if (heroDateEl) {
+        heroDateEl.textContent = now.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});
+      }
+      if (heroGreetingEl) {
+        const h = now.getHours();
+        const part = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
+        const firstName = (window.App?.currentUser?.user_metadata?.full_name || 'Maxwell').split(' ')[0];
+        heroGreetingEl.textContent = `${part}, ${firstName}`;
+      }
+      if (heroSubEl) {
+        const active = activeCount || 0;
+        const v = viewingsCount || 0;
+        heroSubEl.textContent = active === 0 && v === 0
+          ? "Here's your day at a glance."
+          : `${active} active client${active===1?'':'s'} · ${v} viewing${v===1?'':'s'} booked`;
+      }
+    } catch(e) { /* hero is cosmetic — never block stats */ }
+
     // Update stats
     document.getElementById('stat-active').textContent = activeCount || 0;
     document.getElementById('stat-total').textContent = totalCount || 0;
