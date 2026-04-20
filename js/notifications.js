@@ -356,7 +356,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     },
 
     conditions_reminder: (client, deal, daysLeft, conditionType, agent) => ({
-      subject: `⏰ Reminder: ${conditionType} Condition Due in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''}`,
+      subject: `Reminder: ${conditionType} Condition Due in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 This is a friendly reminder that your ${conditionType.toLowerCase()} condition for ${deal.property_address} is due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.
@@ -566,7 +566,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }),
 
     walkthrough_reminder: (client, deal, agent) => ({
-      subject: `🚶 Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
+      subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
 Just a friendly reminder that your final walkthrough is scheduled for TOMORROW at ${deal.property_address}.
