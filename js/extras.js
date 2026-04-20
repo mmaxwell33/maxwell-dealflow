@@ -3649,18 +3649,9 @@ Settings.runDiagnostics = async function() {
   if (btn) { btn.disabled=false; btn.textContent='🔄 Run Again'; }
 };
 
-// patch saveApiKey into Settings
-Settings.saveApiKey = function() {
-  const val = document.getElementById('set-claude-key')?.value.trim();
-  const msg = document.getElementById('set-key-msg');
-  if (!val || val.startsWith('•')) { if(msg){msg.style.color='var(--red)';msg.textContent='Please enter a valid key.';} return; }
-  AI.setApiKey(val);
-  if(msg){msg.style.color='var(--green)';msg.textContent='✅ API key saved! AI Assistant is now fully active.';}
-  document.getElementById('set-claude-key').value = '••••••••' + val.slice(-8);
-  // Show key status in AI screen
-  const s = document.getElementById('ai-key-status');
-  if(s){s.textContent='🟢 Key active';s.style.color='var(--green)';}
-};
+// Phase 2.A moved the Claude API key server-side (Supabase secrets + claude-chat
+// edge function). Settings.saveApiKey and its supporting UI have been removed
+// in Phase 2.B.7 — see index.html stab-security section for the replacement.
 
 // ── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
 Settings.uploadPhoto = function(input) {

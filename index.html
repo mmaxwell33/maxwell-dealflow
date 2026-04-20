@@ -1521,21 +1521,12 @@
       <!-- SECURITY TAB -->
       <div id="stab-security" class="stab-panel" style="display:none;">
 
-        <!-- Claude API Key -->
+        <!-- Claude AI status (key is now server-side via Supabase secrets) -->
         <div class="settings-card" style="margin-bottom:14px;">
-          <div class="settings-card-title">🤖 Claude AI API Key</div>
-          <div class="settings-card-sub">Required to unlock full AI assistant responses. Get your free key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent2);">console.anthropic.com</a></div>
-          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div style="flex:1;min-width:220px;">
-              <label class="form-label">API Key</label>
-              <input class="form-input" id="set-claude-key" type="password" placeholder="sk-ant-api03-...">
-            </div>
-            <button class="btn btn-primary" onclick="Settings.saveApiKey()">💾 Save Key</button>
-          </div>
-          <div id="set-key-msg" style="font-size:13px;margin-top:8px;"></div>
-          <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.7;">
-            🔒 Stored only in your browser (localStorage) — never sent to any server except Anthropic's API directly.<br>
-            💡 Cost: ~$0.002 per message — effectively free at normal usage.
+          <div class="settings-card-title">🤖 Claude AI</div>
+          <div class="settings-card-sub">The Claude API key is now stored securely on the server and managed by your administrator. No configuration needed here.</div>
+          <div style="margin-top:10px;">
+            <span class="pill2 pill2-green">🟢 Active via server</span>
           </div>
         </div>
 
