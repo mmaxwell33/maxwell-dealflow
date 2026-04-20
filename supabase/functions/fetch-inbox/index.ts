@@ -128,12 +128,12 @@ serve(async (req) => {
       if (url.searchParams.get('query')) query = url.searchParams.get('query')!;
     }
 
-    const GMAIL_USER = Deno.env.get('GMAIL_USER') || 'maxwelldelali22@gmail.com';
+    const GMAIL_USER = Deno.env.get('GMAIL_USER');
     const CLIENT_ID = Deno.env.get('GMAIL_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('GMAIL_CLIENT_SECRET');
     const REFRESH_TOKEN = Deno.env.get('GMAIL_REFRESH_TOKEN');
 
-    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+    if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
       return new Response(JSON.stringify({
         error: 'Gmail OAuth not configured.',
       }), {

@@ -56,8 +56,12 @@ function buildMimeEmail(to: string, subject: string, plainBody: string, htmlBody
   const boundary = `mdf_${Date.now().toString(36)}`;
   const enc = new TextEncoder();
 
+  const fromName = Deno.env.get('AGENT_NAME') || 'Maxwell DealFlow';
+  const fromAddr = Deno.env.get('GMAIL_USER');
+  if (!fromAddr) throw new Error('GMAIL_USER not configured');
+
   const mime = [
-    `From: Maxwell DealFlow <maxwelldelali22@gmail.com>`,
+    `From: ${fromName} <${fromAddr}>`,
     `To: ${to}`,
     `Subject: ${mimeEncodeHeader(subject)}`,
     `MIME-Version: 1.0`,
@@ -449,7 +453,13 @@ Maxwell DealFlow CRM | Automated Morning Briefing`;
     });
   }
 
-  const mimeBytes = buildMimeEmail('maxwelldelali22@gmail.com', subject, plainBody, htmlBody);
+  const briefingTo = Deno.env.get('AGENT_EMAIL') || Deno.env.get('GMAIL_USER');
+  if (!briefingTo) {
+    return new Response(JSON.stringify({ error: 'AGENT_EMAIL / GMAIL_USER not configured' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const mimeBytes = buildMimeEmail(briefingTo, subject, plainBody, htmlBody);
   const rawEmail = toBase64Url(mimeBytes);
 
   const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
