@@ -43,20 +43,24 @@ const Offers = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-text">No offers yet</div><div class="empty-sub">Tap + Offer to track an offer</div></div>`;
       return;
     }
-    const statusColor = {
-      Submitted:'var(--accent2)', Accepted:'var(--green)',
-      Rejected:'var(--red)', Conditions:'var(--yellow)', Closing:'var(--purple)'
+    // Phase 2.B.3: map each status to a pill2 variant
+    const statusPill = {
+      Submitted: 'pill2-indigo',
+      Accepted:  'pill2-green',
+      Rejected:  'pill2-coral',
+      Conditions:'pill2-amber',
+      Closing:   'pill2-indigo'
     };
     el.innerHTML = list.map(o => `
-      <div class="card" onclick="Offers.openDetail('${o.id}')" style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-          <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;">${o.property_address || '—'}</div>
-          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:var(--bg2);color:${statusColor[o.status]||'var(--text2)'};">${o.status}</span>
+      <div class="card2" onclick="Offers.openDetail('${o.id}')" style="margin-bottom:10px;cursor:pointer;">
+        <div class="card2-header" style="margin-bottom:6px;">
+          <div class="card2-title" style="flex:1;margin-right:8px;">${o.property_address || '—'}</div>
+          <span class="pill2 ${statusPill[o.status]||'pill2-neutral'}">${o.status}</span>
         </div>
-        <div class="text-muted" style="font-size:12px;margin-bottom:6px;">👤 ${o.clients?.full_name||'—'}</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;">
-          <span class="text-accent fw-700">${App.fmtMoney(o.offer_amount)}</span>
-          <span class="text-muted">${App.fmtDate(o.offer_date)}</span>
+        <div class="card2-sub" style="margin-bottom:8px;">👤 ${o.clients?.full_name||'—'}</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(o.offer_amount)}</span>
+          <span style="color:var(--text2);">${App.fmtDate(o.offer_date)}</span>
         </div>
       </div>`).join('');
   },

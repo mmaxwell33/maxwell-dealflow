@@ -35,26 +35,34 @@ const Viewings = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">No viewings found</div><div class="empty-sub">Tap + Book to schedule a showing</div></div>`;
       return;
     }
-    const statusColor = { Scheduled:'var(--accent2)', Confirmed:'var(--green)', Completed:'var(--text2)', Cancelled:'var(--red)' };
-    el.innerHTML = list.map(v => `
-      <div class="card" style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;" onclick="Viewings.openDetail('${v.id}')">
-          <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;cursor:pointer;">${v.property_address || 'No address'}</div>
-          <span style="font-size:11px;font-weight:700;color:${statusColor[v.viewing_status]||'var(--text2)'};">${v.viewing_status||'Scheduled'}</span>
+    // Phase 2.B.3: viewing status → pill2 variant
+    const statusPill = {
+      Scheduled: 'pill2-indigo',
+      Confirmed: 'pill2-green',
+      Completed: 'pill2-neutral',
+      Cancelled: 'pill2-coral'
+    };
+    const fb = (x) => x === 'good' ? '✅ Good' : x === 'interested' ? '🌟 Interested' : '❌ Not a fit';
+    el.innerHTML = list.map(v => {
+      const st = v.viewing_status || 'Scheduled';
+      return `
+      <div class="card2" style="margin-bottom:10px;">
+        <div class="card2-header" style="margin-bottom:6px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
+          <div class="card2-title" style="flex:1;margin-right:8px;">${v.property_address || 'No address'}</div>
+          <span class="pill2 ${statusPill[st]||'pill2-neutral'}">${st}</span>
         </div>
-        <div class="text-muted" style="font-size:12px;margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
-          <span>📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
-          ${v.list_price ? `<span class="text-accent fw-700">${App.fmtMoney(v.list_price)}</span>` : ''}
+        <div class="card2-sub" style="margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
+          <span style="color:var(--text2);">📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
+          ${v.list_price ? `<span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(v.list_price)}</span>` : ''}
         </div>
-        ${v.client_feedback ? `<div style="margin-top:6px;font-size:11px;padding:4px 8px;border-radius:6px;background:var(--bg2);display:inline-block;">
-          ${v.client_feedback === 'good' ? '✅' : v.client_feedback === 'interested' ? '🌟' : '❌'} ${v.client_feedback}
-        </div>` : ''}
-        <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
-          <button class="btn btn-outline btn-sm" style="flex:1;" onclick="Viewings.openDetail('${v.id}')">✏️ Details</button>
-          <button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
+        ${v.client_feedback ? `<div style="margin-top:8px;"><span class="pill2 pill2-neutral">${fb(v.client_feedback)}</span></div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+          <button class="btn2 btn2-ghost btn2-sm" style="flex:1;justify-content:center;" onclick="Viewings.openDetail('${v.id}')">✏️ Details</button>
+          <button class="btn2 btn2-sm" style="background:var(--red);color:#fff;" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   },
 
   openAdd() {
