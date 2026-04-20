@@ -537,11 +537,11 @@ const Commission = {
     if (banner) banner.textContent = App.fmtMoney(netEarnings);
 
     document.getElementById('commissions-summary').innerHTML = `
-      <div class="stat-card stat-blue"><div class="stat-num" style="font-size:16px;">${App.fmtMoney(totalVolume)}</div><div class="stat-label">Total Volume Sold</div></div>
-      <div class="stat-card stat-gold"><div class="stat-num" style="font-size:16px;">${App.fmtMoney(grossComm)}</div><div class="stat-label">Gross Commission</div></div>
-      <div class="stat-card stat-yellow"><div class="stat-num" style="font-size:16px;color:var(--yellow);">${App.fmtMoney(hst)}</div><div class="stat-label">HST / Tax</div></div>
-      <div class="stat-card stat-red"><div class="stat-num" style="font-size:16px;color:var(--red);">-${App.fmtMoney(brokerFees)}</div><div class="stat-label">Brokerage Fees</div></div>
-      <div class="stat-card" style="border-left:3px solid var(--green);"><div class="stat-num" style="font-size:22px;color:var(--green);">${closedDeals}</div><div class="stat-label">Closed Deals</div></div>`;
+      <div class="stat2"><div class="stat2-lbl">Total Volume Sold</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(totalVolume)}</div></div>
+      <div class="stat2"><div class="stat2-lbl">Gross Commission</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div></div>
+      <div class="stat2"><div class="stat2-lbl">HST / Tax</div><div class="stat2-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div></div>
+      <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${App.fmtMoney(brokerFees)}</div></div>
+      <div class="stat2" style="border-left:3px solid var(--green);"><div class="stat2-lbl">Closed Deals</div><div class="stat2-num" style="color:var(--green);">${closedDeals}</div></div>`;
   },
 
   render(list) {
@@ -553,12 +553,12 @@ const Commission = {
     const th = (label, align) => `<th style="padding:10px 14px;text-align:${align||'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">${label}</th>`;
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:12px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">
           📋 Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="Commission.load()">🔄 Refresh</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">🔄 Refresh</button>
       </div>
-      <div class="card" style="padding:0;overflow:hidden;overflow-x:auto;">
+      <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:720px;">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
             ${th('Deal ID')}${th('Client')}${th('Property')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}
@@ -574,7 +574,7 @@ const Commission = {
               <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.agent_net||0)}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
               <td style="padding:11px 14px;text-align:center;">${(s=>
-                `<span class="stage-badge ${s==='Paid'?'badge-accepted':s==='Closed'?'badge-default':'badge-conditions'}">${s}</span>`
+                `<span class="pill2 ${s==='Paid'?'pill2-green':s==='Closed'?'pill2-neutral':'pill2-amber'}">${s}</span>`
               )(Commission.statusFrom(c))}</td>
             </tr>`).join('')}</tbody>
         </table>
