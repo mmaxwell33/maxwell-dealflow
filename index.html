@@ -744,60 +744,60 @@
     <!-- ANALYTICS SCREEN -->
     <div id="screen-analytics" class="screen" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:20px;font-weight:800;">Analytics</div>
-        <button class="btn btn-outline btn-sm" onclick="Analytics.load()">🔄 Refresh</button>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">Analytics</div>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Analytics.load()">🔄 Refresh</button>
       </div>
       <div class="stats-row-2" id="analytics-stats">
         <div class="loading" style="grid-column:1/-1;"><div class="spinner"></div> Loading...</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">PIPELINE BREAKDOWN</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">PIPELINE BREAKDOWN</div>
           <canvas id="chart-pipeline-breakdown"></canvas>
         </div>
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">CLIENTS BY CITY</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">CLIENTS BY CITY</div>
           <canvas id="chart-clients-city"></canvas>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWINGS OVER TIME</div>
+      <div class="card2" style="margin-top:16px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">VIEWINGS OVER TIME</div>
         <div class="analytics-chart-tall"><canvas id="chart-viewings-time"></canvas></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWINGS PER CLIENT</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">VIEWINGS PER CLIENT</div>
           <canvas id="chart-viewings-client"></canvas>
         </div>
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">STAGE DISTRIBUTION</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">STAGE DISTRIBUTION</div>
           <canvas id="chart-stage-dist"></canvas>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">BUDGET DISTRIBUTION</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">BUDGET DISTRIBUTION</div>
           <canvas id="chart-budget-dist"></canvas>
         </div>
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWING STATUS</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">VIEWING STATUS</div>
           <canvas id="chart-viewing-status"></canvas>
         </div>
       </div>
       <!-- Top Leads + Needs Follow-Up -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">🔥 TOP LEADS BY SCORE</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">🔥 TOP LEADS BY SCORE</div>
           <div id="analytics-top-leads"></div>
         </div>
-        <div class="card">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">⏰ NEEDS FOLLOW-UP</div>
+        <div class="card2">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">⏰ NEEDS FOLLOW-UP</div>
           <div id="analytics-followup"></div>
         </div>
       </div>
       <!-- Viewings Per Client Data Table -->
-      <div class="card" style="margin-top:16px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;">VIEWINGS PER CLIENT — DATA</div>
+      <div class="card2" style="margin-top:16px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">VIEWINGS PER CLIENT — DATA</div>
         <div id="analytics-viewings-data"></div>
       </div>
     </div>
