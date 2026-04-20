@@ -263,7 +263,7 @@ const App = {
     if (Notification.permission === 'default') {
       const result = await Notification.requestPermission();
       if (result === 'granted') {
-        App.pushNotify('🔔 Notifications On', 'You will be alerted when approvals need your attention.', 'approvals');
+        App.pushNotify('Notifications On', 'You will be alerted when approvals need your attention.', 'approvals');
       }
     }
     // Always try to subscribe for Web Push (works even if permission was already granted)
@@ -397,11 +397,11 @@ const App = {
         }, (payload) => {
           const r = payload.new;
           App.pushNotify(
-            '📬 New Offer Request!',
+            'New Offer Request!',
             `${r.client_name || 'A client'} wants to make an offer on ${r.property_address || 'a property'}`,
             'offers'
           );
-          App.toast('📬 New offer request just came in — check Requests tab', 'var(--accent2)');
+          App.toast('New offer request just came in — check Requests tab', 'var(--accent2)');
           if (typeof PendingRequests !== 'undefined') PendingRequests.loadBadge();
         })
         .subscribe();

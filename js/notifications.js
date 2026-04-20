@@ -171,7 +171,7 @@ Great news! Your offer has been officially submitted. Here's a summary:
 
 📍 Property: ${offer.property_address}
 💰 Offer Amount: ${App.fmtMoney(offer.offer_amount)}${offer.list_price ? `\n🏷️ List Price: ${App.fmtMoney(offer.list_price)}` : ''}
-📅 Offer Date: ${App.fmtDate(offer.offer_date)}${offer.conditions ? `\n📋 Conditions: ${offer.conditions}` : ''}
+📅 Offer Date: ${App.fmtDate(offer.offer_date)}${offer.conditions ? `\nConditions: ${offer.conditions}` : ''}
 
 I will be in touch with you the moment I receive a response from the seller's agent.
 
@@ -195,7 +195,7 @@ CONGRATULATIONS! 🎉 Your offer of ${App.fmtMoney(offer.offer_amount)} on ${off
 
 This is a huge milestone. Here's what happens next:
 
-${offer.conditions ? `📋 Conditions to fulfill:\n${offer.conditions}\n\n` : ''}✅ Next Steps:
+${offer.conditions ? `Conditions to fulfill:\n${offer.conditions}\n\n` : ''}✅ Next Steps:
 1. We will work through any conditions (financing, inspection, etc.)
 2. Your lawyer will be in touch to begin the conveyancing process
 3. We will schedule any inspections or walkthroughs
@@ -321,7 +321,7 @@ Your Offer:   ${offerAmtFmt}${listPriceFmt ? `\nList Price:   ${listPriceFmt}` :
 
 YOUR CLOSING CHECKLIST:
 ${offer.deposit_sent ? `🏦 Deposit — ✅ ${depositAmtFmt || 'deposit'} sent to seller's agent.` : `🏦 DEPOSIT ⚠️ URGENT — ${depositAmtFmt || 'Deposit'} must reach seller's agent within 24 hours!${depositDueFmt ? ` Due by: ${depositDueFmt}.` : ''}`}
-${offer.conditions ? `📋 Conditions — ${offer.conditions} must be satisfied before the deal is firm.` : `📋 No conditions — your deal is already firm!`}
+${offer.conditions ? `Conditions — ${offer.conditions} must be satisfied before the deal is firm.` : `📋 No conditions — your deal is already firm!`}
 🏦 Financing — stay in close contact with your lender.${finDateFmt ? ` Deadline: ${finDateFmt}.` : ''}
 🔍 Home Inspection — ${insDateFmt ? `scheduled for ${insDateFmt}.` : 'contact me for an inspector referral.'}
 ⚖️ Lawyer — contact a real estate lawyer right away to begin conveyancing.
@@ -759,7 +759,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 Great news — I found a listing that I think is a strong match for what you're looking for!
 
 📍 Property: ${listing.address || '—'}
-${listing.mls_number ? `🏷️ MLS#: ${listing.mls_number}\n` : ''}${listing.list_price ? `💰 List Price: ${App.fmtMoney(listing.list_price)}\n` : ''}${listing.bedrooms ? `🛏 Bedrooms: ${listing.bedrooms}\n` : ''}${listing.notes ? `📝 Notes: ${listing.notes}\n` : ''}
+${listing.mls_number ? `🏷️ MLS#: ${listing.mls_number}\n` : ''}${listing.list_price ? `💰 List Price: ${App.fmtMoney(listing.list_price)}\n` : ''}${listing.bedrooms ? `🛏 Bedrooms: ${listing.bedrooms}\n` : ''}${listing.notes ? `Notes: ${listing.notes}\n` : ''}
 Based on your search criteria, I think this one is worth a look. Properties like this tend to move quickly in this market.
 
 Would you like to schedule a viewing? Just reply to this email or give me a call and I'll set it up right away.

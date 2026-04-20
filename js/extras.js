@@ -62,7 +62,7 @@ const Approvals = {
     const item = (Approvals._data||[]).find(a=>a.id===id);
     if (!item) return;
     App.openModal(`
-      <div class="modal-title">📧 Email Preview</div>
+      <div class="modal-title">Email Preview</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">TO</div>
       <div class="fw-700" style="margin-bottom:12px;">${item.client_name} · ${item.client_email||'No email'}</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">SUBJECT</div>
@@ -71,7 +71,7 @@ const Approvals = {
       <div style="font-size:13px;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px;line-height:1.7;max-height:340px;overflow-y:auto;margin-bottom:16px;">${App.esc(item.email_body||'')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button class="btn btn-green" onclick="App.closeModal();Approvals.approve('${id}')">✅ Approve & Send</button>
-        <button class="btn btn-outline" onclick="App.closeModal();Approvals.openEdit('${id}')">✏️ Edit Email</button>
+        <button class="btn btn-outline" onclick="App.closeModal();Approvals.openEdit('${id}')">Edit Email</button>
       </div>
       <button class="btn btn-red btn-block" onclick="App.closeModal();Approvals.reject('${id}')">❌ Discard</button>
     `);
@@ -111,7 +111,7 @@ const Approvals = {
       }
     } catch { /* non-blocking — continue if check fails */ }
 
-    App.toast('📨 Sending email...', 'var(--accent2)');
+    App.toast('Sending email...', 'var(--accent2)');
 
     // Parse context_data — html, ics, cc, and real file attachments
     let htmlBody = null, icsAttachment = null, ccEmail = null, fileAttachments = null;
@@ -281,7 +281,7 @@ const FormResponses = {
       <div class="card" style="margin-top:16px;padding:16px;">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📋 Your Intake Form Link</div>
         <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwell-dealflow.vercel.app/intake.html</div>
-        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">📋 Copy Link</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>`;
       return;
     }
@@ -301,7 +301,7 @@ const FormResponses = {
       <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
         <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwell-dealflow.vercel.app/intake.html</div>
-        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">📋 Copy Link</button>
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${data.length} submission${data.length!==1?'s':''} received</div>
       ${data.map(r => {
@@ -554,9 +554,9 @@ const Commission = {
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">
-          📋 Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
+          Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
         </div>
-        <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">🔄 Refresh</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
       </div>
       <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:720px;">
@@ -695,7 +695,7 @@ const Reports = {
     }
 
     if (sections.criteria) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🔍 Search Criteria</h3>
+      html += `<h3 style="color:#0ea5e9;margin-top:20px;">Search Criteria</h3>
         <table style="width:100%;font-size:13px;border-collapse:collapse;">
           ${(client.budget_min||client.budget_max) ? `<tr><td style="padding:5px 0;color:#64748b;width:150px;">Budget</td><td>${App.fmtMoney(client.budget_min)} – ${App.fmtMoney(client.budget_max)}</td></tr>` : ''}
           ${client.preferred_areas ? `<tr><td style="padding:5px 0;color:#64748b;">Areas</td><td>${client.preferred_areas}</td></tr>` : ''}
@@ -1859,7 +1859,7 @@ const Broadcast = {
     if (lbl) lbl.textContent = n ? `${n} selected` : 'No clients selected';
     if (btn) {
       btn.disabled      = n === 0;
-      btn.textContent   = n ? `📨 Send to ${n} client${n>1?'s':''}` : '📨 Send (select clients first)';
+      btn.textContent   = n ? `Send to ${n} client${n>1?'s':''}` : 'Send (select clients first)';
     }
   },
 
@@ -2583,7 +2583,7 @@ const Cleanup = {
         <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${App.esc(c.email||'no email')}</span></div>
         <button class="btn btn-sm" style="background:var(--red);color:#fff;font-size:11px;" onclick="Cleanup.deleteClient('${c.id}','${App.esc(c.full_name)}')">Delete</button>
       </div>`).join('') +
-      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('dup-')">🗑 Delete Checked</button>`;
+      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('dup-')">Delete Checked</button>`;
   },
 
   async findTestData() {
@@ -2598,7 +2598,7 @@ const Cleanup = {
         <input type="checkbox" id="tst-${c.id}" checked>
         <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${App.esc(c.email||'no email')}</span></div>
       </div>`).join('') +
-      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('tst-')">🗑 Delete Checked</button>`;
+      `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('tst-')">Delete Checked</button>`;
   },
 
   async deleteTestData() {
@@ -2607,7 +2607,7 @@ const Cleanup = {
     const testIds = (data || []).filter(c => /test|demo|sample|dummy|fake/i.test(c.full_name||'')).map(c => c.id);
     if (!testIds.length) { App.toast('✅ No test data to delete.'); return; }
     await db.from('clients').delete().in('id', testIds);
-    App.toast(`🗑 Deleted ${testIds.length} test client(s).`);
+    App.toast(`Deleted ${testIds.length} test client(s).`);
     Cleanup.findTestData();
   },
 
@@ -2665,7 +2665,7 @@ const Cleanup = {
   async deleteClient(id, name) {
     if (!confirm(`Delete client "${name}"? This cannot be undone.`)) return;
     await db.from('clients').delete().eq('id', id);
-    App.toast(`🗑 Deleted: ${name}`);
+    App.toast(`Deleted: ${name}`);
     Cleanup.findDuplicates();
   },
 
@@ -2719,7 +2719,7 @@ const Cleanup = {
           <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);">— no stage</span></div>
           <button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="Cleanup.setStage('${c.id}')">Set Stage</button>
         </div>`).join('') +
-        `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('lbl-')">🗑 Delete Checked</button>`;
+        `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('lbl-')">Delete Checked</button>`;
     }, 100);
   },
 
@@ -3058,7 +3058,7 @@ const SystemTools = {
   },
 
   refreshDashboard() {
-    App.toast('🔄 Refreshing dashboard & analytics...');
+    App.toast('Refreshing dashboard & analytics...');
     if (window.Analytics) Analytics.load();
     App.switchTab('analytics');
   },
@@ -3118,7 +3118,7 @@ const SystemTools = {
     SystemTools._applyThemeVars(t);
     localStorage.setItem('mdf-theme', id);
     localStorage.setItem('mdf-theme-custom', JSON.stringify(t));
-    App.toast('🎨 Theme applied!');
+    App.toast('Theme applied!');
   },
 
   applyCustomTheme() {
@@ -3646,7 +3646,7 @@ Settings.runDiagnostics = async function() {
     : ['rgba(34,197,94,0.1)','var(--green)','✅ All systems operational'];
   out.innerHTML += `<div style="margin-top:10px;padding:10px 14px;border-radius:8px;background:${bg};color:${color};font-weight:700;font-size:13px;">${msg}</div>`;
 
-  if (btn) { btn.disabled=false; btn.textContent='🔄 Run Again'; }
+  if (btn) { btn.disabled=false; btn.textContent='Run Again'; }
 };
 
 // Phase 2.A moved the Claude API key server-side (Supabase secrets + claude-chat

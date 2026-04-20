@@ -58,8 +58,8 @@ const Viewings = {
         </div>
         ${v.client_feedback ? `<div style="margin-top:8px;"><span class="pill2 pill2-neutral">${fb(v.client_feedback)}</span></div>` : ''}
         <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
-          <button class="btn2 btn2-ghost btn2-sm" style="flex:1;justify-content:center;" onclick="Viewings.openDetail('${v.id}')">✏️ Details</button>
-          <button class="btn2 btn2-sm" style="background:var(--red);color:#fff;" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
+          <button class="btn2 btn2-ghost btn2-sm" style="flex:1;justify-content:center;" onclick="Viewings.openDetail('${v.id}')">Details</button>
+          <button class="btn2 btn2-sm" style="background:var(--red);color:#fff;" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
         </div>
       </div>`;
     }).join('');
@@ -171,7 +171,7 @@ const Viewings = {
         <textarea class="form-input" id="vf-notes" rows="2" placeholder="Notes...">${viewing?.agent_notes||''}</textarea>
       </div>
       <button class="btn btn-primary btn-block" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
-        ${viewing ? '💾 Update Viewing' : '📅 Book Viewing'}
+        ${viewing ? 'Update Viewing' : 'Book Viewing'}
       </button>
       <div id="vf-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
@@ -295,13 +295,13 @@ const Viewings = {
         ${v.offer_due_date?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;">⏰ Offers Due</div><div class="fw-700">${App.fmtDate(v.offer_due_date)}${v.offer_due_time?' at '+v.offer_due_time.slice(0,5):''}</div></div>`:''}
         ${v.sellers_direction?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
       </div>
-      ${v.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📝 Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
+      ${v.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
       ${feedbackSection}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
         ${!isCompleted ? `<button class="btn btn-primary" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
         ${v.client_feedback === 'interested' ? `<button class="btn btn-green" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
-        <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">✏️ Edit</button>
-        <button class="btn btn-red" onclick="Viewings.deleteViewing('${v.id}')">🗑 Delete</button>
+        <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">Edit</button>
+        <button class="btn btn-red" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
       </div>
       ${isCompleted ? `
       <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">

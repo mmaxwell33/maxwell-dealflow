@@ -80,7 +80,7 @@ const Offers = {
       `<option value="${c.id}" ${c.id===clientId?'selected':''}>${c.full_name}</option>`
     ).join('');
     App.openModal(`
-      <div class="modal-title">📄 Submit Offer</div>
+      <div class="modal-title">Submit Offer</div>
       <div class="form-group">
         <label class="form-label">Client *</label>
         <select class="form-input form-select" id="of-client">
@@ -130,7 +130,7 @@ const Offers = {
         <input class="form-input" id="of-response-due" type="datetime-local">
         <div style="font-size:11px;color:var(--text2);margin-top:4px;">Optional — system will remind you at this time if no response is logged yet</div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="Offers.save()">📄 Submit Offer</button>
+      <button class="btn btn-primary btn-block" onclick="Offers.save()">Submit Offer</button>
       <div id="of-status-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
   },
@@ -209,11 +209,11 @@ const Offers = {
         <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(o.list_price)||'—'}</div></div>
         <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Offer Date</div><div class="fw-700">${App.fmtDate(o.offer_date)}</div></div>
       </div>
-      ${o.conditions ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📋 Conditions</div><div style="font-size:13px;">${App.esc(o.conditions)}</div></div>` : ''}
-      ${o.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">📝 Notes</div><div style="font-size:13px;">${App.esc(o.agent_notes)}</div></div>` : ''}
+      ${o.conditions ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Conditions</div><div style="font-size:13px;">${App.esc(o.conditions)}</div></div>` : ''}
+      ${o.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div><div style="font-size:13px;">${App.esc(o.agent_notes)}</div></div>` : ''}
       ${isPending ? `
       <div style="background:var(--bg2);border:2px solid var(--accent2);border-radius:10px;padding:14px;margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">📬 Seller Response?</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Seller Response?</div>
         ${o.seller_response_due ? `<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;">⏰ Follow-up scheduled: <strong>${new Date(o.seller_response_due).toLocaleString()}</strong></div>` : ''}
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select the seller's response to automatically notify your buyer:</div>
         <div style="display:grid;gap:8px;">
@@ -255,7 +255,7 @@ const Offers = {
         <textarea class="form-input" id="counter-msg" rows="3" placeholder="e.g. Seller is firm on closing date of May 15..."></textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-primary" onclick="Offers.confirmCounter('${id}')">📬 Queue Notification</button>
+        <button class="btn btn-primary" onclick="Offers.confirmCounter('${id}')">Queue Notification</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
@@ -285,7 +285,7 @@ const Offers = {
         <textarea class="form-input" id="reject-msg" rows="3" placeholder="e.g. Seller accepted another offer..."></textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-red" onclick="Offers.confirmRejection('${id}')">📬 Queue Notification</button>
+        <button class="btn btn-red" onclick="Offers.confirmRejection('${id}')">Queue Notification</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
@@ -369,7 +369,7 @@ const Offers = {
         <input class="form-input" id="snooze-time" type="datetime-local" value="${plus2h}">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-primary" onclick="Offers.saveSnooze('${id}',document.getElementById('snooze-time').value)">💾 Set Reminder</button>
+        <button class="btn btn-primary" onclick="Offers.saveSnooze('${id}',document.getElementById('snooze-time').value)">Set Reminder</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
@@ -595,7 +595,7 @@ const Pipeline = {
           ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date)}
           ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date)}
         </div>
-        ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">💾 Save Dates</button>` : ''}
+        ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">Save Dates</button>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${isClosed ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
           ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>` : ''}
@@ -799,7 +799,7 @@ const Pipeline = {
           ${stages.map(s => `<option value="${s}" ${d.stage===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
-      <button class="btn btn-primary btn-block" onclick="Pipeline.updateStage('${d.id}')">💾 Update Stage</button>
+      <button class="btn btn-primary btn-block" onclick="Pipeline.updateStage('${d.id}')">Update Stage</button>
     `);
   },
 
@@ -1195,8 +1195,8 @@ const Pipeline = {
       <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:11px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>App.toast('✅ Link copied!','var(--green)'))">📋 Copy Link</button>
-        <button class="btn btn-outline" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">👁 Preview</button>
+        <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>App.toast('✅ Link copied!','var(--green)'))">Copy Link</button>
+        <button class="btn btn-outline" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">Preview</button>
       </div>
     `);
   },
@@ -1362,7 +1362,7 @@ const PendingRequests = {
       <div class="card" style="margin-bottom:10px;border-left:3px solid var(--accent2);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
           <div class="fw-700" style="font-size:14px;flex:1;margin-right:8px;">${r.property_address || '—'}</div>
-          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:var(--bg2);color:var(--accent2);">📬 New</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:var(--bg2);color:var(--accent2);">New</span>
         </div>
         <div class="text-muted" style="font-size:12px;margin-bottom:4px;">👤 ${r.client_name || '—'}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">

@@ -104,7 +104,7 @@
   <!-- NOTIFICATION PANEL -->
   <div id="notif-panel" style="display:none;">
     <div class="notif-header">
-      <span class="notif-title-text">🔔 Notifications</span>
+      <span class="notif-title-text">Notifications</span>
       <button class="notif-close" onclick="App.closeNotifPanel()">✕</button>
     </div>
     <div id="notif-list"><div class="notif-loading">Loading…</div></div>
@@ -276,10 +276,10 @@
         <!-- Profile dropdown menu -->
         <div class="sb-profile-menu" id="sb-profile-menu" style="display:none;">
           <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">👤 Account Details</button>
-          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">🔑 Change Password</button>
+          <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">Change Password</button>
           <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">🖼️ Profile Picture</button>
           <button class="sb-profile-item" onclick="App.switchTab('settings');App.closeProfileMenu();">⚙️ Settings</button>
-          <button class="sb-profile-item" onclick="App.switchTab('notifications');App.closeProfileMenu();">🔔 Notifications</button>
+          <button class="sb-profile-item" onclick="App.switchTab('notifications');App.closeProfileMenu();">Notifications</button>
           <div class="sb-profile-sep"></div>
           <button class="sb-profile-item sb-profile-item-danger" onclick="App.confirmSignOut()">🔓 Logout</button>
         </div>
@@ -442,7 +442,7 @@
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('submitted',this)">Submitted</button>
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('accepted',this)">Accepted</button>
         <button class="btn btn-outline btn-sm" onclick="Offers.filter('pipeline',this)">Pipeline</button>
-        <button class="btn btn-outline btn-sm" onclick="Offers.filter('requests',this)" id="btn-requests-tab">📬 Requests <span id="requests-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px;"></span></button>
+        <button class="btn btn-outline btn-sm" onclick="Offers.filter('requests',this)" id="btn-requests-tab">Requests <span id="requests-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px;"></span></button>
       </div>
       <div id="offers-list">
         <div class="loading"><div class="spinner"></div> Loading...</div>
@@ -454,7 +454,7 @@
     <div id="screen-pipeline" class="screen" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:20px;font-weight:800;">📋 Deal Pipeline</div>
-        <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">🔄 Refresh</button>
+        <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">Refresh</button>
       </div>
       <div id="pipeline-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
@@ -473,7 +473,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:20px;font-weight:800;">🏗️ New Build Tracker</div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="NewBuilds.load()">🔄 Refresh</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.load()">Refresh</button>
           <button class="btn btn-primary btn-sm" onclick="NewBuilds.toggleForm()">+ New Build</button>
         </div>
       </div>
@@ -593,7 +593,7 @@
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-          <button class="btn btn-outline" onclick="Reports.preview()">👁 Preview Report</button>
+          <button class="btn btn-outline" onclick="Reports.preview()">Preview Report</button>
           <button class="btn btn-primary" onclick="Reports.sendToClient()">✉️ Send to Client</button>
         </div>
         <div id="rpt-msg" style="margin-top:8px;font-size:13px;text-align:center;"></div>
@@ -676,8 +676,8 @@
             <div id="email-file-chips" class="file-chips"></div>
           </div>
           <div style="display:flex;gap:10px;">
-            <button class="btn btn-outline" onclick="EmailSend.preview()">👁 Preview</button>
-            <button class="btn btn-primary" onclick="EmailSend.send()">📨 Send Email</button>
+            <button class="btn btn-outline" onclick="EmailSend.preview()">Preview</button>
+            <button class="btn btn-primary" onclick="EmailSend.send()">Send Email</button>
           </div>
           <div id="email-status" style="margin-top:10px;font-size:13px;"></div>
         </div>
@@ -734,7 +734,7 @@
             </div>
             <div id="ext-file-chips" class="file-chips"></div>
           </div>
-          <button class="btn btn-primary" onclick="EmailSend.sendExternal()">📨 Send External Email</button>
+          <button class="btn btn-primary" onclick="EmailSend.sendExternal()">Send External Email</button>
           <div id="ext-status" style="margin-top:10px;font-size:13px;"></div>
         </div>
 
@@ -745,7 +745,7 @@
     <div id="screen-analytics" class="screen" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">Analytics</div>
-        <button class="btn2 btn2-ghost btn2-sm" onclick="Analytics.load()">🔄 Refresh</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Analytics.load()">Refresh</button>
       </div>
       <div class="stats-row-2" id="analytics-stats">
         <div class="loading" style="grid-column:1/-1;"><div class="spinner"></div> Loading...</div>
@@ -858,7 +858,7 @@
 
     <!-- BROADCAST SCREEN -->
     <div id="screen-broadcast" class="screen" style="padding:16px;">
-      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">📣 Broadcast Email</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px;">Broadcast Email</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Send one email to multiple clients at once. All messages queue through Approvals before sending.</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
@@ -901,7 +901,7 @@
             </div>
             <div class="rte-editor" id="bc-body" contenteditable="true" placeholder="Write your message here... It will be personalized with each client's name." style="min-height:200px;"></div>
           </div>
-          <button class="btn btn-primary btn-block" id="bc-send-btn" onclick="Broadcast.send()" disabled>📨 Send (select clients first)</button>
+          <button class="btn btn-primary btn-block" id="bc-send-btn" onclick="Broadcast.send()" disabled>Send (select clients first)</button>
           <div style="font-size:11px;color:var(--text3);">💡 Tip: Each email queues individually in Approvals — you can review before they send.</div>
         </div>
 
@@ -980,7 +980,7 @@
       <div style="margin-top:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:12px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">👥 Deployed Agents</div>
-          <button class="btn btn-outline btn-sm" onclick="AgentPortal.loadAgents()">🔄 Refresh</button>
+          <button class="btn btn-outline btn-sm" onclick="AgentPortal.loadAgents()">Refresh</button>
         </div>
         <div id="ap-agents-list"><div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No agents deployed yet</div></div></div>
       </div>
@@ -1007,8 +1007,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="fw-800">🧪 Test Data Cleanup</div>
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-outline btn-sm" onclick="Cleanup.findTestData()">🔍 Find Test Data</button>
-            <button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="Cleanup.deleteTestData()">🗑 Delete All Test Data</button>
+            <button class="btn btn-outline btn-sm" onclick="Cleanup.findTestData()">Find Test Data</button>
+            <button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="Cleanup.deleteTestData()">Delete All Test Data</button>
           </div>
         </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Finds clients with "test", "demo", or "sample" in their name.</div>
@@ -1029,7 +1029,7 @@
       <div class="card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="fw-800">😴 Stale / Inactive Clients</div>
-          <button class="btn btn-outline btn-sm" onclick="Cleanup.findStale()">🔍 Find Stale Clients</button>
+          <button class="btn btn-outline btn-sm" onclick="Cleanup.findStale()">Find Stale Clients</button>
         </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Clients with no updates in 90+ days who are not marked as Closed or Lost.</div>
         <div id="cleanup-stale"><div class="text-muted" style="font-size:13px;">Click "Find Stale Clients" to scan.</div></div>
@@ -1039,7 +1039,7 @@
       <div class="card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="fw-800">✅ Select &amp; Delete Client Labels</div>
-          <button class="btn btn-outline btn-sm" onclick="Cleanup.findOldLabels()">🔍 Find Old Labels</button>
+          <button class="btn btn-outline btn-sm" onclick="Cleanup.findOldLabels()">Find Old Labels</button>
         </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">Finds clients who still have old standalone email labels (not under CRM/). Select which ones to remove.</div>
         <div id="cleanup-labels"><div class="text-muted" style="font-size:13px;">Click "Find Old Labels" to start.</div></div>
@@ -1047,7 +1047,7 @@
 
       <!-- Email Cleanup -->
       <div class="card" style="margin-bottom:14px;">
-        <div style="margin-bottom:8px;"><div class="fw-800">✉️ Email Cleanup</div></div>
+        <div style="margin-bottom:8px;"><div class="fw-800">Email Cleanup</div></div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Bulk cleanup actions for your logged email inbox.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm" onclick="Cleanup.trashTestEmails()">🧪 Trash Test Emails</button>
@@ -1062,7 +1062,7 @@
     <div id="screen-system" class="screen" style="padding:16px;">
       <div class="section-header" style="margin-bottom:16px;">
         <div class="section-title">⚙️ System</div>
-        <button class="btn btn-outline btn-sm" onclick="SystemTools.openTheme()">🎨 Theme</button>
+        <button class="btn btn-outline btn-sm" onclick="SystemTools.openTheme()">Theme</button>
       </div>
 
       <!-- ── LIVE HEALTH DASHBOARD ── -->
@@ -1102,7 +1102,7 @@
           <div style="font-weight:700;font-size:14px;">Automated Tests</div>
           <div style="display:flex;gap:8px;">
             <button class="btn btn-outline btn-sm" onclick="SystemTools.runTests()">▶ Run All</button>
-            <button class="btn btn-outline btn-sm" onclick="SystemTools.emailTestReport()">📧 Email Report</button>
+            <button class="btn btn-outline btn-sm" onclick="SystemTools.emailTestReport()">Email Report</button>
           </div>
         </div>
         <div id="test-runner-list" style="font-size:13px;color:var(--text2);">
@@ -1161,7 +1161,7 @@
       <div class="card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
           <div class="fw-800">📊 Database Stats</div>
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();SystemTools.loadStats()">🔄 Refresh</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();SystemTools.loadStats()">Refresh</button>
         </div>
         <div id="sys-db-stats" style="margin-top:10px;display:none;">
           <div class="text-muted" style="font-size:13px;">Click Refresh to load.</div>
@@ -1194,7 +1194,7 @@
           <div id="sys-welcome-msg" style="font-size:13px;margin-bottom:10px;"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn btn-outline" onclick="document.getElementById('sys-welcome-modal').style.display='none'">Cancel</button>
-            <button class="btn btn-primary" onclick="SystemTools.resendWelcome()">📨 Send to Queue</button>
+            <button class="btn btn-primary" onclick="SystemTools.resendWelcome()">Send to Queue</button>
           </div>
         </div>
       </div>
@@ -1203,13 +1203,13 @@
       <div id="sys-theme-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 0;">
         <div style="background:var(--card);border-radius:16px;padding:24px;width:min(95vw,520px);margin:auto;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <div class="fw-800" style="font-size:18px;">🎨 Dashboard Theme</div>
+            <div class="fw-800" style="font-size:18px;">Dashboard Theme</div>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sys-theme-modal').style.display='none'">✕</button>
           </div>
           <div style="font-size:13px;color:var(--text2);margin-bottom:18px;">Choose a color palette or create your own custom theme.</div>
           <div id="theme-presets" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;"></div>
           <div style="border-top:1px solid var(--border);padding-top:18px;">
-            <div class="fw-700" style="margin-bottom:14px;">🎯 Custom Theme</div>
+            <div class="fw-700" style="margin-bottom:14px;">Custom Theme</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
               <div>
                 <label class="form-label">HEADER LEFT</label>
@@ -1263,18 +1263,18 @@
           <div style="font-size:11px;color:var(--text2);margin-top:1px;">Live CRM data · Conversation memory</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn2 btn2-ghost btn2-sm" onclick="AI.clearChat()">🗑 Clear</button>
+          <button class="btn2 btn2-ghost btn2-sm" onclick="AI.clearChat()">Clear</button>
         </div>
       </div>
 
       <!-- Quick action chips -->
       <div class="ai-chips">
-        <button class="ai-chip" onclick="AI.quickSend('Which clients need follow-up right now? List them with days since last contact.')">⏰ Follow-ups</button>
-        <button class="ai-chip" onclick="AI.quickSend('Summarise my active pipeline deals and suggest the next step for each one.')">🚀 Pipeline</button>
-        <button class="ai-chip" onclick="AI.quickSend('How many viewings do I have this month and what was the client feedback?')">📅 Viewings</button>
-        <button class="ai-chip" onclick="AI.quickSend('What is my total net commission so far and which deal was the biggest?')">💰 Commissions</button>
-        <button class="ai-chip" onclick="AI.quickSend('Give me a full morning briefing — who needs follow-up, pipeline status, and any urgent items today.')">☀️ Morning Brief</button>
-        <button class="ai-chip" onclick="AI.quickSend('Draft a short professional follow-up email I can send to a client who has gone quiet for a week.')">✉️ Draft Email</button>
+        <button class="ai-chip" onclick="AI.quickSend('Which clients need follow-up right now? List them with days since last contact.')">Follow-ups</button>
+        <button class="ai-chip" onclick="AI.quickSend('Summarise my active pipeline deals and suggest the next step for each one.')">Pipeline</button>
+        <button class="ai-chip" onclick="AI.quickSend('How many viewings do I have this month and what was the client feedback?')">Viewings</button>
+        <button class="ai-chip" onclick="AI.quickSend('What is my total net commission so far and which deal was the biggest?')">Commissions</button>
+        <button class="ai-chip" onclick="AI.quickSend('Give me a full morning briefing — who needs follow-up, pipeline status, and any urgent items today.')">Morning Brief</button>
+        <button class="ai-chip" onclick="AI.quickSend('Draft a short professional follow-up email I can send to a client who has gone quiet for a week.')">Draft Email</button>
       </div>
 
       <!-- Messages -->
@@ -1316,16 +1316,16 @@
       <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0;" id="settings-tabs">
         <button class="stab active" onclick="Settings.showTab('profile',this)">👤 Profile</button>
         <button class="stab" onclick="Settings.showTab('appearance',this)">🎨 Appearance</button>
-        <button class="stab" onclick="Settings.showTab('notifications',this)">🔔 Notifications</button>
+        <button class="stab" onclick="Settings.showTab('notifications',this)">Notifications</button>
         <button class="stab" onclick="Settings.showTab('data',this)">🗄️ Data</button>
-        <button class="stab" onclick="Settings.showTab('security',this)">🔒 Security</button>
+        <button class="stab" onclick="Settings.showTab('security',this)">Security</button>
         <button class="stab" onclick="Settings.showTab('diagnostics',this)">🩺 Diagnostics</button>
       </div>
 
       <!-- PROFILE TAB -->
       <div id="stab-profile" class="stab-panel">
         <div class="settings-card">
-          <div class="settings-card-title">👤 Agent Profile</div>
+          <div class="settings-card-title">Agent Profile</div>
           <div class="settings-card-sub">This information appears on reports and emails sent to clients.</div>
           <div style="display:flex;align-items:center;gap:16px;margin:16px 0;">
             <!-- Avatar with photo upload -->
@@ -1374,7 +1374,7 @@
             <label class="form-label">Email Signature</label>
             <textarea class="form-input" id="set-signature" rows="3" placeholder="Your email sign-off (appears at the bottom of sent emails)"></textarea>
           </div>
-          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveProfile()">💾 Save Profile</button>
+          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveProfile()">Save Profile</button>
           <div id="set-profile-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
       </div>
@@ -1382,12 +1382,12 @@
       <!-- APPEARANCE TAB -->
       <div id="stab-appearance" class="stab-panel" style="display:none;">
         <div class="settings-card">
-          <div class="settings-card-title">🎨 Dashboard Theme</div>
+          <div class="settings-card-title">Dashboard Theme</div>
           <div class="settings-card-sub">Choose a colour palette for the entire app.</div>
           <div id="set-theme-presets" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:16px 0;"></div>
         </div>
         <div class="settings-card" style="margin-top:14px;">
-          <div class="settings-card-title">🎯 Custom Theme</div>
+          <div class="settings-card-title">Custom Theme</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
             <div><label class="form-label">Header Left</label><input type="color" class="form-input" id="set-th-hl" style="height:40px;padding:4px;" value="#1a2236"></div>
             <div><label class="form-label">Header Right</label><input type="color" class="form-input" id="set-th-hr" style="height:40px;padding:4px;" value="#2b4a8c"></div>
@@ -1397,7 +1397,7 @@
           <button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="Settings.applyCustom()">Apply Custom Theme</button>
         </div>
         <div class="settings-card" style="margin-top:14px;">
-          <div class="settings-card-title">📐 Layout</div>
+          <div class="settings-card-title">Layout</div>
           <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
             <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
               <div>
@@ -1420,7 +1420,7 @@
       <!-- NOTIFICATIONS TAB -->
       <div id="stab-notifications" class="stab-panel" style="display:none;">
         <div class="settings-card">
-          <div class="settings-card-title">🔔 Notification Preferences</div>
+          <div class="settings-card-title">Notification Preferences</div>
           <div class="settings-card-sub">Control what you get alerted about in the app.</div>
           <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
             <label class="set-toggle-row">
@@ -1444,7 +1444,7 @@
               <input type="checkbox" class="set-toggle" id="notif-build">
             </label>
           </div>
-          <button class="btn btn-primary" style="margin-top:16px;" onclick="Settings.saveNotifs()">💾 Save Preferences</button>
+          <button class="btn btn-primary" style="margin-top:16px;" onclick="Settings.saveNotifs()">Save Preferences</button>
           <div id="set-notif-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
 
@@ -1523,7 +1523,7 @@
 
         <!-- Claude AI status (key is now server-side via Supabase secrets) -->
         <div class="settings-card" style="margin-bottom:14px;">
-          <div class="settings-card-title">🤖 Claude AI</div>
+          <div class="settings-card-title">Claude AI</div>
           <div class="settings-card-sub">The Claude API key is now stored securely on the server and managed by your administrator. No configuration needed here.</div>
           <div style="margin-top:10px;">
             <span class="pill2 pill2-green">🟢 Active via server</span>
@@ -1531,7 +1531,7 @@
         </div>
 
         <div class="settings-card">
-          <div class="settings-card-title">🔑 Change Password</div>
+          <div class="settings-card-title">Change Password</div>
           <div class="settings-card-sub">You will be signed out after changing your password.</div>
           <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px;max-width:380px;">
             <div>
