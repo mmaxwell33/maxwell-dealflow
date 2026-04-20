@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Maxwell DealFlow — Phase 2.B Mockups</title>
+<style>
+  /* ────────────── NEW DESIGN TOKENS ────────────── */
+  :root{
+    /* Surfaces — cooler, more neutral than today's warm brown */
+    --bg:          #0A0E14;
+    --bg-elev:     #121821;
+    --surface:     #161D28;
+    --surface-2:   #1E2636;
+    --border:      rgba(255,255,255,0.08);
+    --border-2:    rgba(255,255,255,0.14);
+
+    /* Accents */
+    --indigo:      #6366F1;   /* primary CTA */
+    --indigo-soft: rgba(99,102,241,0.16);
+    --coral:       #FF7A6B;   /* Airbnb warmth — used sparingly */
+    --coral-soft:  rgba(255,122,107,0.18);
+    --green:       #22C55E;
+    --amber:       #F59E0B;
+    --red:         #EF4444;
+
+    /* Text */
+    --text:   #F8FAFC;
+    --text-2: #94A3B8;
+    --text-3: #64748B;
+
+    /* Geometry */
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 20px;
+    --sh-1: 0 1px 2px rgba(0,0,0,0.4);
+    --sh-2: 0 8px 24px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.5);
+    --sh-3: 0 24px 48px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.45;
+    padding:48px 24px 120px; font-size:14px;
+  }
+
+  /* Page layout */
+  .wrap{max-width:1180px;margin:0 auto;}
+  h1{font-size:32px; font-weight:700; letter-spacing:-0.02em; margin-bottom:8px;}
+  h2{font-size:22px; font-weight:650; letter-spacing:-0.01em; margin:64px 0 20px; padding-bottom:12px; border-bottom:1px solid var(--border);}
+  h3{font-size:15px; font-weight:600; color:var(--text-2); margin:24px 0 12px; text-transform:uppercase; letter-spacing:0.06em;}
+  p.lede{color:var(--text-2); font-size:15px; max-width:640px; margin-bottom:16px;}
+
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start;}
+  .label{font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-3); margin-bottom:8px;}
+  .label.before{color:#78716C;}
+  .label.after {color:var(--indigo);}
+
+  /* ────────────── FRAME (simulates current dark style) ────────────── */
+  .frame-before{
+    background:#111110; color:#f2f1ef;
+    border:1px solid #302e2c; border-radius:10px;
+    padding:20px;
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    box-shadow:0 4px 24px rgba(0,0,0,0.5);
+  }
+  /* ────────────── FRAME (new proposed style) ────────────── */
+  .frame-after{
+    background:var(--bg-elev); color:var(--text);
+    border:1px solid var(--border); border-radius:var(--r-lg);
+    padding:24px; box-shadow:var(--sh-2);
+  }
+
+  /* ────────────── TOKEN GRID ────────────── */
+  .swatch-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:10px;}
+  .swatch{border-radius:10px; height:72px; display:flex; flex-direction:column; justify-content:flex-end; padding:10px; border:1px solid var(--border); font-size:10px; font-weight:600; font-family:ui-monospace,Menlo,monospace;}
+  .swatch b{display:block; color:#fff; mix-blend-mode:difference;}
+  .swatch span{color:rgba(255,255,255,0.65); mix-blend-mode:difference;}
+
+  .type-stack > div{margin-bottom:8px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
+  .type-label{font-size:10px; color:var(--text-3); font-family:ui-monospace,Menlo,monospace; margin-bottom:4px;}
+
+  /* ────────────── COMPONENT: Button ────────────── */
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:none;border-radius:var(--r-sm);font-weight:600;font-size:14px;cursor:pointer;transition:transform .08s, box-shadow .15s, background .15s;}
+  .btn-primary{background:var(--indigo);color:#fff;box-shadow:0 1px 2px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.14);}
+  .btn-primary:hover{background:#4F46E5;box-shadow:0 4px 12px rgba(99,102,241,0.35);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--border-2);}
+  .btn-ghost:hover{background:var(--surface);}
+  .btn-coral{background:var(--coral); color:#fff; font-weight:700;}
+  .btn-sm{padding:6px 10px; font-size:12px;}
+
+  /* Before-style buttons (rough approximation of current app) */
+  .btn-legacy{background:#5b5bd6; color:#fff; border-radius:8px; padding:10px 16px; font-weight:600; font-size:14px; border:none; cursor:pointer;}
+  .btn-legacy-ghost{background:rgba(255,255,255,0.05);color:#f2f1ef;border:1px solid #302e2c;border-radius:8px;padding:10px 16px;font-weight:600;font-size:14px;cursor:pointer;}
+
+  /* ────────────── COMPONENT: Card ────────────── */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:18px;box-shadow:var(--sh-1);}
+  .card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+  .card-title{font-size:15px; font-weight:650; letter-spacing:-0.01em;}
+  .card-sub{font-size:13px; color:var(--text-2); margin-top:2px;}
+
+  /* Before card (current aesthetic) */
+  .card-legacy{background:#242320;border:1px solid #302e2c;border-radius:10px;padding:16px;color:#f2f1ef;}
+
+  /* ────────────── COMPONENT: Stat ────────────── */
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:16px;}
+  .stat .num{font-size:26px;font-weight:700;letter-spacing:-0.02em;margin-top:4px;}
+  .stat .lbl{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;}
+  .stat .delta{font-size:11px;color:var(--green);font-weight:600;margin-top:6px;}
+  .stat .delta.neg{color:var(--red);}
+
+  /* Before stat */
+  .stat-legacy{background:#242320;border:1px solid #302e2c;border-radius:10px;padding:14px;color:#f2f1ef;}
+  .stat-legacy .num{font-size:22px;font-weight:700;}
+  .stat-legacy .lbl{font-size:11px;color:#8b8680;}
+
+  /* ────────────── COMPONENT: Badge / Pill ────────────── */
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:0.02em;}
+  .pill-green{background:rgba(34,197,94,0.14);color:#4ADE80;}
+  .pill-amber{background:rgba(245,158,11,0.14);color:#FCD34D;}
+  .pill-indigo{background:var(--indigo-soft);color:#A5B4FC;}
+  .pill-coral{background:var(--coral-soft);color:#FCA5A5;}
+  .pill-neutral{background:rgba(255,255,255,0.06);color:var(--text-2);}
+  .pill-legacy{background:#5b5bd6;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+
+  /* ────────────── COMPONENT: Input ────────────── */
+  .input{width:100%;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-size:14px;}
+  .input:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft);}
+  .input-legacy{width:100%;background:rgba(255,255,255,0.05);border:1px solid #302e2c;border-radius:8px;padding:10px 12px;color:#f2f1ef;font-size:14px;}
+
+  /* ────────────── LAYOUT: Topbar ────────────── */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(18,24,33,0.7);backdrop-filter:blur(24px);margin-bottom:16px;}
+  .topbar .brand{font-size:15px;font-weight:700;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px;}
+  .topbar .brand .mark{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--indigo),var(--coral));display:inline-block;}
+  .topbar .right{display:flex;gap:8px;align-items:center;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--coral));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;}
+  .topbar-legacy{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(17,17,16,0.88);border-bottom:1px solid rgba(91,91,214,0.15);margin-bottom:16px;border-radius:6px;}
+  .topbar-legacy .brand{font-size:16px;font-weight:900;}
+  .topbar-legacy .brand span{color:#7c7cff;}
+
+  /* ────────────── LAYOUT: Sidebar ────────────── */
+  .nav{display:flex;flex-direction:column;gap:2px;padding:12px;background:rgba(18,24,33,0.5);border:1px solid var(--border);border-radius:var(--r-lg);min-width:200px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r-sm);color:var(--text-2);font-size:14px;font-weight:500;cursor:pointer;}
+  .nav-item.active{background:var(--indigo-soft);color:#fff;}
+  .nav-item:hover:not(.active){background:rgba(255,255,255,0.04);color:var(--text);}
+  .nav-icon{width:18px; text-align:center; opacity:0.9;}
+
+  /* ────────────── SCREEN MOCKUP HELPERS ────────────── */
+  .screen{display:grid;grid-template-columns:200px 1fr;gap:16px;}
+  .screen-main{display:flex;flex-direction:column;gap:16px;}
+  .row-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .row-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+
+  /* Client row */
+  .client-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;}
+  .client-row:hover{background:var(--surface-2);}
+  .client-row + .client-row{border-top:1px solid var(--border);border-radius:0;}
+  .client-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6366F1,#FF7A6B);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .client-info{flex:1;min-width:0;}
+  .client-name{font-weight:600;font-size:14px;}
+  .client-meta{font-size:12px;color:var(--text-2);margin-top:2px;}
+  .client-right{text-align:right;}
+
+  /* AI bubble */
+  .ai-msg{display:flex;gap:12px;margin-bottom:12px;}
+  .ai-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--coral));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .ai-bubble{background:var(--surface);border:1px solid var(--border);padding:12px 14px;border-radius:14px;border-top-left-radius:4px;font-size:14px;line-height:1.5;max-width:420px;}
+  .ai-msg.user{justify-content:flex-end;}
+  .ai-msg.user .ai-bubble{background:var(--indigo-soft);border-color:transparent;border-radius:14px;border-top-right-radius:4px;}
+  .ai-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .ai-chip{padding:6px 12px;border:1px solid var(--border-2);border-radius:999px;font-size:12px;cursor:pointer;color:var(--text-2);}
+  .ai-chip:hover{background:var(--surface);color:var(--text);}
+
+  /* Timeline */
+  .timeline{position:relative;padding-left:20px;}
+  .timeline::before{content:'';position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--border);}
+  .tl-item{position:relative;padding-bottom:14px;}
+  .tl-item::before{content:'';position:absolute;left:-18px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--indigo);box-shadow:0 0 0 3px var(--bg-elev);}
+  .tl-item.done::before{background:var(--green);}
+  .tl-item .t{font-size:13px;font-weight:600;}
+  .tl-item .d{font-size:12px;color:var(--text-2);margin-top:2px;}
+
+  /* Tiny code block for annotation */
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;color:#FDE68A;}
+
+  /* Notes sidebar under each mockup */
+  .notes{background:rgba(99,102,241,0.06);border:1px solid var(--indigo-soft);border-radius:var(--r-md);padding:14px 16px;font-size:13px;color:var(--text-2);}
+  .notes b{color:#C7D2FE;}
+  .notes ul{margin:6px 0 0 18px;}
+  .notes li{margin:3px 0;}
+
+  hr{border:none;border-top:1px solid var(--border);margin:48px 0;}
+  .hero{background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(255,122,107,0.08));border:1px solid var(--border);border-radius:var(--r-xl);padding:40px;margin-bottom:40px;}
+  .hero h1{font-size:38px;}
+  .hero p{font-size:17px;color:var(--text-2);max-width:640px;margin-top:8px;}
+  .hero .meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px;color:var(--text-2);font-size:13px;}
+  .hero .meta span{padding:5px 12px;border:1px solid var(--border);border-radius:999px;}
+
+  /* Roll-plan table */
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;}
+  tr:last-child td{border-bottom:none;}
+
+  @media (max-width:880px){
+    .split{grid-template-columns:1fr;}
+    .screen{grid-template-columns:1fr;}
+    .row-4{grid-template-columns:repeat(2,1fr);}
+    .row-3,.row-2{grid-template-columns:1fr;}
+    body{padding:24px 14px 80px;}
+    .hero{padding:28px;}
+    h1{font-size:26px;}
+    .hero h1{font-size:28px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero">
+    <h1>Phase 2.B — Design Direction</h1>
+    <p>Before we write CSS, here's where the UI is headed. Each section shows today's look on the left and the proposed polish on the right. Nothing here has been shipped — the production app is untouched.</p>
+    <div class="meta">
+      <span>Apple · whitespace &amp; hierarchy</span>
+      <span>Airbnb · warmth &amp; trust</span>
+      <span>Revolut · fintech clarity</span>
+    </div>
+  </section>
+
+  <!-- ────────── 1. DESIGN TOKENS ────────── -->
+  <h2>1. Design tokens</h2>
+  <p class="lede">The foundation. Colours, type, radii, shadows. Every screen below is built from these — change a token, everything ripples.</p>
+
+  <div class="split">
+    <div>
+      <div class="label before">Before · current</div>
+      <div class="frame-before">
+        <h3 style="color:#8b8680;margin-top:0;">Surfaces</h3>
+        <div class="swatch-grid" style="grid-template-columns:repeat(4,1fr);">
+          <div class="swatch" style="background:#111110;"><b>bg</b><span>#111110</span></div>
+          <div class="swatch" style="background:#1c1b1a;"><b>bg2</b><span>#1c1b1a</span></div>
+          <div class="swatch" style="background:#242320;"><b>card</b><span>#242320</span></div>
+          <div class="swatch" style="background:#302e2c;"><b>border</b><span>#302e2c</span></div>
+        </div>
+        <h3 style="color:#8b8680;">Accents</h3>
+        <div class="swatch-grid" style="grid-template-columns:repeat(4,1fr);">
+          <div class="swatch" style="background:#5b5bd6;"><b>accent</b><span>#5b5bd6</span></div>
+          <div class="swatch" style="background:#7c7cff;"><b>accent2</b><span>#7c7cff</span></div>
+          <div class="swatch" style="background:#10b981;"><b>green</b><span>#10b981</span></div>
+          <div class="swatch" style="background:#ef4444;"><b>red</b><span>#ef4444</span></div>
+        </div>
+        <h3 style="color:#8b8680;">Type</h3>
+        <div style="font-size:24px;font-weight:700;color:#f2f1ef;">Dashboard</div>
+        <div style="font-size:13px;color:#8b8680;margin-top:4px;">System stack, no weight variation</div>
+      </div>
+    </div>
+    <div>
+      <div class="label after">After · proposed</div>
+      <div class="frame-after">
+        <h3 style="margin-top:0;">Surfaces</h3>
+        <div class="swatch-grid" style="grid-template-columns:repeat(4,1fr);">
+          <div class="swatch" style="background:#0A0E14;"><b>bg</b><span>#0A0E14</span></div>
+          <div class="swatch" style="background:#121821;"><b>elev</b><span>#121821</span></div>
+          <div class="swatch" style="background:#161D28;"><b>surface</b><span>#161D28</span></div>
+          <div class="swatch" style="background:#1E2636;"><b>surface-2</b><span>#1E2636</span></div>
+        </div>
+        <h3>Accents</h3>
+        <div class="swatch-grid" style="grid-template-columns:repeat(4,1fr);">
+          <div class="swatch" style="background:#6366F1;"><b>indigo</b><span>#6366F1</span></div>
+          <div class="swatch" style="background:#FF7A6B;"><b>coral</b><span>#FF7A6B</span></div>
+          <div class="swatch" style="background:#22C55E;"><b>green</b><span>#22C55E</span></div>
+          <div class="swatch" style="background:#F59E0B;"><b>amber</b><span>#F59E0B</span></div>
+        </div>
+        <h3>Type</h3>
+        <div class="type-stack">
+          <div><div class="type-label">32 · 700 · -0.02em</div><div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;">Dashboard</div></div>
+          <div><div class="type-label">15 · 650</div><div style="font-size:15px;font-weight:650;">Active deals</div></div>
+          <div><div class="type-label">13 · 450 · var(--text-2)</div><div style="font-size:13px;color:var(--text-2);">Helen Nkrumah · 12 Main St</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notes" style="margin-top:12px;"><b>What changes</b>
+    <ul>
+      <li>Warm brown backdrop → cooler near-black (still easy on the eye at 11pm, reads more "fintech app" less "terminal").</li>
+      <li>Coral (<code>#FF7A6B</code>) joins indigo as a secondary accent — used for urgency without resorting to red.</li>
+      <li>Type gets a proper scale (32/22/15/13/11) with tight tracking on headlines — more Apple, less default-system.</li>
+      <li>Radius jumps from 10px → 12/16/20px on cards; softer, more Airbnb.</li>
+    </ul>
+  </div>
+
+  <!-- ────────── 2. COMPONENTS ────────── -->
+  <h2>2. Core components</h2>
+
+  <h3>Buttons</h3>
+  <div class="split">
+    <div>
+      <div class="label before">Before</div>
+      <div class="frame-before" style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn-legacy">Save changes</button>
+        <button class="btn-legacy-ghost">Cancel</button>
+        <button class="btn-legacy" style="background:#10b981;">Approve</button>
+      </div>
+    </div>
+    <div>
+      <div class="label after">After</div>
+      <div class="frame-after" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary">Save changes</button>
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-coral">Approve &amp; send</button>
+        <button class="btn btn-ghost btn-sm">Archive</button>
+      </div>
+    </div>
+  </div>
+
+  <h3>Stat cards</h3>
+  <div class="split">
+    <div>
+      <div class="label before">Before</div>
+      <div class="frame-before">
+        <div class="row-4" style="gap:8px;">
+          <div class="stat-legacy"><div class="lbl">Clients</div><div class="num">127</div></div>
+          <div class="stat-legacy"><div class="lbl">Pipeline</div><div class="num">$4.2M</div></div>
+          <div class="stat-legacy"><div class="lbl">This month</div><div class="num">8</div></div>
+          <div class="stat-legacy"><div class="lbl">Overdue</div><div class="num">3</div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="label after">After</div>
+      <div class="frame-after">
+        <div class="row-4">
+          <div class="stat"><div class="lbl">Clients</div><div class="num">127</div><div class="delta">+4 this week</div></div>
+          <div class="stat"><div class="lbl">Pipeline</div><div class="num">$4.2M</div><div class="delta">+$320k</div></div>
+          <div class="stat"><div class="lbl">Viewings</div><div class="num">8</div><div class="delta">this month</div></div>
+          <div class="stat"><div class="lbl">Follow-ups</div><div class="num" style="color:var(--coral);">3</div><div class="delta neg">overdue</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Status pills</h3>
+  <div class="split">
+    <div>
+      <div class="label before">Before</div>
+      <div class="frame-before" style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="pill-legacy">ACTIVE</span>
+        <span class="pill-legacy" style="background:#10b981;">CLOSED</span>
+        <span class="pill-legacy" style="background:#ef4444;">OVERDUE</span>
+        <span class="pill-legacy" style="background:#f59e0b;">PENDING</span>
+      </div>
+    </div>
+    <div>
+      <div class="label after">After</div>
+      <div class="frame-after" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="pill pill-indigo">● Active</span>
+        <span class="pill pill-green">● Closed · $512k</span>
+        <span class="pill pill-coral">● Follow-up due</span>
+        <span class="pill pill-amber">● Offer pending</span>
+        <span class="pill pill-neutral">Archived</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Inputs</h3>
+  <div class="split">
+    <div>
+      <div class="label before">Before</div>
+      <div class="frame-before"><input class="input-legacy" value="Helen Nkrumah" /></div>
+    </div>
+    <div>
+      <div class="label after">After</div>
+      <div class="frame-after"><input class="input" value="Helen Nkrumah" /></div>
+    </div>
+  </div>
+
+  <!-- ────────── 3. DASHBOARD ────────── -->
+  <h2>3. Dashboard (home)</h2>
+  <p class="lede">The first screen Maxwell sees at 7am. Today: a grid of stat cards + a list. Proposal: a hero summary + timeline of today, with clearer urgency cues.</p>
+
+  <div class="label after">After · proposed</div>
+  <div class="frame-after">
+    <div class="topbar">
+      <div class="brand"><span class="mark"></span> DealFlow</div>
+      <div class="right">
+        <button class="btn btn-ghost btn-sm">🔔 3</button>
+        <div class="avatar">MM</div>
+      </div>
+    </div>
+
+    <div class="screen">
+      <nav class="nav">
+        <div class="nav-item active"><span class="nav-icon">🏠</span> Home</div>
+        <div class="nav-item"><span class="nav-icon">👥</span> Clients</div>
+        <div class="nav-item"><span class="nav-icon">🏡</span> Viewings</div>
+        <div class="nav-item"><span class="nav-icon">📊</span> Pipeline</div>
+        <div class="nav-item"><span class="nav-icon">💰</span> Commissions</div>
+        <div class="nav-item"><span class="nav-icon">✨</span> Ask AI</div>
+        <div class="nav-item"><span class="nav-icon">⚙️</span> Settings</div>
+      </nav>
+
+      <div class="screen-main">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;color:var(--text-2);">Sunday, April 19</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em;">Good morning, Maxwell</div>
+          </div>
+          <button class="btn btn-primary">+ New client</button>
+        </div>
+
+        <div class="row-4">
+          <div class="stat"><div class="lbl">Clients</div><div class="num">127</div><div class="delta">+4 this week</div></div>
+          <div class="stat"><div class="lbl">Pipeline</div><div class="num">$4.2M</div><div class="delta">+$320k</div></div>
+          <div class="stat"><div class="lbl">Viewings</div><div class="num">8</div><div class="delta">this month</div></div>
+          <div class="stat"><div class="lbl">Follow-ups</div><div class="num" style="color:var(--coral);">3</div><div class="delta neg">overdue</div></div>
+        </div>
+
+        <div class="row-3">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Today's schedule</div>
+                <div class="card-sub">3 viewings · 2 follow-up calls</div>
+              </div>
+              <span class="pill pill-indigo">Apr 19</span>
+            </div>
+            <div class="timeline">
+              <div class="tl-item done"><div class="t">9:00 — Call Helen N. <span class="pill pill-green" style="margin-left:6px;">done</span></div><div class="d">Discussed price range bump to $540k</div></div>
+              <div class="tl-item"><div class="t">11:30 — Viewing · 12 Main St</div><div class="d">Client: Ben Osei · first-time buyer</div></div>
+              <div class="tl-item"><div class="t">14:00 — Viewing · 887 Harbour Dr</div><div class="d">Client: Abena &amp; Kwame Mensah</div></div>
+              <div class="tl-item"><div class="t">16:30 — Follow-up · Kofi A.</div><div class="d"><span style="color:var(--coral);">9 days since last contact</span></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Needs follow-up</div>
+              <span class="pill pill-coral">3</span>
+            </div>
+            <div class="client-row">
+              <div class="client-av">KA</div>
+              <div class="client-info"><div class="client-name">Kofi Adjei</div><div class="client-meta">9d · St. John's · $380–420k</div></div>
+            </div>
+            <div class="client-row">
+              <div class="client-av">AM</div>
+              <div class="client-info"><div class="client-name">Ama Mensah</div><div class="client-meta">11d · Paradise · $550k</div></div>
+            </div>
+            <div class="client-row">
+              <div class="client-av">JO</div>
+              <div class="client-info"><div class="client-name">John Owusu</div><div class="client-meta">14d · Mt. Pearl · $460k</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notes" style="margin-top:12px;"><b>What's new</b>
+    <ul>
+      <li>Greeting + date frames the day before any numbers. Time-of-day aware.</li>
+      <li>Stats get tiny delta lines — 127 is less useful than "+4 this week."</li>
+      <li>Today's schedule is a timeline, not a table. Past events fade to green checks.</li>
+      <li>"Needs follow-up" surfaces on the home screen instead of buried in Tracker.</li>
+      <li>Sidebar is calm, active item uses the indigo-soft tint instead of filled.</li>
+    </ul>
+  </div>
+
+  <!-- ────────── 4. CLIENT DETAIL ────────── -->
+  <h2>4. Client detail</h2>
+  <p class="lede">Today Maxwell opens a client and sees a wall of fields. Proposal: a profile header, a timeline of everything, and inline contact actions. Secondary info collapses into tabs so nothing competes for the eye.</p>
+
+  <div class="label after">After · proposed</div>
+  <div class="frame-after">
+    <!-- Header -->
+    <div style="display:flex;gap:16px;align-items:flex-start;padding-bottom:20px;border-bottom:1px solid var(--border);">
+      <div class="client-av" style="width:52px;height:52px;font-size:16px;">HN</div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.01em;">Helen Nkrumah</div>
+          <span class="pill pill-indigo">Active</span>
+          <span class="pill pill-neutral">Buyer · first-time</span>
+        </div>
+        <div style="color:var(--text-2);font-size:13px;margin-top:4px;">📍 St. John's · 💰 $480k–$540k · 📅 Added Feb 14</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm">📞 Call</button>
+        <button class="btn btn-ghost btn-sm">✉️ Email</button>
+        <button class="btn btn-primary btn-sm">+ Book viewing</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;padding:14px 0;border-bottom:1px solid var(--border);">
+      <div class="nav-item active" style="padding:6px 12px;">Activity</div>
+      <div class="nav-item" style="padding:6px 12px;">Viewings</div>
+      <div class="nav-item" style="padding:6px 12px;">Offers</div>
+      <div class="nav-item" style="padding:6px 12px;">Notes</div>
+      <div class="nav-item" style="padding:6px 12px;">Files</div>
+    </div>
+
+    <!-- Body -->
+    <div class="row-3" style="margin-top:18px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent activity</div>
+          <span class="pill pill-neutral">Last 30 days</span>
+        </div>
+        <div class="timeline">
+          <div class="tl-item done"><div class="t">Viewing · 12 Main St</div><div class="d">Apr 11 · Feedback: "Loved the kitchen, worried about the roof"</div></div>
+          <div class="tl-item done"><div class="t">Email · Preview three listings</div><div class="d">Apr 8 · Opened · 1 reply</div></div>
+          <div class="tl-item done"><div class="t">Intake form submitted</div><div class="d">Feb 14 · Budget $480k–$540k · 3br minimum</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">At a glance</div></div>
+        <div style="display:grid;gap:10px;font-size:13px;">
+          <div><div style="color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Phone</div>Click to reveal</div>
+          <div><div style="color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Email</div>Click to reveal</div>
+          <div><div style="color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Pre-approved</div>Yes · up to $520k</div>
+          <div><div style="color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Stage</div>
+            <span class="pill pill-indigo" style="margin-top:4px;">Viewings booked</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notes" style="margin-top:12px;"><b>What's new</b>
+    <ul>
+      <li>Profile header replaces the top ~40% of the current page. Avatar + name + stage in one line.</li>
+      <li>Inline actions (Call · Email · Book viewing) always visible — no more hunting through tabs.</li>
+      <li>Activity as a timeline keeps context without scrolling through 6 different subtables.</li>
+      <li>Privacy masking ("Click to reveal") stays — just cleaner typography around it.</li>
+    </ul>
+  </div>
+
+  <!-- ────────── 5. AI ASSISTANT ────────── -->
+  <h2>5. Ask AI</h2>
+  <p class="lede">Today: chat transcript + a big "paste your Claude API key" field. Post Phase 2.A that field is dead weight. Proposal: a conversational panel with suggested quick-ask chips, no key UI at all.</p>
+
+  <div class="label after">After · proposed</div>
+  <div class="frame-after">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px;">✨ Ask DealFlow AI</div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:2px;">🟢 Connected · claude-haiku-4-5 · reads your live CRM</div>
+      </div>
+      <button class="btn btn-ghost btn-sm">Clear chat</button>
+    </div>
+
+    <div style="padding:20px 0;">
+      <div class="ai-msg user"><div class="ai-bubble">Which clients should I call today?</div></div>
+      <div class="ai-msg">
+        <div class="ai-av">✨</div>
+        <div class="ai-bubble">
+          Three clients are overdue:<br>
+          1. <b>Kofi Adjei</b> — 9 days since last contact. He was viewing the Torbay Rd listing; might be losing momentum.<br>
+          2. <b>Ama Mensah</b> — 11 days. She bumped her budget to $550k right before the silence.<br>
+          3. <b>John Owusu</b> — 14 days. Lowest urgency — he's still in intake.<br><br>
+          Want me to draft a warm check-in email for Kofi?
+        </div>
+      </div>
+
+      <div class="ai-chips">
+        <div class="ai-chip">Draft email for Kofi</div>
+        <div class="ai-chip">Summarise my pipeline</div>
+        <div class="ai-chip">How did last month compare?</div>
+        <div class="ai-chip">Which viewings are this week?</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);">
+      <input class="input" placeholder="Ask anything about your CRM…" />
+      <button class="btn btn-primary">Send</button>
+    </div>
+  </div>
+  <div class="notes" style="margin-top:12px;"><b>What's new</b>
+    <ul>
+      <li>Connection status is a simple green dot, not a key input. Key is on the server (Phase 2.A).</li>
+      <li>Quick-ask chips replace the current plain text prompts — one-tap common questions.</li>
+      <li>Responses format better: numbered suggestions, bold names, a follow-up offer at the end.</li>
+      <li>Composer pinned at the bottom — matches iMessage/ChatGPT mobile mental model.</li>
+    </ul>
+  </div>
+
+  <!-- ────────── 6. ROLL PLAN ────────── -->
+  <h2>6. Roll plan for remaining screens</h2>
+  <p class="lede">The three above are the flagships. Everything else inherits the tokens + components. Here's the short-form plan for each remaining surface — once you approve direction I ship them as a batch.</p>
+
+  <div class="frame-after" style="padding:0;">
+    <table>
+      <thead>
+        <tr><th>Screen</th><th>What changes</th><th>Effort</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Clients list</b></td><td>Row-style cards (avatar · name · stage pill · last contact). Archive slides out behind. Search pinned top.</td><td>S</td></tr>
+        <tr><td><b>Pipeline</b></td><td>Kanban by stage, cards show client · amount · days-in-stage. Current table becomes a toggle.</td><td>M</td></tr>
+        <tr><td><b>Viewings</b></td><td>Calendar-first view (month / week toggle). Today's viewings promoted to the dashboard.</td><td>M</td></tr>
+        <tr><td><b>Commissions</b></td><td>Hero stat (YTD earned), then a clean list with year/quarter filter. Recharts pie stays, gets new palette.</td><td>S</td></tr>
+        <tr><td><b>Analytics</b></td><td>Replaces today's scattered charts with 4 focus cards: Conversion · Pipeline velocity · Source mix · Monthly net.</td><td>M</td></tr>
+        <tr><td><b>Settings</b></td><td>Sectioned (Profile · Security · Notifications · Billing). Kill the Claude key field, replace with "🟢 Connected".</td><td>S</td></tr>
+        <tr><td><b>respond.html</b> (client-facing)</td><td>Single-screen card on a soft gradient. Big CTA. Mobile-first so Helen can respond from a text link.</td><td>S</td></tr>
+        <tr><td><b>portal.html</b> (client-facing)</td><td>Progress bar from Offer → Closed, timeline of what's happened, "What's next" card. Feels like Opendoor / Zillow.</td><td>M</td></tr>
+        <tr><td><b>intake.html</b></td><td>Three steps: About you · Budget · Timeline. Progress dots at top. Warm (coral accent on the last-step "Submit").</td><td>S</td></tr>
+        <tr><td><b>Lock screen</b></td><td>Already great. Leave as-is — one of the strongest moments in the app today.</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr/>
+
+  <div class="notes">
+    <b>What I need from you</b>
+    <ul>
+      <li>Direction OK? Say "ship it" and I move to extracting the tokens into <code>css/app.css</code> + building the component library, one surface at a time.</li>
+      <li>Anything you hate? Wrong shade of coral, too much whitespace, different terminology for "Follow-ups" vs "Tracker" — flag it now, cheaper than after the CSS is written.</li>
+      <li>Any screen you want a full mockup of before I code it? (Pipeline Kanban and Portal progress-bar are the most visually different from today — good candidates.)</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

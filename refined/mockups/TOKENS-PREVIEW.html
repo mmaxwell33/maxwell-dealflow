@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DealFlow — Tokens & Components preview</title>
+<!-- Pulls in the real css/app.css from the repo so what you see = what Maxwell sees after deploy -->
+<link rel="stylesheet" href="../../css/app.css"/>
+<style>
+  body{padding:40px 24px 120px;}
+  .wrap{max-width:1100px;margin:0 auto;}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px;}
+  h2{font-size:18px;font-weight:650;letter-spacing:-.01em;margin:32px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+  .lede{color:var(--text2);margin-bottom:16px;font-size:14px;max-width:640px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .grid-2{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+  .toggle{float:right;cursor:pointer;font-size:12px;color:var(--accent2);}
+  @media (max-width:800px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="toggle" onclick="document.body.classList.toggle('theme-light')">Toggle light/dark</a>
+  <h1>Design tokens &amp; components — live preview</h1>
+  <p class="lede">This page loads <code>css/app.css</code> directly from the repo. What you see here is what every screen in the app will inherit once we migrate components. Click "Toggle light/dark" in the top right to check both modes.</p>
+
+  <h2>Buttons</h2>
+  <div class="row">
+    <button class="btn2 btn2-primary">Save changes</button>
+    <button class="btn2 btn2-ghost">Cancel</button>
+    <button class="btn2 btn2-coral">Approve &amp; send</button>
+    <button class="btn2 btn2-ghost btn2-sm">Archive</button>
+  </div>
+
+  <h2>Status pills</h2>
+  <div class="row">
+    <span class="pill2 pill2-indigo">● Active</span>
+    <span class="pill2 pill2-green">● Closed · $512k</span>
+    <span class="pill2 pill2-coral">● Follow-up due</span>
+    <span class="pill2 pill2-amber">● Offer pending</span>
+    <span class="pill2 pill2-neutral">Archived</span>
+  </div>
+
+  <h2>Stat cards</h2>
+  <div class="grid-4">
+    <div class="stat2"><div class="stat2-lbl">Clients</div><div class="stat2-num">127</div><div class="stat2-delta">+4 this week</div></div>
+    <div class="stat2"><div class="stat2-lbl">Pipeline</div><div class="stat2-num">$4.2M</div><div class="stat2-delta">+$320k</div></div>
+    <div class="stat2"><div class="stat2-lbl">Viewings</div><div class="stat2-num">8</div><div class="stat2-delta">this month</div></div>
+    <div class="stat2"><div class="stat2-lbl">Follow-ups</div><div class="stat2-num" style="color:var(--coral);">3</div><div class="stat2-delta neg">overdue</div></div>
+  </div>
+
+  <h2>Dashboard hero + today's schedule</h2>
+  <div class="hero2">
+    <div class="hero2-date">Sunday, April 19</div>
+    <div class="hero2-title">Good morning, Maxwell</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card2">
+      <div class="card2-header">
+        <div>
+          <div class="card2-title">Today's schedule</div>
+          <div class="card2-sub">3 viewings · 2 follow-up calls</div>
+        </div>
+        <span class="pill2 pill2-indigo">Apr 19</span>
+      </div>
+      <div class="timeline2">
+        <div class="tl2-item done"><div class="t">9:00 — Call Helen N. <span class="pill2 pill2-green" style="margin-left:6px;">done</span></div><div class="d">Discussed price range bump to $540k</div></div>
+        <div class="tl2-item"><div class="t">11:30 — Viewing · 12 Main St</div><div class="d">Client: Ben Osei · first-time buyer</div></div>
+        <div class="tl2-item"><div class="t">14:00 — Viewing · 887 Harbour Dr</div><div class="d">Client: Abena &amp; Kwame Mensah</div></div>
+        <div class="tl2-item"><div class="t">16:30 — Follow-up · Kofi A.</div><div class="d" style="color:var(--coral);">9 days since last contact</div></div>
+      </div>
+    </div>
+
+    <div class="card2">
+      <div class="card2-header">
+        <div class="card2-title">Needs follow-up</div>
+        <span class="pill2 pill2-coral">3</span>
+      </div>
+      <div class="row2">
+        <div class="row2-av">KA</div>
+        <div class="row2-info"><div class="row2-name">Kofi Adjei</div><div class="row2-meta">9d · St. John's · $380–420k</div></div>
+      </div>
+      <div class="row2">
+        <div class="row2-av">AM</div>
+        <div class="row2-info"><div class="row2-name">Ama Mensah</div><div class="row2-meta">11d · Paradise · $550k</div></div>
+      </div>
+      <div class="row2">
+        <div class="row2-av">JO</div>
+        <div class="row2-info"><div class="row2-name">John Owusu</div><div class="row2-meta">14d · Mt. Pearl · $460k</div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>AI assistant</h2>
+  <div class="card2">
+    <div class="ai2-msg user"><div class="ai2-bubble">Which clients should I call today?</div></div>
+    <div class="ai2-msg">
+      <div class="ai2-av">✨</div>
+      <div class="ai2-bubble">Three clients are overdue:<br>1. <b>Kofi Adjei</b> — 9 days since last contact.<br>2. <b>Ama Mensah</b> — 11 days.<br>3. <b>John Owusu</b> — 14 days.<br><br>Want me to draft a warm check-in for Kofi?</div>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="ai2-chip">Draft email for Kofi</button>
+      <button class="ai2-chip">Summarise my pipeline</button>
+      <button class="ai2-chip">Which viewings this week?</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <input class="input2" placeholder="Ask anything about your CRM…"/>
+      <button class="btn2 btn2-primary">Send</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
