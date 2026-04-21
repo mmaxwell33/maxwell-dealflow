@@ -92,7 +92,19 @@ const Clients = {
       </div>`;
       return;
     }
-    el.innerHTML = `<div class="card" style="padding:0 16px;">` +
+    // Phase 2.B: .card2 wrapper + .pill2 stage indicator built from
+    // _derivedStage (true live stage) instead of stale c.stage.
+    const stagePill = (s) => {
+      const stage = s || 'Searching';
+      const variant = stage === 'Closing'    ? 'pill2-indigo'
+                    : stage === 'Conditions' ? 'pill2-amber'
+                    : stage === 'Accepted'   ? 'pill2-green'
+                    : stage === 'Offers'     ? 'pill2-indigo'
+                    : stage === 'Viewings'   ? 'pill2-neutral'
+                    : /* Searching */          'pill2-neutral';
+      return `<span class="pill2 ${variant}">${stage}</span>`;
+    };
+    el.innerHTML = `<div class="card2" style="padding:0 16px;">` +
       list.map(c => `
         <div class="client-row" onclick="Clients.openDetail('${c.id}')">
           <div class="client-avatar" style="background:${App.avatarColor(c.full_name)}">
@@ -102,7 +114,7 @@ const Clients = {
             <div class="client-name">${App.privateName(c.full_name)}</div>
             <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
           </div>
-          ${App.stageBadge(c.stage)}
+          ${stagePill(c._derivedStage || c.stage)}
         </div>`).join('') + `</div>`;
   },
 
