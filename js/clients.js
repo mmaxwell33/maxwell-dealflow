@@ -128,7 +128,7 @@ const Clients = {
       </div>`;
       return;
     }
-    el.innerHTML = `<div class="card" style="padding:0 16px;">` +
+    el.innerHTML = `<div class="card2" style="padding:0 16px;">` +
       Clients.archived.map(c => `
         <div class="client-row" style="opacity:0.75;">
           <div class="client-avatar" style="background:#64748b;">
@@ -159,7 +159,7 @@ const Clients = {
         el.innerHTML = `<div class="empty-state"><div class="empty-icon">🗂</div><div class="empty-text">No matches</div></div>`;
         return;
       }
-      el.innerHTML = `<div class="card" style="padding:0 16px;">` +
+      el.innerHTML = `<div class="card2" style="padding:0 16px;">` +
         filtered.map(c => `
           <div class="client-row" style="opacity:0.75;">
             <div class="client-avatar" style="background:#64748b;">${App.initials(c.full_name)}</div>
