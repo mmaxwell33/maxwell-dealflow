@@ -140,8 +140,8 @@ const Clients = {
             ${c.archived_at ? `<div style="font-size:11px;color:var(--text2);">Archived ${App.fmtDate(c.archived_at)}</div>` : ''}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="btn btn-sm btn-green" style="font-size:11px;padding:4px 8px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
-            <button class="btn btn-sm btn-red"  style="font-size:11px;padding:4px 8px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+            <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
+            <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
           </div>
         </div>`).join('') + `</div>`;
   },
@@ -168,8 +168,8 @@ const Clients = {
               <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
-              <button class="btn btn-sm btn-green" style="font-size:11px;padding:4px 8px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
-              <button class="btn btn-sm btn-red"  style="font-size:11px;padding:4px 8px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+              <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
+              <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
             </div>
           </div>`).join('') + `</div>`;
       return;
@@ -454,8 +454,8 @@ const Clients = {
       <div class="modal-title">🗑 Delete Client</div>
       <p style="color:var(--text2);margin-bottom:20px;">Permanently delete <strong>${App.esc(name)}</strong>? This cannot be undone. Their pipeline and offer history will remain in the database.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.esc(name)}')">🗑 Yes, Delete</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal()">Cancel</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.esc(name)}')">🗑 Yes, Delete</button>
       </div>
     `);
   },
