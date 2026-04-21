@@ -261,9 +261,10 @@ const Viewings = {
     const isCompleted = v.viewing_status === 'Completed';
     const hasFeedback = !!v.client_feedback;
 
-    // Post-viewing feedback section
+    // Phase 2.B.8: Post-viewing feedback section \u2014 card2 wrappers,
+    // btn2 variants preserve color semantics (primary/ghost/coral).
     const feedbackSection = isCompleted && hasFeedback ? `
-      <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div class="card2" style="padding:12px;margin-bottom:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📊 Viewing Outcome</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <span style="font-size:20px;">${v.client_feedback==='interested'?'🌟':v.client_feedback==='good'?'✅':v.client_feedback==='pass'?'❌':'🔄'}</span>
@@ -273,13 +274,13 @@ const Viewings = {
           </div>
         </div>
       </div>` : isCompleted && !hasFeedback ? `
-      <div style="background:var(--bg2);border:2px solid var(--accent2);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div class="card2" style="padding:14px;margin-bottom:12px;border-color:var(--accent2);">
         <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 How did the viewing go?</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select the outcome to automatically queue a follow-up email to ${clientName.split(' ')[0]}:</div>
         <div style="display:grid;gap:8px;">
-          <button class="btn btn-green" onclick="Viewings.recordFeedback('${v.id}','interested')">🌟 Very Interested — Wants to Make an Offer</button>
-          <button class="btn btn-outline" onclick="Viewings.recordFeedback('${v.id}','good')" style="border-color:var(--accent2);color:var(--accent2);">✅ Good — Liked It, Needs More Time</button>
-          <button class="btn btn-outline" onclick="Viewings.recordFeedback('${v.id}','pass')" style="border-color:var(--red);color:var(--red);">❌ Pass — Continue Searching</button>
+          <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Viewings.recordFeedback('${v.id}','interested')">🌟 Very Interested — Wants to Make an Offer</button>
+          <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Viewings.recordFeedback('${v.id}','good')">✅ Good — Liked It, Needs More Time</button>
+          <button class="btn2 btn2-coral" style="justify-content:center;" onclick="Viewings.recordFeedback('${v.id}','pass')">❌ Pass — Continue Searching</button>
         </div>
       </div>` : ``;
 
@@ -287,31 +288,31 @@ const Viewings = {
       <div class="fw-800" style="font-size:16px;margin-bottom:2px;">${v.property_address}</div>
       <div class="text-muted" style="font-size:13px;margin-bottom:14px;">👤 ${clientName}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px;">
-        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Date</div><div class="fw-700">${App.fmtDate(v.viewing_date)}</div></div>
-        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Time</div><div class="fw-700">${v.viewing_time?.slice(0,5)||'—'}</div></div>
-        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Status</div><div class="fw-700">${v.viewing_status||'Scheduled'}</div></div>
-        <div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(v.list_price)||'—'}</div></div>
-        ${v.mls_number?`<div style="background:var(--bg);padding:8px;border-radius:8px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">MLS#</div><div class="fw-700">${v.mls_number}</div></div>`:''}
-        ${v.offer_due_date?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;">⏰ Offers Due</div><div class="fw-700">${App.fmtDate(v.offer_due_date)}${v.offer_due_time?' at '+v.offer_due_time.slice(0,5):''}</div></div>`:''}
-        ${v.sellers_direction?`<div style="background:var(--bg);padding:8px;border-radius:8px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
+        <div class="card2" style="padding:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Date</div><div class="fw-700">${App.fmtDate(v.viewing_date)}</div></div>
+        <div class="card2" style="padding:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Time</div><div class="fw-700">${v.viewing_time?.slice(0,5)||'—'}</div></div>
+        <div class="card2" style="padding:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Status</div><div class="fw-700">${v.viewing_status||'Scheduled'}</div></div>
+        <div class="card2" style="padding:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">List Price</div><div class="fw-700">${App.fmtMoney(v.list_price)||'—'}</div></div>
+        ${v.mls_number?`<div class="card2" style="padding:10px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">MLS#</div><div class="fw-700">${v.mls_number}</div></div>`:''}
+        ${v.offer_due_date?`<div class="card2" style="padding:10px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;">⏰ Offers Due</div><div class="fw-700">${App.fmtDate(v.offer_due_date)}${v.offer_due_time?' at '+v.offer_due_time.slice(0,5):''}</div></div>`:''}
+        ${v.sellers_direction?`<div class="card2" style="padding:10px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
       </div>
-      ${v.agent_notes ? `<div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
+      ${v.agent_notes ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
       ${feedbackSection}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-        ${!isCompleted ? `<button class="btn btn-primary" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
-        ${v.client_feedback === 'interested' ? `<button class="btn btn-green" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
-        <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">Edit</button>
-        <button class="btn btn-red" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
+        ${!isCompleted ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
+        ${v.client_feedback === 'interested' ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">Edit</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
       </div>
       ${isCompleted ? `
       <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📞 Manual Override — Client Called You?</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Record the client's decision manually. This will expire any pending email response link.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <button class="btn btn-sm" style="background:var(--green);color:#fff;" onclick="Viewings.manualOverride('${v.id}','make_offer')">🏠 Make Offer</button>
-          <button class="btn btn-sm btn-outline" onclick="Viewings.manualOverride('${v.id}','continue_searching')">🔍 Keep Searching</button>
-          <button class="btn btn-sm btn-outline" style="border-color:var(--red);color:var(--red);" onclick="Viewings.manualOverride('${v.id}','not_a_fit')">❌ Not a Fit</button>
-          <button class="btn btn-sm btn-outline" onclick="Viewings.manualOverride('${v.id}','rescheduled')">📅 Reschedule</button>
+          <button class="btn2 btn2-primary btn2-sm" style="justify-content:center;" onclick="Viewings.manualOverride('${v.id}','make_offer')">🏠 Make Offer</button>
+          <button class="btn2 btn2-ghost btn2-sm" style="justify-content:center;" onclick="Viewings.manualOverride('${v.id}','continue_searching')">🔍 Keep Searching</button>
+          <button class="btn2 btn2-coral btn2-sm" style="justify-content:center;" onclick="Viewings.manualOverride('${v.id}','not_a_fit')">❌ Not a Fit</button>
+          <button class="btn2 btn2-ghost btn2-sm" style="justify-content:center;" onclick="Viewings.manualOverride('${v.id}','rescheduled')">📅 Reschedule</button>
         </div>
       </div>` : ''}
     `);
