@@ -6,10 +6,23 @@ const Clients = {
 
   async load() {
     if (!currentAgent?.id) return;
-    const { data } = await db.from('clients')
-      .select('*').eq('agent_id', currentAgent.id)
-      .order('full_name');
-    const all = data || [];
+    // Pull clients + live activity in parallel so we can derive the TRUE stage.
+    // clients.stage is a stale manual field — source of truth lives in
+    // pipeline / offers / viewings tables.
+    const [clientsRes, offersRes, pipelineRes, viewingsRes] = await Promise.all([
+      db.from('clients').select('*').eq('agent_id', currentAgent.id).order('full_name'),
+      db.from('offers').select('client_id,status').eq('agent_id', currentAgent.id),
+      db.from('pipeline').select('client_id,stage').eq('agent_id', currentAgent.id),
+      db.from('viewings').select('client_id').eq('agent_id', currentAgent.id)
+    ]);
+    const all      = clientsRes.data   || [];
+    const offers   = offersRes.data    || [];
+    const pipeline = pipelineRes.data  || [];
+    const viewings = viewingsRes.data  || [];
+
+    // Annotate each client with a derived stage reflecting real activity
+    all.forEach(c => { c._derivedStage = Clients._deriveStage(c, offers, pipeline, viewings); });
+
     Clients.all      = all.filter(c => c.status !== 'Archived');
     Clients.archived = all.filter(c => c.status === 'Archived');
 
@@ -19,6 +32,27 @@ const Clients = {
       Clients.render(Clients.all);
     }
     Clients.updateArchiveBadge();
+  },
+
+  // Derive the TRUE stage of a client from the most advanced activity found
+  // across pipeline → offers → viewings. Falls back to stored clients.stage.
+  _deriveStage(c, offers, pipeline, viewings) {
+    const pipes = pipeline.filter(p => p.client_id === c.id);
+    const offs  = offers.filter(o => o.client_id === c.id);
+    const views = viewings.filter(v => v.client_id === c.id);
+
+    // Pipeline wins (most advanced)
+    if (pipes.some(p => p.stage === 'Closing'))    return 'Closing';
+    if (pipes.some(p => p.stage === 'Conditions')) return 'Conditions';
+    if (pipes.some(p => p.stage === 'Accepted'))   return 'Accepted';
+
+    // Accepted offer that hasn't hit the pipeline yet
+    if (offs.some(o => o.status === 'Accepted'))                      return 'Accepted';
+    if (offs.some(o => ['Submitted','Countered'].includes(o.status))) return 'Offers';
+
+    if (views.length) return 'Viewings';
+
+    return c.stage || 'Searching';
   },
 
   updateArchiveBadge() {
