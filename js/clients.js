@@ -228,7 +228,7 @@ const Clients = {
         <label class="form-label">Notes</label>
         <textarea class="form-input" id="cf-notes" rows="3" placeholder="Any notes..."></textarea>
       </div>
-      <button class="btn btn-primary btn-block" onclick="Clients.save()">Save Client</button>
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Clients.save()">Save Client</button>
       <div id="cf-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
   },
@@ -359,8 +359,8 @@ const Clients = {
         <textarea class="form-input" id="ce-notes" rows="3">${c.notes||''}</textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-red" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
-        <button class="btn btn-primary" onclick="Clients.update('${c.id}')">💾 Save</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
+        <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Clients.update('${c.id}')">💾 Save</button>
       </div>
       <div id="ce-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
