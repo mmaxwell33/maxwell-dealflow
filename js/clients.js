@@ -270,27 +270,41 @@ const Clients = {
     const { count: vc } = await db.from('viewings').select('*',{count:'exact',head:true}).eq('client_id',id);
     const { count: oc } = await db.from('offers').select('*',{count:'exact',head:true}).eq('client_id',id);
 
+    // Phase 2.B.4: stage pill uses same variant mapping as the Clients list
+    // (see Clients.render) so detail + list stay visually consistent.
+    const stage = c.stage || 'Searching';
+    const stageVariant = stage === 'Closing'    ? 'pill2-indigo'
+                       : stage === 'Conditions' ? 'pill2-amber'
+                       : stage === 'Accepted'   ? 'pill2-green'
+                       : stage === 'Offers'     ? 'pill2-indigo'
+                       : stage === 'Viewings'   ? 'pill2-neutral'
+                       : /* Searching */          'pill2-neutral';
+
     App.openModal(`
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div class="client-avatar" style="background:${App.avatarColor(c.full_name)};width:52px;height:52px;font-size:20px;">
-          ${App.initials(c.full_name)}
+      <div class="card2" style="padding:16px;margin-bottom:12px;">
+        <div class="card2-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="client-avatar" style="background:${App.avatarColor(c.full_name)};width:52px;height:52px;font-size:20px;">
+              ${App.initials(c.full_name)}
+            </div>
+            <div>
+              <div class="card2-title" style="font-size:18px;">${c.full_name}</div>
+              <div class="card2-sub">${stage}</div>
+            </div>
+          </div>
+          <span class="pill2 ${stageVariant}">${stage}</span>
         </div>
-        <div>
-          <div class="fw-800" style="font-size:18px;">${c.full_name}</div>
-          <div class="text-muted" style="font-size:13px;">${c.stage || 'No stage'}</div>
-        </div>
-        ${App.stageBadge(c.stage)}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
-        <div class="card-sm" style="text-align:center;">
+        <div class="card2" style="padding:12px 8px;text-align:center;">
           <div class="fw-800" style="font-size:20px;color:var(--accent2);">${vc||0}</div>
           <div style="font-size:11px;color:var(--text2);">Viewings</div>
         </div>
-        <div class="card-sm" style="text-align:center;">
+        <div class="card2" style="padding:12px 8px;text-align:center;">
           <div class="fw-800" style="font-size:20px;color:var(--purple);">${oc||0}</div>
           <div style="font-size:11px;color:var(--text2);">Offers</div>
         </div>
-        <div class="card-sm" style="text-align:center;">
+        <div class="card2" style="padding:12px 8px;text-align:center;">
           <div class="fw-800" style="font-size:20px;color:var(--green);">${c.status||'Active'}</div>
           <div style="font-size:11px;color:var(--text2);">Status</div>
         </div>
@@ -300,16 +314,16 @@ const Clients = {
       ${c.phone ? `<div class="activity-row"><span style="font-size:18px;">📞</span><div><div class="activity-title">Phone</div><div class="activity-meta">${c.phone}</div></div></div>` : ''}
       ${c.price_range ? `<div class="activity-row"><span style="font-size:18px;">💰</span><div><div class="activity-title">Budget</div><div class="activity-meta">${c.price_range}</div></div></div>` : ''}
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
-      ${c.notes ? `<div class="card" style="margin-top:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
+      ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
-        <button class="btn btn-outline" onclick="Viewings.openAddForClient('${c.id}','${c.full_name}')">📅 Book Viewing</button>
-        <button class="btn btn-green" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Viewings.openAddForClient('${c.id}','${c.full_name}')">📅 Book Viewing</button>
+        <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
       </div>
-      <button class="btn btn-outline btn-block mt-8" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
-      <button class="btn btn-block mt-8" style="background:var(--accent2);color:#fff;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-        <button class="btn" style="background:var(--accent2);color:#fff;" onclick="App.closeModal();Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
       </div>
     `);
   },
