@@ -418,13 +418,13 @@
     <div id="screen-viewings" class="screen" style="padding:16px;">
       <div class="section-header">
         <div class="section-title">Viewings</div>
-        <button class="btn btn-primary btn-sm" onclick="Viewings.openAdd()">+ Book</button>
+        <button class="btn2 btn2-primary btn2-sm" onclick="Viewings.openAdd()">+ Book</button>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;">
-        <button class="btn btn-primary btn-sm" onclick="Viewings.filter('all',this)">All</button>
-        <button class="btn btn-outline btn-sm" onclick="Viewings.filter('today',this)">Today</button>
-        <button class="btn btn-outline btn-sm" onclick="Viewings.filter('upcoming',this)">Upcoming</button>
-        <button class="btn btn-outline btn-sm" onclick="Viewings.filter('completed',this)">Done</button>
+      <div id="viewings-filter" style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;">
+        <button class="btn2 btn2-primary btn2-sm" onclick="Viewings.filter('all',this)">All</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Viewings.filter('today',this)">Today</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Viewings.filter('upcoming',this)">Upcoming</button>
+        <button class="btn2 btn2-ghost btn2-sm" onclick="Viewings.filter('completed',this)">Done</button>
       </div>
       <div id="viewings-list">
         <div class="loading"><div class="spinner"></div> Loading...</div>

@@ -15,8 +15,10 @@ const Viewings = {
 
   filter(f, btn) {
     Viewings.activeFilter = f;
-    document.querySelectorAll('#screen-viewings .btn').forEach(b => {
-      b.className = b === btn ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    // Phase 2.B.10: scoped to #viewings-filter so the "+ Book" button
+    // in the section header is no longer swept when a filter chip is tapped.
+    document.querySelectorAll('#viewings-filter .btn2').forEach(b => {
+      b.className = b === btn ? 'btn2 btn2-primary btn2-sm' : 'btn2 btn2-ghost btn2-sm';
     });
     const today = new Date().toISOString().slice(0,10);
     const filtered = Viewings.all.filter(v => {
@@ -170,7 +172,7 @@ const Viewings = {
         <label class="form-label">Agent Notes</label>
         <textarea class="form-input" id="vf-notes" rows="2" placeholder="Notes...">${viewing?.agent_notes||''}</textarea>
       </div>
-      <button class="btn btn-primary btn-block" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
         ${viewing ? 'Update Viewing' : 'Book Viewing'}
       </button>
       <div id="vf-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
@@ -337,13 +339,13 @@ const Viewings = {
       <div style="font-size:16px;font-weight:800;margin-bottom:4px;">🏠 How did the viewing go?</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">${clientName} · ${v.property_address || '—'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button class="btn btn-primary" style="padding:14px 8px;font-size:14px;font-weight:700;"
+        <button class="btn2 btn2-primary" style="padding:14px 8px;font-size:14px;font-weight:700;justify-content:center;"
           onclick="Viewings.confirmOffer('${id}')">✅ Good</button>
-        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+        <button class="btn2 btn2-ghost" style="padding:14px 8px;font-size:14px;justify-content:center;"
           onclick="Viewings.manualOverride('${id}','rescheduled')">📅 Reschedule</button>
-        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;border-color:var(--red);color:var(--red);"
+        <button class="btn2 btn2-coral" style="padding:14px 8px;font-size:14px;justify-content:center;"
           onclick="Viewings.manualOverride('${id}','not_a_fit')">❌ Pass</button>
-        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+        <button class="btn2 btn2-ghost" style="padding:14px 8px;font-size:14px;justify-content:center;"
           onclick="Viewings.manualOverride('${id}','continue_searching')">🔍 Keep Searching</button>
       </div>
     `);
@@ -360,9 +362,9 @@ const Viewings = {
       <div style="font-size:16px;font-weight:800;margin-bottom:4px;">🌟 Great viewing!</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Is ${firstName} ready to move forward with an offer?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button class="btn btn-primary" style="padding:14px 8px;font-size:14px;font-weight:700;"
+        <button class="btn2 btn2-primary" style="padding:14px 8px;font-size:14px;font-weight:700;justify-content:center;"
           onclick="Viewings.recordFeedback('${id}','interested')">🏠 Yes — Send Offer Invitation</button>
-        <button class="btn btn-outline" style="padding:14px 8px;font-size:14px;"
+        <button class="btn2 btn2-ghost" style="padding:14px 8px;font-size:14px;justify-content:center;"
           onclick="Viewings.recordFeedback('${id}','good')">🔍 No — Keep Searching</button>
       </div>
     `);
@@ -577,8 +579,8 @@ const Viewings = {
         <input class="form-input" id="mo-notes" placeholder="e.g. Seller accepted at asking, waived inspection">
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1;" onclick="Viewings.submitManualOffer('${v.id}','${client?.id || ''}','${clientName.replace(/'/g,"\\'")}','${v.property_address?.replace(/'/g,"\\'") || ''}','${client?.email || ''}')">
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal()">Cancel</button>
+        <button class="btn2 btn2-primary" style="flex:1;justify-content:center;" onclick="Viewings.submitManualOffer('${v.id}','${client?.id || ''}','${clientName.replace(/'/g,"\\'")}','${v.property_address?.replace(/'/g,"\\'") || ''}','${client?.email || ''}')">
           🚀 Save Offer &amp; Add to Pipeline
         </button>
       </div>
