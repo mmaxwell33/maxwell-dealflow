@@ -680,71 +680,180 @@ const Reports = {
     const agentName = currentAgent.full_name || currentAgent.email || 'Your Agent';
     const dateStr = new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' });
 
-    let html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1e293b;">
-      <h2 style="color:#0f172a;border-bottom:3px solid #0ea5e9;padding-bottom:12px;margin-bottom:4px;">📋 Client Report — ${client.full_name}</h2>
-      <p style="color:#64748b;font-size:12px;margin-top:0;">Generated ${dateStr} · Agent: ${agentName}</p>`;
+    // ─── Phase 2.C — Client Report v2 (branded, infographic layout) ───
+    // Terracotta accent, Fraunces serif, timeline of viewings, progress bar, numbered next-steps.
+    // Uses inline styles only (required for email compatibility — Gmail strips <style> tags).
+
+    // Derived values
+    const totalViewings = (viewings||[]).length;
+    const totalOffers = clientOffers.length;
+    const acceptedOffers = clientOffers.filter(o => /accept/i.test(o.status||'')).length;
+    const createdAt = client.created_at ? new Date(client.created_at) : null;
+    const daysActive = createdAt ? Math.max(1, Math.floor((Date.now() - createdAt.getTime())/(1000*60*60*24))) : 0;
+    const reportId = `MX-${new Date().getFullYear()}-${String(client.id||'').replace(/-/g,'').slice(-4).toUpperCase() || '0000'}`;
+
+    // Stage progress bar — 6 canonical stages
+    const stageOrder = ['Active Search','In Offer','Under Contract','Conditions','Financing','Closed'];
+    const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5 };
+    const currentStageIdx = stageAliases[client.stage] ?? 0;
+
+    // Preferred areas → chips
+    const areaChips = (client.preferred_areas||'').split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+    // Font stack (serif fallback for Fraunces so email clients without Google Fonts still look OK)
+    const SERIF = "'Fraunces', Georgia, 'Times New Roman', serif";
+    const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    const ACCENT = '#CC785C';
+    const ACCENT2 = '#B3654A';
+
+    let html = `<div style="font-family:${SANS};max-width:680px;margin:0 auto;background:#fff;color:#0A0A0A;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.08);">`;
+
+    // HEADER
+    html += `<div style="background:linear-gradient(135deg,${ACCENT} 0%,${ACCENT2} 100%);padding:36px 36px 32px;color:#fff;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;opacity:0.85;margin-bottom:10px;">Client Progress Report</div>
+      <div style="font-family:${SERIF};font-size:38px;font-weight:600;letter-spacing:-1px;line-height:1.05;margin-bottom:8px;">${client.full_name||'Client'}</div>
+      <div style="font-size:14px;opacity:0.9;margin-bottom:18px;">Your property search journey · Prepared by ${agentName}</div>
+      <div style="font-size:12px;opacity:0.85;">📅 ${dateStr} &nbsp;·&nbsp; 🏠 ${client.status||'Active'} · ${daysActive} day${daysActive===1?'':'s'} &nbsp;·&nbsp; 🔖 ${reportId}</div>
+    </div>`;
+
+    // SNAPSHOT STATS
+    html += `<table role="presentation" style="width:100%;border-collapse:collapse;background:#E7E5E4;">
+      <tr>
+        <td style="background:#fff;padding:22px 16px;text-align:center;width:25%;border-right:1px solid #E7E5E4;">
+          <div style="font-family:${SERIF};font-size:30px;font-weight:700;color:${ACCENT};line-height:1;margin-bottom:6px;">${totalViewings}</div>
+          <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Viewings</div>
+        </td>
+        <td style="background:#fff;padding:22px 16px;text-align:center;width:25%;border-right:1px solid #E7E5E4;">
+          <div style="font-family:${SERIF};font-size:30px;font-weight:700;color:${ACCENT};line-height:1;margin-bottom:6px;">${totalOffers}</div>
+          <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Offers Made</div>
+        </td>
+        <td style="background:#fff;padding:22px 16px;text-align:center;width:25%;border-right:1px solid #E7E5E4;">
+          <div style="font-family:${SERIF};font-size:30px;font-weight:700;color:${ACCENT};line-height:1;margin-bottom:6px;">${acceptedOffers}</div>
+          <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Accepted</div>
+        </td>
+        <td style="background:#fff;padding:22px 16px;text-align:center;width:25%;">
+          <div style="font-family:${SERIF};font-size:30px;font-weight:700;color:${ACCENT};line-height:1;margin-bottom:6px;">${daysActive}</div>
+          <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;">Days Active</div>
+        </td>
+      </tr>
+    </table>`;
+
+    const sectionOpen = (title, sub) => `<div style="padding:28px 36px;border-bottom:1px solid #F3F1EC;">
+      <div style="font-family:${SERIF};font-size:20px;font-weight:600;color:#0A0A0A;margin-bottom:4px;letter-spacing:-0.3px;">${title}</div>
+      ${sub?`<div style="font-size:13px;color:#6B7280;margin-bottom:18px;">${sub}</div>`:''}`;
+    const sectionClose = `</div>`;
 
     if (sections.info) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">👤 Client Information</h3>
-        <table style="width:100%;font-size:13px;border-collapse:collapse;">
-          ${client.email ? `<tr><td style="padding:5px 0;color:#64748b;width:150px;">Email</td><td>${client.email}</td></tr>` : ''}
-          ${client.phone ? `<tr><td style="padding:5px 0;color:#64748b;">Phone</td><td>${client.phone}</td></tr>` : ''}
-          ${client.stage ? `<tr><td style="padding:5px 0;color:#64748b;">Stage</td><td><strong>${client.stage}</strong></td></tr>` : ''}
-          ${client.status ? `<tr><td style="padding:5px 0;color:#64748b;">Status</td><td>${client.status}</td></tr>` : ''}
-        </table>`;
+      html += sectionOpen('Client Information', "Your profile on file.");
+      html += `<table style="width:100%;font-size:13px;border-collapse:collapse;">
+        ${client.full_name ? `<tr><td style="padding:8px 0;color:#6B7280;width:160px;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Full Name</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${client.full_name}</td></tr>` : ''}
+        ${client.phone ? `<tr><td style="padding:8px 0;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Phone</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${client.phone}</td></tr>` : ''}
+        ${client.email ? `<tr><td style="padding:8px 0;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Email</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${client.email}</td></tr>` : ''}
+      </table>`;
+      html += sectionClose;
     }
 
     if (sections.criteria) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">Search Criteria</h3>
-        <table style="width:100%;font-size:13px;border-collapse:collapse;">
-          ${(client.budget_min||client.budget_max) ? `<tr><td style="padding:5px 0;color:#64748b;width:150px;">Budget</td><td>${App.fmtMoney(client.budget_min)} – ${App.fmtMoney(client.budget_max)}</td></tr>` : ''}
-          ${client.preferred_areas ? `<tr><td style="padding:5px 0;color:#64748b;">Areas</td><td>${client.preferred_areas}</td></tr>` : ''}
-          ${client.bedrooms ? `<tr><td style="padding:5px 0;color:#64748b;">Bedrooms</td><td>${client.bedrooms}+</td></tr>` : ''}
-          ${client.property_type ? `<tr><td style="padding:5px 0;color:#64748b;">Property Type</td><td>${client.property_type}</td></tr>` : ''}
-        </table>`;
+      html += sectionOpen('Search Criteria', "What you're looking for.");
+      html += `<table style="width:100%;font-size:13px;border-collapse:collapse;">
+        ${(client.budget_min||client.budget_max) ? `<tr><td style="padding:8px 0;color:#6B7280;width:160px;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Budget</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${App.fmtMoney(client.budget_min)} – ${App.fmtMoney(client.budget_max)}</td></tr>` : ''}
+        ${client.bedrooms ? `<tr><td style="padding:8px 0;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Bedrooms</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${client.bedrooms}+</td></tr>` : ''}
+        ${client.property_type ? `<tr><td style="padding:8px 0;color:#6B7280;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Property Type</td><td style="padding:8px 0;color:#0A0A0A;font-weight:500;">${client.property_type}</td></tr>` : ''}
+      </table>`;
+      if (areaChips.length) {
+        html += `<div style="margin-top:16px;font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Preferred Areas</div>
+          <div>${areaChips.map(a => `<span style="display:inline-block;background:rgba(204,120,92,0.12);color:${ACCENT};font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;margin:0 6px 6px 0;">${a}</span>`).join('')}</div>`;
+      }
+      html += sectionClose;
     }
 
     if (sections.viewings) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🏠 Properties Viewed (${(viewings||[]).length})</h3>`;
-      if (!(viewings||[]).length) {
-        html += `<p style="font-size:13px;color:#64748b;">No viewings recorded yet.</p>`;
+      html += sectionOpen(`Properties Viewed (${totalViewings})`, "Here's everywhere we've been together.");
+      if (!totalViewings) {
+        html += `<div style="font-size:13px;color:#6B7280;font-style:italic;">No viewings recorded yet.</div>`;
       } else {
-        html += `<table style="width:100%;font-size:13px;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;">
-          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:left;">Date</th><th style="padding:8px 12px;text-align:left;">Status</th></tr></thead>
-          <tbody>${(viewings||[]).slice(0,10).map(v => `
-            <tr style="border-top:1px solid #e2e8f0;">
-              <td style="padding:8px 12px;">${v.property_address||'—'}</td>
-              <td style="padding:8px 12px;">${App.fmtDate(v.viewing_date)}</td>
-              <td style="padding:8px 12px;">${v.viewing_status||'—'}</td>
-            </tr>`).join('')}</tbody>
-        </table>`;
+        html += (viewings||[]).slice(0,15).map((v,i,arr) => {
+          const isLast = i === arr.length-1;
+          const liked = /(accept|like|interested|offer)/i.test(v.viewing_status||'');
+          const passed = /(pass|reject|no)/i.test(v.viewing_status||'');
+          const dotColor = liked ? ACCENT : (passed ? '#9CA3AF' : ACCENT);
+          const tag = liked ? `<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;margin-left:6px;background:rgba(204,120,92,0.15);color:${ACCENT};vertical-align:middle;">${v.viewing_status}</span>` :
+                      passed ? `<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;margin-left:6px;background:#F3F1EC;color:#6B7280;vertical-align:middle;">${v.viewing_status}</span>` : '';
+          return `<table role="presentation" style="width:100%;border-collapse:collapse;${isLast?'':'margin-bottom:4px;'}">
+            <tr>
+              <td style="width:24px;vertical-align:top;padding-top:14px;">
+                <div style="width:12px;height:12px;border-radius:50%;background:${dotColor};${passed?'':`box-shadow:0 0 0 3px rgba(204,120,92,0.15);`}"></div>
+                ${isLast?'':`<div style="width:2px;height:calc(100% + 8px);background:#E7E5E4;margin:6px 0 0 5px;"></div>`}
+              </td>
+              <td style="padding:10px 0 14px 8px;">
+                <div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">${App.fmtDate(v.viewing_date)}</div>
+                <div style="font-size:14px;font-weight:600;color:#0A0A0A;margin-bottom:3px;">${v.property_address||'—'}${tag}</div>
+                ${v.notes ? `<div style="font-size:13px;color:#6B7280;line-height:1.5;">${v.notes}</div>` : ''}
+              </td>
+            </tr>
+          </table>`;
+        }).join('');
       }
+      html += sectionClose;
     }
 
     if (sections.offers) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📝 Offers Made (${clientOffers.length})</h3>`;
-      if (!clientOffers.length) {
-        html += `<p style="font-size:13px;color:#64748b;">No offers recorded yet.</p>`;
+      html += sectionOpen(`Offers Made (${totalOffers})`, "Every offer we've submitted on your behalf.");
+      if (!totalOffers) {
+        html += `<div style="font-size:13px;color:#6B7280;font-style:italic;">No offers recorded yet.</div>`;
       } else {
-        html += `<table style="width:100%;font-size:13px;border-collapse:collapse;border:1px solid #e2e8f0;">
-          <thead><tr style="background:#f1f5f9;"><th style="padding:8px 12px;text-align:left;">Property</th><th style="padding:8px 12px;text-align:right;">Offer Amount</th><th style="padding:8px 12px;text-align:left;">Status</th><th style="padding:8px 12px;text-align:left;">Date</th></tr></thead>
-          <tbody>${clientOffers.map(o => `
-            <tr style="border-top:1px solid #e2e8f0;">
-              <td style="padding:8px 12px;">${o.property_address||'—'}</td>
-              <td style="padding:8px 12px;text-align:right;font-weight:700;">${App.fmtMoney(o.offer_amount)}</td>
-              <td style="padding:8px 12px;">${o.status||'—'}</td>
-              <td style="padding:8px 12px;">${App.fmtDate(o.offer_date)}</td>
-            </tr>`).join('')}</tbody>
-        </table>`;
+        html += clientOffers.map(o => {
+          const st = (o.status||'').toLowerCase();
+          const isAccepted = /accept/.test(st);
+          const isCountered = /counter/.test(st);
+          const isRejected = /reject|decline/.test(st);
+          const cardStyle = isAccepted
+            ? `border:1px solid ${ACCENT};background:linear-gradient(135deg,rgba(204,120,92,0.06),rgba(204,120,92,0.02));`
+            : `border:1px solid #E7E5E4;background:#FAFAF9;`;
+          const badgeStyle = isAccepted ? `background:rgba(204,120,92,0.15);color:${ACCENT};`
+            : isCountered ? `background:#FEF3C7;color:#92400E;`
+            : isRejected ? `background:rgba(185,28,28,0.12);color:#B91C1C;`
+            : `background:#F3F1EC;color:#6B7280;`;
+          const badgeLabel = isAccepted ? '✓ Accepted' : (o.status || 'Pending');
+          return `<table role="presentation" style="width:100%;border-collapse:collapse;border-radius:10px;${cardStyle}margin-bottom:10px;">
+            <tr>
+              <td style="padding:16px 18px;">
+                <div style="font-size:14px;font-weight:600;color:#0A0A0A;margin-bottom:3px;">${o.property_address||'—'}</div>
+                <div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Submitted ${App.fmtDate(o.offer_date)}</div>
+                <span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;padding:3px 8px;border-radius:4px;${badgeStyle}">${badgeLabel}</span>
+              </td>
+              <td style="padding:16px 18px;text-align:right;vertical-align:top;">
+                <div style="font-family:${SERIF};font-size:22px;font-weight:700;color:${ACCENT};line-height:1;">${App.fmtMoney(o.offer_amount)}</div>
+              </td>
+            </tr>
+          </table>`;
+        }).join('');
       }
+      html += sectionClose;
     }
 
     if (sections.stage) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📍 Current Stage</h3>
-        <p style="font-size:13px;background:#f0fdf4;padding:12px;border-radius:6px;border-left:3px solid #10b981;">
-          <strong>${client.stage || 'Not set'}</strong>${client.status ? ` &nbsp;·&nbsp; ${client.status}` : ''}
-        </p>
-        ${client.notes ? `<p style="font-size:13px;color:#475569;background:#f8fafc;padding:10px;border-radius:6px;">${client.notes}</p>` : ''}`;
+      html += sectionOpen('Current Stage', 'Where we are in the transaction.');
+      // Progress bar — 6 segments
+      html += `<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:3px 0;margin-bottom:14px;">
+        <tr>${stageOrder.map((_,i) => {
+          const done = i < currentStageIdx;
+          const active = i === currentStageIdx;
+          const bg = (done||active) ? ACCENT : '#E7E5E4';
+          return `<td style="height:6px;border-radius:3px;background:${bg};${active?`box-shadow:0 0 0 3px rgba(204,120,92,0.22);`:''}"></td>`;
+        }).join('')}</tr>
+      </table>`;
+      html += `<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:3px 0;margin-bottom:18px;">
+        <tr>${stageOrder.map((label,i) => {
+          const active = i === currentStageIdx;
+          return `<td style="text-align:center;font-size:9px;font-weight:${active?800:600};color:${active?ACCENT:'#6B7280'};text-transform:uppercase;letter-spacing:0.5px;">${label}</td>`;
+        }).join('')}</tr>
+      </table>`;
+      html += `<div style="background:#FAFAF9;border:1px solid #E7E5E4;border-left:3px solid ${ACCENT};border-radius:10px;padding:16px 18px;">
+        <div style="font-family:${SERIF};font-size:17px;font-weight:600;color:#0A0A0A;margin-bottom:4px;">${client.stage||'Active Search'}${client.status?` · ${client.status}`:''}</div>
+        ${client.notes?`<div style="font-size:13px;color:#6B7280;line-height:1.5;">${client.notes}</div>`:''}
+      </div>`;
+      html += sectionClose;
     }
 
     if (sections.nextsteps) {
@@ -757,20 +866,34 @@ const Reports = {
         'Closed': ['Send post-closing follow-up','Request Google review or referral','Stay in touch for future needs']
       };
       const steps = stageSteps[client.stage] || ['Follow up within 7 days','Keep client updated on market activity','Schedule next check-in call'];
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">🚀 Next Steps</h3>
-        <ul style="font-size:13px;color:#374151;line-height:2.2;padding-left:20px;">
-          ${steps.map(s => `<li>${s}</li>`).join('')}
-        </ul>`;
+      html += sectionOpen('Next Steps', 'What to expect in the next two weeks.');
+      html += steps.map((s,i) => `<table role="presentation" style="width:100%;border-collapse:collapse;margin-bottom:10px;background:#FAFAF9;border:1px solid #E7E5E4;border-radius:10px;">
+        <tr>
+          <td style="width:48px;padding:14px 0 14px 16px;vertical-align:top;">
+            <div style="width:28px;height:28px;border-radius:50%;background:${ACCENT};color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:28px;">${i+1}</div>
+          </td>
+          <td style="padding:14px 16px 14px 6px;">
+            <div style="font-size:14px;font-weight:600;color:#0A0A0A;">${s}</div>
+          </td>
+        </tr>
+      </table>`).join('');
+      html += sectionClose;
     }
 
     if (notes) {
-      html += `<h3 style="color:#0ea5e9;margin-top:20px;">📌 Agent Notes</h3>
-        <p style="font-size:13px;color:#374151;background:#fffbeb;padding:14px;border-radius:6px;border-left:3px solid #f59e0b;">${notes}</p>`;
+      html += sectionOpen('A Note From ' + agentName.split(' ')[0], '');
+      html += `<div style="font-size:14px;color:#0A0A0A;line-height:1.7;background:#FAFAF9;border-left:3px solid ${ACCENT};padding:16px 20px;border-radius:8px;font-style:italic;">"${notes}"</div>`;
+      html += sectionClose;
     }
 
-    html += `<p style="font-size:11px;color:#94a3b8;margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;">
-      Generated by Maxwell DealFlow CRM &nbsp;·&nbsp; ${agentName}
-    </p></div>`;
+    // FOOTER
+    html += `<div style="background:#FAFAF9;padding:26px 36px;text-align:center;border-top:1px solid #E7E5E4;">
+      <div style="font-family:${SERIF};font-size:16px;font-weight:600;color:#0A0A0A;margin-bottom:3px;">${agentName}</div>
+      <div style="font-size:12px;color:#6B7280;margin-bottom:12px;">REALTOR® · eXp Realty${currentAgent?.phone?` · ${currentAgent.phone}`:''}${currentAgent?.email?` · ${currentAgent.email}`:''}</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${ACCENT};">DealFlow</div>
+    </div>`;
+
+    html += `</div>`;
     return { client, html };
   },
 
