@@ -897,46 +897,168 @@ const Reports = {
     return { client, html };
   },
 
+  /**
+   * Convert the generated report HTML to a PDF Blob using html2pdf.js.
+   * Returns { blob, base64, filename }. Throws if html2pdf isn't loaded.
+   */
+  async toPDF(client, html) {
+    if (!window.html2pdf) throw new Error('PDF library not loaded. Reload the page and try again.');
+    // Render into an offscreen container so html2pdf can measure it at its natural width.
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:-10000px;top:0;width:680px;background:#fff;';
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+
+    const safeName = (client.full_name||'Client').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
+    const stamp = new Date().toISOString().slice(0,10);
+    const filename = `${safeName}-Progress-Report-${stamp}.pdf`;
+
+    const opt = {
+      margin: [0, 0, 0, 0],
+      filename,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    try {
+      const worker = window.html2pdf().set(opt).from(wrap);
+      const blob = await worker.outputPdf('blob');
+      // base64 (no data: prefix) for the edge function
+      const base64 = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).replace(/^data:[^;]+;base64,/, ''));
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+      return { blob, base64, filename };
+    } finally {
+      wrap.remove();
+    }
+  },
+
   async preview() {
     const sel = document.getElementById('rpt-client-sel');
     const msg = document.getElementById('rpt-msg');
     if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
-    msg.textContent = '⏳ Building preview...'; msg.style.color='var(--text2)';
-    const result = await Reports.buildReport(sel.value);
-    if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
-    msg.textContent = '';
-    App.openModal(`
-      <div class="modal-title" style="margin-bottom:12px;">👁 Report Preview — ${result.client.full_name}</div>
-      <div style="max-height:65vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff;">
-        ${result.html}
-      </div>
-    `);
+    msg.textContent = '⏳ Building PDF preview...'; msg.style.color='var(--text2)';
+    try {
+      const result = await Reports.buildReport(sel.value);
+      if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
+      const { client, html } = result;
+      const { blob } = await Reports.toPDF(client, html);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Revoke after a delay so the new tab has time to load the URL
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      msg.style.color='var(--text2)'; msg.textContent='✓ Preview opened in a new tab';
+    } catch (e) {
+      console.error('Report preview error:', e);
+      msg.style.color='var(--red)'; msg.textContent='⚠️ Preview failed: ' + (e.message||'unknown error');
+    }
   },
 
   async sendToClient() {
     const sel = document.getElementById('rpt-client-sel');
     const msg = document.getElementById('rpt-msg');
     if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
-    msg.textContent = '⏳ Building report...'; msg.style.color='var(--text2)';
-    const result = await Reports.buildReport(sel.value);
-    if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
-    const { client, html } = result;
-    if (!client.email) { msg.style.color='var(--red)'; msg.textContent='⚠️ This client has no email on file'; return; }
-    App.switchTab('email');
-    setTimeout(() => {
-      const clientSel = document.getElementById('email-client');
-      if (clientSel) {
-        for (let i = 0; i < clientSel.options.length; i++) {
-          if (clientSel.options[i].value === client.id) { clientSel.selectedIndex = i; break; }
-        }
-        if (window.EmailSend?.onClientChange) EmailSend.onClientChange();
-      }
-      const subj = document.getElementById('email-subject');
-      const body = document.getElementById('email-body');
-      if (subj) subj.value = `Your Property Update — ${client.full_name}`;
-      if (body) body.innerHTML = html;
-    }, 350);
-    App.toast('📋 Report ready in Email tab — review & send!');
+    const ccInput = document.getElementById('rpt-cc');
+    const sendMeCopy = document.getElementById('rpt-send-copy')?.checked;
+
+    msg.textContent = '⏳ Generating PDF...'; msg.style.color='var(--text2)';
+    try {
+      const result = await Reports.buildReport(sel.value);
+      if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
+      const { client, html } = result;
+      if (!client.email) { msg.style.color='var(--red)'; msg.textContent='⚠️ This client has no email on file'; return; }
+
+      const { base64, filename } = await Reports.toPDF(client, html);
+
+      msg.textContent = '⏳ Sending email...';
+
+      const firstName = (client.full_name||'there').split(/\s+/)[0];
+      const agentFirst = (currentAgent?.full_name||'Your agent').split(/\s+/)[0];
+      const agentSig = [
+        currentAgent?.full_name || '',
+        'REALTOR® | eXp Realty',
+        currentAgent?.phone || '',
+        currentAgent?.email || ''
+      ].filter(Boolean).join('\n');
+
+      const plainBody =
+`Hi ${firstName},
+
+Please find attached your updated progress report showing the current stage of your deal.
+
+Let me know if you have any questions.
+
+Best regards,
+${agentSig}`;
+
+      const htmlBody =
+`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#0A0A0A;line-height:1.6;max-width:620px;">
+  <p>Hi ${firstName},</p>
+  <p>Please find attached your updated progress report showing the current stage of your deal.</p>
+  <p>Let me know if you have any questions.</p>
+  <p>Best regards,<br>
+  <strong>${currentAgent?.full_name||''}</strong><br>
+  REALTOR® | eXp Realty<br>
+  ${currentAgent?.phone?`${currentAgent.phone}<br>`:''}
+  ${currentAgent?.email?`${currentAgent.email}`:''}
+  </p>
+</div>`;
+
+      // Build cc list (optional cc input + optional self-copy)
+      const ccList = [];
+      if (ccInput?.value.trim()) ccList.push(ccInput.value.trim());
+      if (sendMeCopy && currentAgent?.email) ccList.push(currentAgent.email);
+
+      const payload = {
+        to: client.email,
+        cc: ccList.length ? ccList.join(', ') : null,
+        subject: `Your Progress Report — ${client.full_name}`,
+        body: plainBody,
+        html: htmlBody,
+        from_name: currentAgent?.full_name || 'Your Agent',
+        attachments: [{
+          filename,
+          mime_type: 'application/pdf',
+          data: base64
+        }]
+      };
+
+      const { data: sess } = await db.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) { msg.style.color='var(--red)'; msg.textContent='⚠️ Not signed in. Reload and try again.'; return; }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || 'Email send failed');
+
+      // Log to activity
+      try {
+        await db.from('activity_log').insert({
+          agent_id: currentAgent.id,
+          client_id: client.id,
+          action: 'Report sent',
+          detail: `Progress report PDF sent to ${client.email}`
+        });
+      } catch (_) { /* non-fatal */ }
+
+      msg.style.color='var(--green)'; msg.textContent=`✓ Report sent to ${client.full_name}`;
+      App.toast(`📎 Report PDF sent to ${client.full_name}!`);
+    } catch (e) {
+      console.error('Report send error:', e);
+      msg.style.color='var(--red)'; msg.textContent='⚠️ Send failed: ' + (e.message||'unknown error');
+    }
   }
 };
 
