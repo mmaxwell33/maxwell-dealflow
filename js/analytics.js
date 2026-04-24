@@ -71,7 +71,7 @@ const Analytics = {
     Analytics.renderViewingsPerClient(vi, cl);
     Analytics.renderStageDistribution(cl);
     Analytics.renderBudgetDistribution(cl);
-    Analytics.renderViewingStatus(vi);
+    Analytics.renderViewingStatus(vi, cl);
     Analytics.renderTopLeads(cl);
     Analytics.renderNeedsFollowUp(cl);
     Analytics.renderViewingsData(cl, vi);
@@ -306,12 +306,13 @@ const Analytics = {
     });
   },
 
-  renderViewingStatus(viewings) {
-    // Dynamically collect all statuses actually in the data
+  renderViewingStatus(viewings, clients) {
+    // Show client STAGE distribution (matches the Top Leads panel),
+    // not raw viewing-row status (which is almost always 'Completed').
     const statusMap = {};
-    viewings.forEach(v => {
-      const s = v.viewing_status || v.status || '';
-      if (!s) return; // skip records with no status field
+    (clients || []).forEach(c => {
+      const s = (c.stage || c.status || '').trim();
+      if (!s) return;
       statusMap[s] = (statusMap[s] || 0) + 1;
     });
     // Filter out generic 'Unknown' entries — only show real status values
