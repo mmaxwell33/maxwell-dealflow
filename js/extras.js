@@ -1426,8 +1426,12 @@ const NewBuilds = {
   async sendBuilderLink(buildId) {
     const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) return;
-    const email = b.builder_email || prompt('Enter builder email address:');
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { App.toast('⚠️ Valid builder email required', 'var(--red)'); return; }
+    // Always ask — pre-fill with the current email if we have one, but let
+    // the agent correct/replace it (e.g. after a revoke, or if the builder
+    // changed email). Prevents silently re-using a stale address.
+    const email = prompt('Send builder link to which email?', b.builder_email || '');
+    if (email === null) return; // user hit Cancel
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { App.toast('⚠️ Valid builder email required', 'var(--red)'); return; }
 
     // Generate token (cryptographically random) + 90-day expiry
     let token = b.builder_token;
@@ -1438,7 +1442,7 @@ const NewBuilds = {
     const expires = new Date(); expires.setDate(expires.getDate() + 90);
 
     const { error } = await db.from('new_builds').update({
-      builder_email: email,
+      builder_email: email.trim(),
       builder_token: token,
       builder_token_expires: expires.toISOString(),
       builder_token_sent_at: new Date().toISOString()
@@ -1476,11 +1480,16 @@ const NewBuilds = {
 
   async revokeBuilderLink(buildId) {
     if (!confirm('Revoke this builder\'s link? They will lose access immediately.')) return;
+    // Also clear the stored email so the next Send Builder Link starts fresh
+    // instead of silently re-using the address that just got revoked.
     const { error } = await db.from('new_builds').update({
-      builder_token: null, builder_token_expires: null
+      builder_token: null,
+      builder_token_expires: null,
+      builder_email: null,
+      builder_token_sent_at: null
     }).eq('id', buildId);
     if (error) { App.toast('Failed: ' + error.message, 'var(--red)'); return; }
-    App.toast('✅ Link revoked', 'var(--green)');
+    App.toast('✅ Link revoked — email cleared', 'var(--green)');
     NewBuilds.load();
   },
 
