@@ -1567,7 +1567,26 @@ const NewBuilds = {
       responded_at: new Date().toISOString()
     }).eq('id', reqId);
 
-    App.toast('✅ Client visit queued in Approvals', 'var(--green)');
+    // ── AUTO-SEND confirmation email to BUILDER with .ics (operational, not client-facing) ──
+    if (b.builder_email) {
+      try {
+        const bSubject = `Visit confirmed — ${property} · ${when}`;
+        const bHtml = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${b.builder_contact ? b.builder_contact.split(' ')[0] : 'there'},</p><p>Confirming the client visit at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #CC785C;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p><p>Calendar invite attached — tap to add it to your phone. If anything changes, reply to this email or log back into your portal.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+        await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+          body: JSON.stringify({
+            agent_id: agentId,
+            to: b.builder_email,
+            subject: bSubject,
+            html: bHtml,
+            attachments: [{ filename: 'visit.ics', content: icsB64, type: 'text/calendar' }]
+          })
+        });
+      } catch (e) { console.warn('Builder confirmation email failed:', e); }
+    }
+
+    App.toast(b.builder_email ? '✅ Client queued in Approvals · Builder emailed with calendar invite' : '✅ Client visit queued in Approvals', 'var(--green)');
     if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
     NewBuilds.load();
   },

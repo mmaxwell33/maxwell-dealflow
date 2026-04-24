@@ -61,7 +61,95 @@ const BuilderPortal = {
     this._renderStages();
     this._renderVisitDropdown();
     this._renderCustomList();
+    this._renderYourRequests();
     this._show('main');
+  },
+
+  _renderYourRequests() {
+    const card = document.getElementById('your-requests-card');
+    const list = document.getElementById('your-requests-list');
+    if (!card || !list) return;
+    const reqs = (this.visitRequests || []).slice(0, 8);
+    if (reqs.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const fmt = (d, t) => {
+      if (!d) return '—';
+      const date = new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+      return t ? `${date} at ${(t+'').slice(0,5)}` : date;
+    };
+    list.innerHTML = reqs.map(r => {
+      const label = r.stage_item_label || 'Client visit';
+      let pill, body;
+      if (r.status === 'pending') {
+        pill = `<span style="background:#fff4ec;color:#b85432;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;">⏳ Waiting for agent</span>`;
+        body = `<div class="muted" style="font-size:13px;">You proposed ${fmt(r.proposed_date, r.proposed_time)}</div>`;
+      } else if (r.status === 'approved') {
+        pill = `<span style="background:#e8f6ee;color:#1f7a3a;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;">✅ Confirmed</span>`;
+        body = `<div style="font-size:14px;font-weight:600;margin-top:4px;">${fmt(r.final_date || r.proposed_date, r.final_time || r.proposed_time)}</div>`;
+      } else if (r.status === 'rescheduled') {
+        pill = `<span style="background:#fff4e5;color:#a6601a;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;">🗓️ Agent proposed different time</span>`;
+        body = `
+          <div style="font-size:14px;font-weight:600;margin-top:4px;">Agent suggests: ${fmt(r.final_date, r.final_time)}</div>
+          ${r.agent_response ? `<div class="muted" style="font-size:13px;font-style:italic;margin-top:4px;">"${r.agent_response}"</div>` : ''}
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn" onclick="BuilderPortal.acceptAgentTime('${r.id}')">✅ Accept new time</button>
+            <button class="btn" style="background:#fff;color:#CC785C;border:1px solid #CC785C;" onclick="BuilderPortal.openCounter('${r.id}')">🗓️ Propose another</button>
+          </div>
+          <div id="counter-form-${r.id}" style="display:none;margin-top:12px;padding:12px;background:#fafafa;border-radius:8px;">
+            <div class="row">
+              <div class="field"><label class="field-label">Date</label><input class="input" id="counter-date-${r.id}" type="date"></div>
+              <div class="field"><label class="field-label">Time</label><input class="input" id="counter-time-${r.id}" type="time" value="10:00"></div>
+            </div>
+            <div class="field"><label class="field-label">Note (optional)</label><input class="input" id="counter-note-${r.id}" placeholder="e.g. Framing done mid-afternoon"></div>
+            <button class="btn" onclick="BuilderPortal.submitCounter('${r.id}')">📤 Send counter-proposal</button>
+          </div>`;
+      } else if (r.status === 'declined') {
+        pill = `<span style="background:#fde8e8;color:#9b2727;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;">❌ Declined</span>`;
+        body = `<div class="muted" style="font-size:13px;">${r.agent_response || 'Agent declined this request.'}</div>`;
+      } else {
+        pill = `<span class="muted" style="font-size:12px;">${r.status}</span>`;
+        body = '';
+      }
+      return `
+        <div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+            <div style="font-weight:600;flex:1;min-width:200px;">${label}</div>
+            ${pill}
+          </div>
+          ${body}
+        </div>`;
+    }).join('');
+  },
+
+  openCounter(reqId) {
+    const el = document.getElementById('counter-form-' + reqId);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  },
+
+  async acceptAgentTime(reqId) {
+    const res = await this._rpc('builder_accept_reschedule', { p_token: this.token, p_request_id: reqId });
+    if (res && res.ok) {
+      this._toast('✅ Accepted — the agent and client will be notified.');
+      setTimeout(() => this.init(), 800);
+    } else {
+      this._toast('⚠️ Could not accept — try again', true);
+    }
+  },
+
+  async submitCounter(reqId) {
+    const date = document.getElementById('counter-date-' + reqId)?.value;
+    const time = document.getElementById('counter-time-' + reqId)?.value || '10:00';
+    const note = document.getElementById('counter-note-' + reqId)?.value.trim() || null;
+    if (!date) { this._toast('⚠️ Pick a date', true); return; }
+    const res = await this._rpc('builder_counter_reschedule', {
+      p_token: this.token, p_request_id: reqId, p_date: date, p_time: time, p_note: note
+    });
+    if (res && res.ok) {
+      this._toast('📤 Counter-proposal sent to agent.');
+      setTimeout(() => this.init(), 800);
+    } else {
+      this._toast('⚠️ Could not send — try again', true);
+    }
   },
 
   // ── RENDER ──────────────────────────────────────────────────────────────

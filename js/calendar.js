@@ -27,6 +27,13 @@ const Calendar = {
       .order('viewing_date', { ascending: true })
       .limit(150);
 
+    // Approved builder visits (with joined lot_address + client_name from new_builds)
+    const { data: builderVisits } = await db.from('builder_visit_requests')
+      .select('id, final_date, final_time, proposed_date, proposed_time, stage_item_label, status, new_builds!builder_visit_requests_build_id_fkey(lot_address, client_name)')
+      .eq('status', 'approved')
+      .order('final_date', { ascending: true })
+      .limit(150);
+
     const events = [];
 
     const addDealEvent = (date, label, type, icon, clientName, address, dealId) => {
@@ -55,6 +62,22 @@ const Calendar = {
         sub:    v.address     || '',
         time:   v.viewing_time ? v.viewing_time.slice(0,5) : null,
         status: v.viewing_status
+      });
+    });
+
+    (builderVisits || []).forEach(bv => {
+      const d = bv.final_date || bv.proposed_date;
+      const t = bv.final_time || bv.proposed_time;
+      if (!d) return;
+      events.push({
+        date:   d.slice(0,10),
+        label:  'Builder Visit',
+        type:   'builder_visit',
+        icon:   '🏗️',
+        client: bv.new_builds?.client_name || '—',
+        sub:    (bv.new_builds?.lot_address || '') + (bv.stage_item_label ? ' — ' + bv.stage_item_label : ''),
+        time:   t ? (t+'').slice(0,5) : null,
+        status: 'Confirmed'
       });
     });
 
