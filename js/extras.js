@@ -1360,6 +1360,7 @@ const NewBuilds = {
         <div style="margin-bottom:10px;">${stageSections}</div>
         <div id="nb-card-msg-${b.id}" style="margin-top:4px;font-size:12px;"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.openEdit('${b.id}')">✏️ Edit Details</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
           ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Link</button>` : ''}
@@ -1368,6 +1369,55 @@ const NewBuilds = {
     }).join('');
     // After render: fetch pending visit requests and paint banners
     NewBuilds._renderVisitBanners(list);
+  },
+
+  // ── EDIT EXISTING NEW BUILD: pre-fill form with row values ─────────────
+  _editingId: null,
+  openEdit(buildId) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) { App.toast('⚠️ Build not found','var(--red)'); return; }
+    NewBuilds._editingId = buildId;
+    // Open the form (re-uses existing toggleForm + render)
+    const form = document.getElementById('nb-form');
+    if (form && form.style.display === 'none') NewBuilds.toggleForm();
+    // Populate client dropdown first, then select this build's client
+    setTimeout(() => {
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el != null && val != null) el.value = val; };
+      const sel = document.getElementById('nb-client-sel');
+      if (sel && b.client_id) {
+        for (const opt of sel.options) { if (opt.value === b.client_id) { sel.value = b.client_id; break; } }
+      }
+      setVal('nb-builder',         b.builder_name || '');
+      setVal('nb-lot-address',     b.lot_address || '');
+      setVal('nb-price',           b.purchase_price || '');
+      setVal('nb-stage',           b.current_stage || 'Pre-Construction');
+      setVal('nb-completion',      b.est_completion_date || '');
+      setVal('nb-flooring',        b.flooring_selection || '');
+      setVal('nb-builder-contact', b.builder_contact || '');
+      setVal('nb-builder-email',   b.builder_email || '');
+      setVal('nb-notes',           b.notes || '');
+      setVal('nb-cc-email',        b.cc_email || '');
+      setVal('nb-deposit-amount',  b.deposit_amount || '');
+      setVal('nb-deposit-date',    b.deposit_date || '');
+      setVal('nb-deposit-status',  b.deposit_status || 'Pending');
+      setVal('nb-pa-submitted',    b.pa_submitted_date || '');
+      setVal('nb-pa-accepted',     b.pa_accepted_date || '');
+      // Status banner so user knows this is an edit
+      const st = document.getElementById('nb-status');
+      if (st) { st.style.color = 'var(--accent)'; st.textContent = `✏️ Editing: ${b.lot_address || 'Build'} — click Save to update`; }
+      // Change primary button label if present
+      const btn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+      if (btn) btn.textContent = '💾 Update Build';
+      // Scroll form into view
+      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  },
+
+  cancelEdit() {
+    NewBuilds._editingId = null;
+    const st = document.getElementById('nb-status'); if (st) st.textContent = '';
+    const btn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+    if (btn) btn.textContent = '💾 Save Build';
   },
 
   // ── BUILDER PORTAL: send / re-send / revoke the link ───────────────────
@@ -1948,7 +1998,8 @@ const NewBuilds = {
     const price = parseFloat(document.getElementById('nb-price')?.value) || 0;
     const completion = document.getElementById('nb-completion')?.value || null;
 
-    const { data: saved, error } = await db.from('new_builds').insert({
+    // Shared payload for both insert and update paths
+    const payload = {
       agent_id: currentAgent.id,
       client_name: clientName,
       client_id: clientId || null,
@@ -1967,9 +2018,19 @@ const NewBuilds = {
       deposit_status: document.getElementById('nb-deposit-status')?.value || 'Pending',
       pa_submitted_date: document.getElementById('nb-pa-submitted')?.value || null,
       pa_accepted_date: document.getElementById('nb-pa-accepted')?.value || null,
-      pipeline_milestones: milestones,
       status: 'Active'
-    }).select().single();
+    };
+    // EDIT MODE: update existing row, preserve pipeline_milestones
+    let saved, error;
+    if (NewBuilds._editingId) {
+      const res = await db.from('new_builds').update(payload).eq('id', NewBuilds._editingId).select().single();
+      saved = res.data; error = res.error;
+    } else {
+      // CREATE MODE: insert new row with fresh milestones
+      payload.pipeline_milestones = milestones;
+      const res = await db.from('new_builds').insert(payload).select().single();
+      saved = res.data; error = res.error;
+    }
 
     if (error) {
       // Fallback minimal insert
@@ -1988,8 +2049,12 @@ const NewBuilds = {
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
 
     NewBuilds.clearDraft(); // clear saved draft on success
-    App.toast('✅ New Build created! Pipeline entry auto-created.');
-    st.style.color='var(--green)'; st.textContent=`✅ Build created · Pipeline → ${pipelineStage}`;
+    const wasEdit = !!NewBuilds._editingId;
+    NewBuilds._editingId = null; // reset edit flag for next use
+    const editBtn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+    if (editBtn) editBtn.textContent = '💾 Save Build';
+    App.toast(wasEdit ? '✅ Build updated — all sections synced.' : '✅ New Build created! Pipeline entry auto-created.');
+    st.style.color='var(--green)'; st.textContent = wasEdit ? '✅ Build updated' : `✅ Build created · Pipeline → ${pipelineStage}`;
     NewBuilds.toggleForm();
     NewBuilds.load();
   }
