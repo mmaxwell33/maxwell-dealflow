@@ -1572,15 +1572,36 @@ const NewBuilds = {
     NewBuilds.load();
   },
 
-  async rescheduleVisit(reqId) {
-    const newDate = prompt('Propose new date (YYYY-MM-DD):');
-    if (!newDate) return;
-    const newTime = prompt('Propose new time (HH:MM, 24h):', '10:00') || '10:00';
-    const note    = prompt('Optional note to builder:') || null;
+  rescheduleVisit(reqId) {
+    // Default the date picker to tomorrow so user sees a sensible starting value
+    const tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+    const iso = tmr.toISOString().slice(0,10);
+    App.openModal(`
+      <h3 style="margin-top:0;">🗓️ Propose new visit time</h3>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">Suggest a different date & time to the builder. They'll be notified of your counter-proposal.</p>
+      <div class="form-group"><label class="form-label">NEW DATE</label>
+        <input class="form-input" id="resch-date" type="date" value="${iso}"></div>
+      <div class="form-group"><label class="form-label">NEW TIME</label>
+        <input class="form-input" id="resch-time" type="time" value="10:00"></div>
+      <div class="form-group"><label class="form-label">NOTE TO BUILDER <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+        <textarea class="form-input" id="resch-note" rows="2" placeholder="e.g. Client is away that morning, afternoon works better"></textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-green" onclick="NewBuilds._submitReschedule('${reqId}')">Send Proposal</button>
+      </div>
+    `);
+  },
+
+  async _submitReschedule(reqId) {
+    const newDate = document.getElementById('resch-date')?.value;
+    const newTime = document.getElementById('resch-time')?.value || '10:00';
+    const note    = document.getElementById('resch-note')?.value.trim() || null;
+    if (!newDate) { App.toast('⚠️ Please pick a date', 'var(--red)'); return; }
     await db.from('builder_visit_requests').update({
       status: 'rescheduled', final_date: newDate, final_time: newTime,
       agent_response: note, responded_at: new Date().toISOString()
     }).eq('id', reqId);
+    App.closeModal();
     App.toast('🗓️ New time proposed to builder', 'var(--green)');
     NewBuilds.load();
   },
