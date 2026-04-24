@@ -1354,14 +1354,192 @@ const NewBuilds = {
           ${b.deposit_status ? `<div>🏦 Deposit: <span class="fw-700">${b.deposit_status}</span></div>` : ''}
           ${b.builder_contact ? `<div>👤 Contact: <span class="fw-700">${b.builder_contact}</span></div>` : ''}
         </div>
+        <!-- Builder visit-request banner (if pending) -->
+        <div id="nb-visit-banner-${b.id}"></div>
         <!-- Grouped Stage Sections -->
         <div style="margin-bottom:10px;">${stageSections}</div>
         <div id="nb-card-msg-${b.id}" style="margin-top:4px;font-size:12px;"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
+          ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Link</button>` : ''}
         </div>
       </div>`;
     }).join('');
+    // After render: fetch pending visit requests and paint banners
+    NewBuilds._renderVisitBanners(list);
+  },
+
+  // ── BUILDER PORTAL: send / re-send / revoke the link ───────────────────
+  async sendBuilderLink(buildId) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) return;
+    const email = b.builder_email || prompt('Enter builder email address:');
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { App.toast('⚠️ Valid builder email required', 'var(--red)'); return; }
+
+    // Generate token (cryptographically random) + 90-day expiry
+    let token = b.builder_token;
+    if (!token) {
+      token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
+              .replace(/-/g,'') + Math.random().toString(36).slice(2,10);
+    }
+    const expires = new Date(); expires.setDate(expires.getDate() + 90);
+
+    const { error } = await db.from('new_builds').update({
+      builder_email: email,
+      builder_token: token,
+      builder_token_expires: expires.toISOString(),
+      builder_token_sent_at: new Date().toISOString()
+    }).eq('id', buildId);
+
+    if (error) { App.toast('Failed: ' + error.message, 'var(--red)'); return; }
+
+    // Build portal URL
+    const portalUrl = `${location.origin}/builder.html?t=${token}`;
+    const property = b.lot_address || 'Your New Build';
+    const builderName = (b.builder_name || 'there').split(' ')[0];
+    const subject = `Builder Portal — ${property}`;
+    const plainBody = `Hi ${builderName},\n\nMaxwell Midodzi has set up a private builder portal for ${property}.\n\nUse the link below to update progress and request client visits:\n${portalUrl}\n\nThis link is valid for 90 days. No login required — just save the link.\n\nIf you have any questions, reply to this email or call (709) 325-0545.\n\nMaxwell Delali Midodzi\neXp Realty`;
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${builderName},</p><p>Maxwell Midodzi has set up a private builder portal for <strong>${property}</strong>.</p><p>Use the button below to update progress and request client visits:</p><p style="text-align:center;margin:28px 0;"><a href="${portalUrl}" style="background:#CC785C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">🔨 Open Builder Portal</a></p><p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="color:#CC785C;word-break:break-all;">${portalUrl}</a></p><p style="font-size:12px;color:#888;">This link is valid for 90 days. No login required — just save the link.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+
+    // Queue via Approvals like every other email
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
+    const { error: qErr } = await db.from('approval_queue').insert({
+      agent_id: agentId,
+      client_name: b.builder_name || builderName,
+      client_email: email,
+      approval_type: 'Builder Portal Invite',
+      email_subject: subject,
+      email_body: plainBody,
+      context_data: { html: htmlB64, build_id: buildId, portal_url: portalUrl },
+      status: 'Pending'
+    });
+    if (qErr) { App.toast('Queue failed: ' + qErr.message, 'var(--red)'); return; }
+    App.toast('✅ Builder link queued in Approvals', 'var(--green)');
+    if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
+    NewBuilds.load();
+  },
+
+  async revokeBuilderLink(buildId) {
+    if (!confirm('Revoke this builder\'s link? They will lose access immediately.')) return;
+    const { error } = await db.from('new_builds').update({
+      builder_token: null, builder_token_expires: null
+    }).eq('id', buildId);
+    if (error) { App.toast('Failed: ' + error.message, 'var(--red)'); return; }
+    App.toast('✅ Link revoked', 'var(--green)');
+    NewBuilds.load();
+  },
+
+  // ── PENDING VISIT-REQUEST BANNER ───────────────────────────────────────
+  async _renderVisitBanners(list) {
+    if (!list?.length) return;
+    const ids = list.map(b => b.id);
+    const { data: reqs } = await db.from('builder_visit_requests')
+      .select('*').in('build_id', ids).eq('status','pending')
+      .order('created_at', { ascending: false });
+    if (!reqs?.length) return;
+    // Group by build_id
+    const byBuild = {};
+    reqs.forEach(r => { (byBuild[r.build_id] = byBuild[r.build_id] || []).push(r); });
+    Object.entries(byBuild).forEach(([bid, rs]) => {
+      const host = document.getElementById('nb-visit-banner-' + bid);
+      if (!host) return;
+      host.innerHTML = rs.map(r => {
+        const when = `${r.proposed_date || '—'}${r.proposed_time ? ' at ' + r.proposed_time.slice(0,5) : ''}`;
+        return `<div style="background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">🔨 Builder requested a client visit</div>
+          <div style="font-size:13px;margin-bottom:2px;"><strong>${App.esc ? App.esc(r.stage_item_label||'') : (r.stage_item_label||'')}</strong></div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">📅 ${when}</div>
+          ${r.builder_note ? `<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:6px;">"${App.esc ? App.esc(r.builder_note) : r.builder_note}"</div>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            <button class="btn btn-primary btn-sm" onclick="NewBuilds.acceptVisit('${r.id}')">✅ Accept & Notify Client</button>
+            <button class="btn btn-outline btn-sm" onclick="NewBuilds.rescheduleVisit('${r.id}')">🗓️ Propose different time</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);" onclick="NewBuilds.declineVisit('${r.id}')">✕ Decline</button>
+          </div>
+        </div>`;
+      }).join('');
+    });
+  },
+
+  async acceptVisit(reqId) {
+    const { data: req } = await db.from('builder_visit_requests').select('*').eq('id', reqId).single();
+    if (!req) return;
+    const b = NewBuilds.all.find(x => x.id === req.build_id);
+    if (!b) return;
+
+    // Find client email
+    let clientEmail = b.client_email || null;
+    let clientId = b.client_id || null;
+    if (!clientEmail && currentAgent?.id) {
+      const { data: cd } = await db.from('clients').select('id,email,full_name')
+        .eq('agent_id', currentAgent.id).ilike('full_name', b.client_name || '').limit(1).maybeSingle();
+      if (cd) { clientEmail = cd.email; clientId = cd.id; }
+    }
+    if (!clientEmail) { App.toast('⚠️ Client email not found', 'var(--red)'); return; }
+
+    const when = `${req.proposed_date}${req.proposed_time ? ' at ' + req.proposed_time.slice(0,5) : ''}`;
+    const property = b.lot_address || 'your new build';
+    const clientFirst = (b.client_name || 'there').split(' ')[0];
+    const subject = `Builder walk-through scheduled — ${property}`;
+    const plainBody = `Hi ${clientFirst},\n\nGreat news — the builder has a milestone ready for you to see at ${property}:\n\n  ${req.stage_item_label}\n\nProposed: ${when}\n\n${req.builder_note ? 'Builder note: ' + req.builder_note + '\n\n' : ''}Please reply with a thumbs-up if this time works, or suggest another.\n\nMaxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${clientFirst},</p><p>Great news — the builder has a milestone ready for you to see at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #CC785C;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p>${req.builder_note ? `<p style="font-style:italic;color:#666;">"${req.builder_note}"</p>` : ''}<p>Please reply with a thumbs-up if this time works, or suggest another.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+
+    // Build a simple .ics calendar invite
+    const icsDate = (req.proposed_date || '').replace(/-/g,'');
+    const icsTime = (req.proposed_time || '10:00').slice(0,5).replace(':','') + '00';
+    const icsEnd  = String((parseInt((req.proposed_time||'10:00').slice(0,2),10)||10)+1).padStart(2,'0') + (req.proposed_time||'10:00').slice(3,5).replace(':','') + '00';
+    const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Maxwell DealFlow//EN\r\nBEGIN:VEVENT\r\nUID:${reqId}@maxwell-dealflow\r\nDTSTAMP:${icsDate}T${icsTime}\r\nDTSTART:${icsDate}T${icsTime}\r\nDTEND:${icsDate}T${icsEnd}\r\nSUMMARY:Builder walk-through — ${property}\r\nDESCRIPTION:${req.stage_item_label}${req.builder_note ? ' — ' + req.builder_note : ''}\r\nLOCATION:${property}\r\nEND:VEVENT\r\nEND:VCALENDAR`;
+    const icsB64 = btoa(unescape(encodeURIComponent(ics)));
+    const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
+
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    const { data: appr, error: qErr } = await db.from('approval_queue').insert({
+      agent_id: agentId,
+      client_name: b.client_name || clientFirst,
+      client_email: clientEmail,
+      approval_type: 'Builder Visit',
+      email_subject: subject,
+      email_body: plainBody,
+      context_data: { html: htmlB64, ics: icsB64, build_id: b.id, visit_request_id: reqId, cc: b.builder_email || null }
+    }).select().single();
+    if (qErr) { App.toast('Queue failed: ' + qErr.message, 'var(--red)'); return; }
+
+    await db.from('builder_visit_requests').update({
+      status: 'approved',
+      approval_id: appr?.id || null,
+      final_date: req.proposed_date,
+      final_time: req.proposed_time,
+      responded_at: new Date().toISOString()
+    }).eq('id', reqId);
+
+    App.toast('✅ Client visit queued in Approvals', 'var(--green)');
+    if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
+    NewBuilds.load();
+  },
+
+  async rescheduleVisit(reqId) {
+    const newDate = prompt('Propose new date (YYYY-MM-DD):');
+    if (!newDate) return;
+    const newTime = prompt('Propose new time (HH:MM, 24h):', '10:00') || '10:00';
+    const note    = prompt('Optional note to builder:') || null;
+    await db.from('builder_visit_requests').update({
+      status: 'rescheduled', final_date: newDate, final_time: newTime,
+      agent_response: note, responded_at: new Date().toISOString()
+    }).eq('id', reqId);
+    App.toast('🗓️ New time proposed to builder', 'var(--green)');
+    NewBuilds.load();
+  },
+
+  async declineVisit(reqId) {
+    if (!confirm('Decline this visit request?')) return;
+    await db.from('builder_visit_requests').update({
+      status: 'declined', responded_at: new Date().toISOString()
+    }).eq('id', reqId);
+    App.toast('Request declined', 'var(--text2)');
+    NewBuilds.load();
   },
 
   // Called on every checkbox change — silent save, smart email logic
@@ -1722,7 +1900,7 @@ const NewBuilds = {
   // Save form fields to localStorage so data isn't lost on error
   saveDraft() {
     const fields = ['nb-builder','nb-lot-address','nb-price','nb-completion','nb-flooring',
-                    'nb-builder-contact','nb-notes','nb-cc-email','nb-deposit-amount',
+                    'nb-builder-contact','nb-builder-email','nb-notes','nb-cc-email','nb-deposit-amount',
                     'nb-deposit-date','nb-deposit-status','nb-pa-submitted','nb-pa-accepted','nb-stage'];
     const draft = {};
     fields.forEach(id => {
@@ -1781,6 +1959,7 @@ const NewBuilds = {
       est_completion_date: completion,
       flooring_selection: document.getElementById('nb-flooring')?.value.trim() || '',
       builder_contact: document.getElementById('nb-builder-contact')?.value.trim() || '',
+      builder_email: document.getElementById('nb-builder-email')?.value.trim() || null,
       notes: document.getElementById('nb-notes')?.value.trim() || '',
       cc_email: document.getElementById('nb-cc-email')?.value.trim() || null,
       deposit_amount: parseFloat(document.getElementById('nb-deposit-amount')?.value) || 0,
