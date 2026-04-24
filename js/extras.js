@@ -2451,14 +2451,19 @@ const Inbox = {
         </div>
         <button class="btn btn-outline btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red);padding:3px 8px;" onclick="Inbox.deleteThread('${threadId}')">🗑</button>
       </div>
-      <div id="inbox-thread-messages" style="max-height:44vh;overflow-y:auto;padding-right:2px;margin-bottom:12px;">
+      <div id="inbox-thread-messages" style="max-height:56vh;overflow-y:auto;padding-right:2px;margin-bottom:12px;">
         ${emailCards}
       </div>
-      <div style="border:1px solid var(--border);border-radius:8px;background:var(--card);padding:10px 12px;">
+      <div id="inbox-action-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <button onclick="Inbox.openComposer('reply','${threadId}')" style="font-size:13px;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">↩ Reply</button>
+        <button onclick="Inbox.openComposer('forward','${threadId}')" style="font-size:13px;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">⮕ Forward</button>
+      </div>
+      <div id="inbox-composer-container" style="display:none;border:1px solid var(--border);border-radius:8px;background:var(--card);padding:10px 12px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
           <button id="inbox-mode-reply" onclick="Inbox.setMode('reply','${threadId}')" style="font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:600;">↩ Reply</button>
           <button id="inbox-mode-forward" onclick="Inbox.setMode('forward','${threadId}')" style="font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;">⮕ Forward</button>
           <input type="hidden" id="inbox-compose-mode" value="reply">
+          <button onclick="Inbox.closeComposer()" title="Close composer" style="margin-left:auto;font-size:12px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;">✕ Cancel</button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">
           <div style="font-size:12px;color:var(--text2);white-space:nowrap;min-width:52px;">To:</div>
@@ -2495,7 +2500,10 @@ const Inbox = {
         <div id="inbox-attach-list" class="inbox-attach-list"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
           <div style="font-size:11px;color:var(--text2);">Your signature will be appended automatically.</div>
-          <button class="btn btn-primary btn-sm" id="inbox-reply-btn" onclick="Inbox.sendReply('${threadId}')" style="font-size:13px;">📤 Send</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-outline btn-sm" onclick="Inbox.closeComposer()" style="font-size:13px;">Discard</button>
+            <button class="btn btn-primary btn-sm" id="inbox-reply-btn" onclick="Inbox.sendReply('${threadId}')" style="font-size:13px;">📤 Send</button>
+          </div>
         </div>
       </div>
     `);
@@ -2536,6 +2544,36 @@ const Inbox = {
   _removeAttachment(filename, chipEl) {
     Inbox._pendingAttachments = Inbox._pendingAttachments.filter(a => a.filename !== filename);
     if (chipEl) chipEl.remove();
+  },
+
+  // ── OPEN / CLOSE COMPOSER (Gmail-style) ───────────────────────────────────
+  openComposer(mode, threadId) {
+    const container = document.getElementById('inbox-composer-container');
+    const actionBar = document.getElementById('inbox-action-bar');
+    if (!container) return;
+    container.style.display = 'block';
+    if (actionBar) actionBar.style.display = 'none';
+    // Switch mode (reply|forward) and prefill
+    Inbox.setMode(mode, threadId);
+    // Scroll composer into view and focus editor
+    setTimeout(() => {
+      container.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      const editor = document.getElementById('inbox-reply-editor');
+      if (editor) editor.focus();
+    }, 80);
+  },
+
+  closeComposer() {
+    const container = document.getElementById('inbox-composer-container');
+    const actionBar = document.getElementById('inbox-action-bar');
+    if (container) container.style.display = 'none';
+    if (actionBar)  actionBar.style.display = 'flex';
+    // Clear editor + attachments so next open starts fresh
+    const editor = document.getElementById('inbox-reply-editor');
+    if (editor) editor.innerHTML = '';
+    Inbox._pendingAttachments = [];
+    const list = document.getElementById('inbox-attach-list');
+    if (list) list.innerHTML = '';
   },
 
   // ── SWITCH REPLY / FORWARD MODE ───────────────────────────────────────────
