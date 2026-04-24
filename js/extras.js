@@ -1377,46 +1377,48 @@ const NewBuilds = {
     const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) { App.toast('⚠️ Build not found','var(--red)'); return; }
     NewBuilds._editingId = buildId;
-    // Open the form (re-uses existing toggleForm + render)
-    const form = document.getElementById('nb-form');
-    if (form && form.style.display === 'none') NewBuilds.toggleForm();
-    // Populate client dropdown first, then select this build's client
+    // Clear any stale draft so it won't overwrite the pre-filled values
+    NewBuilds.clearDraft();
+    // Open the form wrapper if hidden (correct id is newbuilds-form-wrap)
+    const wrap = document.getElementById('newbuilds-form-wrap');
+    const hidden = !wrap || wrap.style.display === 'none' || wrap.style.display === '';
+    if (hidden) NewBuilds.toggleForm();
+    // populateClients runs inside toggleForm — we need to wait for the <select> to fill
+    // and for the restoreDraft() call inside toggleForm to finish before we set values.
     setTimeout(() => {
-      const setVal = (id, val) => { const el = document.getElementById(id); if (el != null && val != null) el.value = val; };
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el != null) el.value = (val == null ? '' : val); };
       const sel = document.getElementById('nb-client-sel');
       if (sel && b.client_id) {
         for (const opt of sel.options) { if (opt.value === b.client_id) { sel.value = b.client_id; break; } }
       }
-      setVal('nb-builder',         b.builder_name || '');
-      setVal('nb-lot-address',     b.lot_address || '');
-      setVal('nb-price',           b.purchase_price || '');
+      setVal('nb-builder',         b.builder_name);
+      setVal('nb-lot-address',     b.lot_address);
+      setVal('nb-price',           b.purchase_price);
       setVal('nb-stage',           b.current_stage || 'Pre-Construction');
-      setVal('nb-completion',      b.est_completion_date || '');
-      setVal('nb-flooring',        b.flooring_selection || '');
-      setVal('nb-builder-contact', b.builder_contact || '');
-      setVal('nb-builder-email',   b.builder_email || '');
-      setVal('nb-notes',           b.notes || '');
-      setVal('nb-cc-email',        b.cc_email || '');
-      setVal('nb-deposit-amount',  b.deposit_amount || '');
-      setVal('nb-deposit-date',    b.deposit_date || '');
+      setVal('nb-completion',      b.est_completion_date);
+      setVal('nb-flooring',        b.flooring_selection);
+      setVal('nb-builder-contact', b.builder_contact);
+      setVal('nb-builder-email',   b.builder_email);
+      setVal('nb-notes',           b.notes);
+      setVal('nb-cc-email',        b.cc_email);
+      setVal('nb-deposit-amount',  b.deposit_amount);
+      setVal('nb-deposit-date',    b.deposit_date);
       setVal('nb-deposit-status',  b.deposit_status || 'Pending');
-      setVal('nb-pa-submitted',    b.pa_submitted_date || '');
-      setVal('nb-pa-accepted',     b.pa_accepted_date || '');
-      // Status banner so user knows this is an edit
+      setVal('nb-pa-submitted',    b.pa_submitted_date);
+      setVal('nb-pa-accepted',     b.pa_accepted_date);
       const st = document.getElementById('nb-status');
       if (st) { st.style.color = 'var(--accent)'; st.textContent = `✏️ Editing: ${b.lot_address || 'Build'} — click Save to update`; }
-      // Change primary button label if present
-      const btn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+      // Change primary button label inside the form wrap
+      const btn = document.querySelector('#newbuilds-form-wrap button[onclick*="NewBuilds.save"]');
       if (btn) btn.textContent = '💾 Update Build';
-      // Scroll form into view
-      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+      wrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 250);
   },
 
   cancelEdit() {
     NewBuilds._editingId = null;
     const st = document.getElementById('nb-status'); if (st) st.textContent = '';
-    const btn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+    const btn = document.querySelector('#newbuilds-form-wrap button[onclick*="NewBuilds.save"]');
     if (btn) btn.textContent = '💾 Save Build';
   },
 
@@ -2051,7 +2053,7 @@ const NewBuilds = {
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
     NewBuilds._editingId = null; // reset edit flag for next use
-    const editBtn = document.querySelector('#nb-form button[onclick*="NewBuilds.save"]');
+    const editBtn = document.querySelector('#newbuilds-form-wrap button[onclick*="NewBuilds.save"]');
     if (editBtn) editBtn.textContent = '💾 Save Build';
     App.toast(wasEdit ? '✅ Build updated — all sections synced.' : '✅ New Build created! Pipeline entry auto-created.');
     st.style.color='var(--green)'; st.textContent = wasEdit ? '✅ Build updated' : `✅ Build created · Pipeline → ${pipelineStage}`;
