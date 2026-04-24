@@ -63,6 +63,35 @@ const BuilderPortal = {
     this._renderCustomList();
     this._renderYourRequests();
     this._show('main');
+
+    // Fire-and-forget access log. Also slides the rolling 90-day expiry forward.
+    // We don't await this — portal renders immediately even if the log call is slow.
+    this._logAccess();
+  },
+
+  async _logAccess() {
+    try {
+      await this._rpc('builder_log_access', {
+        p_token: this.token,
+        p_ua: (navigator.userAgent || '').slice(0, 400)
+      });
+    } catch (_) { /* silent — logging is best-effort */ }
+  },
+
+  async selfRevoke() {
+    const ok = confirm(
+      'Revoke this link now?\n\n' +
+      'This will immediately disable this URL. You will need Maxwell to send you a new link to get back in.\n\n' +
+      'Do this if you think the link was forwarded or seen by someone who should not have access.'
+    );
+    if (!ok) return;
+    const res = await this._rpc('builder_self_revoke', { p_token: this.token });
+    if (res && res.ok) {
+      this._toast('🚫 Link revoked. Contact Maxwell for a new one.');
+      setTimeout(() => this._showError(), 1400);
+    } else {
+      this._toast('⚠️ Could not revoke — call Maxwell at (709) 325-0545');
+    }
   },
 
   _renderYourRequests() {
