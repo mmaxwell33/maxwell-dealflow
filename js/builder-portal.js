@@ -67,6 +67,17 @@ const BuilderPortal = {
     // Fire-and-forget access log. Also slides the rolling 90-day expiry forward.
     // We don't await this — portal renders immediately even if the log call is slow.
     this._logAccess();
+    this._logPortalView();
+  },
+
+  async _logPortalView() {
+    try {
+      await this._rpc('log_portal_view', {
+        p_page_type: 'builder',
+        p_token: this.token,
+        p_user_agent: (navigator.userAgent || '').slice(0, 400)
+      });
+    } catch (_) { /* silent */ }
   },
 
   async _logAccess() {

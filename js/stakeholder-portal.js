@@ -43,6 +43,7 @@
       return;
     }
     rpc('stakeholder_log_access', { p_token: token, p_ua: navigator.userAgent });
+    rpc('log_portal_view', { p_page_type: 'stakeholder', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400) });
     render(data);
   }
 
@@ -57,7 +58,12 @@
     let html = '';
     html += '<div class="hero"><span class="role-badge">'+rolePretty+' portal</span>';
     html += '<h1>'+greeting+' \u2014 your deal progress</h1>';
-    html += '<p>'+(d.property||'Property')+' \u00b7 Maxwell Delali Midodzi, your agent</p></div>';
+    html += '<p>'+(d.property||'Property')+' \u00b7 Maxwell Delali Midodzi, your agent</p>';
+    if(d.offer_amount){
+      var fmtMoney = '$'+Number(d.offer_amount).toLocaleString();
+      html += '<div class="offer-badge">\ud83d\udcb0 Offer: '+fmtMoney+'</div>';
+    }
+    html += '</div>';
 
     html += '<div class="card" style="margin-bottom:16px"><h3>Overall progress</h3>';
     html += '<div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%"></div></div>';
@@ -81,12 +87,34 @@
     html += '<button class="panic" onclick="window.__revoke()">\ud83d\udeab Revoke this link now</button>';
     html += '</div></div>';
 
+    // Key Dates card (image-3 style)
+    html += '<div class="card" style="margin-top:16px"><h3>Key dates</h3>';
+    var today = new Date().toISOString().slice(0,10);
+    var keyDates = [
+      { icon:'\u2705', label:'Acceptance',         date:d.acceptance_date  },
+      { icon:'\ud83c\udfe6', label:'Financing deadline',  date:d.financing_deadline },
+      { icon:'\ud83d\udd0d', label:'Inspection deadline', date:d.inspection_deadline },
+      { icon:'\ud83d\udeb6', label:'Walkthrough',         date:d.walkthrough_date },
+      { icon:'\ud83d\udd11', label:'Closing',             date:d.closing_date }
+    ];
+    keyDates.forEach(function(k){
+      var iso = k.date ? String(k.date).slice(0,10) : null;
+      var isDone = iso && iso <= today;
+      var isToday = iso === today;
+      var color = isDone ? 'var(--accent2)' : isToday ? '#f59e0b' : 'var(--text2)';
+      var weight = isDone ? 700 : 500;
+      html += '<div class="row"><span class="label">'+k.icon+' '+k.label+'</span>'+
+              '<span class="val" style="color:'+color+';font-weight:'+weight+'">'+fmtDate(k.date)+'</span></div>';
+    });
+    html += '</div>';
+
+    // Milestones with green checkmarks (image-3 style)
     html += '<div class="card" style="margin-top:16px"><h3>Milestones \u2014 what\u2019s done & what\u2019s left</h3>';
     if(checklist.length===0){
       html += '<div style="color:var(--text3);text-align:center;padding:24px">No milestones yet \u2014 your agent will add them shortly.</div>';
     } else {
       checklist.forEach(function(c){
-        html += '<div class="check '+(c.completed?'done':'')+'">';
+        html += '<div class="check '+(c.completed?"done":"")+'">';
         html += '<div class="check-icon">'+(c.completed?'\u2713':'')+'</div>';
         html += '<div class="check-text">'+c.label+
                 (c.due_date?' <span class="check-due">\u00b7 due '+fmtDate(c.due_date)+'</span>':'')+'</div>';

@@ -276,12 +276,21 @@ async function init() {
       document.getElementById('last-updated').textContent = 'Last updated: ' + fmtDate(build.updated_at);
     }
 
+    if (!viewLogged) {
+      viewLogged = true;
+      fetch(SB_URL + '/rest/v1/rpc/log_portal_view', {
+        method: 'POST',
+        headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_page_type: 'build', p_token: token, p_user_agent: navigator.userAgent || null })
+      }).catch(() => {});
+    }
     show('main');
   } catch(e) {
     show('error');
   }
 }
 
+let viewLogged = false;
 init();
 // Silent auto-refresh every 30 seconds so updates from the agent or
 // builder appear without the buyer needing to manually reload.
