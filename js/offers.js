@@ -509,8 +509,19 @@ const Pipeline = {
       return dt <= today;
     };
     const milestones = [d.acceptance_date, d.financing_date, d.inspection_date, d.walkthrough_date, d.closing_date];
-    const done = milestones.filter(isPast).length;
-    return { done, total: milestones.length };
+    const doneInt = milestones.filter(isPast).length;
+    let done = doneInt;
+    // Continuous creep: between milestones, bar climbs gradually toward closing.
+    if (d.closing_date && d.acceptance_date) {
+      const start = new Date(d.acceptance_date+'T00:00:00').getTime();
+      const end   = new Date(d.closing_date  +'T00:00:00').getTime();
+      const now   = today.getTime();
+      if (end > start && now > start && now < end) {
+        const frac = (now - start) / (end - start);
+        done = Math.max(done, frac * milestones.length);
+      }
+    }
+    return { done, doneInt, total: milestones.length };
   },
 
   render(list) {
@@ -527,8 +538,8 @@ const Pipeline = {
       const isClosed = d.stage === 'Closed';
       const isFell = d.stage === 'Fell Through';
 
-      // Progress bar: % based on how many milestone dates have passed
-      const { done, total } = Pipeline.milestonesDone(d);
+      // Progress bar: % based on how many milestone dates have passed (with daily creep toward closing)
+      const { done, doneInt, total } = Pipeline.milestonesDone(d);
       const pct = isClosed ? 100 : isFell ? 0 : Math.round((done / total) * 100);
       const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'var(--accent2)';
 
@@ -576,13 +587,13 @@ const Pipeline = {
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
-          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : 'IN PROGRESS'}</span>
+          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString())) ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
         </div>
         <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
           <div id="pl-bar-${d.id}" style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
-          <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${done} of ${total} milestones passed ⓘ</span>
+          <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${doneInt} of ${total} milestones passed ⓘ</span>
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
@@ -644,12 +655,12 @@ const Pipeline = {
     const walk = document.getElementById(`pl-walk-${id}`)?.value || null;
     const close= document.getElementById(`pl-close-${id}`)?.value|| null;
     const preview = { acceptance_date: acc, financing_date: fin, inspection_date: ins, walkthrough_date: walk, closing_date: close };
-    const { done, total } = Pipeline.milestonesDone(preview);
+    const { done, doneInt, total } = Pipeline.milestonesDone(preview);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
     if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
-    if (lbl) lbl.textContent = `${done} of ${total} milestones passed ⓘ`;
+    if (lbl) lbl.textContent = `${doneInt} of ${total} milestones passed ⓘ`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
     if (pctLbl) pctLbl.textContent = `${pct}%`;
   },
@@ -697,13 +708,27 @@ const Pipeline = {
     });
     if (rec) Object.assign(rec, merged);
 
+    // Auto-advance stage to "Under Contract" once financing date has passed
+    // (financing approved → deal is officially under contract until closing).
+    if (fin && rec) {
+      const finPast = new Date(fin + 'T00:00:00') <= new Date(new Date().toDateString());
+      const isLockedStage = ['Closed','Fell Through','Under Contract','Closing'].includes(rec.stage);
+      if (finPast && !isLockedStage) {
+        await db.from('pipeline').update({ stage: 'Under Contract', updated_at: now }).eq('id', id);
+        rec.stage = 'Under Contract';
+        if (rec.client_id) {
+          await db.from('clients').update({ stage: 'Under Contract', updated_at: now }).eq('id', rec.client_id);
+        }
+      }
+    }
+
     // Update progress bar % in-place — no full reload needed
-    const { done, total } = Pipeline.milestonesDone(merged);
+    const { done, doneInt, total } = Pipeline.milestonesDone(merged);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
     if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
-    if (lbl) lbl.textContent = `${done} of ${total} milestones passed ⓘ`;
+    if (lbl) lbl.textContent = `${doneInt} of ${total} milestones passed ⓘ`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
     if (pctLbl) pctLbl.textContent = `${pct}%`;
     const updEl = document.getElementById(`pl-updated-${id}`);
