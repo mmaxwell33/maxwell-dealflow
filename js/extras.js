@@ -1566,7 +1566,7 @@ const NewBuilds = {
       approval_type: 'Buyer Portal Invite',
       email_subject: subject,
       email_body: plainBody,
-      context_data: { html: htmlB64, build_id: buildId, portal_url: portalUrl },
+      context_data: { html: htmlB64, build_id: buildId, portal_url: portalUrl, cc: b.cc_email || null },
       status: 'Pending'
     });
     if (qErr) { App.toast('Queue failed: ' + qErr.message, 'var(--red)'); return; }
