@@ -1256,12 +1256,44 @@ const Pipeline = {
   },
 
   // ── Client Portal ─────────────────────────────────────────────────────────
-  sharePortal(dealId) {
+  async sharePortal(dealId) {
     const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
+
+    // Auto-link by name if the pipeline row was created without a client_id.
+    // Self-heals legacy rows so Maxwell can send portal links to anyone in
+    // the Pipeline tab without needing a SQL fix per client.
     if (!d.client_id) {
-      App.toast('This deal has no linked client — cannot create portal link', 'var(--red)');
-      return;
+      const name = (d.client_name || '').trim();
+      if (!name) {
+        App.toast('This deal has no client name — cannot link portal', 'var(--red)');
+        return;
+      }
+      let match = (typeof Clients !== 'undefined' && Clients.all)
+        ? Clients.all.find(c => (c.full_name || '').trim().toLowerCase() === name.toLowerCase())
+        : null;
+      if (!match) {
+        const { data: rows } = await db.from('clients')
+          .select('id, full_name, email')
+          .ilike('full_name', name)
+          .limit(2);
+        if (rows && rows.length === 1) match = rows[0];
+        else if (rows && rows.length > 1) {
+          App.toast(`⚠️ Multiple clients named "${name}" — link manually first`, 'var(--red)');
+          return;
+        }
+      }
+      if (!match) {
+        App.toast(`⚠️ No client record found for "${name}" — add one in Clients first`, 'var(--red)');
+        return;
+      }
+      const { error: linkErr } = await db.from('pipeline')
+        .update({ client_id: match.id, updated_at: new Date().toISOString() })
+        .eq('id', d.id);
+      if (linkErr) { App.toast('Could not auto-link client: ' + linkErr.message, 'var(--red)'); return; }
+      d.client_id = match.id;
+      if (!d.client_email && match.email) d.client_email = match.email;
+      App.toast(`🔗 Auto-linked deal to ${match.full_name}`, 'var(--green)');
     }
 
     App.toast('Creating portal link…');

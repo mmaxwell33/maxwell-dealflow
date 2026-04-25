@@ -5,49 +5,54 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Your Build Progress — Maxwell DealFlow</title>
   <style>
+    /* Maxwell DealFlow theme — navy + terracotta (matches app.css :root tokens) */
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
-    .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;overflow:hidden;}
-    .header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px 28px 24px;text-align:center;}
-    .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+    body{background:#0A0E14;color:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
+    .card{background:#161D28;border:1px solid #1F2937;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.28),0 1px 2px rgba(0,0,0,0.5);max-width:560px;width:100%;overflow:hidden;}
+    .header{background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);padding:28px 28px 24px;text-align:center;}
+    .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.78);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
     .header-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:2px;}
-    .header-title{font-size:13px;color:rgba(255,255,255,.6);}
+    .header-title{font-size:13px;color:rgba(255,255,255,.85);}
     .body{padding:28px;}
-    .build-title{font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:4px;}
-    .build-meta{font-size:13px;color:#666;margin-bottom:20px;line-height:1.8;}
+    .build-title{font-size:18px;font-weight:800;color:#F8FAFC;margin-bottom:4px;}
+    .build-meta{font-size:13px;color:#94A3B8;margin-bottom:20px;line-height:1.8;}
     .build-meta span{margin-right:16px;}
     /* Progress bar */
     .progress-wrap{margin-bottom:28px;}
-    .progress-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#555;margin-bottom:8px;}
-    .progress-bar{height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;}
-    .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#059669,#34d399);transition:width .8s ease;}
+    .progress-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#94A3B8;margin-bottom:8px;}
+    .progress-bar{height:10px;background:#1E2636;border-radius:99px;overflow:hidden;}
+    .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#CC785C,#D98B6F);transition:width .8s ease;}
     /* Stages */
-    .stages-title{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
-    .stage-row{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #f3f4f6;position:relative;}
+    .stages-title{font-size:12px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+    .stage-row{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #1F2937;position:relative;}
     .stage-row:last-child{border-bottom:none;}
     .stage-icon-wrap{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:15px;}
-    .stage-icon-done{background:#d1fae5;color:#059669;}
-    .stage-icon-current{background:#dbeafe;color:#1d4ed8;}
-    .stage-icon-upcoming{background:#f3f4f6;color:#9ca3af;}
+    .stage-icon-done{background:rgba(204,120,92,0.16);color:#CC785C;}
+    .stage-icon-current{background:rgba(204,120,92,0.28);color:#D98B6F;}
+    .stage-icon-upcoming{background:#1E2636;color:#64748B;}
     .stage-content{flex:1;}
-    .stage-name{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:2px;}
-    .stage-name.upcoming{color:#9ca3af;}
-    .stage-date{font-size:12px;color:#888;}
+    .stage-name{font-size:14px;font-weight:700;color:#F8FAFC;margin-bottom:2px;}
+    .stage-name.upcoming{color:#64748B;}
+    .stage-date{font-size:12px;color:#94A3B8;}
     .stage-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;margin-top:4px;}
-    .badge-done{background:#d1fae5;color:#065f46;}
-    .badge-current{background:#dbeafe;color:#1e40af;}
-    .badge-upcoming{background:#f3f4f6;color:#9ca3af;}
+    .badge-done{background:rgba(204,120,92,0.16);color:#CC785C;}
+    .badge-current{background:rgba(204,120,92,0.28);color:#D98B6F;}
+    .badge-upcoming{background:#1E2636;color:#94A3B8;}
     /* Contact */
-    .contact-box{margin-top:24px;padding:16px;background:#f8faff;border-radius:12px;}
-    .contact-box-title{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
-    .contact-box a{color:#1d4ed8;text-decoration:none;font-weight:600;}
+    .contact-box{margin-top:24px;padding:16px;background:#1E2636;border:1px solid #1F2937;border-radius:12px;}
+    .contact-box-title{font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+    .contact-box a{color:#CC785C;text-decoration:none;font-weight:600;}
+    /* Error state */
+    #state-error .body{color:#F8FAFC;}
+    #state-error .body > div[style*="font-size:18px"]{color:#F8FAFC !important;}
+    #state-error .body > div[style*="font-size:14px"]{color:#94A3B8 !important;}
     /* States */
-    #state-loading{text-align:center;padding:60px 20px;}
+    #state-loading{text-align:center;padding:60px 20px;color:#94A3B8;}
     #state-error,#state-main{display:none;}
-    .spinner{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+    .spinner{width:36px;height:36px;border:4px solid #1E2636;border-top-color:#CC785C;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    .last-updated{font-size:11px;color:#aaa;margin-top:20px;text-align:center;}
-    footer{margin-top:20px;font-size:11px;color:#aaa;text-align:center;}
+    .last-updated{font-size:11px;color:#64748B;margin-top:20px;text-align:center;}
+    footer{margin-top:20px;font-size:11px;color:#64748B;text-align:center;}
   </style>
 </head>
 <body>
@@ -57,7 +62,7 @@
   <div id="state-loading">
     <div style="padding:60px 20px;text-align:center;">
       <div class="spinner"></div>
-      <div style="color:#555;font-size:14px;">Loading your build progress...</div>
+      <div style="color:#94A3B8;font-size:14px;">Loading your build progress...</div>
     </div>
   </div>
 
@@ -70,8 +75,8 @@
     </div>
     <div class="body" style="text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-      <div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:8px;">Page Not Found</div>
-      <div style="font-size:14px;color:#555;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
+      <div style="font-size:18px;font-weight:800;color:#F8FAFC;margin-bottom:8px;">Page Not Found</div>
+      <div style="font-size:14px;color:#94A3B8;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
       <div class="contact-box" style="text-align:left;margin-top:24px;">
         <div class="contact-box-title">Contact Maxwell</div>
         <div style="font-size:14px;line-height:2.2;">
@@ -90,7 +95,7 @@
       <div class="header-title">REALTOR® | eXp Realty</div>
     </div>
     <div class="body">
-      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
+      <div style="font-size:12px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
       <div class="build-title" id="build-address">—</div>
       <div class="build-meta">
         <span id="build-builder"></span>
