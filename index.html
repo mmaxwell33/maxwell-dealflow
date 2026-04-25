@@ -210,6 +210,9 @@
             <button class="nav-item" data-tab="analytics" onclick="App.switchTab('analytics')">
               <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
             </button>
+            <button class="nav-item" data-tab="portaltraffic" onclick="App.switchTab('portaltraffic')">
+              <span class="nav-icon">📡</span><span class="nav-label">Portal Traffic</span>
+            </button>
           </div>
         </div>
 
@@ -804,6 +807,8 @@
     </div>
 
     <!-- TRACKER SCREEN -->
+    <div id="screen-portaltraffic" class="screen" style="padding:16px;"></div>
+
     <div id="screen-tracker" class="screen" style="padding:16px;">
       <div class="section-header">
         <div class="section-title">👤 Client Tracker</div>
@@ -1713,6 +1718,7 @@
 <script src="js/responses.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/analytics.js"></script>
+    <script src="js/portal-traffic.js"></script>
 <script src="js/tracker.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/calendar.js"></script>

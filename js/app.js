@@ -658,6 +658,7 @@ const App = {
     if (tab === 'newbuilds') NewBuilds.load();
     if (tab === 'email') EmailSend.init();
     if (tab === 'analytics') Analytics.load();
+    if (tab === 'portaltraffic') PortalTraffic.load();
     if (tab === 'tracker') Tracker.load();
     if (tab === 'checklist') Checklist.load();
     if (tab === 'inbox') { /* Inbox loads on button click — instant tab open */ }
