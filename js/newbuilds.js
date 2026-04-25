@@ -72,9 +72,10 @@ const NewBuilds = {
             <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--green),#34d399);border-radius:99px;"></div>
           </div>
           <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">${pct}% complete ${b.est_close_date ? '· Est. possession: ' + App.fmtDate(b.est_close_date) : ''}</div>
-          <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:8px;">
-            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="NewBuilds.openDetail('${b.id}')">📋 Details</button>
-            <button class="btn btn-sm" style="background:var(--accent2);color:#fff;" onclick="NewBuilds.updateStage('${b.id}')">🔄 Update Stage</button>
+          <div style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" style="flex:1;min-width:0;" onclick="NewBuilds.openDetail('${b.id}')">📋 Details</button>
+            <button class="btn btn-sm" style="background:var(--accent2);color:#fff;flex:1;min-width:0;" onclick="NewBuilds.updateStage('${b.id}')">🔄 Update</button>
+            <button class="btn btn-sm" style="background:var(--green);color:#fff;flex:1;min-width:0;" onclick="event.stopPropagation();NewBuilds.shareBuyerPortal('${b.id}')">🔗 Portal</button>
           </div>
         </div>`;
     }).join('');
@@ -247,6 +248,7 @@ const NewBuilds = {
         <button class="btn btn-primary" onclick="App.closeModal();setTimeout(()=>NewBuilds.updateStage('${b.id}'),300)">🔄 Update Stage</button>
         <button class="btn btn-outline" onclick="App.closeModal();setTimeout(()=>NewBuilds._showForm(${JSON.stringify(b).replace(/"/g,'&quot;')}),300)">✏️ Edit</button>
       </div>
+      <button class="btn btn-block" style="background:var(--green);color:#fff;margin-top:8px;" onclick="App.closeModal();setTimeout(()=>NewBuilds.shareBuyerPortal('${b.id}'),300)">🔗 Send Buyer Portal Link</button>
     `);
   },
 
@@ -376,5 +378,97 @@ const NewBuilds = {
     App.closeModal();
     App.toast(`✅ Stage updated to "${newStage}"${sendEmail ? ' — email queued for approval' : ''}`);
     await NewBuilds.load();
+  },
+
+  // Send the buyer a branded email with a link to build.html (the buyer-side new-build tracker).
+  // Reuses the existing build_tokens table — same pattern as saveStageUpdate.
+  // Queues for approval (does NOT auto-send).
+  async shareBuyerPortal(id) {
+    const b = NewBuilds.all.find(x => x.id === id);
+    if (!b) { App.toast('⚠️ Build not found'); return; }
+
+    // Reuse or create active build_tokens row
+    let token = null;
+    const { data: existing } = await db.from('build_tokens')
+      .select('token').eq('build_id', id).eq('active', true).limit(1).single();
+    if (existing) {
+      token = existing.token;
+    } else {
+      token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+      const { error: insErr } = await db.from('build_tokens').insert({ build_id: id, token, active: true });
+      if (insErr) { App.toast('⚠️ Could not create portal link'); return; }
+    }
+
+    const portalUrl = `${location.origin}/build.html?t=${token}`;
+
+    // Resolve client info
+    const client = Clients.all.find(c => c.id === b.client_id);
+    const clientName  = b.clients?.full_name || client?.full_name || b.client_name || 'Client';
+    const clientEmail = b.clients?.email || client?.email || b.client_email || null;
+
+    // No email on file → fall back to copy-link modal (same UX as Offers.sharePortal)
+    if (!clientEmail) {
+      App.openModal(`
+        <div class="modal-title">🔗 Buyer Portal Link</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+          ${clientName} has no email on file — copy this link and share it manually.
+        </div>
+        <input class="form-input" readonly value="${portalUrl}" onclick="this.select()" style="font-size:12px;">
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>App.toast('✅ Link copied'))">📋 Copy Link</button>
+      `);
+      return;
+    }
+
+    // Branded email — queued for approval
+    const firstName = (clientName || '').split(' ')[0] || 'there';
+    const subject = `🏗️ Your Build Progress — ${b.lot_address || 'New Build'}`;
+    const plainBody =
+      `Hi ${firstName},\n\n` +
+      `Here is your private build progress tracker. You can check the latest status of your new construction at any time:\n\n` +
+      `${portalUrl}\n\n` +
+      `Current stage: ${b.current_stage || 'Getting started'}\n` +
+      (b.est_close_date ? `Estimated possession: ${App.fmtDate(b.est_close_date)}\n` : '') +
+      `\nIf you have any questions, just reply to this email or text me.\n\n` +
+      `— Maxwell\nMaxwell Delali Midodzi · REALTOR® · eXp Realty\n(709) 325-0545`;
+
+    const html = `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;background:#f0f4ff;padding:24px 16px;">
+        <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+          <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px;text-align:center;color:#fff;">
+            <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">Maxwell DealFlow</div>
+            <div style="font-size:20px;font-weight:800;margin-bottom:2px;">Maxwell Delali Midodzi</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);">REALTOR® | eXp Realty</div>
+          </div>
+          <div style="padding:28px;">
+            <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
+            <div style="font-size:18px;font-weight:800;color:#1a1a2e;margin-bottom:6px;">${b.lot_address || 'Your New Build'}</div>
+            <div style="font-size:13px;color:#666;margin-bottom:20px;">
+              ${b.builder_name ? '🏗️ ' + b.builder_name + ' &nbsp;•&nbsp; ' : ''}
+              ${b.est_close_date ? '📅 Est. possession ' + App.fmtDate(b.est_close_date) : ''}
+            </div>
+            <p style="font-size:14px;color:#333;line-height:1.6;margin:0 0 16px;">Hi ${firstName},</p>
+            <p style="font-size:14px;color:#333;line-height:1.6;margin:0 0 16px;">
+              Here is your private build progress tracker. Tap the button any time to see exactly where things stand —
+              current stage is <b>${b.current_stage || 'Getting started'}</b>.
+            </p>
+            <div style="text-align:center;margin:24px 0;">
+              <a href="${portalUrl}" style="display:inline-block;background:#5b5bd6;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:14px;">View Your Build Progress →</a>
+            </div>
+            <p style="font-size:13px;color:#666;line-height:1.6;margin:0;">
+              Questions? Just reply to this email or text me at <a href="tel:7093250545" style="color:#1d4ed8;">(709) 325-0545</a>.
+            </p>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#aaa;margin-top:16px;">
+          Maxwell DealFlow CRM &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty
+        </div>
+      </div>`;
+
+    await Notify.queue(
+      'Build Portal Invite', b.client_id || null, clientName, clientEmail,
+      subject, plainBody, id, html, null, b.cc_email || null
+    );
+    App.toast('✅ Buyer portal email queued for approval');
+    App.pushNotify('🏗️ Build Portal Invite Queued', `${clientName} — ${b.lot_address || 'New Build'}`, 'approvals');
   }
 };
