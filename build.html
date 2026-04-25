@@ -8,7 +8,7 @@
     /* Maxwell DealFlow theme — navy + terracotta (matches app.css :root tokens) */
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:#0A0E14;color:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
-    .card{background:#161D28;border:1px solid #1F2937;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.28),0 1px 2px rgba(0,0,0,0.5);max-width:920px;width:100%;overflow:hidden;}
+    .card{background:#161D28;border:1px solid #1F2937;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.28),0 1px 2px rgba(0,0,0,0.5);max-width:1200px;width:100%;overflow:hidden;}
     .header{background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);padding:28px 28px 24px;text-align:center;}
     .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.78);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
     .header-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:2px;}
@@ -108,8 +108,10 @@
     </div>
     <div class="body">
       <div style="font-size:12px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
+      <div id="build-greeting" style="font-size:15px;font-weight:700;color:#CC785C;margin-bottom:6px;display:none;"></div>
       <div class="build-title" id="build-address">—</div>
       <div class="build-meta">
+        <span id="build-client"></span>
         <span id="build-builder"></span>
         <span id="build-closing"></span>
       </div>
@@ -218,6 +220,13 @@ async function init() {
 
     // Populate header
     document.getElementById('build-address').textContent = build.lot_address || '—';
+    if (build.client_name) {
+      const firstName = build.client_name.split(' ')[0];
+      const greetEl = document.getElementById('build-greeting');
+      greetEl.textContent = '👋 Hi ' + firstName + ' — welcome to your build progress page';
+      greetEl.style.display = 'block';
+      document.getElementById('build-client').textContent = '👤 ' + build.client_name;
+    }
     if (build.builder_name) document.getElementById('build-builder').textContent = '🏗️ ' + build.builder_name;
     if (build.est_close_date || build.closing_date) {
       const closeDate = build.est_close_date || build.closing_date;
