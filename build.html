@@ -8,7 +8,7 @@
     /* Maxwell DealFlow theme — navy + terracotta (matches app.css :root tokens) */
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:#0A0E14;color:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
-    .card{background:#161D28;border:1px solid #1F2937;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.28),0 1px 2px rgba(0,0,0,0.5);max-width:560px;width:100%;overflow:hidden;}
+    .card{background:#161D28;border:1px solid #1F2937;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.28),0 1px 2px rgba(0,0,0,0.5);max-width:920px;width:100%;overflow:hidden;}
     .header{background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);padding:28px 28px 24px;text-align:center;}
     .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.78);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
     .header-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:2px;}
@@ -42,6 +42,18 @@
     .contact-box{margin-top:24px;padding:16px;background:#1E2636;border:1px solid #1F2937;border-radius:12px;}
     .contact-box-title{font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
     .contact-box a{color:#CC785C;text-decoration:none;font-weight:600;}
+    /* Section / Step (read-only checklist matching agent view) */
+    .section{margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid #1F2937;background:#0A0E14;}
+    .section-header{padding:12px 16px;background:#1E2636;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;color:#F8FAFC;}
+    .section-header.done{background:rgba(204,120,92,0.16);color:#CC785C;}
+    .section-count{font-size:12px;font-weight:700;color:#94A3B8;}
+    .section-header.done .section-count{color:#CC785C;}
+    .step-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid #1F2937;}
+    .step-row:first-of-type{border-top:none;}
+    .step-checkbox{width:18px;height:18px;border-radius:4px;border:1.5px solid #64748B;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .step-checkbox.done{background:#CC785C;border-color:#CC785C;color:#fff;font-size:12px;font-weight:800;}
+    .step-label{font-size:14px;color:#F8FAFC;}
+    .step-label.done{text-decoration:line-through;color:#94A3B8;}
     /* Error state */
     #state-error .body{color:#F8FAFC;}
     #state-error .body > div[style*="font-size:18px"]{color:#F8FAFC !important;}
@@ -110,8 +122,8 @@
         <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
       </div>
 
-      <div class="stages-title">Build Milestones</div>
-      <div id="stages-list"></div>
+      <div class="stages-title">Build Progress</div>
+      <div id="sections-list"></div>
 
       <div class="last-updated" id="last-updated"></div>
 
@@ -133,19 +145,46 @@
 const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 
-// Fixed stage list — matches what's in the new_builds table columns
-const FIXED_STAGES = [
-  { key: 'deposit',          label: 'Deposit Paid',            dateField: 'deposit_date' },
-  { key: 'pa_submitted',     label: 'Purchase Agreement',      dateField: 'pa_submitted_date' },
-  { key: 'lot_identified',   label: 'Lot Identified',          dateField: 'lot_identified_date' },
-  { key: 'lot_offer',        label: 'Lot Offer Accepted',      dateField: 'lot_offer_date' },
-  { key: 'design_selections',label: 'Design Selections',       dateField: 'design_selections_date' },
-  { key: 'construction_start',label:'Construction Started',    dateField: 'construction_start_date' },
-  { key: 'framing',          label: 'Framing',                 dateField: 'framing_date' },
-  { key: 'drywall',          label: 'Drywall',                 dateField: 'drywall_date' },
-  { key: 'finishes',         label: 'Finishes & Fixtures',     dateField: 'finishes_date' },
-  { key: 'walkthrough',      label: 'Final Walkthrough',       dateField: 'walkthrough_date' },
-  { key: 'closing',          label: 'Closing / Possession',    dateField: 'closing_date' },
+// 5 sections / 27 steps — matches NewBuilds.STAGES in js/extras.js so buyer
+// view stays in sync with what the agent (and builder) see in DealFlow.
+const SECTIONS = [
+  { key:'pre_construction', label:'📋 Pre-Construction', steps:[
+    { key:'builder_contacted',  label:'Builder contacted' },
+    { key:'lot_visited',        label:'Lot visited / site walk done' },
+    { key:'plans_selections',   label:'Plans & design selections made' },
+    { key:'aps_drafted',        label:'APS drafted and reviewed with client' },
+    { key:'aps_signed',         label:'APS signed by client' },
+    { key:'aps_sent_builder',   label:'APS sent to builder' },
+    { key:'aps_sent_lender',    label:'APS sent to lender for financing' },
+  ]},
+  { key:'financing', label:'🏦 Financing', steps:[
+    { key:'pre_asset_submitted', label:'Pre-asset submitted to lender' },
+    { key:'pre_asset_approved',  label:'Pre-asset approved' },
+    { key:'partial_approval',    label:'Partial financing approval received' },
+    { key:'full_approval',       label:'Full financing approval received' },
+  ]},
+  { key:'construction', label:'🏗️ Construction', steps:[
+    { key:'construction_started', label:'Builder starts construction' },
+    { key:'foundation',           label:'Foundation poured' },
+    { key:'framing',              label:'Framing complete' },
+    { key:'roofing',              label:'Roofing complete' },
+    { key:'rough_ins',            label:'Rough-ins (electrical & plumbing)' },
+    { key:'insulation_drywall',   label:'Insulation & drywall' },
+    { key:'cabinets_flooring',    label:'Cabinets & flooring' },
+    { key:'finishes',             label:'Finishes & fixtures' },
+  ]},
+  { key:'conditions', label:'✅ Conditions & Closing Prep', steps:[
+    { key:'inspection_done',    label:'Home inspection done' },
+    { key:'conditions_waived',  label:'Conditions waived' },
+    { key:'docs_attached',      label:'All documents attached' },
+    { key:'lawyer_confirmed',   label:'Financing confirmed by lawyer' },
+  ]},
+  { key:'possession', label:'🎉 Possession', steps:[
+    { key:'final_walkthrough',  label:'Final walkthrough with client' },
+    { key:'ps_signed',          label:'P&S agreement signed' },
+    { key:'closing_docs_sent',  label:'Closing documents sent to lawyer' },
+    { key:'keys_handed',        label:'Keys handed to client' },
+  ]},
 ];
 
 function fmtDate(iso) {
@@ -185,61 +224,41 @@ async function init() {
       document.getElementById('build-closing').textContent = '📅 Est. Possession: ' + fmtDate(closeDate);
     }
 
-    // Build stage list — determine current stage
-    const currentStageKey = build.current_stage || '';
-    let currentFound = false;
-    let doneCount = 0;
+    // Read pipeline_milestones (same JSON the agent + builder write to)
+    const pm = build.pipeline_milestones || {};
+    let totalSteps = 0;
+    let doneSteps = 0;
 
-    // Also parse custom stages from stage_history
-    const stageHistory = build.stage_history || [];
+    const sectionsHtml = SECTIONS.map(section => {
+      const sec = pm[section.key] || { steps: {} };
+      const steps = sec.steps || {};
+      const sectionDone = section.steps.length;
+      const sectionDoneCount = section.steps.filter(s => steps[s.key]).length;
+      const allDone = sectionDoneCount === sectionDone;
+      totalSteps += sectionDone;
+      doneSteps += sectionDoneCount;
 
-    const stagesHtml = FIXED_STAGES.map((stage, i) => {
-      const dateVal = build[stage.dateField];
-      const isDone = !!dateVal;
-      const isCurrent = !isDone && !currentFound && (
-        currentStageKey === stage.key || currentStageKey === stage.label ||
-        (i > 0 && !!build[FIXED_STAGES[i-1].dateField] && !build[FIXED_STAGES[i+1]?.dateField])
-      );
+      const stepsHtml = section.steps.map(s => {
+        const isDone = !!steps[s.key];
+        return `<div class="step-row">
+          <div class="step-checkbox${isDone ? ' done' : ''}">${isDone ? '✓' : ''}</div>
+          <div class="step-label${isDone ? ' done' : ''}">${s.label}</div>
+        </div>`;
+      }).join('');
 
-      if (isDone) { doneCount++; if (!currentFound) {} }
-      if (isCurrent) currentFound = true;
-
-      const iconClass = isDone ? 'stage-icon-done' : isCurrent ? 'stage-icon-current' : 'stage-icon-upcoming';
-      const icon = isDone ? '✅' : isCurrent ? '▶️' : '○';
-      const nameClass = isDone || isCurrent ? '' : ' upcoming';
-      const badge = isDone
-        ? `<span class="stage-badge badge-done">Completed</span>`
-        : isCurrent
-        ? `<span class="stage-badge badge-current">In Progress</span>`
-        : `<span class="stage-badge badge-upcoming">Upcoming</span>`;
-
-      return `<div class="stage-row">
-        <div class="stage-icon-wrap ${iconClass}">${icon}</div>
-        <div class="stage-content">
-          <div class="stage-name${nameClass}">${stage.label}</div>
-          ${dateVal ? `<div class="stage-date">${fmtDate(dateVal)}</div>` : ''}
-          ${badge}
+      return `<div class="section">
+        <div class="section-header${allDone ? ' done' : ''}">
+          <span>${allDone ? '✅ ' : ''}${section.label}</span>
+          <span class="section-count">${sectionDoneCount}/${sectionDone}${allDone ? ' · Complete' : ''}</span>
         </div>
+        ${stepsHtml}
       </div>`;
     }).join('');
 
-    // Add custom stages from stage_history
-    const customStages = stageHistory.filter(s => s.custom).map(s => `
-      <div class="stage-row">
-        <div class="stage-icon-wrap ${s.completed_at ? 'stage-icon-done' : 'stage-icon-current'}">${s.completed_at ? '✅' : '▶️'}</div>
-        <div class="stage-content">
-          <div class="stage-name">${s.label}</div>
-          ${s.completed_at ? `<div class="stage-date">${fmtDate(s.completed_at)}</div>` : ''}
-          <span class="stage-badge ${s.completed_at ? 'badge-done' : 'badge-current'}">${s.completed_at ? 'Completed' : 'In Progress'}</span>
-        </div>
-      </div>`).join('');
-
-    document.getElementById('stages-list').innerHTML = stagesHtml + customStages;
+    document.getElementById('sections-list').innerHTML = sectionsHtml;
 
     // Progress bar
-    const total = FIXED_STAGES.length + stageHistory.filter(s => s.custom).length;
-    const done = doneCount + stageHistory.filter(s => s.custom && s.completed_at).length;
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
     document.getElementById('progress-pct').textContent = pct + '%';
     document.getElementById('progress-fill').style.width = pct + '%';
 
@@ -255,6 +274,9 @@ async function init() {
 }
 
 init();
+// Silent auto-refresh every 30 seconds so updates from the agent or
+// builder appear without the buyer needing to manually reload.
+setInterval(init, 30000);
 </script>
 </body>
 </html>
