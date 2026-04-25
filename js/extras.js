@@ -1363,7 +1363,8 @@ const NewBuilds = {
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.openEdit('${b.id}')">✏️ Edit Details</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
-          ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Link</button>` : ''}
+          ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Builder</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendClientLink('${b.id}')" style="color:var(--green);border-color:var(--green);">🔗 Send Buyer Portal</button>
         </div>
       </div>`;
     }).join('');
@@ -1491,6 +1492,86 @@ const NewBuilds = {
     if (error) { App.toast('Failed: ' + error.message, 'var(--red)'); return; }
     App.toast('✅ Link revoked — email cleared', 'var(--green)');
     NewBuilds.load();
+  },
+
+  // ── SEND BUYER PORTAL LINK ────────────────────────────────────────────
+  // Reuses the existing build_tokens table + build.html page (the simple buyer
+  // tracker). Queues a branded email through approval_queue, identical pattern
+  // to sendBuilderLink. Independent of the builder_token flow.
+  async sendClientLink(buildId) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) return;
+
+    // Resolve a default email from joined client / Clients cache / denormalized field
+    const cachedClient = (typeof Clients !== 'undefined' && Clients.all)
+      ? Clients.all.find(c => c.id === b.client_id) : null;
+    const defaultEmail = b.clients?.email || cachedClient?.email || b.client_email || '';
+    const email = prompt('Send buyer portal link to which email?', defaultEmail);
+    if (email === null) return;
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { App.toast('⚠️ Valid email required', 'var(--red)'); return; }
+
+    // Reuse or create an active build_tokens row
+    let token = null;
+    try {
+      const { data: existing } = await db.from('build_tokens')
+        .select('token').eq('build_id', buildId).eq('active', true).limit(1).single();
+      if (existing?.token) token = existing.token;
+    } catch (_) { /* no row — fall through and create */ }
+    if (!token) {
+      token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
+              .replace(/-/g,'') + Math.random().toString(36).slice(2,10);
+      const { error: insErr } = await db.from('build_tokens').insert({ build_id: buildId, token, active: true });
+      if (insErr) { App.toast('Failed: ' + insErr.message, 'var(--red)'); return; }
+    }
+
+    const portalUrl = `${location.origin}/build.html?t=${token}`;
+    const property = b.lot_address || 'Your New Build';
+    const clientName = b.clients?.full_name || cachedClient?.full_name || b.client_name || 'there';
+    const firstName = (clientName || 'there').split(' ')[0];
+    const stageLabel = b.current_stage || (b.pipeline_milestones ? 'In progress' : 'Getting started');
+
+    const subject = `🏗️ Your Build Progress — ${property}`;
+    const plainBody =
+      `Hi ${firstName},\n\n` +
+      `Here is your private build progress tracker. Tap the link below any time to see exactly where things stand:\n\n` +
+      `${portalUrl}\n\n` +
+      `Current stage: ${stageLabel}\n` +
+      (b.est_completion_date ? `Estimated possession: ${App.fmtDate ? App.fmtDate(b.est_completion_date) : b.est_completion_date}\n` : '') +
+      `\nIf you have any questions, just reply to this email or call (709) 325-0545.\n\n` +
+      `Maxwell Delali Midodzi\nREALTOR® · eXp Realty`;
+
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;">
+      <p>Hi ${firstName},</p>
+      <p>Here is your private build progress tracker for <strong>${property}</strong>. Tap the button any time to see exactly where things stand.</p>
+      <p style="background:#f5f7fb;border-radius:10px;padding:14px 16px;margin:18px 0;font-size:14px;">
+        📋 Current stage: <strong>${stageLabel}</strong>${b.est_completion_date ? `<br>📅 Estimated possession: <strong>${App.fmtDate ? App.fmtDate(b.est_completion_date) : b.est_completion_date}</strong>` : ''}
+      </p>
+      <p style="text-align:center;margin:28px 0;">
+        <a href="${portalUrl}" style="background:#5b5bd6;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">🏗️ View Your Build Progress</a>
+      </p>
+      <p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="color:#5b5bd6;word-break:break-all;">${portalUrl}</a></p>
+      <p style="font-size:13px;color:#666;">Questions? Reply to this email or call (709) 325-0545.</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p>
+    </body></html>`;
+
+    // Queue via approval_queue exactly like sendBuilderLink
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
+    const { error: qErr } = await db.from('approval_queue').insert({
+      agent_id: agentId,
+      client_name: clientName,
+      client_email: email.trim(),
+      approval_type: 'Buyer Portal Invite',
+      email_subject: subject,
+      email_body: plainBody,
+      context_data: { html: htmlB64, build_id: buildId, portal_url: portalUrl },
+      status: 'Pending'
+    });
+    if (qErr) { App.toast('Queue failed: ' + qErr.message, 'var(--red)'); return; }
+    App.toast('✅ Buyer portal link queued in Approvals', 'var(--green)');
+    if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 600);
   },
 
   // ── PENDING VISIT-REQUEST BANNER ───────────────────────────────────────
