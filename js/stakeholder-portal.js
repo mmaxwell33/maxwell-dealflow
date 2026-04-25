@@ -96,7 +96,7 @@
     html += '</div>';
 
     html += '<div class="footer">\ud83d\udd12 Secure link \u00b7 expires '+fmtDate(d.expires_at)+
-            ' \u00b7 auto-extends with each visit<br>Maxwell Delali Midodzi \u00b7 Royal LePage \u00b7 (709) 325-0545</div>';
+            ' \u00b7 auto-extends with each visit<br>Maxwell Delali Midodzi \u00b7 REALTOR\u00ae \u00b7 eXp Realty \u00b7 (709) 325-0545</div>';
 
     root.innerHTML = html;
 
