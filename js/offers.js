@@ -1234,48 +1234,40 @@ const Pipeline = {
   sharePortal(dealId) {
     const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
+    if (!d.client_id) {
+      App.toast('This deal has no linked client — cannot create portal link', 'var(--red)');
+      return;
+    }
 
-    const today = new Date().toISOString().slice(0,10);
-    const milestones = [
-      { label: 'Offer Accepted',         date: d.acceptance_date,  done: !!(d.acceptance_date  && d.acceptance_date  <= today) },
-      { label: 'Financing Condition',    date: d.financing_date,   done: !!(d.financing_date   && d.financing_date   <= today) },
-      { label: 'Inspection Condition',   date: d.inspection_date,  done: !!(d.inspection_date  && d.inspection_date  <= today) },
-      { label: 'Final Walkthrough',      date: d.walkthrough_date, done: !!(d.walkthrough_date && d.walkthrough_date <= today) },
-      { label: 'Closing Day',            date: d.closing_date,     done: !!(d.closing_date     && d.closing_date     <= today) }
-    ];
+    App.toast('Creating portal link…');
 
-    const agentName = currentAgent?.full_name || currentAgent?.name || 'Maxwell Midodzi';
-    const agentEmail = currentAgent?.email || '';
-    const agentPhone = currentAgent?.phone || '';
-
-    const payload = {
-      clientName:       d.client_name || '',
-      address:          d.property_address || '',
-      stage:            d.stage || '',
-      offerAmount:      d.offer_amount || null,
-      acceptance_date:  d.acceptance_date  || null,
-      financing_date:   d.financing_date   || null,
-      inspection_date:  d.inspection_date  || null,
-      walkthrough_date: d.walkthrough_date || null,
-      closing_date:     d.closing_date     || null,
-      milestones,
-      agent: { name: agentName, email: agentEmail, phone: agentPhone, brokerage: 'eXp Realty' },
-      generated: new Date().toISOString()
-    };
-
-    const token   = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-    const url     = `${baseUrl}portal.html?t=${token}`;
-
-    App.openModal(`
-      <div class="modal-title">🔗 Client Portal Link</div>
-      <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:11px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>App.toast('✅ Link copied!','var(--green)'))">Copy Link</button>
-        <button class="btn btn-outline" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">Preview</button>
-      </div>
-    `);
+    db.rpc('stakeholder_create', {
+      p_pipeline_id: d.id,
+      p_client_id:   d.client_id,
+      p_agent_id:    (typeof currentAgent !== 'undefined' && currentAgent) ? currentAgent.id : null,
+      p_role:        'client',
+      p_name:        d.client_name || 'Client',
+      p_email:       d.client_email || ((typeof currentAgent !== 'undefined' && currentAgent) ? currentAgent.email : 'no-email@example.com'),
+      p_phone:       null,
+      p_notes:       'Created from Pipeline → sharePortal modal'
+    }).then(({ data, error }) => {
+      if (error || !data || !data.ok) {
+        const msg = (error && error.message) || (data && data.error) || 'Could not create portal link';
+        App.toast(msg, 'var(--red)');
+        return;
+      }
+      const url = data.portal_url;
+      const safeUrl = url.replace(/'/g, "\\'");
+      App.openModal(`
+        <div class="modal-title">\u{1F517} Client Portal Link</div>
+        <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:12px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeUrl}').then(()=>App.toast('✅ Link copied!','var(--green)'))">Copy Link</button>
+          <button class="btn btn-outline" onclick="window.open('${safeUrl}','_blank')">Preview</button>
+        </div>
+      `);
+    });
   },
 
   // ── PDF Deal Summary ──────────────────────────────────────────────────────
