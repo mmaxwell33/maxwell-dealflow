@@ -1282,16 +1282,58 @@ const Pipeline = {
         return;
       }
       const url = data.portal_url;
-      const safeUrl = url.replace(/'/g, "\\'");
-      App.openModal(`
-        <div class="modal-title">\u{1F517} Client Portal Link</div>
-        <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:12px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeUrl}').then(()=>App.toast('✅ Link copied!','var(--green)'))">Copy Link</button>
-          <button class="btn btn-outline" onclick="window.open('${safeUrl}','_blank')">Preview</button>
-        </div>
-      `);
+
+      // If the client has an email on file, queue a branded portal-invite email
+      // in Approvals (same pattern as Transaction Room → sendPortalLink).
+      // Otherwise fall back to a Copy Link modal so Maxwell can share manually.
+      const hasEmail = !!d.client_email;
+      const clientFirst = (d.client_name || 'Client').split(' ')[0];
+      const subject = `Your deal portal — ${d.property_address || 'progress link'}`;
+      const plainBody =
+        `Hi ${clientFirst},\n\n` +
+        `I have set up a private progress portal for you on the ${d.property_address || 'deal'}.\n\n` +
+        `View it here: ${url}\n\n` +
+        `This link is private to you and expires in 90 days (auto-extends each time you visit). ` +
+        `You can revoke it any time from the portal itself.\n\n` +
+        `— Maxwell Delali Midodzi\nRoyal LePage · (709) 325-0545`;
+      const html =
+        '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
+          '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">Client Portal</div>' +
+            '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal is ready</h1>' +
+            '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
+          '</div>' +
+          '<p>Hi ' + App.esc(clientFirst) + ',</p>' +
+          '<p>I have set up a private progress portal so you can follow this deal in real time — milestones, dates, key documents, all in one place.</p>' +
+          '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+          '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
+          '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
+          '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>Royal LePage · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+        '</div>';
+
+      if (hasEmail && typeof Notify !== 'undefined' && Notify.queue) {
+        Notify.queue('Portal Invite', d.client_id, d.client_name, d.client_email, subject, plainBody, null, html)
+          .then(() => App.toast(`📧 Portal invite for ${d.client_name} queued in Approvals`, 'var(--green)'))
+          .catch(e => {
+            console.error('Notify.queue portal invite', e);
+            App.toast('⚠️ Could not queue invite — copy link manually', 'var(--red)');
+          });
+      } else {
+        const safeUrl = url.replace(/'/g, "\\'");
+        const noEmailNote = hasEmail
+          ? ''
+          : `<p style="font-size:12px;color:var(--yellow);margin:0 0 12px;">⚠️ This client has no email on file — copy the link and share it manually.</p>`;
+        App.openModal(`
+          <div class="modal-title">\u{1F517} Client Portal Link</div>
+          <p style="font-size:13px;color:var(--text2);margin:10px 0 12px;">Share this link with <strong>${App.esc(d.client_name||'your client')}</strong>. They'll see deal status, key dates, and your contact info — no login required.</p>
+          ${noEmailNote}
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;word-break:break-all;font-size:12px;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeUrl}').then(()=>App.toast('✅ Link copied!','var(--green)'))">Copy Link</button>
+            <button class="btn btn-outline" onclick="window.open('${safeUrl}','_blank')">Preview</button>
+          </div>
+        `);
+      }
     });
   },
 
