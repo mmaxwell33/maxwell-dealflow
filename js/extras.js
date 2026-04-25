@@ -209,6 +209,14 @@ const Approvals = {
   openEdit(id) {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
+      // Pull existing CC out of context_data so it's editable in the modal
+      let existingCc = '';
+      if (item.context_data) {
+        try {
+          const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
+          existingCc = ctx?.cc || '';
+        } catch (_) { /* leave blank */ }
+      }
       App.openModal(`
         <div class="modal-title">📧 Review & Edit Email</div>
 
@@ -219,6 +227,11 @@ const Approvals = {
             <div style="font-size:12px;color:var(--text2);">✉️ ${App.esc(item.client_email||'No email on file')}</div>
             <div style="font-size:11px;color:var(--text2);margin-top:2px;">${App.esc(item.approval_type||'Email')} · ${App.timeAgo(item.created_at)}</div>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">CC (comma-separated)</label>
+          <input class="form-input" id="edit-appr-cc" value="${App.esc(existingCc)}" placeholder="spouse@email.com, partner@email.com" style="font-size:13px;">
         </div>
 
         <div class="form-group">
@@ -243,7 +256,22 @@ const Approvals = {
   async saveEdit(id) {
     const subject = document.getElementById('edit-appr-subject')?.value.trim();
     const body = document.getElementById('edit-appr-body')?.value.trim();
-    await db.from('approval_queue').update({ email_subject: subject, email_body: body, updated_at: new Date().toISOString() }).eq('id', id);
+    const cc = document.getElementById('edit-appr-cc')?.value.trim() || null;
+
+    // Merge cc back into context_data without dropping html / ics / build_id / etc.
+    const { data: existing } = await db.from('approval_queue').select('context_data').eq('id', id).single();
+    let ctx = {};
+    if (existing?.context_data) {
+      try { ctx = typeof existing.context_data === 'string' ? JSON.parse(existing.context_data) : existing.context_data; } catch (_) { ctx = {}; }
+    }
+    ctx.cc = cc;
+
+    await db.from('approval_queue').update({
+      email_subject: subject,
+      email_body: body,
+      context_data: ctx,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
     App.closeModal();
     await Approvals.approve(id);
   },
