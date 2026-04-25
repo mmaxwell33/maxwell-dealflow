@@ -978,6 +978,7 @@ const Pipeline = {
           <div style="font-weight:700;font-size:14px;">${App.esc(p.name)}</div>
           <div style="font-size:12px;color:var(--text2);">${App.esc(p.role)}${p.email ? ' · ' + App.esc(p.email) : ''}${p.phone ? ' · ' + App.esc(p.phone) : ''}</div>
         </div>
+        ${p.email && p.role !== 'Agent' ? `<button style="background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;font-weight:600;margin-right:6px;" onclick="Pipeline.sendPortalLink(${i})" title="Send portal link">🔗 Portal</button>` : ''}
         ${i >= 2 ? `<button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px;" onclick="Pipeline.removeParty(${i})" title="Remove">✕</button>` : ''}
       </div>`).join('') : '<div style="color:var(--text2);font-size:13px;text-align:center;padding:16px;">No parties yet.</div>';
   },
@@ -1005,6 +1006,82 @@ const Pipeline = {
     parties.splice(idx, 1);
     localStorage.setItem(`df-room-${id}`, JSON.stringify(parties));
     Pipeline.renderParties();
+  },
+
+  async sendPortalLink(idx) {
+    const id = Pipeline._roomId;
+    if (!id) return;
+    const d = Pipeline.all.find(x => x.id === id);
+    if (!d) return;
+    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
+    const p = parties[idx];
+    if (!p || !p.email) { App.toast('WARN: This party has no email'); return; }
+
+    const roleMap = {
+      'Buyer': 'client', 'Seller': 'client',
+      'Lawyer / Notary': 'lawyer',
+      'Home Inspector': 'inspector',
+      'Mortgage Broker': 'mortgage_broker',
+      'Lender / Bank': 'mortgage_broker',
+      'Appraiser': 'appraiser',
+      'Insurance': 'insurance'
+    };
+    const dbRole = roleMap[p.role] || 'other';
+    const rolePretty = p.role || 'Stakeholder';
+
+    if (!confirm(`Send portal link to ${p.name} (${p.email})?\n\nThey will get a private, expiring link to view this deal's progress.`)) return;
+
+    const { data, error } = await db.rpc('stakeholder_create', {
+      p_pipeline_id: id,
+      p_client_id:   d.client_id,
+      p_agent_id:    currentAgent?.id,
+      p_role:        dbRole,
+      p_name:        p.name,
+      p_email:       p.email,
+      p_phone:       p.phone || null,
+      p_notes:       null
+    });
+    if (error || !data?.ok) {
+      console.error('stakeholder_create', error || data);
+      App.toast(`Could not create portal link: ${error?.message || data?.error || 'unknown error'}`, 'var(--red)');
+      return;
+    }
+
+    const portalUrl = data.portal_url;
+    const subject = `Your deal portal — ${d.property_address || 'progress link'}`;
+    const plainBody =
+      `Hi ${p.name.split(' ')[0]},\n\n` +
+      `I have set up a private progress portal for you on the ${d.property_address || 'deal'}.\n\n` +
+      `View it here: ${portalUrl}\n\n` +
+      `This link is private to you and expires in 90 days (auto-extends each time you visit). ` +
+      `You can revoke it any time from the portal itself.\n\n` +
+      `— Maxwell Delali Midodzi\nRoyal LePage · (709) 325-0545`;
+    const html =
+      '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
+        '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+          '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">' + App.esc(rolePretty) + ' Portal</div>' +
+          '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal is ready</h1>' +
+          '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
+        '</div>' +
+        '<p>Hi ' + App.esc(p.name.split(' ')[0]) + ',</p>' +
+        '<p>I have set up a private progress portal so you can follow this deal in real time — milestones, dates, key documents, all in one place.</p>' +
+        '<p style="text-align:center;margin:26px 0;"><a href="' + portalUrl + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+        '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
+        '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
+        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>Royal LePage · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+      '</div>';
+
+    await Notify.queue(
+      'Portal Invite',
+      d.client_id,
+      p.name,
+      p.email,
+      subject,
+      plainBody,
+      null,
+      html
+    );
+    App.toast(`Portal invite for ${p.name} queued in Approvals`);
   },
 
   renderTimeline() {
