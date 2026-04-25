@@ -191,19 +191,6 @@
       ${msHtml}
     </div>` : ''}
 
-    <!-- Agent Card -->
-    <div class="card">
-      <div class="section-label">Your Agent</div>
-      <div class="agent-row">
-        <div class="agent-avatar">${initials}</div>
-        <div>
-          <div class="agent-name">${esc(agent.name||'Maxwell')}</div>
-          <div class="agent-biz">${esc(agent.brokerage||'eXp Realty')}</div>
-        </div>
-      </div>
-      ${contactLinks ? `<div class="contact-links">${contactLinks}</div>` : ''}
-    </div>
-
     ${genDate ? `<div class="powered">Generated ${genDate} · <a href="#">Maxwell DealFlow CRM</a></div>` : ''}
   `;
 })();
