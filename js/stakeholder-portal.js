@@ -1,7 +1,7 @@
 // Maxwell DealFlow — Stakeholder Portal (Phase 1: read-only)
 // Token-gated, role-aware, no login required.
 (function(){
-  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const params = new URLSearchParams(location.search);
   const token = params.get('t');
   const root = document.getElementById('root');
