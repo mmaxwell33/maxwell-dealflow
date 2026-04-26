@@ -771,7 +771,7 @@ const Pipeline = {
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
-        <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
+        <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
         ${depositBlock}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
@@ -934,6 +934,56 @@ const Pipeline = {
     if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
 
     App.toast('💾 Dates saved!');
+  },
+
+  async editPrice(id, currentAmount) {
+    const input = prompt('New purchase price (numbers only, no $ or commas):', currentAmount);
+    if (input === null) return;
+    const newAmt = parseFloat(String(input).replace(/[^\d.]/g, ''));
+    if (!newAmt || newAmt <= 0) { App.toast('⚠️ Invalid amount'); return; }
+
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (!rec) return;
+    const oldAmt = Number(rec.offer_amount) || 0;
+    if (newAmt === oldAmt) return;
+
+    const now = new Date().toISOString();
+
+    const { error: pErr } = await db.from('pipeline')
+      .update({ offer_amount: newAmt, updated_at: now }).eq('id', id);
+    if (pErr) { App.toast('⚠️ Pipeline update failed'); return; }
+
+    const { data: comm } = await db.from('commissions')
+      .select('id, commission_rate, brokerage_fee_rate')
+      .eq('agent_id', currentAgent.id)
+      .eq('property_address', rec.property_address)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (comm) {
+      const rate      = parseFloat(comm.commission_rate)    || 2.5;
+      const brokerPct = parseFloat(comm.brokerage_fee_rate) || 20;
+      const taxPct    = 15;
+      const gross     = newAmt * rate / 100;
+      const hst       = gross * taxPct / 100;
+      const brokerFee = gross * brokerPct / 100;
+      const net       = (gross + hst) - brokerFee;
+      await db.from('commissions').update({
+        sale_price:        newAmt,
+        gross_commission:  gross,
+        hst_collected:     hst,
+        brokerage_fees:    brokerFee,
+        agent_net:         net,
+        updated_at:        now,
+      }).eq('id', comm.id);
+    }
+
+    rec.offer_amount = newAmt;
+    const el = document.getElementById(`pl-price-${id}`);
+    if (el) el.textContent = App.fmtMoney(newAmt);
+
+    await App.logActivity('PIPELINE_PRICE_EDITED', rec.client_name, rec.client_email,
+      `Price changed: ${App.fmtMoney(oldAmt)} → ${App.fmtMoney(newAmt)} on ${rec.property_address}`);
+
+    App.toast(`✅ Price updated → ${App.fmtMoney(newAmt)}`);
   },
 
   async markDepositPaid(id) {
