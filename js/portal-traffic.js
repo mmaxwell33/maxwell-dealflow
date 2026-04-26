@@ -57,11 +57,29 @@ const PortalTraffic = {
     try {
       const since = new Date(Date.now() - this.range * 86400000).toISOString();
       const { data, error } = await db.from('portal_views')
-        .select('id, page_type, client_id, client_name, deal_id, viewed_at')
+        .select('id, page_type, token, client_id, client_name, deal_id, viewed_at')
         .gte('viewed_at', since)
         .order('viewed_at', { ascending: false });
       if (error) { console.error('PortalTraffic fetch:', error); this.rows = []; return; }
-      this.rows = data || [];
+      const rows = data || [];
+
+      // Tokens in deal_stakeholders with role='client' = real clients (not lawyer/lender).
+      // For these, treat their stakeholder views as Client views in the dashboard.
+      const stakeTokens = rows.filter(r => r.page_type === 'stakeholder' && r.token).map(r => r.token);
+      let clientRoleTokens = new Set();
+      if (stakeTokens.length) {
+        try {
+          const { data: ds } = await db.from('deal_stakeholders')
+            .select('token, role').in('token', stakeTokens).eq('role', 'client');
+          (ds || []).forEach(x => clientRoleTokens.add(x.token));
+        } catch(_) { /* ignore — fall back to raw page_type */ }
+      }
+      // Tag every row with the label-effective type
+      rows.forEach(r => {
+        r.effective_type = (r.page_type === 'stakeholder' && clientRoleTokens.has(r.token))
+          ? 'build' : r.page_type;
+      });
+      this.rows = rows;
     } catch(e) { console.error(e); this.rows = []; }
   },
 
@@ -77,7 +95,7 @@ const PortalTraffic = {
     const today = new Date().toISOString().slice(0,10);
     const todayCount = this.rows.filter(r => r.viewed_at.slice(0,10) === today).length;
     const uniqueClients = new Set(this.rows.filter(r => r.client_id).map(r => r.client_id)).size;
-    const byType = this.rows.reduce((a,r) => { a[r.page_type]=(a[r.page_type]||0)+1; return a; }, {});
+    const byType = this.rows.reduce((a,r) => { const k = r.effective_type || r.page_type; a[k]=(a[k]||0)+1; return a; }, {});
     const top = Object.entries(byType).sort((a,b)=>b[1]-a[1])[0];
 
     document.getElementById('pt-stats').innerHTML = `
@@ -104,7 +122,7 @@ const PortalTraffic = {
     const LABELS = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
     const datasets = types.map(t => ({
       label: LABELS[t],
-      data: days.map(day => this.rows.filter(r => r.page_type===t && r.viewed_at.slice(0,10)===day).length),
+      data: days.map(day => this.rows.filter(r => (r.effective_type||r.page_type)===t && r.viewed_at.slice(0,10)===day).length),
       borderColor: colors[t], backgroundColor: colors[t]+'33',
       borderWidth: 2, tension: .35, fill: true, pointRadius: 2,
     }));
@@ -129,7 +147,8 @@ const PortalTraffic = {
       const key = r.client_id || ('anon::' + (r.client_name || 'Unknown'));
       if (!byClient[key]) byClient[key] = { name: r.client_name || 'Unknown', types: {}, total: 0, last: r.viewed_at };
       byClient[key].total++;
-      byClient[key].types[r.page_type] = (byClient[key].types[r.page_type]||0) + 1;
+      const _et = r.effective_type || r.page_type;
+      byClient[key].types[_et] = (byClient[key].types[_et]||0) + 1;
       if (r.viewed_at > byClient[key].last) byClient[key].last = r.viewed_at;
     }
     const list = Object.values(byClient).sort((a,b)=>b.total-a.total);
