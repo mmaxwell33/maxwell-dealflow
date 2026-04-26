@@ -659,7 +659,16 @@ const Pipeline = {
       const dt = new Date(dateStr); dt.setHours(0,0,0,0);
       return dt <= today;
     };
-    const milestones = [d.acceptance_date, d.financing_date, d.inspection_date, d.walkthrough_date, d.closing_date];
+    // Skip optional milestones the buyer has waived (inspection_skipped /
+    // walkthrough_skipped). Excluded from BOTH the numerator and denominator
+    // so the bar reflects what is actually required for THIS deal.
+    const milestones = [
+      d.acceptance_date,
+      d.financing_date,
+      ...(d.inspection_skipped  ? [] : [d.inspection_date]),
+      ...(d.walkthrough_skipped ? [] : [d.walkthrough_date]),
+      d.closing_date
+    ];
     const doneInt = milestones.filter(isPast).length;
     let done = doneInt;
     // Continuous creep: between milestones, bar climbs gradually toward closing.
@@ -699,13 +708,27 @@ const Pipeline = {
       const badge = isClosed ? 'badge-accepted' : isFell ? 'badge-rejected' : si>=2?'badge-viewings':'badge-conditions';
       const statusLine = isClosed ? '<span style="color:var(--green);">✅ Deal Complete</span>' : isFell ? '<span style="color:var(--red);">❌ Deal Fell Through</span>' : `<span style="color:var(--text2);">📋 Stage: ${d.stage}</span>`;
 
-      // Clean date field — live progress preview on change
-      const dateField = (label, icon, inputId, dateVal) => {
+      // Clean date field — live progress preview on change.
+      // skipKey: when set ('inspection' or 'walkthrough'), renders a small
+      // Do/Skip dropdown above the date input so optional milestones can be
+      // waived without dragging the progress bar down.
+      const dateField = (label, icon, inputId, dateVal, skipKey) => {
         const readonly = isClosed || isFell;
         const onChange = readonly ? '' : `oninput="Pipeline.previewProgress('${d.id}')"`;
+        const isSkipped = skipKey === 'inspection'  ? !!d.inspection_skipped
+                        : skipKey === 'walkthrough' ? !!d.walkthrough_skipped
+                        : false;
+        const skipDD = skipKey ? `
+          <select class="form-input" id="${inputId}-skip" style="font-size:11px;padding:3px 6px;margin-bottom:4px;width:100%;" ${readonly?'disabled':''}
+            onchange="Pipeline.toggleSkip('${d.id}','${skipKey}',this.value==='skip')">
+            <option value="do"   ${isSkipped?'':'selected'}>Do ${label.toLowerCase()}</option>
+            <option value="skip" ${isSkipped?'selected':''}>Skip ${label.toLowerCase()}</option>
+          </select>` : '';
+        const dateInputStyle = `font-size:12px;padding:5px 8px;${isSkipped?'opacity:.45;pointer-events:none;':''}`;
         return `<div>
-          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">${icon} ${label}</div>
-          <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" style="font-size:12px;padding:5px 8px;" ${onChange} ${readonly ? 'readonly' : ''}>
+          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">${icon} ${label}${isSkipped?' <span style="color:var(--text3);font-weight:500;">(skipped)</span>':''}</div>
+          ${skipDD}
+          <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" style="${dateInputStyle}" ${onChange} ${readonly||isSkipped?'readonly':''}>
         </div>`;
       };
 
@@ -753,8 +776,8 @@ const Pipeline = {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
-          ${dateField('Inspection','🔍',`pl-ins-${d.id}`,d.inspection_date)}
-          ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date)}
+          ${dateField('Inspection','🔍',`pl-ins-${d.id}`,d.inspection_date,'inspection')}
+          ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date,'walkthrough')}
           ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date)}
         </div>
         ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">Save Dates</button>` : ''}
@@ -806,7 +829,13 @@ const Pipeline = {
     const ins  = document.getElementById(`pl-ins-${id}`)?.value  || null;
     const walk = document.getElementById(`pl-walk-${id}`)?.value || null;
     const close= document.getElementById(`pl-close-${id}`)?.value|| null;
-    const preview = { acceptance_date: acc, financing_date: fin, inspection_date: ins, walkthrough_date: walk, closing_date: close };
+    const insSkip  = document.getElementById(`pl-ins-${id}-skip`)?.value  === 'skip';
+    const walkSkip = document.getElementById(`pl-walk-${id}-skip`)?.value === 'skip';
+    const preview = {
+      acceptance_date: acc, financing_date: fin,
+      inspection_date: ins, walkthrough_date: walk, closing_date: close,
+      inspection_skipped: insSkip, walkthrough_skipped: walkSkip
+    };
     const { done, doneInt, total } = Pipeline.milestonesDone(preview);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
@@ -817,22 +846,38 @@ const Pipeline = {
     if (pctLbl) pctLbl.textContent = `${pct}%`;
   },
 
+  // Live-toggle a skip dropdown — re-renders previewProgress + clears the
+  // date input visual state without touching the DB. Persisted on Save Dates.
+  toggleSkip(id, key, skipped) {
+    const dateInput = document.getElementById(key === 'inspection' ? `pl-ins-${id}` : `pl-walk-${id}`);
+    if (dateInput) {
+      dateInput.style.opacity = skipped ? '.45' : '';
+      dateInput.style.pointerEvents = skipped ? 'none' : '';
+      if (skipped) dateInput.removeAttribute('readonly'); else dateInput.removeAttribute('readonly');
+    }
+    Pipeline.previewProgress(id);
+  },
+
   async saveDates(id) {
     const acc  = document.getElementById(`pl-acc-${id}`)?.value  || null;
     const fin  = document.getElementById(`pl-fin-${id}`)?.value  || null;
     const ins  = document.getElementById(`pl-ins-${id}`)?.value  || null;
     const walk = document.getElementById(`pl-walk-${id}`)?.value || null;
     const close= document.getElementById(`pl-close-${id}`)?.value|| null;
+    const insSkip  = document.getElementById(`pl-ins-${id}-skip`)?.value  === 'skip';
+    const walkSkip = document.getElementById(`pl-walk-${id}-skip`)?.value === 'skip';
     const now  = new Date().toISOString();
 
-    // Try saving all 5 milestone dates
+    // Try saving all 5 milestone dates + skip flags
     let { error } = await db.from('pipeline').update({
-      updated_at:       now,
-      acceptance_date:  acc,
-      financing_date:   fin,
-      inspection_date:  ins,
-      walkthrough_date: walk,
-      closing_date:     close,
+      updated_at:           now,
+      acceptance_date:      acc,
+      financing_date:       fin,
+      inspection_date:      ins,
+      walkthrough_date:     walk,
+      closing_date:         close,
+      inspection_skipped:   insSkip,
+      walkthrough_skipped:  walkSkip,
     }).eq('id', id);
 
     // If financing/inspection columns don't exist yet, fall back to the 3 known columns
@@ -852,11 +897,13 @@ const Pipeline = {
     // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
     const merged = Object.assign({}, rec, {
-      acceptance_date:  acc,
-      financing_date:   fin,
-      inspection_date:  ins,
-      walkthrough_date: walk,
-      closing_date:     close,
+      acceptance_date:      acc,
+      financing_date:       fin,
+      inspection_date:      ins,
+      walkthrough_date:     walk,
+      closing_date:         close,
+      inspection_skipped:   insSkip,
+      walkthrough_skipped:  walkSkip,
     });
     if (rec) Object.assign(rec, merged);
 
