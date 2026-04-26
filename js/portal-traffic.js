@@ -82,7 +82,6 @@ const PortalTraffic = {
       // SELF_FILTER_INSTALLED
       this.allRows = rows;
       this.rows = rows.filter(r => !r.is_self);
-      this.rows = rows;
     } catch(e) { console.error(e); this.rows = []; }
   },
 
