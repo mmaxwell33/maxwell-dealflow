@@ -785,7 +785,7 @@ const App = {
         return `<div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div class="fw-700">${d.client_name || 'Unknown'}</div>
-            <span class="stage-badge badge-accepted">In Progress</span>
+            <span class="stage-badge ${d.stage === 'Closed' ? 'badge-default' : d.stage === 'Fell Through' ? 'badge-default' : 'badge-accepted'}">${d.stage === 'Closed' ? 'CLOSED' : d.stage === 'Fell Through' ? 'FELL THROUGH' : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString())) ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
           </div>
           <div class="text-muted" style="font-size:12px;margin-bottom:10px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
           <div class="pipeline-bar">${stages.map((s,i)=>`<div class="pipeline-step ${i===si?'active':i<si?'done':''}"></div>`).join('')}</div>
