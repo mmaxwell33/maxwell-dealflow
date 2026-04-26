@@ -17,6 +17,17 @@
     .build-title{font-size:18px;font-weight:800;color:#F8FAFC;margin-bottom:4px;}
     .build-meta{font-size:13px;color:#94A3B8;margin-bottom:20px;line-height:1.8;}
     .build-meta span{margin-right:16px;}
+    /* Countdown to possession */
+    .countdown{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center;
+      padding:20px;background:#1E2636;border:1px solid #1F2937;border-radius:12px;
+      margin-bottom:24px;}
+    .countdown-num{text-align:center;min-width:64px;}
+    .countdown-num strong{display:block;font-size:30px;font-weight:800;color:#CC785C;
+      line-height:1;font-variant-numeric:tabular-nums;}
+    .countdown-num span{font-size:10px;color:#94A3B8;text-transform:uppercase;
+      letter-spacing:.08em;font-weight:700;margin-top:4px;display:block;}
+    .countdown-label{font-size:13px;color:#94A3B8;padding-left:14px;
+      border-left:1px solid #1F2937;margin-left:8px;min-width:140px;line-height:1.4;}
     /* Progress bar */
     .progress-wrap{margin-bottom:28px;}
     .progress-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#94A3B8;margin-bottom:8px;}
@@ -116,6 +127,8 @@
         <span id="build-closing"></span>
       </div>
 
+      <div id="build-countdown"></div>
+
       <div class="progress-wrap">
         <div class="progress-label">
           <span>Progress</span>
@@ -194,6 +207,18 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// Countdown — D/H/M to possession
+function countdownTo(iso) {
+  if (!iso) return null;
+  const target = new Date(String(iso).slice(0,10) + 'T00:00:00').getTime();
+  const diff   = Math.max(0, target - Date.now());
+  return {
+    days:  Math.floor(diff / (1000*60*60*24)),
+    hours: Math.floor((diff / (1000*60*60)) % 24),
+    mins:  Math.floor((diff / (1000*60)) % 60)
+  };
+}
+
 function show(s) {
   ['loading','error','main'].forEach(id => {
     const el = document.getElementById('state-'+id);
@@ -231,6 +256,20 @@ async function init() {
     if (build.est_close_date || build.closing_date) {
       const closeDate = build.est_close_date || build.closing_date;
       document.getElementById('build-closing').textContent = '📅 Est. Possession: ' + fmtDate(closeDate);
+      const cd = countdownTo(closeDate);
+      if (cd) {
+        document.getElementById('build-countdown').innerHTML =
+          '<div class="countdown">' +
+            '<div class="countdown-num"><strong>' + cd.days + '</strong><span>Days</span></div>' +
+            '<div class="countdown-num"><strong>' + String(cd.hours).padStart(2,'0') + '</strong><span>Hours</span></div>' +
+            '<div class="countdown-num"><strong>' + String(cd.mins).padStart(2,'0') + '</strong><span>Min</span></div>' +
+            '<div class="countdown-label">Until possession 🔑</div>' +
+          '</div>';
+      } else {
+        document.getElementById('build-countdown').innerHTML = '';
+      }
+    } else {
+      document.getElementById('build-countdown').innerHTML = '';
     }
 
     // Read pipeline_milestones (same JSON the agent + builder write to)
