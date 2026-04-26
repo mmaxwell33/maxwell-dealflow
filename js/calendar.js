@@ -18,7 +18,7 @@ const Calendar = {
   async fetchEvents() {
     // Pipeline milestone dates
     const { data: deals } = await db.from('pipeline')
-      .select('id, client_name, property_address, acceptance_date, financing_date, inspection_date, walkthrough_date, closing_date, stage')
+      .select('id, client_name, property_address, acceptance_date, financing_date, inspection_date, walkthrough_date, closing_date, stage, inspection_skipped, walkthrough_skipped')
       .order('closing_date', { ascending: true });
 
     // Scheduled viewings
@@ -46,8 +46,8 @@ const Calendar = {
       const addr    = d.property_address || '';
       addDealEvent(d.acceptance_date, 'Accepted',    'accepted',    '✅', name, addr, d.id);
       addDealEvent(d.financing_date,  'Financing',   'financing',   '🏦', name, addr, d.id);
-      addDealEvent(d.inspection_date, 'Inspection',  'inspection',  '🔍', name, addr, d.id);
-      addDealEvent(d.walkthrough_date,'Walkthrough', 'walkthrough', '🚶', name, addr, d.id);
+      if (!d.inspection_skipped)  addDealEvent(d.inspection_date,  'Inspection',  'inspection',  '🔍', name, addr, d.id);
+      if (!d.walkthrough_skipped) addDealEvent(d.walkthrough_date, 'Walkthrough', 'walkthrough', '🚶', name, addr, d.id);
       addDealEvent(d.closing_date,    'Closing Day', 'closing',     '🔑', name, addr, d.id);
     });
 
@@ -271,5 +271,13 @@ const Calendar = {
   setView(v) {
     Calendar._view = v;
     Calendar.render();
+  },
+
+  // Re-fetch + re-render. Safe to call from anywhere (e.g. after Pipeline saves).
+  // No-op if Calendar has never been opened in this session.
+  async refresh() {
+    if (Calendar._year === null) return;
+    await Calendar.fetchEvents();
+    if (document.getElementById('calendar-content')) Calendar.render();
   }
 };

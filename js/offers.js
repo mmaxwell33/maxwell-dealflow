@@ -934,6 +934,7 @@ const Pipeline = {
     if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
 
     App.toast('💾 Dates saved!');
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   async editPrice(id, currentAmount) {
@@ -1026,6 +1027,7 @@ const Pipeline = {
     }
     App.toast('✅ Deal closed & client archived! 🎉 Congrats email queued in Approvals.');
     Pipeline.load(); Clients.load(); App.loadOverview();
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   async markFellThrough(id) {
@@ -1052,12 +1054,14 @@ const Pipeline = {
       `Deal fell through: ${d?.property_address}`, d?.client_id);
     App.toast('❌ Deal fell through — client notified (check Approvals)');
     Pipeline.load(); Clients.load(); App.loadOverview();
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   async reactivate(id) {
     await db.from('pipeline').update({ stage: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
     App.toast('🔄 Deal reactivated!');
     Pipeline.load();
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   async revertClose(id) {
@@ -1074,6 +1078,7 @@ const Pipeline = {
     }
     App.toast('🔄 Deal reverted — client restored to active');
     Pipeline.load(); Clients.load();
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   openStageModal(id) {

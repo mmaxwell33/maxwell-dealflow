@@ -1023,21 +1023,23 @@ body.theme-light .room-tab.active{color:var(--accent);border-bottom-color:var(--
 
 /* Chips in month grid — Motion-style pills (tinted bg + matching text color) */
 .cal-chip{display:block;font-size:10px;font-weight:600;padding:3px 8px;margin-top:3px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;background:rgba(148,163,184,.16);color:var(--text2);}
-.cal-chip-viewing    {background:rgba(148,163,184,.16);color:var(--text2);}
-.cal-chip-accepted   {background:rgba(204,120,92,.18);color:#CC785C;}
-.cal-chip-financing  {background:rgba(148,163,184,.16);color:var(--text2);}
-.cal-chip-inspection {background:rgba(148,163,184,.16);color:var(--text2);}
-.cal-chip-walkthrough{background:rgba(148,163,184,.16);color:var(--text2);}
-.cal-chip-closing    {background:rgba(204,120,92,.18);color:#CC785C;}
+.cal-chip-viewing      {background:rgba(148,163,184,.18);color:#94A3B8;}
+.cal-chip-accepted     {background:rgba(204,120,92,.18);color:#CC785C;}
+.cal-chip-financing    {background:rgba(59,130,246,.18); color:#3B82F6;}
+.cal-chip-inspection   {background:rgba(245,158,11,.18); color:#F59E0B;}
+.cal-chip-walkthrough  {background:rgba(139,92,246,.18); color:#8B5CF6;}
+.cal-chip-closing      {background:rgba(16,185,129,.18); color:#10B981;}
+.cal-chip-builder_visit{background:rgba(139,92,246,.18); color:#8B5CF6;}
 .cal-chip-more{display:block;font-size:10px;font-weight:700;color:var(--text3);padding:2px 8px;margin-top:3px;}
 
 /* Type dots (used in legend) — monochrome; closing/accepted get accent */
-.cal-dot-viewing    {background:#94A3B8;}
-.cal-dot-accepted   {background:#CC785C;}
-.cal-dot-financing  {background:#94A3B8;}
-.cal-dot-inspection {background:#94A3B8;}
-.cal-dot-walkthrough{background:#94A3B8;}
-.cal-dot-closing    {background:#CC785C;}
+.cal-dot-viewing      {background:#94A3B8;}
+.cal-dot-accepted     {background:#CC785C;}
+.cal-dot-financing    {background:#3B82F6;}
+.cal-dot-inspection   {background:#F59E0B;}
+.cal-dot-walkthrough  {background:#8B5CF6;}
+.cal-dot-closing      {background:#10B981;}
+.cal-dot-builder_visit{background:#8B5CF6;}
 
 /* Legend strip */
 .cal-legend{display:flex;flex-wrap:wrap;gap:10px 18px;padding:14px 10px 4px;margin-top:14px;border-top:1px solid var(--border);}
