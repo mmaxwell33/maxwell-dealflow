@@ -22,6 +22,10 @@ git push origin master
 
 ---
 
+## Agent / Brokerage Facts
+
+**Brokerage:** Maxwell's brokerage is **eXp Realty** (NOT Royal LePage). All email templates must sign off as eXp Realty.
+
 ## Project Stack
 
 | Layer | Technology | Why |

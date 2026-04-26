@@ -1247,7 +1247,7 @@ const Pipeline = {
       `View it here: ${portalUrl}\n\n` +
       `This link is private to you and expires in 90 days (auto-extends each time you visit). ` +
       `You can revoke it any time from the portal itself.\n\n` +
-      `— Maxwell Delali Midodzi\nRoyal LePage · (709) 325-0545`;
+      `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
     const html =
       '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
         '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
@@ -1260,7 +1260,7 @@ const Pipeline = {
         '<p style="text-align:center;margin:26px 0;"><a href="' + portalUrl + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
         '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
         '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
-        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>Royal LePage · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
       '</div>';
 
     await Notify.queue(
@@ -1494,7 +1494,7 @@ const Pipeline = {
         `View it here: ${url}\n\n` +
         `This link is private to you and expires in 90 days (auto-extends each time you visit). ` +
         `You can revoke it any time from the portal itself.\n\n` +
-        `— Maxwell Delali Midodzi\nRoyal LePage · (709) 325-0545`;
+        `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
       const html =
         '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
           '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
@@ -1507,7 +1507,7 @@ const Pipeline = {
           '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
           '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
           '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
-          '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>Royal LePage · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+          '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
         '</div>';
 
       if (hasEmail && typeof Notify !== 'undefined' && Notify.queue) {
