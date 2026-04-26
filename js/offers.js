@@ -767,6 +767,7 @@ const Pipeline = {
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
@@ -1534,6 +1535,101 @@ const Pipeline = {
         `);
       }
     });
+  },
+
+  // ── RESEND EXISTING PORTAL LINK (with editable CC) ─────────────────────
+  // Re-emails the already-issued portal link to the client + anyone added in CC.
+  // Does NOT issue a new token. Existing link keeps working untouched.
+  // Use case: forgot to CC the spouse/co-buyer the first time → click 📨 Resend
+  // → enter the missing email in CC → both get the same email with the same URL.
+  async resendPortal(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) { App.toast('Deal not found', 'var(--red)'); return; }
+    if (!d.client_email) { App.toast('Client has no email on file — use 🔗 Portal first', 'var(--red)'); return; }
+
+    // Look up the existing active client portal token for this deal.
+    const { data: stake, error: stErr } = await db.from('deal_stakeholders')
+      .select('token')
+      .eq('pipeline_id', dealId)
+      .eq('role', 'client')
+      .is('revoked_at', null)
+      .gt('token_expires', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (stErr) { App.toast('Lookup failed: ' + stErr.message, 'var(--red)'); return; }
+    if (!stake || !stake.token) {
+      App.toast('No active portal link found — click 🔗 Portal to create one first', 'var(--red)');
+      return;
+    }
+
+    App.openModal(`
+      <div class="modal-title">📨 Resend Portal Link</div>
+      <p style="font-size:13px;color:var(--text2);margin:10px 0 14px;">
+        Resend the <strong>same existing link</strong> to <strong>${App.esc(d.client_name||'your client')}</strong>.
+        Add anyone you forgot to copy (spouse, co-buyer) in the CC field — they will receive the same link.
+        <br><br>
+        <span style="color:var(--accent2);">🔒 The existing link is not changed.</span>
+      </p>
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">To</label>
+        <input class="form-input" id="rsd-to" value="${App.esc(d.client_email)}" style="font-size:13px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">CC (comma-separated)</label>
+        <input class="form-input" id="rsd-cc" placeholder="spouse@email.com, co-buyer@email.com" style="font-size:13px;">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitResendPortal('${dealId}','${stake.token}')">📧 Queue in Approvals</button>
+      </div>
+    `);
+  },
+
+  async _submitResendPortal(dealId, token) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+    const toEmail = (document.getElementById('rsd-to')?.value || '').trim();
+    const ccEmail = (document.getElementById('rsd-cc')?.value || '').trim() || null;
+    if (!/^\S+@\S+\.\S+$/.test(toEmail)) { App.toast('⚠️ Valid To email required', 'var(--red)'); return; }
+
+    const url = `${location.origin}/portal.html?t=${token}`;
+    const clientFirst = (d.client_name || 'Client').split(' ')[0];
+    const subject = `Reminder: your deal portal — ${d.property_address || 'progress link'}`;
+    const plainBody =
+      `Hi ${clientFirst},\n\n` +
+      `Just resending the link to your private deal portal for ${d.property_address || 'your deal'}.\n\n` +
+      `View it here: ${url}\n\n` +
+      `This is the same private link as before — no new login. ` +
+      `If you have already opened it, your previous bookmark still works.\n\n` +
+      `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
+    const html =
+      '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
+        '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+          '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">Client Portal</div>' +
+          '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal — reminder</h1>' +
+          '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
+        '</div>' +
+        '<p>Hi ' + App.esc(clientFirst) + ',</p>' +
+        '<p>Just resending the link to your private progress portal. This is the same link as before — no new login.</p>' +
+        '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+        '<p style="font-size:13px;color:#6b6b6b;">🔒 This is the same private link issued earlier. It auto-extends every time you visit.</p>' +
+        '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
+        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+      '</div>';
+
+    if (typeof Notify === 'undefined' || !Notify.queue) {
+      App.toast('Notify module not loaded', 'var(--red)'); return;
+    }
+    try {
+      // Notify.queue arg order: type, clientId, clientName, clientEmail, subject, body, relatedId, html, ics, cc
+      await Notify.queue('Portal Invite', d.client_id, d.client_name, toEmail, subject, plainBody, null, html, null, ccEmail);
+      App.closeModal();
+      App.toast('✅ Resend queued in Approvals', 'var(--green)');
+    } catch (e) {
+      console.error('resend portal queue', e);
+      App.toast('⚠️ Could not queue — try again', 'var(--red)');
+    }
   },
 
   // ── PDF Deal Summary ──────────────────────────────────────────────────────
