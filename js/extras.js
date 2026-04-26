@@ -93,7 +93,13 @@ const Approvals = {
     if (!item) { Approvals._sending.delete(id); return; }
 
     // ── DEDUP CHECK — block if same email already sent in last 24h ──────────
+    // Skipped when context_data.is_resend === true (user-initiated resend).
+    let _isResend = false;
     try {
+      const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
+      _isResend = !!(ctx && ctx.is_resend);
+    } catch { /* ignore parse errors */ }
+    if (!_isResend) try {
       const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
       const { data: dupes } = await db.from('approval_queue')
         .select('id')

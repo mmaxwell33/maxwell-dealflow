@@ -1618,14 +1618,29 @@ const Pipeline = {
         '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
       '</div>';
 
-    if (typeof Notify === 'undefined' || !Notify.queue) {
-      App.toast('Notify module not loaded', 'var(--red)'); return;
-    }
     try {
-      // Notify.queue arg order: type, clientId, clientName, clientEmail, subject, body, relatedId, html, ics, cc
-      await Notify.queue('Portal Invite', d.client_id, d.client_name, toEmail, subject, plainBody, null, html, null, ccEmail);
+      // Direct insert into approval_queue (bypasses Notify.queue) so we can
+      // tag context_data.is_resend = true. The Approvals dedup check at
+      // js/extras.js will skip the 24h-block when this flag is present,
+      // since a resend is intentional (Maxwell explicitly asked for it).
+      const { data: { user } } = await db.auth.getUser();
+      const agentId = user?.id || (typeof currentAgent !== 'undefined' && currentAgent ? currentAgent.id : null);
+      if (!agentId) { App.toast('Not signed in', 'var(--red)'); return; }
+      const safeHtml = btoa(unescape(encodeURIComponent(html)));
+      const { error: qErr } = await db.from('approval_queue').insert({
+        agent_id: agentId,
+        client_name: d.client_name,
+        client_email: toEmail,
+        approval_type: 'Portal Invite',
+        email_subject: subject,
+        email_body: plainBody,
+        status: 'Pending',
+        context_data: { html: safeHtml, cc: ccEmail, is_resend: true }
+      });
+      if (qErr) throw qErr;
       App.closeModal();
       App.toast('✅ Resend queued in Approvals', 'var(--green)');
+      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 500);
     } catch (e) {
       console.error('resend portal queue', e);
       App.toast('⚠️ Could not queue — try again', 'var(--red)');
