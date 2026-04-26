@@ -7,63 +7,108 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
 <style>
   :root{
-    --bg:#0A0E14; --card:#161D28; --card2:#1E2636;
-    --text1:#F1ECE3; --text2:#9CA3AF; --text3:#6B7280;
+    --bg:#FAF7F2; --card:#FFFFFF; --card2:#F5EFE6;
+    --text1:#1A1F2E; --text2:#5C6577; --text3:#8C95A8;
     --accent:#CC785C; --accent2:#D98B6F; --accent-dark:#B3654A;
-    --green:#9CA3AF; --yellow:#9CA3AF; --red:#B91C1C;
-    --border:rgba(255,255,255,.08);
+    --green:#10B981; --yellow:#F59E0B; --red:#B91C1C;
+    --border:rgba(0,0,0,.08);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.04);
+    --shadow-md:0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg:0 12px 40px rgba(204,120,92,.18);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text1);
     font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-  .wrap{max-width:1400px;margin:0 auto;padding:24px 16px}
-  .hero{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);
-    padding:32px;border-radius:20px;box-shadow:0 8px 32px rgba(204,120,92,.25);
-    margin-bottom:24px}
-  .hero h1{margin:0 0 6px;font-size:28px}
-  .hero p{margin:0;opacity:.9;font-size:14px}
-  .role-badge{display:inline-block;background:rgba(255,255,255,.18);
-    padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;
-    text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+
+  .countdown{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+    padding:22px;background:var(--card);border-radius:16px;
+    box-shadow:var(--shadow-sm);margin-bottom:14px;border:1px solid var(--border)}
+  .countdown-num{text-align:center;min-width:64px}
+  .countdown-num strong{display:block;font-size:32px;font-weight:800;
+    color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+  .countdown-num span{font-size:10px;color:var(--text3);text-transform:uppercase;
+    letter-spacing:.08em;font-weight:600;margin-top:4px;display:block}
+  .countdown-label{display:flex;align-items:center;font-size:13px;color:var(--text2);
+    padding-left:14px;border-left:1px solid var(--border);margin-left:8px;
+    min-width:140px;line-height:1.4}
+
+  .page-title{margin:0 0 18px;font-size:22px;font-weight:700;color:var(--text1)}
+  .page-title span{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-top:4px}
+
+  .status-banner{display:flex;align-items:center;gap:14px;padding:18px 20px;
+    background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));
+    border:1px solid rgba(16,185,129,.25);border-radius:14px;margin-bottom:14px}
+  .status-banner.warn{background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.04));
+    border-color:rgba(245,158,11,.3)}
+  .status-banner-icon{width:44px;height:44px;border-radius:50%;
+    background:rgba(16,185,129,.18);display:flex;align-items:center;justify-content:center;
+    font-size:20px;flex-shrink:0}
+  .status-banner.warn .status-banner-icon{background:rgba(245,158,11,.18)}
+  .status-banner-text strong{display:block;font-size:15px;margin-bottom:2px}
+  .status-banner-text span{color:var(--text2);font-size:13px}
+
+  .next-up{padding:18px 20px;
+    background:linear-gradient(135deg,rgba(204,120,92,.06),rgba(204,120,92,.02));
+    border:1px solid rgba(204,120,92,.18);border-radius:14px;margin-bottom:20px}
+  .next-up-label{font-size:11px;color:var(--accent);text-transform:uppercase;
+    letter-spacing:.1em;font-weight:700;margin-bottom:6px}
+  .next-up-text{font-size:15px;font-weight:500;color:var(--text1);line-height:1.5}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
   @media(max-width:760px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border:1px solid var(--border);
-    border-radius:16px;padding:20px}
-  .card h3{margin:0 0 14px;font-size:13px;text-transform:uppercase;
-    letter-spacing:.08em;color:var(--text3)}
+    border-radius:16px;padding:22px;box-shadow:var(--shadow-sm)}
+  .card h3{margin:0 0 14px;font-size:12px;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--text3);font-weight:700}
   .row{display:flex;justify-content:space-between;align-items:center;
-    padding:10px 0;border-bottom:1px solid var(--border)}
+    padding:11px 0;border-bottom:1px solid var(--border)}
   .row:last-child{border:0}
   .label{color:var(--text2);font-size:13px}
-  .val{font-weight:600;font-size:14px}
-  .progress-wrap{margin:18px 0}
+  .val{font-weight:600;font-size:14px;color:var(--text1)}
+
+  .timeline{position:relative;padding-left:36px}
+  .timeline::before{content:'';position:absolute;left:14px;top:8px;bottom:8px;
+    width:2px;background:var(--border)}
+  .tl-item{position:relative;padding-bottom:20px}
+  .tl-item:last-child{padding-bottom:0}
+  .tl-dot{position:absolute;left:-30px;top:2px;width:30px;height:30px;border-radius:50%;
+    background:var(--card);border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:13px;z-index:2}
+  .tl-item.done .tl-dot{background:var(--green);border-color:var(--green);color:#fff}
+  .tl-item.current .tl-dot{background:var(--accent);border-color:var(--accent);color:#fff;
+    box-shadow:0 0 0 6px rgba(204,120,92,.18);
+    animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 6px rgba(204,120,92,.18)}
+    50%{box-shadow:0 0 0 10px rgba(204,120,92,.08)}}
+  .tl-content{padding-left:6px}
+  .tl-label{font-size:14px;font-weight:600;margin-bottom:2px}
+  .tl-item.done .tl-label{text-decoration:line-through;color:var(--text3)}
+  .tl-item.current .tl-label{color:var(--accent)}
+  .tl-meta{font-size:12px;color:var(--text3)}
+  .tl-item.current .tl-meta{color:var(--accent2);font-weight:600}
+
+  .progress-wrap{margin:14px 0}
   .progress-bar{background:var(--card2);border-radius:10px;height:10px;overflow:hidden}
   .progress-fill{background:linear-gradient(90deg,var(--accent),var(--accent2));
     height:100%;border-radius:10px;transition:width .6s ease}
   .progress-meta{display:flex;justify-content:space-between;
-    margin-top:6px;font-size:12px;color:var(--text3)}
-  .check{display:flex;align-items:center;gap:12px;padding:12px;
-    border-radius:10px;background:var(--card2);margin-bottom:8px}
-  .check.done{opacity:.55}
-  .check-icon{width:22px;height:22px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;font-size:13px;font-weight:700;
-    background:var(--card);border:2px solid var(--border)}
-  .check.done .check-icon{background:var(--green);color:#fff;border-color:var(--green)}
-  .check-text{flex:1;font-size:14px}
-  .check.done .check-text{text-decoration:line-through}
-  .check-due{font-size:11px;color:var(--text3)}
+    margin-top:8px;font-size:12px;color:var(--text3)}
+
   .footer{text-align:center;color:var(--text3);font-size:12px;
-    padding:24px 0;line-height:1.7}
-  .footer a{color:var(--accent2);text-decoration:none}
+    padding:32px 0;line-height:1.7}
+  .footer a{color:var(--accent);text-decoration:none;font-weight:600}
+
   .panic{margin-top:14px;background:transparent;border:1px solid var(--red);
     color:var(--red);padding:10px 16px;border-radius:10px;cursor:pointer;
     font-size:13px;font-weight:600;width:100%}
   .panic:hover{background:var(--red);color:#fff}
+
   .err{text-align:center;padding:60px 20px}
   .err h2{color:var(--red);margin:0 0 10px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-    background:var(--card2);border:1px solid var(--border);padding:10px 18px;
+    background:var(--text1);color:#fff;padding:10px 18px;
     border-radius:10px;font-size:13px;z-index:99}
 </style>
 </head>
@@ -73,6 +118,6 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="js/stakeholder-portal.js"></script>
+<script src="js/stakeholder-portal-v2.js"></script>
 </body>
 </html>
