@@ -57,7 +57,7 @@ const PortalTraffic = {
     try {
       const since = new Date(Date.now() - this.range * 86400000).toISOString();
       const { data, error } = await db.from('portal_views')
-        .select('id, page_type, token, client_id, client_name, deal_id, viewed_at')
+        .select('id, page_type, token, client_id, client_name, deal_id, viewed_at, is_self')
         .gte('viewed_at', since)
         .order('viewed_at', { ascending: false });
       if (error) { console.error('PortalTraffic fetch:', error); this.rows = []; return; }
@@ -79,6 +79,9 @@ const PortalTraffic = {
         r.effective_type = (r.page_type === 'stakeholder' && clientRoleTokens.has(r.token))
           ? 'build' : r.page_type;
       });
+      // SELF_FILTER_INSTALLED
+      this.allRows = rows;
+      this.rows = rows.filter(r => !r.is_self);
       this.rows = rows;
     } catch(e) { console.error(e); this.rows = []; }
   },
@@ -163,5 +166,18 @@ const PortalTraffic = {
       html += `<div class="pt-row"><div style="font-weight:700;">${c.name}</div><div>${pills}</div><div style="font-weight:700;">${c.total}</div><div style="color:var(--text2);">${ago}</div></div>`;
     }
     root.innerHTML = html;
+  }
+  ,
+
+  async markSelf(viewId, makeSelf) {
+    try {
+      const { error } = await db.rpc('mark_portal_view_self', { p_view_id: viewId, p_is_self: !!makeSelf });
+      if (error) { App.toast('Could not update: ' + error.message, 'var(--red)'); return; }
+      App.toast(makeSelf ? '✅ Marked as self-test (excluded from totals)' : '↩️ Restored to totals', 'var(--green)');
+      await this.fetch();
+      this.render();
+    } catch (e) {
+      App.toast('Error: ' + e.message, 'var(--red)');
+    }
   }
 };

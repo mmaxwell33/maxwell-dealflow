@@ -43,7 +43,7 @@
       return;
     }
     rpc('stakeholder_log_access', { p_token: token, p_ua: navigator.userAgent });
-    rpc('log_portal_view', { p_page_type: 'stakeholder', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400) });
+    rpc('log_portal_view', { p_page_type: 'stakeholder', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
     render(data);
   }
 

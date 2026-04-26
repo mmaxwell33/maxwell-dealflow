@@ -75,7 +75,8 @@ const BuilderPortal = {
       await this._rpc('log_portal_view', {
         p_page_type: 'builder',
         p_token: this.token,
-        p_user_agent: (navigator.userAgent || '').slice(0, 400)
+        p_user_agent: (navigator.userAgent || '').slice(0, 400),
+        p_is_self: new URLSearchParams(location.search).get('self') === '1'
       });
     } catch (_) { /* silent */ }
   },

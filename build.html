@@ -281,7 +281,7 @@ async function init() {
       fetch(SB_URL + '/rest/v1/rpc/log_portal_view', {
         method: 'POST',
         headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_page_type: 'build', p_token: token, p_user_agent: navigator.userAgent || null })
+        body: JSON.stringify({ p_page_type: 'build', p_token: token, p_user_agent: navigator.userAgent || null, p_is_self: new URLSearchParams(location.search).get('self') === '1' })
       }).catch(() => {});
     }
     show('main');
