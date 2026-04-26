@@ -185,13 +185,16 @@ const Offers = {
       if (status === 'Accepted') await Notify.onOfferAccepted(data, client);
     }
 
-    // If accepted, create pipeline entry automatically
+    // If accepted, ask for the closing details + commission, THEN create pipeline + commission row
     if (status === 'Accepted') {
-      await Pipeline.createFromOffer(data, client);
+      App.closeModal();
+      Pipeline.askAcceptanceDetails(data, client);
+      Offers.load(); App.loadOverview();
+      return;
     }
 
     App.closeModal();
-    App.toast(status === 'Accepted' ? '🎉 Offer accepted — Pipeline created!' : '✅ Offer submitted!');
+    App.toast('✅ Offer submitted!');
     Offers.load(); App.loadOverview();
   },
 
@@ -234,10 +237,9 @@ const Offers = {
     await db.from('offers').update({ status: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
     await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
     if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
-    await Pipeline.createFromOffer(o, client);
     App.closeModal();
-    App.toast('🎉 Accepted! Buyer notified (check Approvals) + Pipeline created!');
-    Offers.load(); Clients.load(); Pipeline.load(); App.loadOverview();
+    Pipeline.askAcceptanceDetails(o, client);
+    Offers.load(); Clients.load(); App.loadOverview();
   },
 
   sellerCountered(id) {
@@ -401,6 +403,155 @@ const Pipeline = {
       .order('created_at', { ascending: false });
     Pipeline.all = data || [];
     Pipeline.render(Pipeline.all);
+  },
+
+  // Show modal to capture closing dates + commission rate before creating pipeline
+  askAcceptanceDetails(offer, client) {
+    const today = new Date().toISOString().slice(0,10);
+    const addDays = n => { const d = new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+    Pipeline._pendingOffer = offer;
+    Pipeline._pendingClient = client;
+    App.openModal(`
+      <div class="modal-title">🎉 Offer Accepted — Closing Details</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        ${App.esc(offer.property_address)} · ${App.fmtMoney(offer.offer_amount)}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 Inspection Date</label>
+          <input class="form-input" type="date" id="ad-inspection" value="${addDays(7)}">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 Financing Date</label>
+          <input class="form-input" type="date" id="ad-financing" value="${addDays(10)}">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 Final Walkthrough</label>
+          <input class="form-input" type="date" id="ad-walkthrough" value="${addDays(28)}">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 Final Closing Date</label>
+          <input class="form-input" type="date" id="ad-closing" value="${addDays(30)}">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label">💰 Your Commission %</label>
+        <select class="form-input" id="ad-comm-rate" onchange="Pipeline.toggleCustomRate()">
+          <option value="1.5">1.5%</option>
+          <option value="2.5" selected>2.5%</option>
+          <option value="3.5">3.5%</option>
+          <option value="4.5">4.5%</option>
+          <option value="custom">Custom...</option>
+        </select>
+        <input class="form-input" type="number" step="0.01" id="ad-comm-custom" placeholder="Enter custom % (e.g. 2.75)" style="display:none;margin-top:8px;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+        <button class="btn btn-primary" onclick="Pipeline.confirmAcceptance()">Confirm & Move to Pipeline</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  toggleCustomRate() {
+    const sel = document.getElementById('ad-comm-rate');
+    const inp = document.getElementById('ad-comm-custom');
+    inp.style.display = sel.value === 'custom' ? 'block' : 'none';
+  },
+
+  async confirmAcceptance() {
+    const offer = Pipeline._pendingOffer;
+    const client = Pipeline._pendingClient;
+    if (!offer) { App.closeModal(); return; }
+    const ins = document.getElementById('ad-inspection').value;
+    const fin = document.getElementById('ad-financing').value;
+    const walk = document.getElementById('ad-walkthrough').value;
+    const close = document.getElementById('ad-closing').value;
+    const sel = document.getElementById('ad-comm-rate').value;
+    let rate = sel === 'custom'
+      ? parseFloat(document.getElementById('ad-comm-custom').value)
+      : parseFloat(sel);
+    if (!rate || rate <= 0 || rate > 20) { App.toast('⚠️ Enter a valid commission %', 'var(--red)'); return; }
+
+    // Stash the dates onto the offer so createFromOffer + checklist generator pick them up
+    offer.inspection_date = ins;
+    offer.financing_date = fin;
+    offer.walkthrough_date = walk;
+    offer.closing_date = close;
+
+    await Pipeline.createFromOfferWithDates(offer, client, { ins, fin, walk, close, rate });
+    Pipeline._pendingOffer = null; Pipeline._pendingClient = null;
+    App.closeModal();
+    App.toast('🎉 Pipeline created + Commission row added (status: Pending)');
+    Pipeline.load(); Commission.load && Commission.load(); App.loadOverview();
+  },
+
+  // Wraps createFromOffer + inserts the Commission row in the same step
+  async createFromOfferWithDates(offer, client, dates) {
+    const today = new Date().toISOString().slice(0,10);
+    const acceptDate = offer.offer_date || today;
+
+    const _pInsert = {
+      pipeline_id: crypto.randomUUID(),
+      agent_id: currentAgent.id,
+      client_id: offer.client_id,
+      client_name: client?.full_name || offer.client_name,
+      client_email: client?.email || '',
+      property_address: offer.property_address,
+      offer_amount: offer.offer_amount,
+      acceptance_date: acceptDate,
+      inspection_date: dates.ins || null,
+      financing_date:  dates.fin || null,
+      walkthrough_date: dates.walk || null,
+      closing_date:    dates.close || null,
+      commission_rate: dates.rate || null,
+      stage: 'Accepted',
+      status: 'Active'
+    };
+    let pipelineId = null;
+    const { data: pipelineRow, error } = await db.from('pipeline').insert(_pInsert).select('id').single();
+    pipelineId = pipelineRow?.id || null;
+    if (error) {
+      // Fallback for older RLS configs: retry without commission_rate column if it doesn't exist
+      const fallback = { ..._pInsert };
+      delete fallback.commission_rate;
+      await db.from('pipeline').insert(fallback);
+      const { data: latest } = await db.from('pipeline')
+        .select('id').eq('agent_id', currentAgent.id)
+        .eq('property_address', offer.property_address)
+        .order('created_at', { ascending: false }).limit(1).single();
+      pipelineId = latest?.id || null;
+    }
+
+    // Build & insert the Commission row (status=Pending, will flip on close/fell-through)
+    const sale = parseFloat(offer.offer_amount) || 0;
+    const rate = parseFloat(dates.rate) || 2.5;
+    const brokerPct = 20;
+    const taxPct = 15;
+    const gross = sale * rate / 100;
+    const hst = gross * taxPct / 100;
+    const brokerFee = gross * brokerPct / 100;
+    const net = (gross + hst) - brokerFee;
+    await db.from('commissions').insert({
+      agent_id: currentAgent.id,
+      client_name: client?.full_name || offer.client_name,
+      property_address: offer.property_address,
+      sale_price: sale,
+      commission_rate: rate,
+      gross_commission: gross,
+      hst_collected: hst,
+      brokerage_fee_rate: brokerPct,
+      brokerage_fees: brokerFee,
+      agent_net: net,
+      close_date: dates.close || null,
+      status: 'Pending'
+    });
+
+    await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
+    if (typeof Notify !== "undefined" && client?.email) {
+      try { await Notify.onOfferAccepted(offer, client); } catch(_){}
+    }
+    await App.logActivity('PIPELINE_CREATED', client?.full_name, client?.email,
+      `Deal pipeline + commission created: ${offer.property_address}`, offer.client_id);
   },
 
   async createFromOffer(offer, client) {
@@ -752,6 +903,14 @@ const Pipeline = {
     const close = document.getElementById(`pl-close-${id}`)?.value || new Date().toISOString().slice(0,10);
     await db.from('pipeline').update({ stage: 'Closed', closing_date: close, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
+    // Auto-flip the linked commission row from Pending → Closed
+    if (d?.property_address) {
+      await db.from('commissions')
+        .update({ status: 'Closed', close_date: close, updated_at: new Date().toISOString() })
+        .eq('agent_id', currentAgent.id)
+        .eq('property_address', d.property_address)
+        .in('status', ['Pending']);
+    }
     // Update client stage to Closed and auto-archive (can be reactivated later via Restore)
     if (d?.client_id) {
       await db.from('clients').update({
@@ -774,6 +933,14 @@ const Pipeline = {
   async markFellThrough(id) {
     const d = Pipeline.all.find(x => x.id === id);
     await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
+    // Auto-archive the linked commission row (deal fell through, agent not paid)
+    if (d?.property_address) {
+      await db.from('commissions')
+        .update({ status: 'Archived', updated_at: new Date().toISOString() })
+        .eq('agent_id', currentAgent.id)
+        .eq('property_address', d.property_address)
+        .in('status', ['Pending', 'Closed']);
+    }
     // Reset client stage back to Searching so they stay active in the pipeline
     if (d?.client_id) {
       await db.from('clients').update({ stage: 'Searching', updated_at: new Date().toISOString() }).eq('id', d.client_id);

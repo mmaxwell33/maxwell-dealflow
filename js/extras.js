@@ -544,9 +544,11 @@ const Commission = {
       </div>`;
   },
 
-  // Auto-status from close_date: future=Pending, 0-2d=Closed, 2d+=Paid
+  // Honour explicit status first; otherwise derive from close_date
   statusFrom(c) {
-    if (!c.close_date) return 'Pending';
+    if (c.status === 'Archived') return 'Archived';
+    if (c.status === 'Pending')  return 'Pending';
+    if (!c.close_date) return c.status || 'Pending';
     const diff = (Date.now() - new Date(c.close_date + 'T12:00:00').getTime()) / 86400000;
     if (diff < 0) return 'Pending';
     if (diff < 2) return 'Closed';
@@ -554,12 +556,14 @@ const Commission = {
   },
 
   renderSummary(list) {
-    const totalVolume = list.reduce((s, c) => s + (c.sale_price || 0), 0);
-    const grossComm = list.reduce((s, c) => s + (c.gross_commission || 0), 0);
-    const hst = list.reduce((s, c) => s + (c.hst_collected || 0), 0);
-    const brokerFees = list.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
-    const netEarnings = list.reduce((s, c) => s + (c.agent_net || 0), 0);
-    const closedDeals = list.filter(c => Commission.statusFrom(c) === 'Paid').length;
+    // Exclude archived (fell-through) deals from earnings totals
+    const active = list.filter(c => Commission.statusFrom(c) !== 'Archived');
+    const totalVolume = active.reduce((s, c) => s + (c.sale_price || 0), 0);
+    const grossComm = active.reduce((s, c) => s + (c.gross_commission || 0), 0);
+    const hst = active.reduce((s, c) => s + (c.hst_collected || 0), 0);
+    const brokerFees = active.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
+    const netEarnings = active.reduce((s, c) => s + (c.agent_net || 0), 0);
+    const closedDeals = active.filter(c => Commission.statusFrom(c) === 'Paid').length;
 
     const banner = document.getElementById('comm-net-display');
     if (banner) banner.textContent = App.fmtMoney(netEarnings);

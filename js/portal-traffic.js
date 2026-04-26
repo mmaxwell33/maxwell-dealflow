@@ -14,7 +14,7 @@ const PortalTraffic = {
       <div class="page-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
         <div>
           <h2 style="margin:0;font-size:22px;font-weight:800;">📡 Portal Traffic</h2>
-          <div style="font-size:13px;color:var(--text2);margin-top:4px;">Who's viewing the links you've sent — build, builder, and stakeholder portals.</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px;">Who's viewing the links you've sent — client, builder, and stakeholder portals.</div>
         </div>
         <div style="display:flex;gap:6px;">
           <button class="pt-range" data-r="7"  onclick="PortalTraffic.setRange(7)">7d</button>
@@ -84,7 +84,7 @@ const PortalTraffic = {
       <div class="pt-stat"><div class="pt-stat-label">Total Views</div><div class="pt-stat-num">${total}</div></div>
       <div class="pt-stat"><div class="pt-stat-label">Today</div><div class="pt-stat-num">${todayCount}</div></div>
       <div class="pt-stat"><div class="pt-stat-label">Unique Clients</div><div class="pt-stat-num">${uniqueClients}</div></div>
-      <div class="pt-stat"><div class="pt-stat-label">Top Portal</div><div class="pt-stat-num" style="font-size:18px;">${top ? top[0]+' ('+top[1]+')' : '—'}</div></div>
+      <div class="pt-stat"><div class="pt-stat-label">Top Portal</div><div class="pt-stat-num" style="font-size:18px;">${top ? ({build:'Client',builder:'Builder',stakeholder:'Stakeholder'}[top[0]]||top[0])+' ('+top[1]+')' : '—'}</div></div>
     `;
   },
 
@@ -101,8 +101,9 @@ const PortalTraffic = {
     }
     const types = ['build','builder','stakeholder'];
     const colors = { build:'#CC785C', builder:'#7c7cff', stakeholder:'#10B981' };
+    const LABELS = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
     const datasets = types.map(t => ({
-      label: t.charAt(0).toUpperCase()+t.slice(1),
+      label: LABELS[t],
       data: days.map(day => this.rows.filter(r => r.page_type===t && r.viewed_at.slice(0,10)===day).length),
       borderColor: colors[t], backgroundColor: colors[t]+'33',
       borderWidth: 2, tension: .35, fill: true, pointRadius: 2,
@@ -137,7 +138,8 @@ const PortalTraffic = {
 
     let html = '<div class="pt-row head"><div>Client</div><div>Portals</div><div>Views</div><div>Last viewed</div></div>';
     for (const c of list) {
-      const pills = Object.entries(c.types).map(([t,n]) => `<span class="pt-pill">${t} ${n}</span>`).join('');
+      const _LBL = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
+      const pills = Object.entries(c.types).map(([t,n]) => `<span class="pt-pill">${_LBL[t]||t} ${n}</span>`).join('');
       const ago = App.timeAgo ? App.timeAgo(c.last) : new Date(c.last).toLocaleString();
       html += `<div class="pt-row"><div style="font-weight:700;">${c.name}</div><div>${pills}</div><div style="font-weight:700;">${c.total}</div><div style="color:var(--text2);">${ago}</div></div>`;
     }
