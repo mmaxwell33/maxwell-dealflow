@@ -1,178 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Builder Portal — Maxwell DealFlow</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --accent:#CC785C;--accent-soft:rgba(204,120,92,.12);--accent-dark:#B3654A;
-      --bg:#f7f5f2;--card:#fff;--text:#1b1b1b;--text2:#6b6b6b;--border:#e5e1da;
-      --green:#2f7a3e;--green-soft:rgba(47,122,62,.1);--red:#b91c1c;--red-soft:rgba(185,28,28,.08);
-      --yellow:#a6601a;--yellow-soft:rgba(166,96,26,.1);
-    }
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;}
-    .wrap{max-width:1400px;margin:0 auto;padding:0 8px;}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
-    h1{font-family:'Fraunces',Georgia,serif;font-size:26px;font-weight:800;margin-bottom:4px;letter-spacing:-.5px;}
-    h2{font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;margin:18px 0 12px;color:var(--accent);}
-    .muted{font-size:13px;color:var(--text2);}
-    .header{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:32px 26px;border-radius:16px;margin-bottom:18px;box-shadow:0 4px 14px rgba(204,120,92,.18);}
-    .header h1{color:#fff;font-size:28px;margin-bottom:4px;}
-    .header .muted{color:rgba(255,255,255,.82);font-size:14px;}
-    .header .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.12em;opacity:.75;margin-bottom:10px;}
-    .progress{height:12px;background:rgba(255,255,255,.22);border-radius:99px;overflow:hidden;margin:8px 0;}
-    .progress-fill{height:100%;background:#fff;border-radius:99px;transition:width .6s ease;}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Build Progress — Maxwell DealFlow (V2-B · Phase 2)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+<style>
+  :root{
+    --bg:#FAF7F2; --card:#FFFFFF; --card2:#F5EFE6;
+    --text1:#1A1F2E; --text2:#5C6577; --text3:#8C95A8;
+    --accent:#CC785C; --accent2:#D98B6F; --accent-dark:#B3654A;
+    --green:#10B981; --yellow:#F59E0B; --red:#B91C1C;
+    --border:rgba(0,0,0,.08);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.04);
+    --shadow-md:0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg:0 12px 40px rgba(204,120,92,.18);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text1);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
-    .stage-grid{display:grid;grid-template-columns:1fr;gap:12px;}
-    .stage{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;transition:box-shadow .2s;}
-    .stage:hover{box-shadow:0 2px 6px rgba(0,0,0,.04);}
-    .stage-head{padding:16px 18px;background:#faf8f5;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:600;font-size:15px;gap:12px;}
-    .stage-head .title{display:flex;align-items:center;gap:10px;flex:1;}
-    .stage-head .bar{flex:0 0 80px;height:6px;background:#eae5dc;border-radius:99px;overflow:hidden;}
-    .stage-head .bar-fill{height:100%;background:var(--accent);border-radius:99px;transition:width .4s;}
-    .stage-head .count{font-size:12px;color:var(--text2);font-weight:600;min-width:42px;text-align:right;}
-    .stage-body{padding:10px 18px 16px;display:none;}
-    .stage.open .stage-body{display:block;}
-    .stage.done .stage-head{background:var(--green-soft);}
-    .stage.done .stage-head .bar-fill{background:var(--green);}
-    .step{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #f2efe9;}
-    .step:last-child{border-bottom:none;}
-    .step input[type=checkbox]{margin-top:3px;width:20px;height:20px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
-    .step label{flex:1;font-size:14px;cursor:pointer;line-height:1.4;}
-    .step.done label{text-decoration:line-through;color:var(--text2);}
+  .preview-banner{background:#1A1F2E;color:#FAF7F2;padding:10px 16px;text-align:center;
+    font-size:11px;letter-spacing:.04em}
+  .preview-banner strong{color:#CC785C;letter-spacing:.06em}
 
-    .btn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
-    .btn:hover{background:var(--accent-dark);}
-    .btn-outline{background:#fff;color:var(--accent);border:1.5px solid var(--accent);}
-    .btn-outline:hover{background:var(--accent-soft);}
-    .btn-danger{background:#fff;color:var(--red);border:1.5px solid var(--red);}
-    .btn-danger:hover{background:var(--red-soft);}
-    .btn-sm{padding:7px 13px;font-size:13px;}
-    .input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:#fff;}
-    .input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-    .field{margin-bottom:12px;}
-    .field-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.04em;}
-    .banner{padding:13px 16px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);font-size:14px;margin-bottom:14px;border:1px solid rgba(204,120,92,.22);}
-    .error-box{text-align:center;padding:60px 20px;}
-    .error-box .icon{font-size:48px;margin-bottom:12px;}
-    #state-loading,#state-main,#state-error{display:none;}
-    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1b1b1b;color:#fff;padding:11px 20px;border-radius:22px;font-size:13px;z-index:999;opacity:0;transition:opacity .25s;}
-    .toast.show{opacity:1;}
-    .custom-item{padding:10px 12px;background:#f7f5f2;border-radius:8px;margin-bottom:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
-    .custom-item .due{font-size:11px;color:var(--text2);}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
 
-    .security-card{border:1px dashed var(--border);background:#fafaf7;}
-    .security-card h2{color:var(--text2);font-size:15px;}
-    .security-card .muted{font-size:12px;line-height:1.5;}
-    .security-row{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:10px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;}
-    .security-row .meta{font-size:12px;color:var(--text2);}
+  .page-title{margin:0 0 18px;font-size:22px;font-weight:700;color:var(--text1)}
+  .page-title span{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-top:4px}
 
-    footer{text-align:center;font-size:11px;color:var(--text2);padding:22px 0;line-height:1.6;}
-  </style>
+  .status-banner{display:flex;align-items:center;gap:14px;padding:18px 20px;
+    background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));
+    border:1px solid rgba(16,185,129,.25);border-radius:14px;margin-bottom:14px}
+  .status-banner.warn{background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.04));
+    border-color:rgba(245,158,11,.3)}
+  .status-banner-icon{width:44px;height:44px;border-radius:50%;
+    background:rgba(16,185,129,.18);display:flex;align-items:center;justify-content:center;
+    font-size:20px;flex-shrink:0}
+  .status-banner.warn .status-banner-icon{background:rgba(245,158,11,.18)}
+  .status-banner-text strong{display:block;font-size:15px;margin-bottom:2px}
+  .status-banner-text span{color:var(--text2);font-size:13px}
+
+  .next-up{padding:18px 20px;
+    background:linear-gradient(135deg,rgba(204,120,92,.06),rgba(204,120,92,.02));
+    border:1px solid rgba(204,120,92,.18);border-radius:14px;margin-bottom:20px}
+  .next-up-label{font-size:11px;color:var(--accent);text-transform:uppercase;
+    letter-spacing:.1em;font-weight:700;margin-bottom:6px}
+  .next-up-text{font-size:15px;font-weight:500;color:var(--text1);line-height:1.5}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);
+    border-radius:16px;padding:22px;box-shadow:var(--shadow-sm)}
+  .card h3{margin:0 0 14px;font-size:12px;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--text3);font-weight:700}
+  .row{display:flex;justify-content:space-between;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--border)}
+  .row:last-child{border:0}
+  .label{color:var(--text2);font-size:13px}
+  .val{font-weight:600;font-size:14px;color:var(--text1)}
+
+  .timeline{position:relative;padding-left:36px}
+  .timeline::before{content:'';position:absolute;left:14px;top:8px;bottom:8px;
+    width:2px;background:var(--border)}
+  .tl-item{position:relative;padding-bottom:20px}
+  .tl-item:last-child{padding-bottom:0}
+  .tl-dot{position:absolute;left:-30px;top:2px;width:30px;height:30px;border-radius:50%;
+    background:var(--card);border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:13px;z-index:2}
+  .tl-item.done .tl-dot{background:var(--green);border-color:var(--green);color:#fff}
+  .tl-item.current .tl-dot{background:var(--accent);border-color:var(--accent);color:#fff;
+    box-shadow:0 0 0 6px rgba(204,120,92,.18);
+    animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 6px rgba(204,120,92,.18)}
+    50%{box-shadow:0 0 0 10px rgba(204,120,92,.08)}}
+  .tl-content{padding-left:6px}
+  .tl-label{font-size:14px;font-weight:600;margin-bottom:2px}
+  .tl-item.done .tl-label{text-decoration:line-through;color:var(--text3)}
+  .tl-item.current .tl-label{color:var(--accent)}
+  .tl-meta{font-size:12px;color:var(--text3)}
+  .tl-item.current .tl-meta{color:var(--accent2);font-weight:600}
+
+  .progress-wrap{margin:14px 0}
+  .progress-bar{background:var(--card2);border-radius:10px;height:10px;overflow:hidden}
+  .progress-fill{background:linear-gradient(90deg,var(--accent),var(--accent2));
+    height:100%;border-radius:10px;transition:width .6s ease}
+  .progress-meta{display:flex;justify-content:space-between;
+    margin-top:8px;font-size:12px;color:var(--text3)}
+
+  .footer{text-align:center;color:var(--text3);font-size:12px;
+    padding:32px 0;line-height:1.7}
+  .footer a{color:var(--accent);text-decoration:none;font-weight:600}
+
+  .panic{margin-top:14px;background:transparent;border:1px solid var(--red);
+    color:var(--red);padding:10px 16px;border-radius:10px;cursor:pointer;
+    font-size:13px;font-weight:600;width:100%}
+  .panic:hover{background:var(--red);color:#fff}
+
+  /* Interactive stage timeline (Option A) */
+  .tl-item.expandable .tl-content{cursor:pointer}
+  .tl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;
+    border-radius:10px;transition:background .15s}
+  .tl-head:hover{background:var(--card2)}
+  .tl-head .count{font-size:12px;color:var(--text3);font-weight:600;flex-shrink:0}
+  .tl-item.done .tl-head .count{color:var(--green)}
+  .tl-item.current .tl-head .count{color:var(--accent)}
+  .tl-body{margin-top:10px;padding:10px 4px 4px 4px;display:none}
+  .tl-item.open .tl-body{display:block}
+  .tl-item.expandable .tl-head::after{content:'\25BE';color:var(--text3);font-size:12px;margin-left:6px;transition:transform .2s}
+  .tl-item.open .tl-head::after{transform:rotate(180deg)}
+
+  .step{display:flex;align-items:flex-start;gap:11px;padding:9px 6px;border-radius:8px;transition:background .15s}
+  .step:hover{background:var(--card2)}
+  .step input[type=checkbox]{margin-top:2px;width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+  .step label{flex:1;font-size:14px;cursor:pointer;line-height:1.4;color:var(--text1)}
+  .step.done label{text-decoration:line-through;color:var(--text3)}
+
+  /* Forms */
+  .field{margin-bottom:12px}
+  .field-label{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;display:block;
+    text-transform:uppercase;letter-spacing:.06em}
+  .input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    font-size:14px;font-family:inherit;background:#fff;color:var(--text1);box-sizing:border-box}
+  .input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(204,120,92,.15)}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:520px){.field-row{grid-template-columns:1fr}}
+
+  .btn{background:var(--accent);color:#fff;border:none;padding:11px 18px;border-radius:10px;
+    font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+  .btn:hover{background:var(--accent-dark)}
+  .btn-outline{background:#fff;color:var(--accent);border:1.5px solid var(--accent)}
+  .btn-outline:hover{background:rgba(204,120,92,.08)}
+  .btn-sm{padding:8px 14px;font-size:13px}
+
+  .banner-info{padding:12px 16px;border-radius:10px;background:rgba(204,120,92,.08);
+    color:var(--accent-dark);font-size:13px;margin-bottom:14px;border:1px solid rgba(204,120,92,.18);line-height:1.5}
+
+  /* Visit-request pills */
+  .pill{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;display:inline-block}
+  .pill-pending  {background:rgba(245,158,11,.14);color:#92400E}
+  .pill-approved {background:rgba(16,185,129,.14);color:#065F46}
+  .pill-resched  {background:rgba(204,120,92,.14);color:var(--accent-dark)}
+  .pill-declined {background:rgba(185,28,28,.12);color:#7F1D1D}
+
+  .req-card{border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;background:#fff}
+  .req-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .req-title{font-weight:600;font-size:14px;flex:1;min-width:200px;color:var(--text1)}
+  .counter-form{margin-top:10px;padding:12px;background:var(--card2);border-radius:10px;display:none}
+  .counter-form.open{display:block}
+
+  .custom-item{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:10px 12px;background:var(--card2);border-radius:8px;margin-bottom:6px;font-size:13px}
+  .custom-item .due{font-size:11px;color:var(--text3)}
+
+  .msg-ok{color:var(--green);font-size:13px;font-weight:500}
+  .msg-err{color:var(--red);font-size:13px;font-weight:500}
+  .msg-mute{color:var(--text2);font-size:13px}
+
+  .err{text-align:center;padding:60px 20px}
+  .err h2{color:var(--red);margin:0 0 10px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--text1);color:#fff;padding:10px 18px;
+    border-radius:10px;font-size:13px;z-index:99}
+</style>
 </head>
 <body>
-<div class="wrap">
-
-  <div id="state-loading" style="display:block;text-align:center;padding:80px 20px;">
-    <div style="font-size:14px;color:var(--text2);">Loading your build…</div>
-  </div>
-
-  <div id="state-error">
-    <div class="card error-box">
-      <div class="icon">🔒</div>
-      <h1>Link not valid</h1>
-      <p class="muted" style="margin-top:8px;">This builder link is invalid or has expired. Please contact Maxwell for a fresh link.</p>
-      <div style="margin-top:20px;font-size:14px;">📞 <a href="tel:7093250545" style="color:var(--accent);">(709) 325-0545</a></div>
-    </div>
-  </div>
-
-  <div id="state-main">
-    <div class="header">
-      <div class="eyebrow">Builder Portal · Maxwell DealFlow</div>
-      <h1 id="build-address">—</h1>
-      <div class="muted" id="build-meta" style="margin-top:4px;">—</div>
-      <div style="margin-top:18px;">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.9;">
-          <span>Build Progress</span><span id="progress-pct">0%</span>
-        </div>
-        <div class="progress"><div id="progress-fill" class="progress-fill"></div></div>
-      </div>
-    </div>
-
-    <div class="banner">
-      ✅ Tick items as you complete them. Maxwell gets a notification instantly. For a client walk-through, use <strong>Request Client Visit</strong>.
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0;">🏗️ Build Checklist</h2>
-      <div class="muted" style="margin-bottom:14px;">Expand each stage to update steps. Progress above updates automatically.</div>
-      <div id="stages-container" class="stage-grid"></div>
-    </div>
-
-    <div id="your-requests-card" class="card" style="display:none;">
-      <h2 style="margin-top:0;">📬 Your Visit Requests</h2>
-      <div class="muted" style="margin-bottom:12px;">Status of the client-visit requests you've sent.</div>
-      <div id="your-requests-list"></div>
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0;">🗓️ Request Client Visit</h2>
-      <div class="muted" style="margin-bottom:14px;">Need Maxwell to bring the client? Pick a date and a stage to show off.</div>
-      <div class="field">
-        <label class="field-label">Milestone / Reason</label>
-        <select class="input" id="visit-stage"></select>
-      </div>
-      <div class="row">
-        <div class="field"><label class="field-label">Date</label><input class="input" id="visit-date" type="date"></div>
-        <div class="field"><label class="field-label">Time</label><input class="input" id="visit-time" type="time" value="10:00"></div>
-      </div>
-      <div class="field">
-        <label class="field-label">Note to Maxwell (optional)</label>
-        <textarea class="input" id="visit-note" rows="2" placeholder="e.g. Framing is up — great time for a walk-through."></textarea>
-      </div>
-      <button class="btn" onclick="BuilderPortal.submitVisit()">📤 Send Request</button>
-      <div id="visit-msg" style="margin-top:8px;font-size:13px;"></div>
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0;">➕ Add Custom Task</h2>
-      <div class="muted" style="margin-bottom:14px;">Something not on the checklist? Add it here.</div>
-      <div class="field"><label class="field-label">Task</label><input class="input" id="custom-label" placeholder="e.g. Landscaping sod installation"></div>
-      <div class="row">
-        <div class="field"><label class="field-label">Target date (optional)</label><input class="input" id="custom-due" type="date"></div>
-        <div class="field" style="display:flex;align-items:flex-end;"><button class="btn btn-outline" onclick="BuilderPortal.addCustom()">Add Task</button></div>
-      </div>
-      <div id="custom-list"></div>
-    </div>
-
-    <div class="card security-card">
-      <h2 style="margin-top:0;">🔒 Link Security</h2>
-      <div class="muted">
-        This link stays active as long as you use it — every time you open it, it renews for another 90 days.
-        If you stop using it for 90 days straight, it auto-expires and Maxwell will need to send you a new one.
-      </div>
-      <div class="security-row">
-        <div class="meta">Think this link was forwarded or exposed?</div>
-        <button class="btn btn-danger btn-sm" onclick="BuilderPortal.selfRevoke()">🚫 Revoke this link</button>
-      </div>
-    </div>
-
-    <footer>
-      Maxwell Delali Midodzi · eXp Realty · (709) 325-0545<br>
-      Rolling 90-day access · Auto-renews with use
-    </footer>
-  </div>
+<div class="preview-banner">⚙️ <strong>V2 PREVIEW</strong> · Builder Variant B — Phase 2 timeline + status banner + what's-next (no countdown)</div>
+<div class="wrap" id="root">
+  <div style="text-align:center;padding:80px 20px;color:var(--text2)">Loading…</div>
 </div>
-
-<div id="toast" class="toast"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="js/builder-portal.js"></script>
+<script src="js/builder-portal-v2-B.js"></script>
 </body>
 </html>
