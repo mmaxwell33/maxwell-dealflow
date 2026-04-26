@@ -8,12 +8,48 @@
     /* Maxwell DealFlow theme — light cream + terracotta (matches stakeholder portal V2) */
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:#FAF7F2;color:#1A1F2E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
+    .wrap{max-width:1100px;width:100%;}
+    /* legacy .card retained for error state; main view uses .panel */
     .card{background:#FFFFFF;border:1px solid rgba(0,0,0,.08);border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.04);max-width:1200px;width:100%;overflow:hidden;}
+    .panel{background:#FFFFFF;border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:14px;}
+    .panel h3{margin:0 0 14px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#8C95A8;font-weight:700;}
     .header{background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);padding:28px 28px 24px;text-align:center;}
     .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.78);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
     .header-name{font-size:20px;font-weight:800;color:#fff;margin-bottom:2px;}
     .header-title{font-size:13px;color:rgba(255,255,255,.85);}
     .body{padding:28px;}
+    /* Page title (matches stakeholder/builder portals) */
+    .page-title{margin:0 0 18px;font-size:22px;font-weight:700;color:#1A1F2E;}
+    .page-title span{display:block;font-size:13px;font-weight:500;color:#5C6577;margin-top:4px;}
+    /* Status banner */
+    .status-banner{display:flex;align-items:center;gap:14px;padding:18px 20px;
+      background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));
+      border:1px solid rgba(16,185,129,.25);border-radius:14px;margin-bottom:14px;}
+    .status-banner.warn{background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.04));
+      border-color:rgba(245,158,11,.3);}
+    .status-banner-icon{width:44px;height:44px;border-radius:50%;background:rgba(16,185,129,.18);
+      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+    .status-banner.warn .status-banner-icon{background:rgba(245,158,11,.18);}
+    .status-banner-text strong{display:block;font-size:15px;margin-bottom:2px;color:#1A1F2E;}
+    .status-banner-text span{color:#5C6577;font-size:13px;}
+    /* What's next */
+    .next-up{padding:18px 20px;
+      background:linear-gradient(135deg,rgba(204,120,92,.06),rgba(204,120,92,.02));
+      border:1px solid rgba(204,120,92,.18);border-radius:14px;margin-bottom:20px;}
+    .next-up-label{font-size:11px;color:#CC785C;text-transform:uppercase;
+      letter-spacing:.1em;font-weight:700;margin-bottom:6px;}
+    .next-up-text{font-size:15px;font-weight:500;color:#1A1F2E;line-height:1.5;}
+    /* Two-column grid */
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+    @media(max-width:760px){.grid{grid-template-columns:1fr;}}
+    .row{display:flex;justify-content:space-between;align-items:center;
+      padding:11px 0;border-bottom:1px solid rgba(0,0,0,.08);}
+    .row:last-child{border:0;}
+    .row .label{color:#5C6577;font-size:13px;}
+    .row .val{font-weight:600;font-size:14px;color:#1A1F2E;}
+    /* Footer / secure-link */
+    .footer-line{text-align:center;color:#8C95A8;font-size:12px;padding:32px 0 8px;line-height:1.7;}
+    .footer-line a{color:#CC785C;text-decoration:none;font-weight:600;}
     .build-title{font-size:18px;font-weight:800;color:#1A1F2E;margin-bottom:4px;}
     .build-meta{font-size:13px;color:#5C6577;margin-bottom:20px;line-height:1.8;}
     .build-meta span{margin-right:16px;}
@@ -79,7 +115,6 @@
   </style>
 </head>
 <body>
-<div class="card">
 
   <!-- Loading -->
   <div id="state-loading">
@@ -89,72 +124,77 @@
     </div>
   </div>
 
-  <!-- Error -->
+  <!-- Error (keeps the legacy .card with terracotta header) -->
   <div id="state-error">
-    <div class="header">
-      <div class="header-logo">Maxwell DealFlow</div>
-      <div class="header-name">Maxwell Delali Midodzi</div>
-      <div class="header-title">REALTOR® | eXp Realty</div>
-    </div>
-    <div class="body" style="text-align:center;">
-      <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-      <div style="font-size:18px;font-weight:800;color:#1A1F2E;margin-bottom:8px;">Page Not Found</div>
-      <div style="font-size:14px;color:#5C6577;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
-      <div class="contact-box" style="text-align:left;margin-top:24px;">
-        <div class="contact-box-title">Contact Maxwell</div>
-        <div style="font-size:14px;line-height:2.2;">
-          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
-          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+    <div class="card">
+      <div class="header">
+        <div class="header-logo">Maxwell DealFlow</div>
+        <div class="header-name">Maxwell Delali Midodzi</div>
+        <div class="header-title">REALTOR® | eXp Realty</div>
+      </div>
+      <div class="body" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+        <div style="font-size:18px;font-weight:800;color:#1A1F2E;margin-bottom:8px;">Page Not Found</div>
+        <div style="font-size:14px;color:#5C6577;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
+        <div class="contact-box" style="text-align:left;margin-top:24px;">
+          <div class="contact-box-title">Contact Maxwell</div>
+          <div style="font-size:14px;line-height:2.2;">
+            📞 <a href="tel:7093250545">(709) 325-0545</a><br>
+            ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Main -->
-  <div id="state-main">
-    <div class="header">
-      <div class="header-logo">Maxwell DealFlow</div>
-      <div class="header-name">Maxwell Delali Midodzi</div>
-      <div class="header-title">REALTOR® | eXp Realty</div>
+  <div id="state-main" class="wrap">
+    <h1 class="page-title">
+      <span id="build-address-title">—</span>
+      <span id="build-subtitle"></span>
+    </h1>
+
+    <div id="build-status-banner"></div>
+
+    <div id="build-countdown"></div>
+
+    <div id="build-next-up"></div>
+
+    <div class="grid">
+      <div class="panel">
+        <h3>Build details</h3>
+        <div id="build-details-rows"></div>
+      </div>
+      <div class="panel">
+        <h3>Overall progress</h3>
+        <div class="progress-wrap" style="margin-bottom:14px;">
+          <div class="progress-label"><span>Progress</span><span id="progress-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        </div>
+        <div id="build-progress-rows"></div>
+      </div>
     </div>
-    <div class="body">
-      <div style="font-size:12px;font-weight:700;color:#5C6577;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🏗️ Your Build Progress</div>
-      <div id="build-greeting" style="font-size:15px;font-weight:700;color:#CC785C;margin-bottom:6px;display:none;"></div>
-      <div class="build-title" id="build-address">—</div>
-      <div class="build-meta">
-        <span id="build-client"></span>
-        <span id="build-builder"></span>
-        <span id="build-closing"></span>
-      </div>
 
-      <div id="build-countdown"></div>
-
-      <div class="progress-wrap">
-        <div class="progress-label">
-          <span>Progress</span>
-          <span id="progress-pct">0%</span>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-      </div>
-
-      <div class="stages-title">Build Progress</div>
+    <div class="panel">
+      <h3>Your journey</h3>
       <div id="sections-list"></div>
-
       <div class="last-updated" id="last-updated"></div>
+    </div>
 
-      <div class="contact-box">
-        <div class="contact-box-title">Questions About Your Build?</div>
-        <div style="font-size:14px;line-height:2.2;">
-          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
-          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a><br>
-          🌐 <a href="https://maxwellmidodzi.exprealty.com" target="_blank">maxwellmidodzi.exprealty.com</a>
-        </div>
+    <div class="panel">
+      <h3>Questions about your build?</h3>
+      <div style="font-size:14px;line-height:2.2;color:#1A1F2E;">
+        📞 <a href="tel:7093250545" style="color:#CC785C;text-decoration:none;font-weight:600;">(709) 325-0545</a><br>
+        ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#CC785C;text-decoration:none;font-weight:600;">Maxwell.Midodzi@exprealty.com</a><br>
+        🌐 <a href="https://maxwellmidodzi.exprealty.com" target="_blank" style="color:#CC785C;text-decoration:none;font-weight:600;">maxwellmidodzi.exprealty.com</a>
       </div>
+    </div>
+
+    <div class="footer-line">
+      🔒 Secure link · auto-extends with each visit<br>
+      Maxwell Delali Midodzi · REALTOR® · eXp Realty · (709) 325-0545
     </div>
   </div>
-
-</div>
-<footer>Maxwell DealFlow CRM &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty</footer>
 
 <script>
 const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
@@ -243,41 +283,20 @@ async function init() {
     const build = tokenRows[0].new_builds;
     if (!build) { show('error'); return; }
 
-    // Populate header
-    document.getElementById('build-address').textContent = build.lot_address || '—';
-    if (build.client_name) {
-      const firstName = build.client_name.split(' ')[0];
-      const greetEl = document.getElementById('build-greeting');
-      greetEl.textContent = '👋 Hi ' + firstName + ' — welcome to your build progress page';
-      greetEl.style.display = 'block';
-      document.getElementById('build-client').textContent = '👤 ' + build.client_name;
-    }
-    if (build.builder_name) document.getElementById('build-builder').textContent = '🏗️ ' + build.builder_name;
-    if (build.est_completion_date || build.est_close_date || build.closing_date) {
-      const closeDate = build.est_completion_date || build.est_close_date || build.closing_date;
-      document.getElementById('build-closing').textContent = '📅 Est. Possession: ' + fmtDate(closeDate);
-      const cd = countdownTo(closeDate);
-      if (cd) {
-        document.getElementById('build-countdown').innerHTML =
-          '<div class="countdown">' +
-            '<div class="countdown-num"><strong>' + cd.days + '</strong><span>Days</span></div>' +
-            '<div class="countdown-num"><strong>' + String(cd.hours).padStart(2,'0') + '</strong><span>Hours</span></div>' +
-            '<div class="countdown-num"><strong>' + String(cd.mins).padStart(2,'0') + '</strong><span>Min</span></div>' +
-            '<div class="countdown-label">Until possession 🔑</div>' +
-          '</div>';
-      } else {
-        document.getElementById('build-countdown').innerHTML = '';
-      }
-    } else {
-      document.getElementById('build-countdown').innerHTML = '';
-    }
+    // === Title + subtitle (Build portal · Hi <Name> · <Builder>) ===
+    document.getElementById('build-address-title').textContent = build.lot_address || '—';
+    const firstName = build.client_name ? build.client_name.split(' ')[0] : '';
+    const subParts = ['Build portal'];
+    if (firstName) subParts.push('Hi ' + firstName);
+    if (build.builder_name) subParts.push(build.builder_name);
+    document.getElementById('build-subtitle').textContent = subParts.join(' · ');
 
-    // Read pipeline_milestones (same JSON the agent + builder write to)
+    // === Read pipeline_milestones FIRST so we can derive status + next-up ===
     const pm = build.pipeline_milestones || {};
-    let totalSteps = 0;
-    let doneSteps = 0;
+    let totalSteps = 0, doneSteps = 0;
+    let currentSectionIdx = -1, nextStepLabel = null;
 
-    const sectionsHtml = SECTIONS.map(section => {
+    const sectionsHtml = SECTIONS.map((section, idx) => {
       const sec = pm[section.key] || { steps: {} };
       const steps = sec.steps || {};
       const sectionDone = section.steps.length;
@@ -285,6 +304,11 @@ async function init() {
       const allDone = sectionDoneCount === sectionDone;
       totalSteps += sectionDone;
       doneSteps += sectionDoneCount;
+      if (currentSectionIdx === -1 && !allDone) {
+        currentSectionIdx = idx;
+        const nxt = section.steps.find(s => !steps[s.key]);
+        if (nxt) nextStepLabel = nxt.label;
+      }
 
       const stepsHtml = section.steps.map(s => {
         const isDone = !!steps[s.key];
@@ -305,10 +329,78 @@ async function init() {
 
     document.getElementById('sections-list').innerHTML = sectionsHtml;
 
-    // Progress bar
     const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
     document.getElementById('progress-pct').textContent = pct + '%';
     document.getElementById('progress-fill').style.width = pct + '%';
+
+    // === Status banner (mirrors builder portal copy) ===
+    const allComplete = currentSectionIdx === -1;
+    const currentLabel = allComplete
+      ? null
+      : SECTIONS[currentSectionIdx].label.replace(/^\S+\s*/, ''); // strip leading emoji
+    const statusTitle = allComplete ? 'Build complete 🎉' : 'Build is on track';
+    const statusSub   = allComplete
+      ? 'All stages finished — congratulations on your new home!'
+      : 'Currently working through ' + currentLabel + ' — ' + pct + '% of all steps complete.';
+    document.getElementById('build-status-banner').innerHTML =
+      '<div class="status-banner">' +
+        '<div class="status-banner-icon">✅</div>' +
+        '<div class="status-banner-text"><strong>' + statusTitle + '</strong><span>' + statusSub + '</span></div>' +
+      '</div>';
+
+    // === Countdown to possession ===
+    const closeDate = build.est_completion_date || build.est_close_date || build.closing_date;
+    if (closeDate) {
+      const cd = countdownTo(closeDate);
+      if (cd) {
+        document.getElementById('build-countdown').innerHTML =
+          '<div class="countdown">' +
+            '<div class="countdown-num"><strong>' + cd.days + '</strong><span>Days</span></div>' +
+            '<div class="countdown-num"><strong>' + String(cd.hours).padStart(2,'0') + '</strong><span>Hours</span></div>' +
+            '<div class="countdown-num"><strong>' + String(cd.mins).padStart(2,'0') + '</strong><span>Min</span></div>' +
+            '<div class="countdown-label">Until possession 🔑</div>' +
+          '</div>';
+      } else {
+        document.getElementById('build-countdown').innerHTML = '';
+      }
+    } else {
+      document.getElementById('build-countdown').innerHTML = '';
+    }
+
+    // === What's next ===
+    let nextSentence;
+    if (allComplete) {
+      nextSentence = 'All stages complete — Maxwell will reach out about possession.';
+    } else if (nextStepLabel) {
+      nextSentence = 'Next up in ' + currentLabel + ': ' + nextStepLabel + '.';
+    } else {
+      nextSentence = 'Wrapping up ' + currentLabel + ' — Maxwell will move to the next stage shortly.';
+    }
+    document.getElementById('build-next-up').innerHTML =
+      '<div class="next-up">' +
+        '<div class="next-up-label">⏭ What\u2019s next</div>' +
+        '<div class="next-up-text">' + nextSentence + '</div>' +
+      '</div>';
+
+    // === Build details rows (left card) ===
+    const rows = [];
+    rows.push(['Lot address', build.lot_address || '—']);
+    if (build.client_name)  rows.push(['Client',  build.client_name]);
+    if (build.builder_name) rows.push(['Builder', build.builder_name]);
+    if (closeDate)          rows.push(['Est. possession', fmtDate(closeDate)]);
+    document.getElementById('build-details-rows').innerHTML = rows.map(([l,v]) =>
+      '<div class="row"><span class="label">'+l+'</span><span class="val">'+v+'</span></div>'
+    ).join('');
+
+    // === Overall progress rows (right card) ===
+    const progRows = [
+      ['Steps complete', doneSteps + ' of ' + totalSteps],
+      ['Current stage',  allComplete ? 'Complete' : currentLabel],
+      ['Stages done',    (allComplete ? SECTIONS.length : currentSectionIdx) + ' of ' + SECTIONS.length],
+    ];
+    document.getElementById('build-progress-rows').innerHTML = progRows.map(([l,v]) =>
+      '<div class="row"><span class="label">'+l+'</span><span class="val">'+v+'</span></div>'
+    ).join('');
 
     // Last updated
     if (build.updated_at) {
