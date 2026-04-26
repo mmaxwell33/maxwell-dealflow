@@ -277,6 +277,7 @@ async function submitDecision(choice){
       await sb('pending_offers',{method:'POST',prefer:'return=minimal',body:JSON.stringify({
         viewing_id:rec.viewing_id, client_id:rec.client_id, agent_id:rec.agent_id,
         client_name:rec.client_name, property_address:rec.property_address,
+        mls_number:rec.mls_number||null,
         list_price:rec.list_price, offer_amount:offerAmount, client_note:clientNote, status:'Pending'
       })});
     }

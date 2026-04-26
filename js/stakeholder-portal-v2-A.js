@@ -1,5 +1,5 @@
-// Maxwell DealFlow — Stakeholder Portal V2
-// Status banner + countdown to closing + what's-next + vertical timeline (done / current / future).
+// Maxwell DealFlow — Stakeholder Portal V2-A (Phase 1 only)
+// Smart status banner + countdown + what's-next + agent profile card.
 // Same RPC contract as V1. Read-only, token-gated.
 // Auto-refreshes via Supabase Realtime when pipeline / checklist_items change.
 (function(){
@@ -13,6 +13,7 @@
     lawyer:'Lawyer', appraiser:'Appraiser', insurance:'Insurance Agent', other:'Stakeholder'
   };
 
+  let cdTimer = null;
   let realtimeChannel = null;
   let refreshDebounce = null;
 
@@ -40,23 +41,18 @@
     return r.data;
   }
 
+  function initials(name){
+    if(!name) return '?';
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if(!parts.length) return '?';
+    return ((parts[0][0]||'') + (parts[parts.length-1][0]||'')).toUpperCase();
+  }
+
   function daysUntil(dateStr){
     if(!dateStr) return null;
     const target = new Date(dateStr + 'T00:00:00');
     const today  = new Date(new Date().toDateString());
     return Math.round((target - today) / (1000*60*60*24));
-  }
-
-  // Countdown — D/H/M to closing
-  function countdownTo(closeIso){
-    if(!closeIso) return null;
-    const target = new Date(closeIso + 'T00:00:00').getTime();
-    const now    = Date.now();
-    const diff   = Math.max(0, target - now);
-    const days   = Math.floor(diff / (1000*60*60*24));
-    const hours  = Math.floor((diff / (1000*60*60)) % 24);
-    const mins   = Math.floor((diff / (1000*60)) % 60);
-    return { days, hours, mins };
   }
 
   function deriveStatus(d){
@@ -106,6 +102,17 @@
     return next.label+' is scheduled for '+fmtDate(due)+' ('+days+' days from now).';
   }
 
+  function countdownTo(closeIso){
+    if(!closeIso) return null;
+    const target = new Date(closeIso + 'T00:00:00').getTime();
+    const now    = Date.now();
+    const diff   = Math.max(0, target - now);
+    const days   = Math.floor(diff / (1000*60*60*24));
+    const hours  = Math.floor((diff / (1000*60*60)) % 24);
+    const mins   = Math.floor((diff / (1000*60)) % 60);
+    return { days, hours, mins };
+  }
+
   async function loadAndRender(isRefresh){
     const data = await rpc('stakeholder_resolve', { p_token: token });
     if(!data || data.error){
@@ -115,14 +122,14 @@
     }
     if(!isRefresh){
       rpc('stakeholder_log_access', { p_token: token, p_ua: navigator.userAgent });
-      rpc('log_portal_view', { p_page_type: 'stakeholder-v2', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
+      rpc('log_portal_view', { p_page_type: 'stakeholder-v2-A', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
     }
     render(data);
   }
 
   function subscribeRealtime(){
     if(realtimeChannel) return;
-    realtimeChannel = sb.channel('stakeholder-v2-'+token.slice(0,8))
+    realtimeChannel = sb.channel('stakeholder-v2-A-'+token.slice(0,8))
       .on('postgres_changes', { event:'*', schema:'public', table:'pipeline'        }, queueRefresh)
       .on('postgres_changes', { event:'*', schema:'public', table:'checklist_items' }, queueRefresh)
       .subscribe();
@@ -152,7 +159,7 @@
 
     let html = '';
 
-    // Lightweight title (no hero image in Variant B)
+    // Lightweight title (no hero image in Variant A)
     html += '<h1 class="page-title">'+(d.property||'Your property')+
             '<span>'+rolePretty+' portal \u00b7 '+greeting+(fmtMoney?' \u00b7 '+fmtMoney:'')+'</span></h1>';
 
@@ -178,6 +185,21 @@
     html += '<div class="next-up-text">'+nextSentence+'</div>';
     html += '</div>';
 
+    // ============ PHASE 1: Agent profile card ============
+    const phoneRaw = (d.agent_phone||'').replace(/\D/g,'');
+    html += '<div class="agent-card">';
+    html += '<div class="agent-photo">'+initials(d.agent_name)+'</div>';
+    html += '<div class="agent-info">';
+    html += '<strong>'+(d.agent_name||'Maxwell Delali Midodzi')+'</strong>';
+    html += '<span>Real Estate Agent \u00b7 eXp Realty</span>';
+    html += '<div class="agent-actions">';
+    if(phoneRaw){
+      html += '<a href="tel:'+phoneRaw+'" class="agent-btn">\ud83d\udcde Call</a>';
+      html += '<a href="sms:'+phoneRaw+'" class="agent-btn">\ud83d\udcac Text</a>';
+    }
+    html += '<a href="mailto:?subject=About my deal" class="agent-btn">\u2709\ufe0f Email</a>';
+    html += '</div></div></div>';
+
     // ============ Two-column: Property details + Progress ============
     html += '<div class="grid">';
 
@@ -200,29 +222,6 @@
 
     html += '</div>'; // /grid
 
-    // ============ PHASE 2: Vertical timeline ============
-    html += '<div class="card" style="margin-bottom:14px"><h3>Your journey</h3>';
-    if(checklist.length === 0){
-      html += '<div style="color:var(--text3);text-align:center;padding:20px">No milestones yet \u2014 Maxwell will add them shortly.</div>';
-    } else {
-      let currentIdx = checklist.findIndex(c => !c.completed);
-      if(currentIdx < 0) currentIdx = checklist.length;
-      html += '<div class="timeline">';
-      checklist.forEach(function(c, i){
-        const cls = c.completed ? 'done' : (i === currentIdx ? 'current' : '');
-        const dot = c.completed ? '\u2713' : (i+1);
-        html += '<div class="tl-item '+cls+'">';
-        html += '<div class="tl-dot">'+dot+'</div>';
-        html += '<div class="tl-content">';
-        html += '<div class="tl-label">'+c.label+'</div>';
-        html += '<div class="tl-meta">'+(c.due_date?fmtDate(c.due_date):'')+
-                (c.completed ? ' \u00b7 Complete' : (i === currentIdx ? ' \u00b7 In progress' : ' \u00b7 Upcoming'))+'</div>';
-        html += '</div></div>';
-      });
-      html += '</div>';
-    }
-    html += '</div>';
-
     // ============ Revoke link card ============
     html += '<div class="card" style="margin-bottom:14px"><h3>This link</h3>';
     html += row('Expires', fmtDate(d.expires_at));
@@ -238,10 +237,10 @@
     root.innerHTML = html;
 
     // Live countdown ticker — clear any prior timer first (re-render safe)
-    if(window.__cdTimer){ clearInterval(window.__cdTimer); window.__cdTimer = null; }
+    if(cdTimer){ clearInterval(cdTimer); cdTimer = null; }
     if(cd && d.closing_date){
       const closeIso = d.closing_date.slice(0,10);
-      window.__cdTimer = setInterval(function(){
+      cdTimer = setInterval(function(){
         const x = countdownTo(closeIso);
         if(!x) return;
         const dEl = document.getElementById('cd-d');
@@ -250,7 +249,7 @@
         if(dEl) dEl.textContent = x.days;
         if(hEl) hEl.textContent = String(x.hours).padStart(2,'0');
         if(mEl) mEl.textContent = String(x.mins).padStart(2,'0');
-      }, 30000); // refresh every 30s
+      }, 30000);
     }
 
     window.__revoke = async function(){

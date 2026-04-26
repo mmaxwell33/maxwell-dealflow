@@ -212,6 +212,7 @@
     html += '<div class="grid">';
     html += '<div class="card"><h3>Build details</h3>';
     html += row('Lot address',     esc(b.lot_address || '\u2014'));
+    if (b.mls_number) html += row('MLS#', esc(b.mls_number));
     html += row('Builder',         esc(b.builder_name || '\u2014'));
     html += row('Est. completion', fmtDate(b.est_completion_date));
     if (b.purchase_price) html += row('Purchase price', '$'+Number(b.purchase_price).toLocaleString());

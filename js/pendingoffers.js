@@ -29,6 +29,7 @@ const PendingOffers = {
           <span style="font-size:11px;font-weight:700;color:var(--green);">READY TO OFFER</span>
         </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">🏠 ${o.property_address || '—'}</div>
+        ${o.mls_number ? `<div style="font-size:12px;color:var(--text2);">MLS# ${App.esc(o.mls_number)}</div>` : ''}
         ${o.list_price ? `<div style="font-size:12px;color:var(--text2);">List Price: ${App.fmtMoney(o.list_price)}</div>` : ''}
         <div style="font-size:16px;font-weight:800;color:var(--green);margin:8px 0;">
           💰 Offer: ${App.fmtMoney(o.offer_amount)}

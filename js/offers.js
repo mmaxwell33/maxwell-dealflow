@@ -57,6 +57,7 @@ const Offers = {
           <div class="card2-title" style="flex:1;margin-right:8px;">${o.property_address || '—'}</div>
           <span class="pill2 ${statusPill[o.status]||'pill2-neutral'}">${o.status}</span>
         </div>
+        ${o.mls_number ? `<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">MLS# ${App.esc(o.mls_number)}</div>` : ''}
         <div class="card2-sub" style="margin-bottom:8px;">👤 ${o.clients?.full_name||'—'}</div>
         <div style="display:flex;justify-content:space-between;font-size:13px;">
           <span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(o.offer_amount)}</span>
@@ -91,6 +92,10 @@ const Offers = {
       <div class="form-group">
         <label class="form-label">Property Address *</label>
         <input class="form-input" id="of-address" placeholder="123 Main St, St. John's NL">
+      </div>
+      <div class="form-group">
+        <label class="form-label">MLS Number <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+        <input class="form-input" id="of-mls" placeholder="1284567">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -154,6 +159,7 @@ const Offers = {
       agent_id: currentAgent.id,
       client_id: clientId,
       property_address: address,
+      mls_number: document.getElementById('of-mls')?.value.trim() || null,
       list_price: document.getElementById('of-listprice').value || null,
       offer_amount: amount,
       offer_date: document.getElementById('of-date').value,
@@ -205,6 +211,7 @@ const Offers = {
     const isPending = ['Submitted','Conditions'].includes(o.status);
     App.openModal(`
       <div class="fw-800" style="font-size:16px;margin-bottom:2px;">${o.property_address}</div>
+      ${o.mls_number ? `<div class="text-muted" style="font-size:12px;margin-bottom:2px;">MLS# ${App.esc(o.mls_number)}</div>` : ''}
       <div class="text-muted" style="font-size:13px;margin-bottom:14px;">👤 ${o.clients?.full_name||'—'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
         <div style="background:var(--bg);padding:10px;border-radius:8px;grid-column:1/-1;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Offer Amount</div><div class="fw-800" style="font-size:22px;color:var(--green);">${App.fmtMoney(o.offer_amount)}</div></div>
@@ -497,6 +504,7 @@ const Pipeline = {
       client_name: client?.full_name || offer.client_name,
       client_email: client?.email || '',
       property_address: offer.property_address,
+      mls_number: offer.mls_number || null,
       offer_amount: offer.offer_amount,
       acceptance_date: acceptDate,
       inspection_date: dates.ins || null,
@@ -566,6 +574,7 @@ const Pipeline = {
       client_name: client?.full_name || offer.client_name,
       client_email: client?.email || '',
       property_address: offer.property_address,
+      mls_number: offer.mls_number || null,
       offer_amount: offer.offer_amount,
       acceptance_date: acceptDate,
       stage: 'Accepted',

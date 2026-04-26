@@ -1,5 +1,5 @@
-// Maxwell DealFlow — Stakeholder Portal V2
-// Status banner + countdown to closing + what's-next + vertical timeline (done / current / future).
+// Maxwell DealFlow — Stakeholder Portal V2-B (Phase 2 only)
+// Vertical timeline replacing flat checklist (done / current / future + pulsing terracotta).
 // Same RPC contract as V1. Read-only, token-gated.
 // Auto-refreshes via Supabase Realtime when pipeline / checklist_items change.
 (function(){
@@ -45,18 +45,6 @@
     const target = new Date(dateStr + 'T00:00:00');
     const today  = new Date(new Date().toDateString());
     return Math.round((target - today) / (1000*60*60*24));
-  }
-
-  // Countdown — D/H/M to closing
-  function countdownTo(closeIso){
-    if(!closeIso) return null;
-    const target = new Date(closeIso + 'T00:00:00').getTime();
-    const now    = Date.now();
-    const diff   = Math.max(0, target - now);
-    const days   = Math.floor(diff / (1000*60*60*24));
-    const hours  = Math.floor((diff / (1000*60*60)) % 24);
-    const mins   = Math.floor((diff / (1000*60)) % 60);
-    return { days, hours, mins };
   }
 
   function deriveStatus(d){
@@ -115,14 +103,14 @@
     }
     if(!isRefresh){
       rpc('stakeholder_log_access', { p_token: token, p_ua: navigator.userAgent });
-      rpc('log_portal_view', { p_page_type: 'stakeholder-v2', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
+      rpc('log_portal_view', { p_page_type: 'stakeholder-v2-B', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
     }
     render(data);
   }
 
   function subscribeRealtime(){
     if(realtimeChannel) return;
-    realtimeChannel = sb.channel('stakeholder-v2-'+token.slice(0,8))
+    realtimeChannel = sb.channel('stakeholder-v2-B-'+token.slice(0,8))
       .on('postgres_changes', { event:'*', schema:'public', table:'pipeline'        }, queueRefresh)
       .on('postgres_changes', { event:'*', schema:'public', table:'checklist_items' }, queueRefresh)
       .subscribe();
@@ -148,7 +136,6 @@
     const fmtMoney   = d.offer_amount ? '$'+Number(d.offer_amount).toLocaleString() : null;
     const status     = deriveStatus(d);
     const nextSentence = deriveNext(d, checklist);
-    const cd         = countdownTo(d.closing_date && d.closing_date.slice(0,10));
 
     let html = '';
 
@@ -161,16 +148,6 @@
     html += '<div class="status-banner-icon">'+status.icon+'</div>';
     html += '<div class="status-banner-text"><strong>'+status.title+'</strong><span>'+status.sub+'</span></div>';
     html += '</div>';
-
-    // ============ PHASE 1: Countdown to closing ============
-    if(cd){
-      html += '<div class="countdown" id="cd-wrap">';
-      html += '<div class="countdown-num"><strong id="cd-d">'+cd.days+'</strong><span>Days</span></div>';
-      html += '<div class="countdown-num"><strong id="cd-h">'+String(cd.hours).padStart(2,'0')+'</strong><span>Hours</span></div>';
-      html += '<div class="countdown-num"><strong id="cd-m">'+String(cd.mins).padStart(2,'0')+'</strong><span>Min</span></div>';
-      html += '<div class="countdown-label">Until you get your keys \ud83d\udd11</div>';
-      html += '</div>';
-    }
 
     // ============ PHASE 1: What's next ============
     html += '<div class="next-up">';
@@ -236,22 +213,6 @@
             (d.agent_phone||'(709) 325-0545')+'</div>';
 
     root.innerHTML = html;
-
-    // Live countdown ticker — clear any prior timer first (re-render safe)
-    if(window.__cdTimer){ clearInterval(window.__cdTimer); window.__cdTimer = null; }
-    if(cd && d.closing_date){
-      const closeIso = d.closing_date.slice(0,10);
-      window.__cdTimer = setInterval(function(){
-        const x = countdownTo(closeIso);
-        if(!x) return;
-        const dEl = document.getElementById('cd-d');
-        const hEl = document.getElementById('cd-h');
-        const mEl = document.getElementById('cd-m');
-        if(dEl) dEl.textContent = x.days;
-        if(hEl) hEl.textContent = String(x.hours).padStart(2,'0');
-        if(mEl) mEl.textContent = String(x.mins).padStart(2,'0');
-      }, 30000); // refresh every 30s
-    }
 
     window.__revoke = async function(){
       if(!confirm('Revoke this link now?\n\nYou will lose access immediately. Contact Maxwell for a new link.')) return;

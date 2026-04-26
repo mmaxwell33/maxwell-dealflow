@@ -385,6 +385,7 @@ async function init() {
     // === Build details rows (left card) ===
     const rows = [];
     rows.push(['Lot address', build.lot_address || '—']);
+    if (build.mls_number)   rows.push(['MLS#',    build.mls_number]);
     if (build.client_name)  rows.push(['Client',  build.client_name]);
     if (build.builder_name) rows.push(['Builder', build.builder_name]);
     if (closeDate)          rows.push(['Est. possession', fmtDate(closeDate)]);
