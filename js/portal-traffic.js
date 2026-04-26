@@ -90,6 +90,7 @@ const PortalTraffic = {
     this.renderStats();
     this.renderChart();
     this.renderClients();
+    this.renderRecent();
   },
 
   renderStats() {
@@ -166,7 +167,28 @@ const PortalTraffic = {
     }
     root.innerHTML = html;
   }
-  ,
+,
+
+  renderRecent() {
+    const root = document.getElementById('pt-recent');
+    if (!root) return;
+    const all = (this.allRows || this.rows || []).slice(0, 25);
+    if (!all.length) { root.innerHTML = ''; return; }
+    const _LBL = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
+    let html = '<div class="pt-section-title" style="margin-top:24px;font-weight:700;font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;">Recent Views (last 25)</div>';
+    html += '<div class="pt-row head"><div>Who</div><div>Portal</div><div>When</div><div>Action</div></div>';
+    for (const r of all) {
+      const ago = App.timeAgo ? App.timeAgo(r.viewed_at) : new Date(r.viewed_at).toLocaleString();
+      const pillType = r.effective_type || r.page_type;
+      const tag = r.is_self
+        ? '<span class="pt-pill" style="background:#f59e0b22;color:#f59e0b;">self-test</span>'
+        : '<span class="pt-pill">'+(_LBL[pillType]||pillType)+'</span>';
+      const btnLabel = r.is_self ? 'Restore' : 'Mark as self';
+      const btnTitle = r.is_self ? 'Include this view in totals again' : 'Exclude this view from chart and totals';
+      html += '<div class="pt-row"><div>'+(r.client_name||'Unknown')+'</div><div>'+tag+'</div><div style="color:var(--text2);">'+ago+'</div><div><button class="btn btn-outline btn-xs" title="'+btnTitle+'" onclick="PortalTraffic.markSelf(\''+r.id+'\', '+(!r.is_self)+')">'+btnLabel+'</button></div></div>';
+    }
+    root.innerHTML = html;
+  },
 
   async markSelf(viewId, makeSelf) {
     try {
