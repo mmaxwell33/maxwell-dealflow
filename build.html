@@ -253,8 +253,8 @@ async function init() {
       document.getElementById('build-client').textContent = '👤 ' + build.client_name;
     }
     if (build.builder_name) document.getElementById('build-builder').textContent = '🏗️ ' + build.builder_name;
-    if (build.est_close_date || build.closing_date) {
-      const closeDate = build.est_close_date || build.closing_date;
+    if (build.est_completion_date || build.est_close_date || build.closing_date) {
+      const closeDate = build.est_completion_date || build.est_close_date || build.closing_date;
       document.getElementById('build-closing').textContent = '📅 Est. Possession: ' + fmtDate(closeDate);
       const cd = countdownTo(closeDate);
       if (cd) {
