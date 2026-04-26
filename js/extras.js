@@ -1432,6 +1432,7 @@ const NewBuilds = {
       }
       setVal('nb-builder',         b.builder_name);
       setVal('nb-lot-address',     b.lot_address);
+      setVal('nb-mls-number',      b.mls_number);
       setVal('nb-price',           b.purchase_price);
       setVal('nb-stage',           b.current_stage || 'Pre-Construction');
       setVal('nb-completion',      b.est_completion_date);
@@ -2119,7 +2120,7 @@ const NewBuilds = {
 
   // Save form fields to localStorage so data isn't lost on error
   saveDraft() {
-    const fields = ['nb-builder','nb-lot-address','nb-price','nb-completion','nb-flooring',
+    const fields = ['nb-builder','nb-lot-address','nb-mls-number','nb-price','nb-completion','nb-flooring',
                     'nb-builder-contact','nb-builder-email','nb-notes','nb-cc-email','nb-deposit-amount',
                     'nb-deposit-date','nb-deposit-status','nb-pa-submitted','nb-pa-accepted','nb-stage'];
     const draft = {};
@@ -2175,6 +2176,7 @@ const NewBuilds = {
       client_id: clientId || null,
       builder_name: document.getElementById('nb-builder')?.value.trim() || '',
       lot_address: lotAddress,
+      mls_number: document.getElementById('nb-mls-number')?.value.trim() || null,
       purchase_price: price,
       current_stage: document.getElementById('nb-stage')?.value || 'Pre-Construction',
       est_completion_date: completion,
