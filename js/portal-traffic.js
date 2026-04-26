@@ -31,6 +31,9 @@ const PortalTraffic = {
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">By client</div>
         <div id="pt-clients"></div>
       </div>
+      <div style="background:var(--card);border:1px solid var(--border,rgba(255,255,255,.08));border-radius:14px;padding:18px;margin-top:18px;">
+        <div id="pt-recent"></div>
+      </div>
       <style>
         .pt-range{background:var(--card2,#1E2636);color:var(--text2);border:1px solid var(--border,rgba(255,255,255,.08));padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;}
         .pt-range.on{background:var(--accent);color:#fff;border-color:var(--accent);}
