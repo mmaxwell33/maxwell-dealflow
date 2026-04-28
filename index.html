@@ -455,11 +455,26 @@
 
     <!-- PIPELINE SCREEN -->
     <div id="screen-pipeline" class="screen" style="padding:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
         <div style="font-size:20px;font-weight:800;">📋 Deal Pipeline</div>
-        <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">Refresh</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="App.switchTab('pipeline-archive')">📦 Archive</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">Refresh</button>
+        </div>
       </div>
       <div id="pipeline-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- PIPELINE ARCHIVE SCREEN -->
+    <div id="screen-pipeline-archive" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
+        <div style="font-size:20px;font-weight:800;">📦 Archived Deals</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="App.switchTab('pipeline')">← Back to Pipeline</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.loadArchive()">Refresh</button>
+        </div>
+      </div>
+      <div id="pipeline-archive-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
     <!-- APPROVALS SCREEN -->

@@ -407,6 +407,7 @@ const Pipeline = {
     if (!currentAgent?.id) return;
     const { data } = await db.from('pipeline')
       .select('*').eq('agent_id', currentAgent.id)
+      .is('archived_at', null)
       .order('created_at', { ascending: false });
     Pipeline.all = data || [];
     Pipeline.render(Pipeline.all);
@@ -801,6 +802,7 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
       </div>`;
@@ -1088,6 +1090,165 @@ const Pipeline = {
     App.toast('🔄 Deal reverted — client restored to active');
     Pipeline.load(); Clients.load();
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+  },
+
+  // ── ARCHIVE / RESTORE / DELETE FOREVER ─────────────────────────────────
+  archived: [],
+
+  async archive(id) {
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (!rec) return;
+    if (!confirm(`Archive this deal?\n\n${rec.client_name || ''} — ${rec.property_address || ''}\n\nIt will be hidden from the Pipeline but can be restored from the Archive view.`)) return;
+    const now = new Date().toISOString();
+    const { error } = await db.from('pipeline')
+      .update({ archived_at: now, updated_at: now }).eq('id', id);
+    if (error) { App.toast('⚠️ Archive failed'); return; }
+    await App.logActivity('PIPELINE_ARCHIVED', rec.client_name, rec.client_email,
+      `Archived deal: ${rec.property_address}`, rec.client_id);
+    App.toast('📦 Deal archived');
+    Pipeline.load();
+    if (App.loadOverview) App.loadOverview();
+  },
+
+  async loadArchive() {
+    if (!currentAgent?.id) return;
+    const el = document.getElementById('pipeline-archive-list');
+    if (el) el.innerHTML = `<div class="loading"><div class="spinner"></div> Loading...</div>`;
+    const { data } = await db.from('pipeline')
+      .select('*').eq('agent_id', currentAgent.id)
+      .not('archived_at', 'is', null)
+      .order('archived_at', { ascending: false });
+    Pipeline.archived = data || [];
+    Pipeline.renderArchive(Pipeline.archived);
+  },
+
+  renderArchive(list) {
+    const el = document.getElementById('pipeline-archive-list');
+    if (!el) return;
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Archive is empty</div><div class="empty-sub">Archived deals will appear here</div></div>`;
+      return;
+    }
+    el.innerHTML = list.map(d => {
+      const archStr = d.archived_at ? new Date(d.archived_at).toLocaleString() : '—';
+      const stageBadge = d.stage === 'Closed' ? 'badge-accepted'
+                       : d.stage === 'Fell Through' ? 'badge-rejected'
+                       : 'badge-conditions';
+      return `<div class="card" style="margin-bottom:12px;opacity:0.92;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div class="fw-800" style="font-size:15px;">${App.esc(d.client_name||'—')}</div>
+            <div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${App.esc(d.property_address||'—')}</div>
+          </div>
+          <span class="stage-badge ${stageBadge}">${App.esc(d.stage||'—')}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">💰 ${App.fmtMoney(d.offer_amount)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">📦 Archived: ${archStr}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.restore('${d.id}')">🔄 Restore</button>
+          <button class="btn btn-red btn-sm" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete Forever</button>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  async restore(id) {
+    const rec = Pipeline.archived?.find(x => x.id === id);
+    if (!rec) return;
+    const now = new Date().toISOString();
+    const { error } = await db.from('pipeline')
+      .update({ archived_at: null, updated_at: now }).eq('id', id);
+    if (error) { App.toast('⚠️ Restore failed'); return; }
+    await App.logActivity('PIPELINE_RESTORED', rec.client_name, rec.client_email,
+      `Restored deal: ${rec.property_address}`, rec.client_id);
+    App.toast('🔄 Deal restored to Pipeline');
+    Pipeline.loadArchive();
+    if (App.loadOverview) App.loadOverview();
+  },
+
+  confirmDeleteForever(id) {
+    const rec = Pipeline.archived?.find(x => x.id === id);
+    if (!rec) return;
+    App.openModal(`
+      <div class="modal-title" style="color:var(--red);">🗑️ Delete Forever</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        This will permanently delete the deal and all associated checklist items, tasks, commissions,
+        activity log entries, and approval queue entries. <strong style="color:var(--red);">This cannot be undone.</strong>
+      </div>
+      <div style="background:var(--bg);padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:13px;">
+        <div class="fw-700">${App.esc(rec.client_name||'—')}</div>
+        <div style="color:var(--text2);">${App.esc(rec.property_address||'—')}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type <strong style="color:var(--red);">DELETE</strong> to confirm</label>
+        <input class="form-input" id="del-confirm-input" placeholder="DELETE" autocomplete="off"
+               oninput="document.getElementById('del-confirm-btn').disabled = this.value !== 'DELETE';">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button id="del-confirm-btn" class="btn btn-red" disabled onclick="Pipeline.deleteForever('${id}')">🗑️ Delete Forever</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+    setTimeout(() => document.getElementById('del-confirm-input')?.focus(), 50);
+  },
+
+  async deleteForever(id) {
+    const input = document.getElementById('del-confirm-input')?.value;
+    if (input !== 'DELETE') { App.toast('⚠️ You must type DELETE to confirm'); return; }
+    const rec = Pipeline.archived?.find(x => x.id === id);
+    if (!rec) { App.closeModal(); return; }
+
+    // Cascade delete in dependency order. Each step is best-effort: if a table
+    // does not have a matching FK column we swallow the error and continue,
+    // so a missing column does not block the final pipeline-row delete.
+    const safe = async (label, fn) => {
+      try { await fn(); }
+      catch (e) { console.warn(`[deleteForever] ${label} skipped:`, e?.message || e); }
+    };
+
+    // 1. checklist_items (by pipeline_id)
+    await safe('checklist_items', () =>
+      db.from('checklist_items').delete().eq('pipeline_id', id));
+
+    // 2. pipeline_tasks (by pipeline_id)
+    await safe('pipeline_tasks', () =>
+      db.from('pipeline_tasks').delete().eq('pipeline_id', id));
+
+    // 3. commissions (matched by agent + property address — same shape as closeDeal)
+    if (rec.property_address) {
+      await safe('commissions', () =>
+        db.from('commissions').delete()
+          .eq('agent_id', currentAgent.id)
+          .eq('property_address', rec.property_address));
+    }
+
+    // 4. activity_log (best-effort: by client_id)
+    if (rec.client_id) {
+      await safe('activity_log', () =>
+        db.from('activity_log').delete()
+          .eq('agent_id', currentAgent.id)
+          .eq('client_id', rec.client_id));
+    }
+
+    // 5. approval_queue (best-effort: by agent + client email)
+    if (rec.client_email) {
+      await safe('approval_queue', () =>
+        db.from('approval_queue').delete()
+          .eq('agent_id', currentAgent.id)
+          .eq('client_email', rec.client_email));
+    }
+
+    // 6. pipeline row itself — this is the only step whose error must surface.
+    const { error } = await db.from('pipeline').delete().eq('id', id);
+    if (error) {
+      App.toast('⚠️ Delete failed: ' + (error.message || 'unknown error'), 'var(--red)');
+      return;
+    }
+
+    App.closeModal();
+    App.toast('🗑️ Deal permanently deleted');
+    Pipeline.loadArchive();
+    if (App.loadOverview) App.loadOverview();
   },
 
   openStageModal(id) {

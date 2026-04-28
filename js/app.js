@@ -670,6 +670,7 @@ const App = {
     if (tab === 'settings') Settings.load();
     if (tab === 'calendar') Calendar.load();
     if (tab === 'broadcast') Broadcast.load();
+    if (tab === 'pipeline-archive') Pipeline.loadArchive();
   },
 
   toggleAI() {
