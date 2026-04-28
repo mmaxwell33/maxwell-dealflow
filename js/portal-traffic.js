@@ -1,11 +1,18 @@
 // js/portal-traffic.js — Portal Traffic dashboard
 // Reads from public.portal_views (RLS scopes to current agent's deals/clients).
-// Renders: stat cards, 30-day line chart (Chart.js), per-client table.
+// Renders: stat cards, 30-day line chart (Chart.js), per-client table, recent feed.
+
+const PT_LABELS = {
+  build:       'Client portal',
+  builder:     'Builder portal (build progress)',
+  stakeholder: 'Stakeholder portal',
+};
 
 const PortalTraffic = {
   rows: [],
-  range: 30,           // days: 7 | 30 | 90
+  range: 30,
   chart: null,
+  buildMeta: {},
 
   async load() {
     const root = document.getElementById('screen-portaltraffic');
@@ -44,6 +51,8 @@ const PortalTraffic = {
         .pt-row:last-child{border-bottom:none;}
         .pt-row.head{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border,rgba(255,255,255,.08));}
         .pt-pill{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(204,120,92,.16);color:var(--accent);margin-right:4px;}
+        .pt-recent-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.06));font-size:13px;flex-wrap:wrap;}
+        .pt-recent-row:last-child{border-bottom:none;}
       </style>
     `;
     await this.fetch();
@@ -66,8 +75,6 @@ const PortalTraffic = {
       if (error) { console.error('PortalTraffic fetch:', error); this.rows = []; return; }
       const rows = data || [];
 
-      // Tokens in deal_stakeholders with role='client' = real clients (not lawyer/lender).
-      // For these, treat their stakeholder views as Client views in the dashboard.
       const stakeTokens = rows.filter(r => r.page_type === 'stakeholder' && r.token).map(r => r.token);
       let clientRoleTokens = new Set();
       if (stakeTokens.length) {
@@ -75,14 +82,24 @@ const PortalTraffic = {
           const { data: ds } = await db.from('deal_stakeholders')
             .select('token, role').in('token', stakeTokens).eq('role', 'client');
           (ds || []).forEach(x => clientRoleTokens.add(x.token));
-        } catch(_) { /* ignore — fall back to raw page_type */ }
+        } catch(_) {}
       }
-      // Tag every row with the label-effective type
       rows.forEach(r => {
         r.effective_type = (r.page_type === 'stakeholder' && clientRoleTokens.has(r.token))
           ? 'build' : r.page_type;
       });
-      // SELF_FILTER_INSTALLED
+
+      const dealIds = [...new Set(rows.map(r => r.deal_id).filter(Boolean))];
+      this.buildMeta = {};
+      if (dealIds.length) {
+        try {
+          const { data: nb } = await db.from('new_builds')
+            .select('id, builder_name, lot_address')
+            .in('id', dealIds);
+          (nb || []).forEach(b => { this.buildMeta[b.id] = b; });
+        } catch(_) {}
+      }
+
       this.allRows = rows;
       this.rows = rows.filter(r => !r.is_self);
     } catch(e) { console.error(e); this.rows = []; }
@@ -108,7 +125,7 @@ const PortalTraffic = {
       <div class="pt-stat"><div class="pt-stat-label">Total Views</div><div class="pt-stat-num">${total}</div></div>
       <div class="pt-stat"><div class="pt-stat-label">Today</div><div class="pt-stat-num">${todayCount}</div></div>
       <div class="pt-stat"><div class="pt-stat-label">Unique Clients</div><div class="pt-stat-num">${uniqueClients}</div></div>
-      <div class="pt-stat"><div class="pt-stat-label">Top Portal</div><div class="pt-stat-num" style="font-size:18px;">${top ? ({build:'Client',builder:'Builder',stakeholder:'Stakeholder'}[top[0]]||top[0])+' ('+top[1]+')' : '—'}</div></div>
+      <div class="pt-stat"><div class="pt-stat-label">Top Portal</div><div class="pt-stat-num" style="font-size:16px;">${top ? (PT_LABELS[top[0]]||top[0])+' ('+top[1]+')' : '—'}</div></div>
     `;
   },
 
@@ -117,7 +134,6 @@ const PortalTraffic = {
     if (!canvas || typeof Chart === 'undefined') return;
     if (this.chart) { this.chart.destroy(); this.chart = null; }
 
-    // Build day buckets
     const days = [];
     for (let i = this.range - 1; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
@@ -125,9 +141,8 @@ const PortalTraffic = {
     }
     const types = ['build','builder','stakeholder'];
     const colors = { build:'#CC785C', builder:'#7c7cff', stakeholder:'#10B981' };
-    const LABELS = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
     const datasets = types.map(t => ({
-      label: LABELS[t],
+      label: PT_LABELS[t],
       data: days.map(day => this.rows.filter(r => (r.effective_type||r.page_type)===t && r.viewed_at.slice(0,10)===day).length),
       borderColor: colors[t], backgroundColor: colors[t]+'33',
       borderWidth: 2, tension: .35, fill: true, pointRadius: 2,
@@ -151,7 +166,15 @@ const PortalTraffic = {
     const byClient = {};
     for (const r of this.rows) {
       const key = r.client_id || ('anon::' + (r.client_name || 'Unknown'));
-      if (!byClient[key]) byClient[key] = { name: r.client_name || 'Unknown', types: {}, total: 0, last: r.viewed_at };
+      if (!byClient[key]) {
+        const meta = r.deal_id && this.buildMeta ? this.buildMeta[r.deal_id] : null;
+        byClient[key] = {
+          name: r.client_name || 'Unknown',
+          address: meta?.lot_address || '',
+          builder: meta?.builder_name || '',
+          types: {}, total: 0, last: r.viewed_at,
+        };
+      }
       byClient[key].total++;
       const _et = r.effective_type || r.page_type;
       byClient[key].types[_et] = (byClient[key].types[_et]||0) + 1;
@@ -163,32 +186,41 @@ const PortalTraffic = {
 
     let html = '<div class="pt-row head"><div>Client</div><div>Portals</div><div>Views</div><div>Last viewed</div></div>';
     for (const c of list) {
-      const _LBL = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
-      const pills = Object.entries(c.types).map(([t,n]) => `<span class="pt-pill">${_LBL[t]||t} ${n}</span>`).join('');
+      const pills = Object.entries(c.types).map(([t,n]) => `<span class="pt-pill">${PT_LABELS[t]||t} ${n}</span>`).join('');
       const ago = App.timeAgo ? App.timeAgo(c.last) : new Date(c.last).toLocaleString();
-      html += `<div class="pt-row"><div style="font-weight:700;">${c.name}</div><div>${pills}</div><div style="font-weight:700;">${c.total}</div><div style="color:var(--text2);">${ago}</div></div>`;
+      const subline = (c.address || c.builder)
+        ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${c.address ? '📍 '+c.address : ''}${c.address && c.builder ? ' · ' : ''}${c.builder ? '🏗️ '+c.builder : ''}</div>`
+        : '';
+      html += `<div class="pt-row"><div><div style="font-weight:700;">${c.name}</div>${subline}</div><div>${pills}</div><div style="font-weight:700;">${c.total}</div><div style="color:var(--text2);">${ago}</div></div>`;
     }
     root.innerHTML = html;
-  }
-,
+  },
 
   renderRecent() {
     const root = document.getElementById('pt-recent');
     if (!root) return;
-    const all = (this.allRows || this.rows || []).slice(0, 25);
+    const all = (this.allRows || this.rows || []).slice(0, 20);
     if (!all.length) { root.innerHTML = ''; return; }
-    const _LBL = { build:'Client', builder:'Builder', stakeholder:'Stakeholder' };
-    let html = '<div class="pt-section-title" style="margin-top:24px;font-weight:700;font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;">Recent Views (last 25)</div>';
-    html += '<div class="pt-row head"><div>Who</div><div>Portal</div><div>When</div><div>Action</div></div>';
+
+    let html = '<div style="font-weight:700;font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Recent Portal Views</div>';
     for (const r of all) {
       const ago = App.timeAgo ? App.timeAgo(r.viewed_at) : new Date(r.viewed_at).toLocaleString();
       const pillType = r.effective_type || r.page_type;
-      const tag = r.is_self
+      const pill = r.is_self
         ? '<span class="pt-pill" style="background:#f59e0b22;color:#f59e0b;">self-test</span>'
-        : '<span class="pt-pill">'+(_LBL[pillType]||pillType)+'</span>';
+        : '<span class="pt-pill">'+(PT_LABELS[pillType]||pillType)+'</span>';
+      const who  = r.client_name || 'Anonymous';
+      const meta = r.deal_id && this.buildMeta ? this.buildMeta[r.deal_id] : null;
+      const addr = meta?.lot_address ? ' · 📍 ' + meta.lot_address : '';
       const btnLabel = r.is_self ? 'Restore' : 'Mark as self';
-      const btnTitle = r.is_self ? 'Include this view in totals again' : 'Exclude this view from chart and totals';
-      html += '<div class="pt-row"><div>'+(r.client_name||'Unknown')+'</div><div>'+tag+'</div><div style="color:var(--text2);">'+ago+'</div><div><button class="btn btn-outline btn-xs" title="'+btnTitle+'" onclick="PortalTraffic.markSelf(\''+r.id+'\', '+(!r.is_self)+')">'+btnLabel+'</button></div></div>';
+      html +=
+        '<div class="pt-recent-row">'+
+          '<span style="color:var(--text2);min-width:90px;">'+ago+'</span>'+
+          pill+
+          '<span style="font-weight:600;">'+who+'</span>'+
+          '<span style="color:var(--text2);flex:1;">'+addr+'</span>'+
+          '<button class="btn btn-outline btn-xs" onclick="PortalTraffic.markSelf(\''+r.id+'\', '+(!r.is_self)+')">'+btnLabel+'</button>'+
+        '</div>';
     }
     root.innerHTML = html;
   },
