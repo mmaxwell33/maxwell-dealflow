@@ -413,6 +413,17 @@ const Pipeline = {
     Pipeline.render(Pipeline.all);
   },
 
+  // Single source of truth for the progress-bar color.
+  // Strictly on-theme: coral ramp during the deal, success-green on close.
+  // Ramp:  0–49% accent2  → 50–99% accent  → 100% success  · Fell Through red
+  barColor(pct, status) {
+    if (status === 'closed') return 'var(--success)';
+    if (status === 'fell')   return 'var(--red)';
+    if (pct >= 100)          return 'var(--success)';
+    if (pct >= 50)           return 'var(--accent)';
+    return 'var(--accent2)';
+  },
+
   // Show modal to capture closing dates + commission rate before creating pipeline
   askAcceptanceDetails(offer, client) {
     const today = new Date().toISOString().slice(0,10);
@@ -711,7 +722,7 @@ const Pipeline = {
       // Progress bar: % based on how many milestone dates have passed (with daily creep toward closing)
       const { done, doneInt, total } = Pipeline.milestonesDone(d);
       const pct = isClosed ? 100 : isFell ? 0 : Math.round((done / total) * 100);
-      const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'var(--accent2)';
+      const barColor = Pipeline.barColor(pct, isClosed ? 'closed' : isFell ? 'fell' : 'active');
 
       const steps = ['Accepted','Conditions','Closing','Closed'];
       const si = steps.indexOf(d.stage);
@@ -850,7 +861,7 @@ const Pipeline = {
     const { done, doneInt, total } = Pipeline.milestonesDone(preview);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
-    if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
+    if (bar) { bar.style.width = `${pct}%`; bar.style.background = Pipeline.barColor(pct, 'active'); }
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
     if (lbl) lbl.textContent = `${doneInt} of ${total} milestones passed ⓘ`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
@@ -936,7 +947,8 @@ const Pipeline = {
     const { done, doneInt, total } = Pipeline.milestonesDone(merged);
     const pct = Math.round((done / total) * 100);
     const bar = document.getElementById(`pl-bar-${id}`);
-    if (bar) { bar.style.width = `${pct}%`; bar.style.background = pct >= 80 ? 'var(--green)' : pct >= 40 ? 'var(--accent)' : 'var(--accent2)'; }
+    const status = rec?.stage === 'Closed' ? 'closed' : rec?.stage === 'Fell Through' ? 'fell' : 'active';
+    if (bar) { bar.style.width = `${pct}%`; bar.style.background = Pipeline.barColor(pct, status); }
     const lbl = document.getElementById(`pl-milestone-lbl-${id}`);
     if (lbl) lbl.textContent = `${doneInt} of ${total} milestones passed ⓘ`;
     const pctLbl = document.getElementById(`pl-pct-lbl-${id}`);
