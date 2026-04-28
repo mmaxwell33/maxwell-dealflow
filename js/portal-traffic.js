@@ -81,13 +81,17 @@ const PortalTraffic = {
       if (error) { console.error('PortalTraffic fetch:', error); this.rows = []; return; }
       const rows = data || [];
 
-      const stakeTokens = rows.filter(r => r.page_type === 'stakeholder' && r.token).map(r => r.token);
+      const stakeTokens = [...new Set(rows.filter(r => r.page_type === 'stakeholder' && r.token).map(r => r.token))];
+      const stakeMap = {};
       let clientRoleTokens = new Set();
       if (stakeTokens.length) {
         try {
           const { data: ds } = await db.from('deal_stakeholders')
-            .select('token, role').in('token', stakeTokens).eq('role', 'client');
-          (ds || []).forEach(x => clientRoleTokens.add(x.token));
+            .select('token, role, name').in('token', stakeTokens);
+          (ds || []).forEach(x => {
+            stakeMap[x.token] = x;
+            if (x.role === 'client') clientRoleTokens.add(x.token);
+          });
         } catch(_) {}
       }
       rows.forEach(r => {
@@ -105,6 +109,21 @@ const PortalTraffic = {
           (nb || []).forEach(b => { this.buildMeta[b.id] = b; });
         } catch(_) {}
       }
+
+      rows.forEach(r => {
+        const stake = r.token ? stakeMap[r.token] : null;
+        const meta  = r.deal_id ? this.buildMeta[r.deal_id] : null;
+        if (r.page_type === 'builder') {
+          r.recipient_name = (meta && meta.builder_name) || 'Builder';
+          r.recipient_role = 'builder';
+        } else if (stake && stake.role !== 'client') {
+          r.recipient_name = stake.name || (stake.role || 'Stakeholder');
+          r.recipient_role = stake.role || 'stakeholder';
+        } else {
+          r.recipient_name = r.client_name || 'Anonymous';
+          r.recipient_role = 'client';
+        }
+      });
 
       this.allRows = rows;
       this.rows = rows.filter(r => !r.is_self);
@@ -169,35 +188,49 @@ const PortalTraffic = {
   },
 
   renderClients() {
-    const byClient = {};
+    const ROLE_LABEL = { client:'Client', builder:'Builder', lawyer:'Lawyer', lender:'Lender', stakeholder:'Stakeholder' };
+    const ROLE_COLOR = {
+      client:  PT_COLORS.build,
+      builder: PT_COLORS.builder,
+      lawyer:      { bg:'rgba(245,158,11,.18)', fg:'#f59e0b' },
+      lender:      { bg:'rgba(16,185,129,.18)', fg:'#10B981' },
+      stakeholder: PT_COLORS.stakeholder,
+    };
+    const byViewer = {};
     for (const r of this.rows) {
-      const key = r.client_id || ('anon::' + (r.client_name || 'Unknown'));
-      if (!byClient[key]) {
+      const key = (r.deal_id || 'no-deal') + '::' + (r.recipient_role || 'unknown') + '::' + (r.recipient_name || 'Anonymous');
+      if (!byViewer[key]) {
         const meta = r.deal_id && this.buildMeta ? this.buildMeta[r.deal_id] : null;
-        byClient[key] = {
-          name: r.client_name || 'Unknown',
-          address: meta?.lot_address || '',
-          builder: meta?.builder_name || '',
+        byViewer[key] = {
+          name:    r.recipient_name || 'Anonymous',
+          role:    r.recipient_role || 'unknown',
+          deal:    r.client_name || '',
+          address: (meta && meta.lot_address) || '',
+          builder: (meta && meta.builder_name) || '',
           types: {}, total: 0, last: r.viewed_at,
         };
       }
-      byClient[key].total++;
+      byViewer[key].total++;
       const _et = r.effective_type || r.page_type;
-      byClient[key].types[_et] = (byClient[key].types[_et]||0) + 1;
-      if (r.viewed_at > byClient[key].last) byClient[key].last = r.viewed_at;
+      byViewer[key].types[_et] = (byViewer[key].types[_et]||0) + 1;
+      if (r.viewed_at > byViewer[key].last) byViewer[key].last = r.viewed_at;
     }
-    const list = Object.values(byClient).sort((a,b)=>b.total-a.total);
+    const list = Object.values(byViewer).sort((a,b)=>b.total-a.total);
     const root = document.getElementById('pt-clients');
     if (!list.length) { root.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2);font-size:13px;">No portal views in this range yet.</div>'; return; }
 
-    let html = '<div class="pt-row head"><div>Client</div><div>Portals</div><div>Views</div><div>Last viewed</div></div>';
+    let html = '<div class="pt-row head"><div>Viewer</div><div>Portals</div><div>Views</div><div>Last viewed</div></div>';
     for (const c of list) {
-      const pills = Object.entries(c.types).map(([t,n]) => { const col = PT_COLORS[t] || {bg:'rgba(204,120,92,.16)',fg:'var(--accent)'}; return `<span class="pt-pill" style="background:${col.bg};color:${col.fg};">${PT_LABELS[t]||t} · ${n}</span>`; }).join('');
+      const roleCol = ROLE_COLOR[c.role] || PT_COLORS.build;
+      const roleBadge = '<span class="pt-pill" style="background:'+roleCol.bg+';color:'+roleCol.fg+';font-size:10px;">'+(ROLE_LABEL[c.role]||c.role)+'</span>';
+      const pills = Object.entries(c.types).map(([t,n]) => { const col = PT_COLORS[t] || {bg:'rgba(204,120,92,.16)',fg:'var(--accent)'}; return '<span class="pt-pill" style="background:'+col.bg+';color:'+col.fg+';">'+(PT_LABELS[t]||t)+' · '+n+'</span>'; }).join('');
       const ago = App.timeAgo ? App.timeAgo(c.last) : new Date(c.last).toLocaleString();
-      const subline = (c.address || c.builder)
-        ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${c.address ? '📍 '+c.address : ''}${c.address && c.builder ? ' · ' : ''}${c.builder ? '🏗️ '+c.builder : ''}</div>`
-        : '';
-      html += `<div class="pt-row"><div><div style="font-weight:700;">${c.name}</div>${subline}</div><div>${pills}</div><div style="font-weight:700;">${c.total}</div><div style="color:var(--text2);">${ago}</div></div>`;
+      const dealLine    = c.deal ? '👤 '+c.deal : '';
+      const addrLine    = c.address ? '📍 '+c.address : '';
+      const builderLine = (c.role !== 'builder' && c.builder) ? '🏗️ '+c.builder : '';
+      const subParts = [dealLine, addrLine, builderLine].filter(Boolean).join(' · ');
+      const subline = subParts ? '<div style="font-size:11px;color:var(--text2);margin-top:3px;">'+subParts+'</div>' : '';
+      html += '<div class="pt-row"><div><div style="font-weight:700;">'+c.name+' '+roleBadge+'</div>'+subline+'</div><div>'+pills+'</div><div style="font-weight:700;">'+c.total+'</div><div style="color:var(--text2);">'+ago+'</div></div>';
     }
     root.innerHTML = html;
   },
@@ -215,8 +248,9 @@ const PortalTraffic = {
       const pill = r.is_self
         ? '<span class="pt-pill" style="background:#f59e0b22;color:#f59e0b;">self-test</span>'
         : (function(){ var col = PT_COLORS[pillType] || {bg:'rgba(204,120,92,.16)',fg:'var(--accent)'}; return '<span class="pt-pill" style="background:'+col.bg+';color:'+col.fg+';">'+(PT_LABELS[pillType]||pillType)+'</span>'; })();
-      const who  = r.client_name || 'Anonymous';
+      const who  = r.recipient_name || r.client_name || 'Anonymous';
       const meta = r.deal_id && this.buildMeta ? this.buildMeta[r.deal_id] : null;
+      const dealOwner = (r.client_name && r.recipient_name && r.client_name !== r.recipient_name) ? ' · 👤 ' + r.client_name : '';
       const addr = meta?.lot_address ? ' · 📍 ' + meta.lot_address : '';
       const btnLabel = r.is_self ? 'Restore' : 'Mark as self';
       html +=
@@ -224,7 +258,7 @@ const PortalTraffic = {
           '<span style="color:var(--text2);min-width:90px;">'+ago+'</span>'+
           pill+
           '<span style="font-weight:600;">'+who+'</span>'+
-          '<span style="color:var(--text2);flex:1;">'+addr+'</span>'+
+          '<span style="color:var(--text2);flex:1;">'+dealOwner+addr+'</span>'+
           '<button class="btn btn-outline btn-xs" onclick="PortalTraffic.markSelf(\''+r.id+'\', '+(!r.is_self)+')">'+btnLabel+'</button>'+
         '</div>';
     }
