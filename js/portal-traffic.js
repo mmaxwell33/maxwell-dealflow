@@ -8,6 +8,12 @@ const PT_LABELS = {
   stakeholder: 'Stakeholder portal',
 };
 
+const PT_COLORS = {
+  build:       { bg: 'rgba(204,120,92,.18)',  fg: '#CC785C' },
+  builder:     { bg: 'rgba(124,124,255,.18)', fg: '#7c7cff' },
+  stakeholder: { bg: 'rgba(16,185,129,.18)',  fg: '#10B981' },
+};
+
 const PortalTraffic = {
   rows: [],
   range: 30,
@@ -186,7 +192,7 @@ const PortalTraffic = {
 
     let html = '<div class="pt-row head"><div>Client</div><div>Portals</div><div>Views</div><div>Last viewed</div></div>';
     for (const c of list) {
-      const pills = Object.entries(c.types).map(([t,n]) => `<span class="pt-pill">${PT_LABELS[t]||t} ${n}</span>`).join('');
+      const pills = Object.entries(c.types).map(([t,n]) => { const col = PT_COLORS[t] || {bg:'rgba(204,120,92,.16)',fg:'var(--accent)'}; return `<span class="pt-pill" style="background:${col.bg};color:${col.fg};">${PT_LABELS[t]||t} · ${n}</span>`; }).join('');
       const ago = App.timeAgo ? App.timeAgo(c.last) : new Date(c.last).toLocaleString();
       const subline = (c.address || c.builder)
         ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${c.address ? '📍 '+c.address : ''}${c.address && c.builder ? ' · ' : ''}${c.builder ? '🏗️ '+c.builder : ''}</div>`
@@ -208,7 +214,7 @@ const PortalTraffic = {
       const pillType = r.effective_type || r.page_type;
       const pill = r.is_self
         ? '<span class="pt-pill" style="background:#f59e0b22;color:#f59e0b;">self-test</span>'
-        : '<span class="pt-pill">'+(PT_LABELS[pillType]||pillType)+'</span>';
+        : (function(){ var col = PT_COLORS[pillType] || {bg:'rgba(204,120,92,.16)',fg:'var(--accent)'}; return '<span class="pt-pill" style="background:'+col.bg+';color:'+col.fg+';">'+(PT_LABELS[pillType]||pillType)+'</span>'; })();
       const who  = r.client_name || 'Anonymous';
       const meta = r.deal_id && this.buildMeta ? this.buildMeta[r.deal_id] : null;
       const addr = meta?.lot_address ? ' · 📍 ' + meta.lot_address : '';
