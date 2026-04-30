@@ -15,6 +15,29 @@
 const Reviews = {
   all: [],
 
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  // Generate a fresh single-use token for one review row
+  _newToken() {
+    return (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g,'').slice(0,32);
+  },
+
+  // Prompt the agent for additional CC emails (e.g. spouse). Each gets their
+  // own private form / row / token. Returns [{name, email}, ...] (possibly empty).
+  _collectCC() {
+    const raw = prompt(
+      'Add CC emails (e.g., spouse) — comma-separated.\n' +
+      'Format: "Jane Doe <jane@email.com>" or just an email.\n\n' +
+      'Leave blank to skip.',
+      ''
+    );
+    if (!raw) return [];
+    return raw.split(',').map(s => s.trim()).filter(Boolean).map(entry => {
+      const m = entry.match(/^(.*?)\s*<\s*([^>]+?)\s*>$/);
+      if (m) return { name: (m[1].trim() || m[2].split('@')[0]), email: m[2].trim() };
+      return { name: entry.split('@')[0], email: entry };
+    }).filter(p => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email));
+  },
+
   // Send a review request from a closed deal
   async request(dealId) {
     if (!confirm('Send a review request email to this client?')) return;
@@ -25,29 +48,34 @@ const Reviews = {
       const { data: client } = await db.from('clients').select('*').eq('id', deal.client_id).single();
       if (!client?.email) { alert('Client has no email on file.'); return; }
 
-      // Generate a single-use token
-      const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g,'').slice(0,32);
+      // Build recipient list: primary client + optional CC (e.g., spouse).
+      // Each recipient gets their own row, token, and private form.
+      const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
 
-      // Create a pending review row
-      const { error: insErr } = await db.from('client_reviews').insert({
-        agent_id: currentAgent.id,
-        client_id: client.id,
-        pipeline_id: deal.id,
-        token,
-        property_address: deal.property_address || null,
-        status: 'Pending'
-      });
-      if (insErr) { console.error(insErr); alert('Could not create review request: ' + insErr.message); return; }
+      let queued = 0;
+      for (const r of recipients) {
+        const token = Reviews._newToken();
+        const { error: insErr } = await db.from('client_reviews').insert({
+          agent_id: currentAgent.id,
+          client_id: client.id,
+          pipeline_id: deal.id,
+          token,
+          property_address: deal.property_address || null,
+          status: 'Pending'
+        });
+        if (insErr) { console.error(insErr); continue; }
 
-      // Queue the email
-      const tmpl = Reviews.template(client, deal, currentAgent, token);
-      await Notify.queue(
-        'Review Request 📝',
-        client.id, client.full_name, client.email,
-        tmpl.subject, tmpl.body, deal.id
-      );
+        const tmpl = Reviews.template({ full_name: r.name, email: r.email }, deal, currentAgent, token);
+        await Notify.queue(
+          'Review Request 📝',
+          client.id, r.name, r.email,
+          tmpl.subject, tmpl.body, deal.id
+        );
+        queued++;
+      }
 
-      alert('✅ Review request queued for approval.\n\nApprove it from the Approvals screen to send.');
+      if (!queued) { alert('Could not create review request. See console.'); return; }
+      alert(`✅ ${queued} review request${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
     } catch (e) {
       console.error(e);
       alert('Error: ' + e.message);
@@ -256,15 +284,25 @@ ${r.comments || ''}
     try {
       const { data: client } = await db.from('clients').select('*').eq('id', clientId).single();
       if (!client?.email) { alert('Client has no email on file.'); return; }
-      const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g,'').slice(0,32);
-      const { error: insErr } = await db.from('client_reviews').insert({
-        agent_id: currentAgent.id, client_id: client.id, pipeline_id: null,
-        review_type: 'search', token, status: 'Pending'
-      });
-      if (insErr) { console.error(insErr); alert('Could not create check-in: ' + insErr.message); return; }
-      const tmpl = Reviews.searchTemplate(client, currentAgent, token);
-      await Notify.queue('Mid-search Check-in 📨', client.id, client.full_name, client.email, tmpl.subject, tmpl.body, null);
-      alert('✅ Check-in queued for approval.\n\nApprove it from the Approvals screen to send.');
+
+      // Primary recipient + optional CC — each gets their own private form/row/token.
+      const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+
+      let queued = 0;
+      for (const r of recipients) {
+        const token = Reviews._newToken();
+        const { error: insErr } = await db.from('client_reviews').insert({
+          agent_id: currentAgent.id, client_id: client.id, pipeline_id: null,
+          review_type: 'search', token, status: 'Pending'
+        });
+        if (insErr) { console.error(insErr); continue; }
+        const tmpl = Reviews.searchTemplate({ full_name: r.name }, currentAgent, token);
+        await Notify.queue('Mid-search Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, null);
+        queued++;
+      }
+
+      if (!queued) { alert('Could not create check-in. See console.'); return; }
+      alert(`✅ ${queued} check-in${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
     } catch (e) { console.error(e); alert('Error: ' + e.message); }
   },
 
@@ -276,16 +314,26 @@ ${r.comments || ''}
       if (!deal) { alert('Deal not found.'); return; }
       const { data: client } = await db.from('clients').select('*').eq('id', deal.client_id).single();
       if (!client?.email) { alert('Client has no email on file.'); return; }
-      const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g,'').slice(0,32);
-      const { error: insErr } = await db.from('client_reviews').insert({
-        agent_id: currentAgent.id, client_id: client.id, pipeline_id: deal.id,
-        review_type: 'pre_closing', token,
-        property_address: deal.property_address || null, status: 'Pending'
-      });
-      if (insErr) { console.error(insErr); alert('Could not create check-in: ' + insErr.message); return; }
-      const tmpl = Reviews.preCloseTemplate(client, deal, currentAgent, token);
-      await Notify.queue('Pre-closing Check-in 📨', client.id, client.full_name, client.email, tmpl.subject, tmpl.body, deal.id);
-      alert('✅ Check-in queued for approval.\n\nApprove it from the Approvals screen to send.');
+
+      // Primary recipient + optional CC — each gets their own private form/row/token.
+      const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+
+      let queued = 0;
+      for (const r of recipients) {
+        const token = Reviews._newToken();
+        const { error: insErr } = await db.from('client_reviews').insert({
+          agent_id: currentAgent.id, client_id: client.id, pipeline_id: deal.id,
+          review_type: 'pre_closing', token,
+          property_address: deal.property_address || null, status: 'Pending'
+        });
+        if (insErr) { console.error(insErr); continue; }
+        const tmpl = Reviews.preCloseTemplate({ full_name: r.name }, deal, currentAgent, token);
+        await Notify.queue('Pre-closing Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, deal.id);
+        queued++;
+      }
+
+      if (!queued) { alert('Could not create check-in. See console.'); return; }
+      alert(`✅ ${queued} check-in${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
     } catch (e) { console.error(e); alert('Error: ' + e.message); }
   },
 
