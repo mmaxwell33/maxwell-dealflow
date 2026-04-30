@@ -11,3 +11,7 @@ Maxwell_DealFlow_Visual_Guide.html
 .DS_Store
 supabase/.temp/
 .claude/
+
+# Unrelated files
+refined/
+stakeholder-v2-*.html
