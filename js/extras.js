@@ -147,11 +147,14 @@ const Approvals = {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
         const agent = currentAgent || {};
+        // Edge function requires the agent's user JWT (not the anon key) for auth.getUser().
+        const { data: { session } } = await db.auth.getSession();
+        const userJwt = session?.access_token || SUPABASE_ANON_KEY;
         const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${userJwt}`,
             'apikey': SUPABASE_ANON_KEY
           },
           body: JSON.stringify({
@@ -2655,11 +2658,14 @@ const Inbox = {
         if (dates.length) afterEpoch = Math.floor(Math.max(...dates) / 1000) - 60; // 1 min overlap for safety
       }
 
+      // Edge function requires the agent's user JWT (not the anon key) for auth.getUser().
+      const { data: { session: _sess } } = await db.auth.getSession();
+      const _userJwt = _sess?.access_token || SUPABASE_ANON_KEY;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-inbox`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${_userJwt}`,
           'apikey': SUPABASE_ANON_KEY
         },
         body: JSON.stringify({ after_epoch: afterEpoch, max_results: 30 })
@@ -3107,11 +3113,14 @@ const Inbox = {
       // Build branded HTML email using the rich content from editor
       const htmlBody = EmailSend.wrapHtml(htmlContent, plainSig, null);
 
+      // Edge function requires the agent's user JWT (not the anon key) for auth.getUser().
+      const { data: { session: _sess2 } } = await db.auth.getSession();
+      const _userJwt2 = _sess2?.access_token || SUPABASE_ANON_KEY;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${_userJwt2}`,
           'apikey': SUPABASE_ANON_KEY
         },
         body: JSON.stringify({
