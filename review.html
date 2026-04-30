@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How was your experience? — Maxwell DealFlow</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;color:#1a1a2e;}
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;overflow:hidden;}
+  .header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:28px;text-align:center;color:#fff;}
+  .header-logo{font-size:13px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+  .header-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+  .header-sub{font-size:13px;color:rgba(255,255,255,.7);}
+  .body{padding:28px;}
+  .greeting{font-size:17px;font-weight:600;margin-bottom:6px;}
+  .subtext{font-size:14px;color:#555;line-height:1.6;margin-bottom:20px;}
+  .q{margin-bottom:22px;}
+  .q-title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:10px;}
+  .opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .opts.two{grid-template-columns:1fr 1fr 1fr;}
+  .opt{padding:12px 8px;border:2px solid #e5e7eb;background:#fff;border-radius:10px;font-size:14px;font-weight:600;color:#1a1a2e;cursor:pointer;text-align:center;transition:all .15s;}
+  .opt:hover{border-color:#3b82f6;background:#f0f7ff;}
+  .opt.selected{border-color:#059669;background:#f0fdf4;color:#065f46;}
+  .stars{display:flex;gap:8px;justify-content:center;margin:10px 0;}
+  .star{font-size:36px;cursor:pointer;color:#d1d5db;transition:transform .12s, color .12s;user-select:none;}
+  .star:hover{transform:scale(1.1);}
+  .star.on{color:#f59e0b;}
+  textarea{width:100%;padding:12px 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;resize:vertical;min-height:90px;font-family:inherit;}
+  textarea:focus{outline:none;border-color:#059669;}
+  .btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;background:#059669;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
+  .btn:hover{background:#047857;}
+  .btn-secondary{background:#fff;color:#1a1a2e;border:2px solid #e5e7eb;}
+  .btn-secondary:hover{background:#f5f5f5;}
+  .preview-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px;}
+  .preview-row b{color:#1a1a2e;}
+  .preview-row span{color:#059669;font-weight:600;}
+  .stage{display:none;}
+  .stage.active{display:block;}
+  .err{color:#ef4444;font-size:13px;margin-top:6px;}
+  .ok-screen{text-align:center;padding:40px 28px;}
+  .ok-screen .check{font-size:54px;color:#059669;margin-bottom:12px;}
+  .ok-screen h2{font-size:22px;margin-bottom:8px;}
+  .ok-screen p{font-size:14px;color:#555;line-height:1.6;}
+  .footer-note{font-size:11px;color:#9ca3af;text-align:center;margin-top:16px;padding:0 16px 18px;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="header-logo">DealFlow · Maxwell Midodzi</div>
+      <div class="header-title">How was your experience?</div>
+      <div class="header-sub">eXp Realty</div>
+    </div>
+
+    <div class="body">
+
+      <!-- STAGE 1 — questions -->
+      <div class="stage active" id="stage-form">
+        <div class="greeting" id="greeting">Hi there!</div>
+        <div class="subtext" id="subtext">Thank you for trusting me with your home journey. Your honest feedback helps me improve, and a kind review goes a long way for a Realtor®. Should take about 60 seconds.</div>
+
+        <!-- ── Post-close question set (default) ─────────────────────────── -->
+        <div id="qset-post_close">
+          <div class="q">
+            <div class="q-title">1. Was I communicating with you well?</div>
+            <div class="opts" data-q="communication">
+              <div class="opt" data-v="yes">Yes</div>
+              <div class="opt" data-v="maybe">Maybe</div>
+              <div class="opt" data-v="no">No</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">2. How was my knowledge of the area &amp; market?</div>
+            <div class="opts" data-q="knowledge">
+              <div class="opt" data-v="poor">Poor</div>
+              <div class="opt" data-v="good">Good</div>
+              <div class="opt" data-v="excellent">Excellent</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">3. How did I do with negotiation?</div>
+            <div class="opts" data-q="negotiation">
+              <div class="opt" data-v="poor">Poor</div>
+              <div class="opt" data-v="good">Good</div>
+              <div class="opt" data-v="excellent">Excellent</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">4. Would you refer me to friends or family?</div>
+            <div class="opts" data-q="would_refer">
+              <div class="opt" data-v="yes">Yes</div>
+              <div class="opt" data-v="maybe">Maybe</div>
+              <div class="opt" data-v="no">No</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">5. Overall rating</div>
+            <div class="stars" id="stars">
+              <span class="star" data-v="1">★</span>
+              <span class="star" data-v="2">★</span>
+              <span class="star" data-v="3">★</span>
+              <span class="star" data-v="4">★</span>
+              <span class="star" data-v="5">★</span>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">6. Any comments? (optional)</div>
+            <textarea id="comments" placeholder="What stood out? What could I do better?"></textarea>
+          </div>
+        </div>
+
+        <!-- ── Mid-search question set ──────────────────────────────────── -->
+        <div id="qset-search" style="display:none;">
+          <div class="q">
+            <div class="q-title">1. How am I doing on communication so far?</div>
+            <div class="opts" data-q="communication">
+              <div class="opt" data-v="could improve">Could improve</div>
+              <div class="opt" data-v="good">Good</div>
+              <div class="opt" data-v="excellent">Excellent</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">2. Are the homes I'm showing matching what you want?</div>
+            <div class="opts" data-q="homes_match">
+              <div class="opt" data-v="not quite">Not quite</div>
+              <div class="opt" data-v="mostly">Mostly</div>
+              <div class="opt" data-v="spot on">Spot on</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">3. What's been most helpful so far? (optional)</div>
+            <textarea id="search-helpful" placeholder="e.g. Quick replies on listings…"></textarea>
+          </div>
+
+          <div class="q">
+            <div class="q-title">4. What could I do better? (optional)</div>
+            <textarea id="search-improve" placeholder="Anything I should improve…"></textarea>
+          </div>
+        </div>
+
+        <!-- ── Pre-closing question set ─────────────────────────────────── -->
+        <div id="qset-pre_closing" style="display:none;">
+          <div class="q">
+            <div class="q-title">1. How's communication during the offer/closing phase?</div>
+            <div class="opts" data-q="communication">
+              <div class="opt" data-v="could improve">Could improve</div>
+              <div class="opt" data-v="good">Good</div>
+              <div class="opt" data-v="excellent">Excellent</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">2. Are you clear on the next steps?</div>
+            <div class="opts" data-q="next_steps_clarity">
+              <div class="opt" data-v="not really">Not really</div>
+              <div class="opt" data-v="mostly">Mostly</div>
+              <div class="opt" data-v="crystal clear">Crystal clear</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">3. Anything stressful right now I can help with? (optional)</div>
+            <textarea id="preclose-stress" placeholder="Worries, blockers…"></textarea>
+          </div>
+
+          <div class="q">
+            <div class="q-title">4. Any feedback before closing? (optional)</div>
+            <textarea id="preclose-feedback" placeholder="Anything I should adjust…"></textarea>
+          </div>
+        </div>
+
+        <div class="err" id="form-err"></div>
+        <button class="btn" onclick="goPreview()" id="btn-preview">Preview my review →</button>
+      </div>
+
+      <!-- STAGE 2 — preview -->
+      <div class="stage" id="stage-preview">
+        <div class="greeting">Quick check before sending</div>
+        <div class="subtext">Here's what you're sending. You can go back and edit if you'd like.</div>
+        <div id="preview-body"></div>
+        <button class="btn" onclick="submitReview()" id="btn-submit">Send my review ✓</button>
+        <button class="btn btn-secondary" onclick="goBack()">← Edit my answers</button>
+      </div>
+
+      <!-- STAGE 3 — success -->
+      <div class="stage" id="stage-done">
+        <div class="ok-screen">
+          <div class="check">✓</div>
+          <h2>Thank you so much!</h2>
+          <p>Your review has been sent to Maxwell. Genuinely — it means a lot.</p>
+        </div>
+      </div>
+
+      <!-- STAGE — error -->
+      <div class="stage" id="stage-error">
+        <div class="ok-screen">
+          <div class="check" style="color:#ef4444;">⚠</div>
+          <h2>Something went wrong</h2>
+          <p id="error-msg">Please try again, or contact Maxwell directly.</p>
+        </div>
+      </div>
+
+    </div>
+    <div class="footer-note">Maxwell Delali Midodzi · REALTOR® · eXp Realty</div>
+  </div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const db = supabase.createClient(SUPA_URL, SUPA_ANON);
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t') || params.get('token');
+
+  const answers = {
+    communication: null, knowledge: null, negotiation: null,
+    would_refer: null, overall_stars: null, comments: '',
+    homes_match: null, next_steps_clarity: null, feedback_improve: ''
+  };
+
+  let reviewRow = null;
+  let reviewType = 'post_close';   // default
+
+  // Look up the review row + agent's first name for greeting + dispatch by type
+  (async () => {
+    if (!token) {
+      document.getElementById('error-msg').textContent = 'No review token in this link.';
+      showStage('stage-error');
+      return;
+    }
+    const { data, error } = await db.from('client_reviews')
+      .select('id, status, review_type, clients(full_name)')
+      .eq('token', token)
+      .maybeSingle();
+    if (error || !data) {
+      document.getElementById('error-msg').textContent = 'This link is invalid or expired.';
+      showStage('stage-error');
+      return;
+    }
+    reviewRow = data;
+    reviewType = data.review_type || 'post_close';
+    if (data.status === 'Submitted') {
+      document.getElementById('error-msg').textContent = 'You\'ve already submitted this review. Thank you!';
+      showStage('stage-error');
+      return;
+    }
+    const first = (data.clients?.full_name || '').split(' ')[0];
+    if (first) document.getElementById('greeting').textContent = `Hi ${first}!`;
+
+    // Swap the right question set + tweak header copy for the type
+    document.getElementById('qset-post_close').style.display  = (reviewType === 'post_close')  ? '' : 'none';
+    document.getElementById('qset-search').style.display      = (reviewType === 'search')      ? '' : 'none';
+    document.getElementById('qset-pre_closing').style.display = (reviewType === 'pre_closing') ? '' : 'none';
+
+    const headerTitle = document.querySelector('.header-title');
+    const subtext = document.getElementById('subtext');
+    const btn = document.getElementById('btn-preview');
+    if (reviewType === 'search') {
+      if (headerTitle) headerTitle.textContent = "How's the search going?";
+      if (subtext) subtext.textContent = "Quick pulse to make sure I'm helping you the right way. Takes 30 seconds — totally honest is best.";
+      if (btn) btn.textContent = 'Preview my reply →';
+    } else if (reviewType === 'pre_closing') {
+      if (headerTitle) headerTitle.textContent = "How's closing going?";
+      if (subtext) subtext.textContent = "Congrats on the accepted offer! As we head into closing, a quick pulse so I can keep things smooth for you. 30 seconds.";
+      if (btn) btn.textContent = 'Preview my reply →';
+    }
+  })();
+
+  // Wire option buttons
+  document.querySelectorAll('.opts').forEach(group => {
+    const q = group.getAttribute('data-q');
+    group.querySelectorAll('.opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        group.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        answers[q] = opt.getAttribute('data-v');
+      });
+    });
+  });
+
+  // Wire stars
+  document.querySelectorAll('#stars .star').forEach(s => {
+    s.addEventListener('click', () => {
+      const v = parseInt(s.getAttribute('data-v'));
+      answers.overall_stars = v;
+      document.querySelectorAll('#stars .star').forEach(x => {
+        x.classList.toggle('on', parseInt(x.getAttribute('data-v')) <= v);
+      });
+    });
+  });
+
+  function goPreview() {
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+    let required = [];
+    let html = '';
+
+    if (reviewType === 'post_close') {
+      answers.comments = document.getElementById('comments').value.trim();
+      required = ['communication','knowledge','negotiation','would_refer','overall_stars'];
+      const missing = required.filter(k => !answers[k]);
+      if (missing.length) {
+        document.getElementById('form-err').textContent = 'Please answer all 5 questions before previewing.';
+        return;
+      }
+      const stars = '★'.repeat(answers.overall_stars) + '☆'.repeat(5 - answers.overall_stars);
+      html = `
+        <div style="text-align:center;font-size:32px;color:#f59e0b;margin:10px 0 16px;">${stars}</div>
+        <div class="preview-row"><b>Communication</b><span>${cap(answers.communication)}</span></div>
+        <div class="preview-row"><b>Knowledge of area</b><span>${cap(answers.knowledge)}</span></div>
+        <div class="preview-row"><b>Negotiation</b><span>${cap(answers.negotiation)}</span></div>
+        <div class="preview-row"><b>Would refer</b><span>${cap(answers.would_refer)}</span></div>`;
+      if (answers.comments) {
+        html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;font-style:italic;color:#1a1a2e;">"${answers.comments.replace(/</g,'&lt;')}"</div>`;
+      }
+    } else if (reviewType === 'search') {
+      answers.comments = document.getElementById('search-helpful').value.trim();
+      answers.feedback_improve = document.getElementById('search-improve').value.trim();
+      required = ['communication','homes_match'];
+      const missing = required.filter(k => !answers[k]);
+      if (missing.length) {
+        document.getElementById('form-err').textContent = 'Please answer the first 2 questions before previewing.';
+        return;
+      }
+      html = `
+        <div class="preview-row"><b>Communication</b><span>${cap(answers.communication)}</span></div>
+        <div class="preview-row"><b>Homes match</b><span>${cap(answers.homes_match)}</span></div>`;
+      if (answers.comments) html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Most helpful:</b> ${answers.comments.replace(/</g,'&lt;')}</div>`;
+      if (answers.feedback_improve) html += `<div style="margin-top:8px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Could improve:</b> ${answers.feedback_improve.replace(/</g,'&lt;')}</div>`;
+    } else if (reviewType === 'pre_closing') {
+      answers.comments = document.getElementById('preclose-stress').value.trim();
+      answers.feedback_improve = document.getElementById('preclose-feedback').value.trim();
+      required = ['communication','next_steps_clarity'];
+      const missing = required.filter(k => !answers[k]);
+      if (missing.length) {
+        document.getElementById('form-err').textContent = 'Please answer the first 2 questions before previewing.';
+        return;
+      }
+      html = `
+        <div class="preview-row"><b>Communication</b><span>${cap(answers.communication)}</span></div>
+        <div class="preview-row"><b>Next steps clarity</b><span>${cap(answers.next_steps_clarity)}</span></div>`;
+      if (answers.comments) html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Stress points:</b> ${answers.comments.replace(/</g,'&lt;')}</div>`;
+      if (answers.feedback_improve) html += `<div style="margin-top:8px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Feedback:</b> ${answers.feedback_improve.replace(/</g,'&lt;')}</div>`;
+    }
+
+    document.getElementById('form-err').textContent = '';
+    document.getElementById('preview-body').innerHTML = html;
+    showStage('stage-preview');
+  }
+
+  function goBack() { showStage('stage-form'); }
+
+  async function submitReview() {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    const payload = {
+      communication: answers.communication,
+      comments: answers.comments || null,
+      status: 'Submitted',
+      submitted_at: new Date().toISOString()
+    };
+    if (reviewType === 'post_close') {
+      payload.knowledge = answers.knowledge;
+      payload.negotiation = answers.negotiation;
+      payload.would_refer = answers.would_refer;
+      payload.overall_stars = answers.overall_stars;
+    } else if (reviewType === 'search') {
+      payload.homes_match = answers.homes_match;
+      payload.feedback_improve = answers.feedback_improve || null;
+    } else if (reviewType === 'pre_closing') {
+      payload.next_steps_clarity = answers.next_steps_clarity;
+      payload.feedback_improve = answers.feedback_improve || null;
+    }
+
+    const { error } = await db.from('client_reviews').update(payload).eq('token', token);
+    if (error) {
+      document.getElementById('error-msg').textContent = error.message;
+      showStage('stage-error');
+      return;
+    }
+    showStage('stage-done');
+  }
+
+  function showStage(id) {
+    document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>

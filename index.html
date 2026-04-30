@@ -228,6 +228,9 @@
             <button class="nav-item" data-tab="broadcast" onclick="App.switchTab('broadcast')">
               <span class="nav-icon">📣</span><span class="nav-label">Broadcast</span>
             </button>
+            <button class="nav-item" data-tab="reviews" onclick="App.switchTab('reviews')">
+              <span class="nav-icon">📝</span><span class="nav-label">Reviews</span>
+            </button>
             <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
               <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
               <span class="nav-badge" id="inbox-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px;"></span>
@@ -930,6 +933,18 @@
         </div>
 
       </div>
+    </div>
+
+    <!-- REVIEWS SCREEN -->
+    <div id="screen-reviews" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;">📝 Client Reviews</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Reviews collected from clients after closing</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Reviews.load()">🔄 Refresh</button>
+      </div>
+      <div id="reviews-list"></div>
     </div>
 
     <!-- INBOX SCREEN -->
@@ -1740,5 +1755,41 @@
 <script src="js/tracker.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/reviews.js"></script>
+
+<!-- Share-to-socials modal (post-close reviews only) -->
+<div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:520px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:17px;color:var(--text1);">Share to social media</h3>
+      <span onclick="Reviews.closeShareModal()" style="cursor:pointer;color:var(--text2);font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="background:#000;border-radius:12px;padding:18px;display:flex;justify-content:center;">
+      <div style="width:300px;height:300px;background:radial-gradient(circle at 20% 0%,rgba(204,120,92,.25),transparent 50%),radial-gradient(circle at 80% 100%,rgba(91,91,214,.20),transparent 50%),linear-gradient(135deg,#0A0E14 0%,#1A2030 100%);border-radius:8px;padding:20px;box-sizing:border-box;color:#fff;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:9px;letter-spacing:.22em;color:#CC785C;font-weight:700;">CLIENT REVIEW</div>
+            <div id="share-card-stars" style="font-size:14px;color:#F59E0B;letter-spacing:1px;">★★★★★</div>
+          </div>
+          <div style="font-family:Georgia,serif;font-size:60px;line-height:.6;color:rgba(204,120,92,.3);height:30px;margin-top:8px;">“</div>
+          <div id="share-card-quote" style="font-family:Georgia,serif;font-size:12px;line-height:1.4;margin:6px 0 8px;max-height:120px;overflow:hidden;"></div>
+          <div id="share-card-client" style="font-size:10px;font-weight:700;color:#CC785C;margin-top:4px;"></div>
+          <div id="share-card-property" style="font-size:8px;color:#9CA3AF;margin-top:2px;"></div>
+        </div>
+        <div>
+          <div style="height:1px;background:linear-gradient(90deg,#CC785C 0%,transparent 100%);margin:6px 0 4px;"></div>
+          <div style="font-size:11px;font-weight:800;">Maxwell Midodzi</div>
+          <div style="font-size:7px;letter-spacing:.18em;color:#9CA3AF;font-weight:600;margin-top:2px;">REALTOR® · eXp REALTY</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--text2);margin:12px 0 16px;">1080×1080 · ready for Instagram, Facebook, LinkedIn, Stories</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button class="btn btn-outline" onclick="Reviews.share('download')">⬇ Download PNG</button>
+      <button class="btn btn-primary" onclick="Reviews.share('share')">📤 Share now</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

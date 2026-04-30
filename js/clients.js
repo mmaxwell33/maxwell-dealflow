@@ -320,6 +320,7 @@ const Clients = {
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
       </div>
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent);color:var(--accent);" onclick="App.closeModal();Reviews.requestSearch('${c.id}')">📨 Mid-search Check-in</button>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
