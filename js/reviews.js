@@ -58,6 +58,8 @@ const Reviews = {
       // Build recipient list: primary client + optional CC (e.g., spouse).
       // Each recipient gets their own row, token, and private form.
       const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+      // One batch_id shared by all queued emails so a single approval ships them all.
+      const batchId = recipients.length > 1 ? Reviews._newToken() : null;
 
       let queued = 0;
       for (const r of recipients) {
@@ -76,13 +78,14 @@ const Reviews = {
         await Notify.queue(
           'Review Request 📝',
           client.id, r.name, r.email,
-          tmpl.subject, tmpl.body, deal.id
+          tmpl.subject, tmpl.body, deal.id,
+          null, null, null, null, batchId
         );
         queued++;
       }
 
       if (!queued) { alert('Could not create review request. See console.'); return; }
-      alert(`✅ ${queued} review request${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
+      alert(`✅ ${queued} review request${queued>1?'s':''} queued for approval.\n\n${batchId?'Approve any one — all '+queued+' send together.':'Approve from the Approvals screen to send.'}`);
     } catch (e) {
       console.error(e);
       alert('Error: ' + e.message);
@@ -294,6 +297,8 @@ ${r.comments || ''}
 
       // Primary recipient + optional CC — each gets their own private form/row/token.
       const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+      // One batch_id shared by all queued emails so a single approval ships them all.
+      const batchId = recipients.length > 1 ? Reviews._newToken() : null;
 
       let queued = 0;
       for (const r of recipients) {
@@ -304,12 +309,13 @@ ${r.comments || ''}
         });
         if (insErr) { console.error(insErr); continue; }
         const tmpl = Reviews.searchTemplate({ full_name: r.name }, currentAgent, token);
-        await Notify.queue('Mid-search Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, null);
+        await Notify.queue('Mid-search Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, null,
+          null, null, null, null, batchId);
         queued++;
       }
 
       if (!queued) { alert('Could not create check-in. See console.'); return; }
-      alert(`✅ ${queued} check-in${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
+      alert(`✅ ${queued} check-in${queued>1?'s':''} queued for approval.\n\n${batchId?'Approve any one — all '+queued+' send together.':'Approve from the Approvals screen to send.'}`);
     } catch (e) { console.error(e); alert('Error: ' + e.message); }
   },
 
@@ -324,6 +330,8 @@ ${r.comments || ''}
 
       // Primary recipient + optional CC — each gets their own private form/row/token.
       const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+      // One batch_id shared by all queued emails so a single approval ships them all.
+      const batchId = recipients.length > 1 ? Reviews._newToken() : null;
 
       let queued = 0;
       for (const r of recipients) {
@@ -335,7 +343,8 @@ ${r.comments || ''}
         });
         if (insErr) { console.error(insErr); continue; }
         const tmpl = Reviews.preCloseTemplate({ full_name: r.name }, deal, currentAgent, token);
-        await Notify.queue('Pre-closing Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, deal.id);
+        await Notify.queue('Pre-closing Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, deal.id,
+          null, null, null, null, batchId);
         queued++;
       }
 

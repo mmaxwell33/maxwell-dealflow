@@ -30,6 +30,7 @@ const Approvals = {
             <div class="fw-700" style="font-size:14px;">${a.client_name || 'Unknown'}</div>
             <div class="text-muted" style="font-size:12px;">${a.approval_type || 'Email'} · ${App.timeAgo(a.created_at)}</div>
             ${a.client_email ? `<div style="font-size:11px;color:var(--text2);">✉️ ${a.client_email}</div>` : ''}
+            ${a.batch_id ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px;font-weight:600;">📨 Batch send — approve any one to send all in this group</div>` : ''}
           </div>
           <span class="stage-badge ${a.status==='Pending'?'badge-conditions':a.status==='Approved'?'badge-accepted':'badge-default'}">${a.status}</span>
         </div>
@@ -93,13 +94,14 @@ const Approvals = {
     if (!item) { Approvals._sending.delete(id); return; }
 
     // ── DEDUP CHECK — block if same email already sent in last 24h ──────────
-    // Skipped when context_data.is_resend === true (user-initiated resend).
+    // Skipped when context_data.is_resend === true (user-initiated resend),
+    // or when item.batch_id is set (CC fan-out — each sibling is a distinct recipient).
     let _isResend = false;
     try {
       const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
       _isResend = !!(ctx && ctx.is_resend);
     } catch { /* ignore parse errors */ }
-    if (!_isResend) try {
+    if (!_isResend && !item.batch_id) try {
       const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
       const { data: dupes } = await db.from('approval_queue')
         .select('id')
@@ -192,6 +194,26 @@ const Approvals = {
         // Mark approved in DB
         await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
         App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
+
+        // ── BATCH AUTO-APPROVE — fan out to siblings with same batch_id ────────
+        if (item.batch_id) {
+          try {
+            const { data: siblings } = await db.from('approval_queue')
+              .select('id')
+              .eq('agent_id', item.agent_id)
+              .eq('batch_id', item.batch_id)
+              .eq('status', 'Pending')
+              .neq('id', id);
+            if (siblings?.length) {
+              App.toast(`📨 Sending to ${siblings.length} more recipient${siblings.length>1?'s':''}…`, 'var(--accent2)');
+              for (const sib of siblings) {
+                // Recursive call — each sibling gets full send pipeline (dedup is skipped via batch siblings sharing subject is OK because we're triggering by ID)
+                await Approvals.approve(sib.id);
+              }
+            }
+          } catch (batchErr) { console.warn('Batch fan-out failed:', batchErr); }
+        }
+
         Approvals.load();
         if (typeof Notify !== "undefined") Notify.updateBadge();
         if (typeof Inbox !== "undefined") Inbox.updateBadge();

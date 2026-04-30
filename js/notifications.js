@@ -880,7 +880,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null) {
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
@@ -906,6 +906,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // Only include optional fields when they have actual values — never send null for jsonb columns
     if (contextData !== null) insertRow.context_data = contextData;
     if (relatedId) insertRow.related_id = relatedId;
+    if (batchId)   insertRow.batch_id   = batchId;
     const { data: queued, error } = await db.from('approval_queue').insert(insertRow).select('id').single();
     if (error) {
       console.error('Notify.queue insert error:', error);
