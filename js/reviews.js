@@ -21,21 +21,28 @@ const Reviews = {
     return (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g,'').slice(0,32);
   },
 
-  // Prompt the agent for additional CC emails (e.g. spouse). Each gets their
-  // own private form / row / token. Returns [{name, email}, ...] (possibly empty).
+  // Prompt the agent for additional CC people (e.g. spouse). Two simple
+  // sequential prompts per person — name first, then email. Loops until the
+  // agent leaves the name blank. Each CC gets their own row/token/private form.
+  // Returns [{name, email}, ...] (possibly empty).
   _collectCC() {
-    const raw = prompt(
-      'Add CC emails (e.g., spouse) — comma-separated.\n' +
-      'Format: "Jane Doe <jane@email.com>" or just an email.\n\n' +
-      'Leave blank to skip.',
-      ''
-    );
-    if (!raw) return [];
-    return raw.split(',').map(s => s.trim()).filter(Boolean).map(entry => {
-      const m = entry.match(/^(.*?)\s*<\s*([^>]+?)\s*>$/);
-      if (m) return { name: (m[1].trim() || m[2].split('@')[0]), email: m[2].trim() };
-      return { name: entry.split('@')[0], email: entry };
-    }).filter(p => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email));
+    const out = [];
+    while (true) {
+      const label = out.length === 0
+        ? 'Add a CC? Type their first name (or leave blank to skip).'
+        : 'Add another CC? Type their first name (or leave blank to finish).';
+      const name = (prompt(label, '') || '').trim();
+      if (!name) break;
+
+      const email = (prompt(`${name}'s email address:`, '') || '').trim();
+      if (!email) { alert(`No email entered for ${name}. Skipping.`); continue; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert(`That doesn't look like a valid email. Skipping ${name}.`);
+        continue;
+      }
+      out.push({ name, email });
+    }
+    return out;
   },
 
   // Send a review request from a closed deal
