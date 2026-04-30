@@ -53,11 +53,14 @@ const Reviews = {
       const deal = (Pipeline.all || []).find(d => d.id === dealId);
       if (!deal) { alert('Deal not found.'); return; }
       const { data: client } = await db.from('clients').select('*').eq('id', deal.client_id).single();
-      if (!client?.email) { alert('Client has no email on file.'); return; }
+      // Fall back to the email stored on the deal row if the client record has none.
+      const primaryEmail = client?.email || deal?.client_email;
+      const primaryName  = client?.full_name || deal?.client_name || 'Client';
+      if (!primaryEmail) { alert('Client has no email on file (checked both client record and deal).'); return; }
 
       // Build recipient list: primary client + optional CC (e.g., spouse).
       // Each recipient gets their own row, token, and private form.
-      const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+      const recipients = [{ name: primaryName, email: primaryEmail }, ...Reviews._collectCC()];
       // One batch_id shared by all queued emails so a single approval ships them all.
       const batchId = recipients.length > 1 ? Reviews._newToken() : null;
 
@@ -349,10 +352,13 @@ ${r.comments || ''}
       const deal = (Pipeline.all || []).find(d => d.id === dealId);
       if (!deal) { alert('Deal not found.'); return; }
       const { data: client } = await db.from('clients').select('*').eq('id', deal.client_id).single();
-      if (!client?.email) { alert('Client has no email on file.'); return; }
+      // Fall back to the email stored on the deal row if the client record has none.
+      const primaryEmail = client?.email || deal?.client_email;
+      const primaryName  = client?.full_name || deal?.client_name || 'Client';
+      if (!primaryEmail) { alert('Client has no email on file (checked both client record and deal).'); return; }
 
       // Primary recipient + optional CC — each gets their own private form/row/token.
-      const recipients = [{ name: client.full_name, email: client.email }, ...Reviews._collectCC()];
+      const recipients = [{ name: primaryName, email: primaryEmail }, ...Reviews._collectCC()];
       // One batch_id shared by all queued emails so a single approval ships them all.
       const batchId = recipients.length > 1 ? Reviews._newToken() : null;
 
