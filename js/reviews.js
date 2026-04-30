@@ -211,16 +211,20 @@ maxwellmidodzi.exprealty.com`
       const statusBadge = r.status === 'Submitted'
         ? `<span style="font-size:11px;color:var(--green);background:rgba(34,197,94,.12);padding:3px 8px;border-radius:6px;">Submitted</span>`
         : `<span style="font-size:11px;color:var(--yellow);background:rgba(245,158,11,.12);padding:3px 8px;border-radius:6px;">Pending</span>`;
+      const deleteBtn = `<button class="btn btn-outline btn-sm" onclick="Reviews.deleteReview('${r.id}')" title="Delete this review" style="font-size:11px;padding:3px 8px;border-color:var(--red);color:var(--red);">🗑️ Delete</button>`;
 
       html += `
         <div class="card" style="padding:18px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;">
             <div>
               <div style="font-size:10px;color:${typeColor};letter-spacing:.08em;font-weight:700;margin-bottom:4px;">${typeLabel}</div>
               <div style="font-size:15px;font-weight:600;color:var(--text1);">${name}</div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.property_address || ''} · ${date}</div>
             </div>
-            ${statusBadge}
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+              ${statusBadge}
+              ${deleteBtn}
+            </div>
           </div>`;
 
       if (r.status === 'Submitted') {
@@ -269,6 +273,25 @@ maxwellmidodzi.exprealty.com`
   copyLink(token) {
     const url = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
     navigator.clipboard.writeText(url).then(() => alert('Link copied:\n' + url));
+  },
+
+  // Delete a review row (used to clean up duplicate / test-mode entries)
+  async deleteReview(id) {
+    const r = (Reviews.all || []).find(x => x.id === id);
+    const name = r?.clients?.full_name || 'this client';
+    const typeWord = r?.review_type === 'search' ? 'mid-search'
+                   : r?.review_type === 'pre_closing' ? 'pre-closing'
+                   : 'post-close';
+    const statusWord = r?.status === 'Submitted' ? 'submitted' : 'pending';
+    if (!confirm(`Delete this ${statusWord} ${typeWord} review for ${name}?\n\nThis cannot be undone.`)) return;
+    try {
+      const { error } = await db.from('client_reviews').delete().eq('id', id);
+      if (error) throw error;
+      if (typeof App !== 'undefined' && App.toast) App.toast('Review deleted', 'var(--accent)');
+      await Reviews.load();
+    } catch (e) {
+      alert('Could not delete review: ' + (e.message || e));
+    }
   },
 
   copyText(reviewId) {
