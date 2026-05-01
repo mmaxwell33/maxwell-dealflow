@@ -1428,6 +1428,7 @@ const NewBuilds = {
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
           ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Builder</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendClientLink('${b.id}')" style="color:var(--green);border-color:var(--green);">🔗 Send Buyer Portal</button>
+          <button class="btn btn-outline btn-sm" onclick="Reviews.requestNewBuildProgress('${b.id}')" style="color:var(--accent);border-color:var(--accent);">⭐ Review</button>
         </div>
       </div>`;
     }).join('');
