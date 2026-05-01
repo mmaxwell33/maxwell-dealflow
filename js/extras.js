@@ -207,7 +207,7 @@ const Approvals = {
               .eq('batch_id', item.batch_id)
               .eq('status', 'Pending')
               .neq('id', id);
-            if (siblings?.length) {
+            if (siblings?.length && confirm(`This is part of a batch send to ${siblings.length + 1} recipients total.\n\nApprove the other ${siblings.length} recipient${siblings.length>1?'s':''} too?\n\n• OK = send to everyone in the batch\n• Cancel = send only to ${item.client_name}`)) {
               App.toast(`📨 Sending to ${siblings.length} more recipient${siblings.length>1?'s':''}…`, 'var(--accent2)');
               for (const sib of siblings) {
                 // Recursive call — each sibling gets full send pipeline (dedup is skipped via batch siblings sharing subject is OK because we're triggering by ID)

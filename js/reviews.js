@@ -256,8 +256,18 @@ maxwellmidodzi.exprealty.com`
           </div>
           ${r.comments ? `<div style="margin-top:10px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--text1);"><b>Most helpful:</b> ${r.comments}</div>` : ''}
           ${r.feedback_improve ? `<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--text1);"><b>Could improve:</b> ${r.feedback_improve}</div>` : ''}`;
-        } else if (type === 'pre_closing' || type === 'new_build_progress') {
+        } else if (type === 'pre_closing') {
           html += `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;font-size:13px;color:var(--text2);margin:8px 0;">
+            <div><b style="color:var(--text1);">Communication:</b> ${r.communication || '—'}</div>
+            <div><b style="color:var(--text1);">Next steps clarity:</b> ${r.next_steps_clarity || '—'}</div>
+          </div>
+          ${r.comments ? `<div style="margin-top:10px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--text1);"><b>Stress points:</b> ${r.comments}</div>` : ''}
+          ${r.feedback_improve ? `<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--text1);"><b>Feedback:</b> ${r.feedback_improve}</div>` : ''}`;
+        } else if (type === 'new_build_progress') {
+          const stars = r.overall_stars ? '★'.repeat(r.overall_stars) + '☆'.repeat(5 - r.overall_stars) : '—';
+          html += `
+          <div style="font-size:18px;color:var(--accent);margin:8px 0;">${stars}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;font-size:13px;color:var(--text2);margin:8px 0;">
             <div><b style="color:var(--text1);">Communication:</b> ${r.communication || '—'}</div>
             <div><b style="color:var(--text1);">Next steps clarity:</b> ${r.next_steps_clarity || '—'}</div>

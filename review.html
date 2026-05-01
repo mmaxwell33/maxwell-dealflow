@@ -177,6 +177,48 @@
           </div>
         </div>
 
+        <!-- ── New-build progress question set ──────────────────────────── -->
+        <div id="qset-new_build_progress" style="display:none;">
+          <div class="q">
+            <div class="q-title">1. Overall, how's the build experience so far?</div>
+            <div class="stars" id="stars-build">
+              <span class="star" data-v="1">★</span>
+              <span class="star" data-v="2">★</span>
+              <span class="star" data-v="3">★</span>
+              <span class="star" data-v="4">★</span>
+              <span class="star" data-v="5">★</span>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">2. How am I doing on communication during the build?</div>
+            <div class="opts" data-q="communication">
+              <div class="opt" data-v="could improve">Could improve</div>
+              <div class="opt" data-v="good">Good</div>
+              <div class="opt" data-v="excellent">Excellent</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">3. Are you clear on what's coming next in the build?</div>
+            <div class="opts" data-q="next_steps_clarity">
+              <div class="opt" data-v="not really">Not really</div>
+              <div class="opt" data-v="mostly">Mostly</div>
+              <div class="opt" data-v="crystal clear">Crystal clear</div>
+            </div>
+          </div>
+
+          <div class="q">
+            <div class="q-title">4. Anything stressful right now I can help with? (optional)</div>
+            <textarea id="build-stress" placeholder="Worries, blockers…"></textarea>
+          </div>
+
+          <div class="q">
+            <div class="q-title">5. Any feedback so I can adjust? (optional)</div>
+            <textarea id="build-feedback" placeholder="Anything I should change…"></textarea>
+          </div>
+        </div>
+
         <div class="err" id="form-err"></div>
         <button class="btn" onclick="goPreview()" id="btn-preview">Preview my review →</button>
       </div>
@@ -257,7 +299,8 @@
     // Swap the right question set + tweak header copy for the type
     document.getElementById('qset-post_close').style.display  = (reviewType === 'post_close')  ? '' : 'none';
     document.getElementById('qset-search').style.display      = (reviewType === 'search')      ? '' : 'none';
-    document.getElementById('qset-pre_closing').style.display = (reviewType === 'pre_closing' || reviewType === 'new_build_progress') ? '' : 'none';
+    document.getElementById('qset-pre_closing').style.display = (reviewType === 'pre_closing') ? '' : 'none';
+    document.getElementById('qset-new_build_progress').style.display = (reviewType === 'new_build_progress') ? '' : 'none';
 
     const headerTitle = document.querySelector('.header-title');
     const subtext = document.getElementById('subtext');
@@ -295,6 +338,17 @@
       const v = parseInt(s.getAttribute('data-v'));
       answers.overall_stars = v;
       document.querySelectorAll('#stars .star').forEach(x => {
+        x.classList.toggle('on', parseInt(x.getAttribute('data-v')) <= v);
+      });
+    });
+  });
+
+  // Wire build-progress stars (separate container so visibility doesn't interfere)
+  document.querySelectorAll('#stars-build .star').forEach(s => {
+    s.addEventListener('click', () => {
+      const v = parseInt(s.getAttribute('data-v'));
+      answers.overall_stars = v;
+      document.querySelectorAll('#stars-build .star').forEach(x => {
         x.classList.toggle('on', parseInt(x.getAttribute('data-v')) <= v);
       });
     });
@@ -351,6 +405,22 @@
         <div class="preview-row"><b>Next steps clarity</b><span>${cap(answers.next_steps_clarity)}</span></div>`;
       if (answers.comments) html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Stress points:</b> ${answers.comments.replace(/</g,'&lt;')}</div>`;
       if (answers.feedback_improve) html += `<div style="margin-top:8px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Feedback:</b> ${answers.feedback_improve.replace(/</g,'&lt;')}</div>`;
+    } else if (reviewType === 'new_build_progress') {
+      answers.comments = document.getElementById('build-stress').value.trim();
+      answers.feedback_improve = document.getElementById('build-feedback').value.trim();
+      required = ['communication','next_steps_clarity','overall_stars'];
+      const missing = required.filter(k => !answers[k]);
+      if (missing.length) {
+        document.getElementById('form-err').textContent = 'Please answer the first 3 questions before previewing.';
+        return;
+      }
+      const stars = '★'.repeat(answers.overall_stars) + '☆'.repeat(5 - answers.overall_stars);
+      html = `
+        <div style="text-align:center;font-size:32px;color:#CC785C;margin:10px 0 16px;">${stars}</div>
+        <div class="preview-row"><b>Communication</b><span>${cap(answers.communication)}</span></div>
+        <div class="preview-row"><b>Next steps clarity</b><span>${cap(answers.next_steps_clarity)}</span></div>`;
+      if (answers.comments) html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Stress points:</b> ${answers.comments.replace(/</g,'&lt;')}</div>`;
+      if (answers.feedback_improve) html += `<div style="margin-top:8px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Feedback:</b> ${answers.feedback_improve.replace(/</g,'&lt;')}</div>`;
     }
 
     document.getElementById('form-err').textContent = '';
@@ -381,6 +451,10 @@
     } else if (reviewType === 'pre_closing') {
       payload.next_steps_clarity = answers.next_steps_clarity;
       payload.feedback_improve = answers.feedback_improve || null;
+    } else if (reviewType === 'new_build_progress') {
+      payload.next_steps_clarity = answers.next_steps_clarity;
+      payload.feedback_improve = answers.feedback_improve || null;
+      payload.overall_stars = answers.overall_stars;
     }
 
     const { error } = await db.from('client_reviews').update(payload).eq('token', token);
