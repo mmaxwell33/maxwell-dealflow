@@ -429,6 +429,66 @@ REALTOR® | eXp Realty`
     };
   },
 
+  // ─── BUILD-IN-PROGRESS CHECK-IN (for new construction clients) ─────────────
+  async requestNewBuildProgress(buildId) {
+    if (!confirm('Send a build progress check-in to this client?\n\n(Private feedback on how the build experience is going.)')) return;
+    try {
+      const { data: build } = await db.from('new_builds').select('*, clients(*)').eq('id', buildId).single();
+      if (!build) { alert('Build not found.'); return; }
+      const client = build.clients;
+      const primaryEmail = client?.email;
+      const primaryName  = client?.full_name || build.client_name || 'Client';
+      if (!primaryEmail) { alert('Client has no email on file.'); return; }
+
+      // Primary recipient + optional CC — each gets their own private form/row/token.
+      const recipients = [{ name: primaryName, email: primaryEmail }, ...Reviews._collectCC()];
+      // One batch_id shared by all queued emails so a single approval ships them all.
+      const batchId = recipients.length > 1 ? Reviews._newToken() : null;
+
+      let queued = 0;
+      for (const r of recipients) {
+        const token = Reviews._newToken();
+        const { error: insErr } = await db.from('client_reviews').insert({
+          agent_id: currentAgent.id, client_id: client.id, pipeline_id: null,
+          review_type: 'new_build_progress', token,
+          property_address: build.lot_address || null, status: 'Pending'
+        });
+        if (insErr) { console.error(insErr); continue; }
+        const tmpl = Reviews.newBuildTemplate({ full_name: r.name }, build, currentAgent, token);
+        await Notify.queue('Build Progress Check-in 📨', client.id, r.name, r.email, tmpl.subject, tmpl.body, null,
+          null, null, null, null, batchId);
+        queued++;
+      }
+
+      if (!queued) { alert('Could not create check-in. See console.'); return; }
+      alert(`✅ ${queued} check-in${queued>1?'s':''} queued for approval.\n\nApprove from the Approvals screen to send.`);
+    } catch (e) { console.error(e); alert('Error: ' + e.message); }
+  },
+
+  newBuildTemplate(client, build, agent, token) {
+    const firstName = client.full_name?.split(' ')[0] || 'there';
+    const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
+    const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const stageNote = build?.current_stage ? ` We're currently at "${build.current_stage}".` : '';
+    return {
+      subject: `Quick check-in on your build, ${firstName}`,
+      body: `Hi ${firstName},
+
+Your new build is moving along — I just want to make sure the experience is going the way you expected.${stageNote}
+
+Takes about 30 seconds — totally honest is best:
+
+   👉 ${link}
+
+This is private feedback for me to learn from and adjust where I can. Not a public review.
+
+Thank you,
+
+${agentName}
+REALTOR® | eXp Realty`
+    };
+  },
+
   // ─── SHARE TO SOCIAL MEDIA (post-close only) ───────────────────────────────
   openShareModal(reviewId) {
     const r = Reviews.all.find(x => x.id === reviewId);

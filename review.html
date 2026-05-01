@@ -257,7 +257,7 @@
     // Swap the right question set + tweak header copy for the type
     document.getElementById('qset-post_close').style.display  = (reviewType === 'post_close')  ? '' : 'none';
     document.getElementById('qset-search').style.display      = (reviewType === 'search')      ? '' : 'none';
-    document.getElementById('qset-pre_closing').style.display = (reviewType === 'pre_closing') ? '' : 'none';
+    document.getElementById('qset-pre_closing').style.display = (reviewType === 'pre_closing' || reviewType === 'new_build_progress') ? '' : 'none';
 
     const headerTitle = document.querySelector('.header-title');
     const subtext = document.getElementById('subtext');
@@ -269,6 +269,10 @@
     } else if (reviewType === 'pre_closing') {
       if (headerTitle) headerTitle.textContent = "How's closing going?";
       if (subtext) subtext.textContent = "Congrats on the accepted offer! As we head into closing, a quick pulse so I can keep things smooth for you. 30 seconds.";
+      if (btn) btn.textContent = 'Preview my reply →';
+    } else if (reviewType === 'new_build_progress') {
+      if (headerTitle) headerTitle.textContent = "How's the build going?";
+      if (subtext) subtext.textContent = "Just a quick pulse on your build experience so far. Takes 30 seconds — totally honest is best.";
       if (btn) btn.textContent = 'Preview my reply →';
     }
   })();

@@ -76,6 +76,7 @@ const NewBuilds = {
             <button class="btn btn-primary btn-sm" style="flex:1;min-width:0;" onclick="NewBuilds.openDetail('${b.id}')">📋 Details</button>
             <button class="btn btn-sm" style="background:var(--accent2);color:#fff;flex:1;min-width:0;" onclick="NewBuilds.updateStage('${b.id}')">🔄 Update</button>
             <button class="btn btn-sm" style="background:var(--green);color:#fff;flex:1;min-width:0;" onclick="event.stopPropagation();NewBuilds.shareBuyerPortal('${b.id}')">🔗 Portal</button>
+            <button class="btn btn-sm" style="background:var(--accent);color:#fff;flex:1;min-width:0;" onclick="event.stopPropagation();Reviews.requestNewBuildProgress('${b.id}')">⭐ Review</button>
           </div>
         </div>`;
     }).join('');
