@@ -37,6 +37,18 @@ const daysUntil = (dateStr: string, today: Date): number => {
   return Math.round((d.getTime() - today.getTime()) / 86_400_000);
 };
 
+// Mirror of offers.js stage-badge logic — keeps email in sync with UI badge
+const displayStage = (deal: any, today: Date): string => {
+  if (deal.stage === 'Closed') return 'Closed';
+  if (deal.stage === 'Fell Through') return 'Fell Through';
+  if (deal.stage === 'Under Contract') return 'Under Contract';
+  if (deal.financing_date) {
+    const fd = new Date(deal.financing_date + 'T00:00:00');
+    if (fd <= today) return 'Under Contract';
+  }
+  return deal.stage;
+};
+
 // ─── MIME email builder ───────────────────────────────────────────────────────
 
 function mimeEncodeHeader(value: string): string {
@@ -171,7 +183,7 @@ serve(async (req) => {
   // ── 4. Active pipeline deals ───────────────────────────────────────────────
   const { data: activeDeals } = await supabase
     .from('pipeline')
-    .select('id, client_name, property_address, stage, closing_date, financing_deadline, inspection_deadline, walkthrough_date, updated_at')
+    .select('id, client_name, property_address, stage, closing_date, financing_date, financing_deadline, inspection_deadline, walkthrough_date, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")')
     .order('updated_at', { ascending: false });
 
@@ -208,9 +220,9 @@ serve(async (req) => {
   // ── Build HTML email ───────────────────────────────────────────────────────
 
   const sectionStyle = 'margin: 0 0 28px 0;';
-  const headingStyle = 'font-size: 16px; font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #4f8ef7; padding-bottom: 6px; margin: 0 0 12px 0;';
+  const headingStyle = 'font-size: 16px; font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #CC785C; padding-bottom: 6px; margin: 0 0 12px 0;';
   const tableStyle = 'width: 100%; border-collapse: collapse; font-size: 13px;';
-  const thStyle = 'background: #f0f4ff; padding: 8px 10px; text-align: left; font-weight: 600; color: #444;';
+  const thStyle = 'background: #FBEFE8; padding: 8px 10px; text-align: left; font-weight: 600; color: #444;';
   const tdStyle = 'padding: 8px 10px; border-bottom: 1px solid #eee; color: #333;';
   const badgeGreen = 'display:inline-block;background:#e6f9f0;color:#1a7a4a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;';
   const badgeOrange = 'display:inline-block;background:#fff3e0;color:#b05e00;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;';
@@ -277,7 +289,7 @@ serve(async (req) => {
         <tr>
           <td style="${tdStyle}">${d.client_name || '—'}</td>
           <td style="${tdStyle}">${d.property_address || '—'}</td>
-          <td style="${tdStyle}"><span style="${badgeGreen}">${d.stage}</span></td>
+          <td style="${tdStyle}"><span style="${badgeGreen}">${displayStage(d, today)}</span></td>
           <td style="${tdStyle}">${d.closing_date ? fmtDate(d.closing_date) : '—'}</td>
         </tr>`).join('')}
     </table>`;
@@ -344,15 +356,15 @@ serve(async (req) => {
   <div style="max-width:700px;margin:0 auto;padding:20px;">
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-radius:12px 12px 0 0;padding:24px 28px;margin-bottom:0;">
+    <div style="background:linear-gradient(135deg,#CC785C 0%,#D98B6F 100%);border-radius:12px 12px 0 0;padding:24px 28px;margin-bottom:0;">
       <div style="font-size:22px;font-weight:700;color:#fff;">☀️ Good Morning, Maxwell</div>
-      <div style="font-size:13px;color:#a0b4d6;margin-top:4px;">${dayName}</div>
+      <div style="font-size:13px;color:#FBE4D6;margin-top:4px;">${dayName}</div>
       <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-        ${viewingCount > 0 ? `<span style="background:rgba(79,142,247,0.2);color:#a0c4ff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📅 ${viewingCount} Viewing${viewingCount > 1 ? 's' : ''} Today</span>` : ''}
-        ${pendingCount > 0 ? `<span style="background:rgba(255,152,0,0.2);color:#ffcc80;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📬 ${pendingCount} Pending Approval${pendingCount > 1 ? 's' : ''}</span>` : ''}
-        ${intakeCount > 0 ? `<span style="background:rgba(76,175,80,0.2);color:#a5d6a7;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📋 ${intakeCount} New Lead${intakeCount > 1 ? 's' : ''}</span>` : ''}
-        ${deadlineCount > 0 ? `<span style="background:rgba(244,67,54,0.2);color:#ef9a9a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">⚠️ ${deadlineCount} Urgent Deadline${deadlineCount > 1 ? 's' : ''}</span>` : ''}
-        ${alerts.length === 0 ? `<span style="background:rgba(76,175,80,0.2);color:#a5d6a7;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ All clear — great day ahead!</span>` : ''}
+        ${viewingCount > 0 ? `<span style="background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📅 ${viewingCount} Viewing${viewingCount > 1 ? 's' : ''} Today</span>` : ''}
+        ${pendingCount > 0 ? `<span style="background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📬 ${pendingCount} Pending Approval${pendingCount > 1 ? 's' : ''}</span>` : ''}
+        ${intakeCount > 0 ? `<span style="background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">📋 ${intakeCount} New Lead${intakeCount > 1 ? 's' : ''}</span>` : ''}
+        ${deadlineCount > 0 ? `<span style="background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">⚠️ ${deadlineCount} Urgent Deadline${deadlineCount > 1 ? 's' : ''}</span>` : ''}
+        ${alerts.length === 0 ? `<span style="background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ All clear — great day ahead!</span>` : ''}
       </div>
     </div>
 
