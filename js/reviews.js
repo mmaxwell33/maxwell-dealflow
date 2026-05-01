@@ -469,12 +469,11 @@ REALTOR® | eXp Realty`
     const firstName = client.full_name?.split(' ')[0] || 'there';
     const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
     const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
-    const stageNote = build?.current_stage ? ` We're currently at "${build.current_stage}".` : '';
     return {
       subject: `Quick check-in on your build, ${firstName}`,
       body: `Hi ${firstName},
 
-Your new build is moving along — I just want to make sure the experience is going the way you expected.${stageNote}
+Your new build is moving along — I just want to make sure the experience is going the way you expected so far.
 
 Takes about 30 seconds — totally honest is best:
 
