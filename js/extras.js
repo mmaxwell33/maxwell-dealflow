@@ -2028,6 +2028,7 @@ const NewBuilds = {
         acceptance_date: (build.created_at || new Date().toISOString()).slice(0,10),
         closing_date: build.est_completion_date || null,
         stage: pipelineStage,
+        deal_type: 'new_build',
         status: 'Active'
       });
     }
