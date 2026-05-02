@@ -1197,6 +1197,6 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 }
 .build-ticker > span, .deal-ticker-pl > span {
   display:inline-block;
-  animation: pipeline-ticker-cycle 45s ease-in-out 4;
+  animation: pipeline-ticker-cycle 45s ease-in-out 2;  /* 2 cycles = ~90s per appearance */
   animation-fill-mode: forwards;  /* freeze in final off-left position when done */
 }

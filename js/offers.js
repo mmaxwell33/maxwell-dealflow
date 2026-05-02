@@ -409,6 +409,40 @@ const Pipeline = {
     Pipeline.render(Pipeline.all);
   },
 
+  // ── Status-ticker cooldown state machine ─────────────────────────────
+  // The ticker should only flash on screen a few times per day (so it's
+  // attention-grabbing without being noise). Each "appearance" is 2 cycles
+  // of the marquee animation (~90s). After it shows, it goes silent for
+  // a cooldown period that grows: 30 min → 1.5 hr → 5 hr → 8 hr.
+  // Max 5 appearances per day. State persists in localStorage so quickly
+  // switching tabs and coming back doesn't bypass the cooldown. New day
+  // (date change) resets the counter.
+  shouldShowTicker() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      let state = JSON.parse(localStorage.getItem('df-ticker-state') || 'null');
+      if (!state || state.date !== today) {
+        state = { date: today, showCount: 0, nextShowAt: null };
+      }
+      // Already used today's allotment?
+      if (state.showCount >= 5) return false;
+      // In cooldown?
+      if (state.nextShowAt && new Date(state.nextShowAt).getTime() > Date.now()) return false;
+
+      // Time to show. Advance counter, set next cooldown.
+      const cooldownsMin = [30, 90, 300, 480];  // gap before show 2, 3, 4, 5
+      const cdMin = cooldownsMin[state.showCount];
+      state.showCount += 1;
+      state.nextShowAt = (state.showCount < 5)
+        ? new Date(Date.now() + (cdMin || 480) * 60 * 1000).toISOString()
+        : null;
+      localStorage.setItem('df-ticker-state', JSON.stringify(state));
+      return true;
+    } catch (e) {
+      return true;  // fail open so the ticker still works if localStorage breaks
+    }
+  },
+
   async load() {
     if (!currentAgent?.id) return;
     const { data } = await db.from('pipeline')
@@ -792,6 +826,12 @@ const Pipeline = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div><div class="empty-sub">Accepted offers will appear here</div></div>`;
       return;
     }
+    // Decide ONCE per render whether the status ticker should appear.
+    // Stored on Pipeline._tickerActive and read by both card variants
+    // (existing-home and new-build) — keeps the cooldown counter from
+    // advancing once per card rendered.
+    Pipeline._tickerActive = Pipeline.shouldShowTicker();
+
     // ── Apply deal_type filter (All / Existing Home / New Build) ──
     const filter = Pipeline.currentFilter || 'all';
     const filtered = filter === 'all' ? list : list.filter(d => (d.deal_type || 'existing_home') === filter);
@@ -887,8 +927,9 @@ const Pipeline = {
         return `<div style="padding:6px 10px;background:${bg};border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><span style="color:${color};font-weight:600;font-size:12px;">⏰ Deposit due in ${left}</span>${markBtn}</div>`;
       })();
 
-      // Stage-aware status ticker (existing-home variant) — silent if deal is closed/fell-through
-      const dealTickerMsg = (isClosed || isFell) ? '' : Pipeline.dealStatusMessage(d);
+      // Stage-aware status ticker (existing-home variant) — silent if closed/fell-through
+      // or if the daily cooldown has us in a quiet window.
+      const dealTickerMsg = (isClosed || isFell || !Pipeline._tickerActive) ? '' : Pipeline.dealStatusMessage(d);
       const dealTickerHtml = dealTickerMsg ? `<div class="deal-ticker-pl"><span>${dealTickerMsg}</span></div>` : '';
 
       return `<div class="card" style="margin-bottom:12px;">
@@ -986,7 +1027,7 @@ const Pipeline = {
     // and progress bar can read pipeline_milestones for live stage data.
     const linkedBuild = (Pipeline._buildsByName || {})[d.client_name];
     const tickerMsg   = Pipeline.buildStatusMessage(d, linkedBuild);
-    const tickerHtml  = (isClosed || isFell)
+    const tickerHtml  = (isClosed || isFell || !Pipeline._tickerActive)
       ? ''
       : `<div class="build-ticker"><span>${tickerMsg}</span></div>`;
 
