@@ -1172,28 +1172,31 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 .hero2-date{font-size:13px;color:var(--text2);}
 .hero2-title{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:4px;}
 
-/* ── Build status marquee (news-ticker style) ── */
-/* Shows the current build state on new-build pipeline cards and the client portal. */
-@keyframes build-ticker-scroll {
-  0%   { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+/* ── Pipeline status marquee (news-ticker style) ── */
+/* Used on new-build cards (.build-ticker) and existing-home cards (.deal-ticker-pl). */
+/* Animation: slide in from right (~7s) → hold center (~30s) → slide off left (~7s) → off-screen pause. */
+/* Loops 4 times (~3 minutes total), then stops with text off-screen left. */
+@keyframes pipeline-ticker-cycle {
+  0%   { transform: translateX(100%); }   /* off-screen right */
+  15%  { transform: translateX(0); }      /* slid in, anchored at left edge */
+  85%  { transform: translateX(0); }      /* held visible for ~30s */
+  100% { transform: translateX(-100%); }  /* slid off left */
 }
-.build-ticker{
+.build-ticker, .deal-ticker-pl {
   position:relative;
   overflow:hidden;
   background:rgba(204,120,92,0.08);
   border:1px solid rgba(204,120,92,0.25);
   border-radius:6px;
-  padding:6px 0;
+  padding:6px 8px;
   margin:6px 0 10px;
   font-size:12px;
   font-weight:600;
   color:var(--accent);
   white-space:nowrap;
 }
-.build-ticker > span{
+.build-ticker > span, .deal-ticker-pl > span {
   display:inline-block;
-  padding-left:100%;
-  animation: build-ticker-scroll 28s linear infinite;
+  animation: pipeline-ticker-cycle 45s ease-in-out 4;
+  animation-fill-mode: forwards;  /* freeze in final off-left position when done */
 }
-.build-ticker:hover > span{ animation-play-state: paused; }

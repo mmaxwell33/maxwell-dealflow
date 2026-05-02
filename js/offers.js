@@ -460,6 +460,40 @@ const Pipeline = {
     return messages[currentKey];
   },
 
+  // Compute % of build steps complete from pipeline_milestones JSONB.
+  // Used by the progress bar on new-build pipeline cards.
+  buildPercent(build) {
+    const pm = build?.pipeline_milestones || {};
+    let done = 0, total = 0;
+    ['pre_construction','financing','construction','conditions','possession'].forEach(stageKey => {
+      const stage = pm[stageKey] || {};
+      const steps = stage.steps || {};
+      Object.values(steps).forEach(stepDone => {
+        total++;
+        if (stepDone) done++;
+      });
+    });
+    return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+  },
+
+  // Generic stage-aware message for existing-home pipeline deals.
+  // Used by the marquee ticker on existing-home pipeline cards.
+  dealStatusMessage(d) {
+    if (d.stage === 'Closed' || d.stage === 'Fell Through' || d.stage === 'Withdrawn') return '';
+    const firstName = (d?.client_name || '').split(' ')[0] || 'there';
+
+    // Compute display-stage like the badge does — financing date passed = under contract
+    const today = new Date(new Date().toDateString());
+    const finPast = d.financing_date && new Date(d.financing_date+'T00:00:00') <= today;
+    const insPast = d.inspection_date && new Date(d.inspection_date+'T00:00:00') <= today;
+    const walkPast = d.walkthrough_date && new Date(d.walkthrough_date+'T00:00:00') <= today;
+
+    if (walkPast) return `🔑 Final walkthrough complete — closing day is almost here. We're nearly home, ${firstName}.`;
+    if (insPast)  return `📑 Inspection complete — handling conditions and approvals. Closing prep underway.`;
+    if (finPast)  return `🏦 Financing locked in — under contract and on track to closing. I'll keep you posted.`;
+    return `📋 Offer accepted — initial paperwork in motion. I'll let you know as each milestone clears.`;
+  },
+
   // Single source of truth for the progress-bar color.
   // Strictly on-theme: coral ramp during the deal, success-green on close.
   // Ramp:  0–49% accent2  → 50–99% accent  → 100% success  · Fell Through red
@@ -727,17 +761,17 @@ const Pipeline = {
       const dt = new Date(dateStr); dt.setHours(0,0,0,0);
       return dt <= today;
     };
-    // Skip optional milestones the buyer has waived (inspection_skipped /
-    // walkthrough_skipped). Excluded from BOTH the numerator and denominator
-    // so the bar reflects what is actually required for THIS deal.
+    // Skipped optional milestones (inspection_skipped / walkthrough_skipped)
+    // count toward the DONE total — the agent has consciously decided not to
+    // do them, so they shouldn't drag the progress bar down. Total always = 5.
     const milestones = [
-      d.acceptance_date,
-      d.financing_date,
-      ...(d.inspection_skipped  ? [] : [d.inspection_date]),
-      ...(d.walkthrough_skipped ? [] : [d.walkthrough_date]),
-      d.closing_date
+      { date: d.acceptance_date,  skipped: false },
+      { date: d.financing_date,   skipped: false },
+      { date: d.inspection_date,  skipped: !!d.inspection_skipped },
+      { date: d.walkthrough_date, skipped: !!d.walkthrough_skipped },
+      { date: d.closing_date,     skipped: false }
     ];
-    const doneInt = milestones.filter(isPast).length;
+    const doneInt = milestones.filter(m => m.skipped || isPast(m.date)).length;
     let done = doneInt;
     // Continuous creep: between milestones, bar climbs gradually toward closing.
     if (d.closing_date && d.acceptance_date) {
@@ -853,6 +887,10 @@ const Pipeline = {
         return `<div style="padding:6px 10px;background:${bg};border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;"><span style="color:${color};font-weight:600;font-size:12px;">⏰ Deposit due in ${left}</span>${markBtn}</div>`;
       })();
 
+      // Stage-aware status ticker (existing-home variant) — silent if deal is closed/fell-through
+      const dealTickerMsg = (isClosed || isFell) ? '' : Pipeline.dealStatusMessage(d);
+      const dealTickerHtml = dealTickerMsg ? `<div class="deal-ticker-pl"><span>${dealTickerMsg}</span></div>` : '';
+
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
@@ -865,6 +903,7 @@ const Pipeline = {
           <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${doneInt} of ${total} milestones passed ⓘ</span>
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
+        ${dealTickerHtml}
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
         ${depositBlock}
@@ -944,12 +983,24 @@ const Pipeline = {
     const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
 
     // Pull linked new_builds row (loaded in Pipeline.load) so the ticker
-    // can read pipeline_milestones to compose a stage-aware message.
+    // and progress bar can read pipeline_milestones for live stage data.
     const linkedBuild = (Pipeline._buildsByName || {})[d.client_name];
     const tickerMsg   = Pipeline.buildStatusMessage(d, linkedBuild);
     const tickerHtml  = (isClosed || isFell)
       ? ''
-      : `<div class="build-ticker" title="Tap and hold to pause"><span>${tickerMsg}</span></div>`;
+      : `<div class="build-ticker"><span>${tickerMsg}</span></div>`;
+
+    // Build-progress bar: % of all steps complete across the 5 milestone sections
+    const { done: bDone, total: bTotal, pct: bPct } = Pipeline.buildPercent(linkedBuild);
+    const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
+    const progressHtml = bTotal > 0 ? `
+      <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
+        <div style="height:100%;width:${isClosed?100:bPct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
+        <span>${bDone} of ${bTotal} build steps complete</span>
+        <span>${isClosed?100:bPct}%</span>
+      </div>` : '';
 
     return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
@@ -959,6 +1010,7 @@ const Pipeline = {
         </div>
         <span style="font-size:10px;color:${badgeColor};background:${badgeBg};padding:3px 10px;border-radius:8px;font-weight:700;letter-spacing:1px;white-space:nowrap;">${statusLabel}</span>
       </div>
+      ${progressHtml}
       ${tickerHtml}
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📋 Stage: ${d.stage}</div>
       <div style="font-size:13px;margin-bottom:4px;">💰 Build value: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
