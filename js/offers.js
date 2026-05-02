@@ -416,7 +416,48 @@ const Pipeline = {
       .is('archived_at', null)
       .order('created_at', { ascending: false });
     Pipeline.all = data || [];
+
+    // Fetch linked new_builds rows for any new-build pipeline rows.
+    // Used by the status-ticker on new-build cards (and any other
+    // build-aware UI we add later).
+    Pipeline._buildsByName = {};
+    const buildClientNames = Pipeline.all
+      .filter(d => d.deal_type === 'new_build' && d.client_name)
+      .map(d => d.client_name);
+    if (buildClientNames.length) {
+      const { data: builds } = await db.from('new_builds')
+        .select('id, client_name, builder_name, pipeline_milestones, current_stage')
+        .eq('agent_id', currentAgent.id)
+        .in('client_name', buildClientNames);
+      (builds || []).forEach(b => { Pipeline._buildsByName[b.client_name] = b; });
+    }
+
     Pipeline.render(Pipeline.all);
+  },
+
+  // Build status messages — keyed off the first incomplete major stage
+  // in pipeline_milestones. Used by the marquee ticker on new-build cards.
+  buildStatusMessage(d, build) {
+    const firstName = (d?.client_name || '').split(' ')[0] || 'there';
+    const pm = build?.pipeline_milestones || {};
+    const stageOrder = ['pre_construction','financing','construction','conditions','possession'];
+
+    // Find the first incomplete stage (the one we're "currently in")
+    let currentKey = null;
+    for (const key of stageOrder) {
+      if (!pm[key]?.done) { currentKey = key; break; }
+    }
+    if (!currentKey) {
+      return `🎉 Build complete — congrats and welcome home, ${firstName}!`;
+    }
+    const messages = {
+      pre_construction: `📋 Pre-construction underway — finalizing plans, paperwork, and design selections. I'll keep you posted as items get checked off.`,
+      financing:        `🏦 Financing in progress — once everything is approved your agent will notify you.`,
+      construction:     `🏗️ Construction in motion — I'll update you as foundation, framing, drywall, and finishes get done.`,
+      conditions:       `📑 Closing prep underway — inspection, conditions, and final paperwork being handled. Almost there.`,
+      possession:       `🔑 Final stretch — final walkthrough and key handover coming up. You're almost home.`
+    };
+    return messages[currentKey];
   },
 
   // Single source of truth for the progress-bar color.
@@ -902,6 +943,14 @@ const Pipeline = {
     const updatedAt = d.updated_at ? new Date(d.updated_at) : null;
     const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
 
+    // Pull linked new_builds row (loaded in Pipeline.load) so the ticker
+    // can read pipeline_milestones to compose a stage-aware message.
+    const linkedBuild = (Pipeline._buildsByName || {})[d.client_name];
+    const tickerMsg   = Pipeline.buildStatusMessage(d, linkedBuild);
+    const tickerHtml  = (isClosed || isFell)
+      ? ''
+      : `<div class="build-ticker" title="Tap and hold to pause"><span>${tickerMsg}</span></div>`;
+
     return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div>
@@ -910,6 +959,7 @@ const Pipeline = {
         </div>
         <span style="font-size:10px;color:${badgeColor};background:${badgeBg};padding:3px 10px;border-radius:8px;font-weight:700;letter-spacing:1px;white-space:nowrap;">${statusLabel}</span>
       </div>
+      ${tickerHtml}
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📋 Stage: ${d.stage}</div>
       <div style="font-size:13px;margin-bottom:4px;">💰 Build value: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
       ${d.closing_date ? `<div style="font-size:13px;margin-bottom:10px;">📅 Est. possession: <strong>${App.fmtDate(d.closing_date)}</strong></div>` : '<div style="margin-bottom:10px;"></div>'}
