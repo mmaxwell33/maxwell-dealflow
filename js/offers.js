@@ -402,6 +402,12 @@ const Offers = {
 // ── PIPELINE ──
 const Pipeline = {
   all: [],
+  currentFilter: 'all',  // 'all' | 'existing_home' | 'new_build'
+
+  setFilter(key) {
+    Pipeline.currentFilter = key;
+    Pipeline.render(Pipeline.all);
+  },
 
   async load() {
     if (!currentAgent?.id) return;
@@ -711,11 +717,38 @@ const Pipeline = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div><div class="empty-sub">Accepted offers will appear here</div></div>`;
       return;
     }
-    const active = list.filter(d => !['Closed','Fell Through'].includes(d.stage));
-    const closed = list.filter(d => d.stage === 'Closed');
-    const fell = list.filter(d => d.stage === 'Fell Through');
+    // ── Apply deal_type filter (All / Existing Home / New Build) ──
+    const filter = Pipeline.currentFilter || 'all';
+    const filtered = filter === 'all' ? list : list.filter(d => (d.deal_type || 'existing_home') === filter);
+
+    // Counts for filter chip labels
+    const counts = {
+      all: list.length,
+      existing_home: list.filter(d => (d.deal_type || 'existing_home') === 'existing_home').length,
+      new_build: list.filter(d => d.deal_type === 'new_build').length
+    };
+    const chip = (key, label) => `
+      <button onclick="Pipeline.setFilter('${key}')"
+        style="padding:7px 14px;border:1px solid ${filter===key?'var(--accent)':'var(--border)'};background:${filter===key?'var(--accent)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
+        ${label} <span style="opacity:.7;font-weight:400;">${counts[key]}</span>
+      </button>`;
+    const filterRow = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${chip('all','All')}
+        ${chip('existing_home','🏠 Existing Home')}
+        ${chip('new_build','🏗️ New Build')}
+      </div>`;
+
+    const active = filtered.filter(d => !['Closed','Fell Through'].includes(d.stage));
+    const closed = filtered.filter(d => d.stage === 'Closed');
+    const fell = filtered.filter(d => d.stage === 'Fell Through');
 
     const card = (d) => {
+      // ── NEW BUILD CARDS — distinct rendering for deal_type='new_build' ──
+      if (d.deal_type === 'new_build') {
+        return Pipeline.newBuildCard(d);
+      }
+
       const isClosed = d.stage === 'Closed';
       const isFell = d.stage === 'Fell Through';
 
@@ -821,7 +854,12 @@ const Pipeline = {
       </div>`;
     };
 
-    let html = active.map(d => card(d)).join('');
+    let html = filterRow;
+    if (!filtered.length) {
+      html += `<div style="text-align:center;padding:30px 20px;color:var(--text2);font-size:14px;">No deals of this type yet.</div>`;
+    } else {
+      html += active.map(d => card(d)).join('');
+    }
 
     if (closed.length) {
       html += `<div style="margin:16px 0 8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="Pipeline.toggleSection(this)">
@@ -844,6 +882,66 @@ const Pipeline = {
   toggleSection(hdr) {
     const section = hdr.nextElementSibling;
     if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  },
+
+  // ── NEW BUILD CARD — distinct rendering for deal_type='new_build' deals ──
+  // Shows builder context + a button to jump into the New Builds tab
+  // for milestone management. Pipeline row stays in sync via syncPipeline().
+  newBuildCard(d) {
+    const isClosed = d.stage === 'Closed';
+    const isFell   = d.stage === 'Fell Through';
+    const statusLabel = isClosed ? 'CLOSED'
+                      : isFell   ? 'FELL THROUGH'
+                      : '🏗️ NEW BUILD';
+    const badgeColor = isClosed ? 'var(--green)'
+                     : isFell   ? 'var(--red)'
+                     : 'var(--accent)';
+    const badgeBg = isClosed ? 'rgba(34,197,94,.12)'
+                  : isFell   ? 'rgba(220,38,38,.12)'
+                  : 'rgba(204,120,92,.12)';
+    const updatedAt = d.updated_at ? new Date(d.updated_at) : null;
+    const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
+
+    return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div>
+          <div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div>
+        </div>
+        <span style="font-size:10px;color:${badgeColor};background:${badgeBg};padding:3px 10px;border-radius:8px;font-weight:700;letter-spacing:1px;white-space:nowrap;">${statusLabel}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📋 Stage: ${d.stage}</div>
+      <div style="font-size:13px;margin-bottom:4px;">💰 Build value: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
+      ${d.closing_date ? `<div style="font-size:13px;margin-bottom:10px;">📅 Est. possession: <strong>${App.fmtDate(d.closing_date)}</strong></div>` : '<div style="margin-bottom:10px;"></div>'}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:8px;">
+        ${isClosed || isFell ? '' : `
+        <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Pipeline.openBuildDetail('${d.id}')">🏗️ Manage Build</button>
+        <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
+        <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>`}
+        <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">🕐 Updated: ${updatedStr}</div>
+    </div>`;
+  },
+
+  // Tap "Manage Build" on a new-build pipeline card → switch to New Builds tab
+  // and try to scroll to the matching build. Match by client_name (the same key
+  // syncPipeline used to link them).
+  openBuildDetail(pipelineId) {
+    const d = Pipeline.all.find(x => x.id === pipelineId);
+    if (!d) return;
+    if (typeof App !== 'undefined' && App.switchTab) {
+      App.switchTab('newbuilds');
+    }
+    // After tab switches, try to open the matching build's detail view
+    setTimeout(() => {
+      if (typeof NewBuilds === 'undefined' || !NewBuilds.all) return;
+      const build = NewBuilds.all.find(b => b.client_name === d.client_name);
+      if (build && typeof NewBuilds.openDetail === 'function') {
+        NewBuilds.openDetail(build.id);
+      }
+    }, 250);
   },
 
   // Live-update progress bar as dates are typed — no DB write
