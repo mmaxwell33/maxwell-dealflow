@@ -9,19 +9,19 @@
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh;padding-bottom:60px;}
 
     /* HEADER */
-    .hdr{background:linear-gradient(160deg,#111827 0%,#0f172a 100%);border-bottom:1px solid rgba(99,179,237,.15);padding:32px 20px 28px;text-align:center;}
-    .hdr-avatar{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(59,130,246,.35);}
+    .hdr{background:linear-gradient(160deg,#CC785C 0%,#D98B6F 100%);border-bottom:1px solid rgba(204,120,92,.25);padding:32px 20px 28px;text-align:center;}
+    .hdr-avatar{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#CC785C,#B3654A);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(204,120,92,.35);}
     .hdr-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px;}
-    .hdr-role{font-size:13px;color:#63b3ed;margin-top:4px;font-weight:600;}
+    .hdr-role{font-size:13px;color:#D98B6F;margin-top:4px;font-weight:600;}
     .hdr-sub{margin-top:14px;font-size:13.5px;color:#94a3b8;line-height:1.65;max-width:440px;margin-left:auto;margin-right:auto;}
 
     /* PROGRESS BAR */
     .progress-wrap{max-width:560px;margin:20px auto 0;padding:0 16px;}
-    .progress-bar{height:4px;background:rgba(99,179,237,.15);border-radius:4px;overflow:hidden;}
-    .progress-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);border-radius:4px;transition:width .4s ease;}
+    .progress-bar{height:4px;background:rgba(204,120,92,.15);border-radius:4px;overflow:hidden;}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#CC785C,#D98B6F);border-radius:4px;transition:width .4s ease;}
     .progress-steps{display:flex;justify-content:space-between;margin-top:8px;}
     .progress-step{font-size:11px;color:#475569;font-weight:600;}
-    .progress-step.active{color:#63b3ed;}
+    .progress-step.active{color:#D98B6F;}
 
     /* SECTIONS */
     .wrap{max-width:560px;margin:0 auto;padding:0 16px;}
@@ -36,11 +36,11 @@
     .field-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block;}
     .field-label .req{color:#f87171;}
     input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
-      width:100%;padding:13px 15px;background:#131c30;border:1.5px solid rgba(99,179,237,.18);
+      width:100%;padding:13px 15px;background:#131c30;border:1.5px solid rgba(204,120,92,.18);
       border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;transition:border-color .2s;
       font-family:inherit;
     }
-    input:focus,select:focus,textarea:focus{border-color:#3b82f6;}
+    input:focus,select:focus,textarea:focus{border-color:#CC785C;}
     select option{background:#131c30;}
     textarea{resize:vertical;min-height:90px;line-height:1.6;}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -49,26 +49,26 @@
     /* PILL BUTTONS (clickable options) */
     .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
     .pill{
-      padding:9px 16px;border-radius:50px;border:1.5px solid rgba(99,179,237,.2);
+      padding:9px 16px;border-radius:50px;border:1.5px solid rgba(204,120,92,.2);
       background:#131c30;color:#94a3b8;font-size:13px;font-weight:600;
       cursor:pointer;transition:all .18s;user-select:none;-webkit-user-select:none;
     }
-    .pill:hover{border-color:#3b82f6;color:#93c5fd;}
-    .pill.selected{background:rgba(59,130,246,.18);border-color:#3b82f6;color:#93c5fd;}
+    .pill:hover{border-color:#CC785C;color:#E8A78D;}
+    .pill.selected{background:rgba(204,120,92,.18);border-color:#CC785C;color:#E8A78D;}
     .pill.selected::before{content:'✓ ';}
 
     /* BUDGET SLIDER DISPLAY */
-    .budget-display{text-align:center;font-size:22px;font-weight:800;color:#22c55e;margin:10px 0 6px;}
-    input[type=range]{width:100%;accent-color:#3b82f6;height:6px;margin:4px 0;}
+    .budget-display{text-align:center;font-size:22px;font-weight:800;color:#CC785C;margin:10px 0 6px;}
+    input[type=range]{width:100%;accent-color:#CC785C;height:6px;margin:4px 0;}
 
     /* NAV BUTTONS */
     .nav-row{display:flex;gap:12px;margin-top:28px;}
-    .btn-back{flex:1;padding:14px;background:transparent;border:1.5px solid rgba(99,179,237,.2);color:#94a3b8;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;}
-    .btn-back:hover{border-color:#3b82f6;color:#93c5fd;}
-    .btn-next{flex:2;padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .18s;box-shadow:0 4px 14px rgba(59,130,246,.35);}
+    .btn-back{flex:1;padding:14px;background:transparent;border:1.5px solid rgba(204,120,92,.2);color:#94a3b8;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;}
+    .btn-back:hover{border-color:#CC785C;color:#E8A78D;}
+    .btn-next{flex:2;padding:14px;background:linear-gradient(135deg,#CC785C,#B86A50);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .18s;box-shadow:0 4px 14px rgba(204,120,92,.35);}
     .btn-next:hover{opacity:.9;}
     .btn-next:disabled{opacity:.5;cursor:not-allowed;}
-    .btn-submit{width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:28px;box-shadow:0 4px 14px rgba(34,197,94,.35);letter-spacing:.02em;}
+    .btn-submit{width:100%;padding:16px;background:linear-gradient(135deg,#CC785C,#B3654A);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:28px;box-shadow:0 4px 14px rgba(204,120,92,.35);letter-spacing:.02em;}
     .btn-submit:disabled{opacity:.5;cursor:not-allowed;}
     #form-status{text-align:center;margin-top:10px;font-size:14px;font-weight:600;min-height:20px;}
 
@@ -77,10 +77,10 @@
     .success-icon{font-size:72px;margin-bottom:20px;}
     .success-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:12px;}
     .success-msg{font-size:14px;color:#94a3b8;line-height:1.8;max-width:380px;margin:0 auto;}
-    .success-steps{background:#131c30;border:1px solid rgba(99,179,237,.15);border-radius:14px;padding:20px;margin-top:28px;text-align:left;}
-    .success-steps h3{font-size:13px;font-weight:700;color:#63b3ed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
+    .success-steps{background:#131c30;border:1px solid rgba(204,120,92,.15);border-radius:14px;padding:20px;margin-top:28px;text-align:left;}
+    .success-steps h3{font-size:13px;font-weight:700;color:#D98B6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
     .success-step-item{display:flex;gap:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5;align-items:flex-start;}
-    .step-num{width:24px;height:24px;border-radius:50%;background:rgba(59,130,246,.2);color:#63b3ed;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+    .step-num{width:24px;height:24px;border-radius:50%;background:rgba(204,120,92,.2);color:#D98B6F;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
 
     /* FOOTER */
     .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
@@ -327,10 +327,10 @@
   <!-- TIMING CHECK: forms filled in under 3 seconds = bot -->
   <input type="hidden" id="hp-timestamp" value="">
 
-  <div style="background:rgba(99,179,237,.07);border:1px solid rgba(99,179,237,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
-    <div style="font-size:11px;font-weight:700;color:#63b3ed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🔒 Privacy &amp; Consent</div>
+  <div style="background:rgba(204,120,92,.07);border:1px solid rgba(204,120,92,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+    <div style="font-size:11px;font-weight:700;color:#D98B6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🔒 Privacy &amp; Consent</div>
     <div style="font-size:12px;color:#94a3b8;line-height:1.65;">
-      By submitting this form you consent to Maxwell Delali Midodzi, REALTOR® (eXp Realty) collecting and using your information to provide real estate services, including sending you property listings and service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#63b3ed;">Maxwell.Midodzi@exprealty.com</a>.
+      By submitting this form you consent to Maxwell Delali Midodzi, REALTOR® (eXp Realty) collecting and using your information to provide real estate services, including sending you property listings and service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#D98B6F;">Maxwell.Midodzi@exprealty.com</a>.
     </div>
   </div>
 
@@ -378,10 +378,10 @@
     </div>
   </div>
 
-  <div style="margin-top:32px;padding:20px;background:#131c30;border-radius:14px;max-width:520px;margin-left:auto;margin-right:auto;border:1px solid rgba(99,179,237,.15);">
+  <div style="margin-top:32px;padding:20px;background:#131c30;border-radius:14px;max-width:520px;margin-left:auto;margin-right:auto;border:1px solid rgba(204,120,92,.15);">
     <div style="font-size:13px;color:#64748b;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Your Agent</div>
     <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
-    <div style="font-size:13px;color:#63b3ed;margin-top:3px;">REALTOR® · eXp Realty</div>
+    <div style="font-size:13px;color:#D98B6F;margin-top:3px;">REALTOR® · eXp Realty</div>
     <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.8;">
       📞 (709) 325-0545<br>
       ✉️ maxwelldelali22@gmail.com
