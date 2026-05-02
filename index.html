@@ -183,9 +183,13 @@
             <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
               <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
             </button>
-            <button class="nav-item" data-tab="newbuilds" onclick="App.switchTab('newbuilds')">
-              <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>
-            </button>
+            <!-- New Builds tab removed from nav (Phase 3 of pipeline merge). -->
+            <!-- The newbuilds screen still exists; reachable via Pipeline → "+ New Build" button -->
+            <!-- and via "Manage Build" on any new-build pipeline card. -->
+            <!-- To restore: uncomment the original 3-line button below. -->
+            <!-- <button class="nav-item" data-tab="newbuilds" onclick="App.switchTab('newbuilds')"> -->
+            <!--   <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>     -->
+            <!-- </button>                                                                       -->
             <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
               <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
             </button>
@@ -461,6 +465,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
         <div style="font-size:20px;font-weight:800;">📋 Deal Pipeline</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="App.switchTab('newbuilds');setTimeout(()=>NewBuilds.toggleForm(),200)">🏗️ + New Build</button>
           <button class="btn btn-outline btn-sm" onclick="App.switchTab('pipeline-archive')">📦 Archive</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.load()">Refresh</button>
         </div>
