@@ -177,6 +177,57 @@
       html += '<div class="deal-ticker"><span>'+tickerMsg+'</span></div>';
     }
 
+    // ============ STAKEHOLDER LANE — role-specific call to action ============
+    // Only renders for broker / inspector / lawyer / builder roles.
+    // Client portal users skip this whole block.
+    const STAKE_ROLES = {
+      mortgage_broker: { label:'Mortgage Broker', icon:'🏦',
+        tasks:['Review the offer details below',
+               'Upload pre-asset / approval letter to the deal',
+               'Confirm financing is locked in',
+               'Tap Mark my lane done when finished'],
+        cta:'Mark financing locked' },
+      inspector:       { label:'Inspector', icon:'🔍',
+        tasks:['Review property details below',
+               'Conduct inspection on scheduled date',
+               'Email or upload the inspection report',
+               'Tap Mark my lane done when finished'],
+        cta:'Mark inspection complete' },
+      lawyer:          { label:'Lawyer / Notary', icon:'⚖️',
+        tasks:['Review offer documents',
+               'Run title search and confirm clear title',
+               'Confirm deposit funds in trust',
+               'Tap Mark my lane done when ready to close'],
+        cta:'Mark ready to close' },
+      builder:         { label:'Builder', icon:'🏗️',
+        tasks:['Update milestone progress as you go',
+               'Notify the agent on key advancements',
+               'Coordinate the final walkthrough',
+               'Tap Mark my lane done at possession'],
+        cta:'Mark build complete' },
+    };
+    const roleCfg = STAKE_ROLES[d.role];
+    if (roleCfg) {
+      const isDone = !!d.stakeholder_completed_at;
+      html += '<div class="card" style="margin-bottom:14px;border:1.5px solid var(--accent);background:linear-gradient(180deg,rgba(204,120,92,.06),transparent);">';
+      html += '<div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">'+
+              roleCfg.icon+' Your role · '+roleCfg.label+'</div>';
+      html += '<h3 style="margin:0 0 10px;color:var(--text1);">Your part of this deal</h3>';
+      if (isDone) {
+        html += '<div style="padding:12px 14px;background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:10px;color:var(--green);font-weight:700;margin-bottom:10px;">'+
+                '✓ You marked your lane done. The agent has been notified.</div>';
+      } else {
+        html += '<ol style="margin:0 0 12px 18px;padding:0;color:var(--text2);font-size:13.5px;line-height:1.65;">';
+        roleCfg.tasks.forEach(function(t){ html += '<li>'+t+'</li>'; });
+        html += '</ol>';
+        html += '<button id="sh-mark-done-btn" class="btn-mark-done" '+
+                'style="display:block;width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;">'+
+                '✓ '+roleCfg.cta+'</button>';
+        html += '<div id="sh-mark-msg" style="text-align:center;margin-top:8px;font-size:12px;color:var(--text3);"></div>';
+      }
+      html += '</div>';
+    }
+
     // ============ PHASE 1: Countdown to closing ============
     if(cd){
       html += '<div class="countdown" id="cd-wrap">';
@@ -274,6 +325,27 @@
       if(r && r.ok){ toast('\ud83d\udeab Link revoked'); setTimeout(function(){showError('You revoked this link.');},1200); }
       else toast('\u26a0\ufe0f Could not revoke \u2014 call Maxwell at (709) 325-0545');
     };
+
+    // Stakeholder Mark-Done button \u2014 non-client roles only.
+    const markBtn = document.getElementById('sh-mark-done-btn');
+    if (markBtn) {
+      markBtn.addEventListener('click', async function(){
+        if(!confirm('Mark your lane as done?\n\nThis will advance the deal and notify Maxwell + the client.')) return;
+        markBtn.disabled = true;
+        markBtn.textContent = 'Saving\u2026';
+        const msgEl = document.getElementById('sh-mark-msg');
+        const r = await rpc('stakeholder_complete', { p_token: token });
+        if (r && r.ok) {
+          toast('\u2713 Marked done \u2014 Maxwell notified');
+          if (msgEl) msgEl.textContent = '\u2713 Saved. Refreshing\u2026';
+          setTimeout(function(){ loadAndRender(true); }, 1200);
+        } else {
+          markBtn.disabled = false;
+          markBtn.textContent = '\u2713 Mark my lane done';
+          if (msgEl) msgEl.textContent = '\u26a0\ufe0f Could not save. Try again or contact Maxwell.';
+        }
+      });
+    }
   }
 
   init();

@@ -451,6 +451,24 @@ const Pipeline = {
       .order('created_at', { ascending: false });
     Pipeline.all = data || [];
 
+    // Fetch deal_stakeholders for ALL deals in this load — used by the
+    // per-card stakeholder strip + status badges.
+    Pipeline._stakeholdersByPipelineId = {};
+    if (Pipeline.all.length) {
+      const pipelineIds = Pipeline.all.map(d => d.id);
+      const { data: stakes } = await db.from('deal_stakeholders')
+        .select('id, pipeline_id, role, name, email, completed_at, last_accessed, revoked_at')
+        .in('pipeline_id', pipelineIds)
+        .is('revoked_at', null)
+        .neq('role', 'client');  // skip the client row — already represented elsewhere
+      (stakes || []).forEach(s => {
+        if (!Pipeline._stakeholdersByPipelineId[s.pipeline_id]) {
+          Pipeline._stakeholdersByPipelineId[s.pipeline_id] = [];
+        }
+        Pipeline._stakeholdersByPipelineId[s.pipeline_id].push(s);
+      });
+    }
+
     // Fetch linked new_builds rows for any new-build pipeline rows.
     // Used by the status-ticker on new-build cards (and any other
     // build-aware UI we add later).
@@ -967,10 +985,12 @@ const Pipeline = {
             <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Reviews.requestPreClose('${d.id}')">📨 Pre-closing Check-in</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
         </div>
+        ${Pipeline.renderDealStakeholders(d.id)}
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
       </div>`;
     };
@@ -1062,8 +1082,10 @@ const Pipeline = {
         <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
         <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>`}
         <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
       </div>
+      ${Pipeline.renderDealStakeholders(d.id)}
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">🕐 Updated: ${updatedStr}</div>
     </div>`;
   },
@@ -2283,7 +2305,158 @@ const Pipeline = {
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
-  }
+  },
+
+  // ── STAKEHOLDER INVITE FLOW (V2 audit · Phase 1) ─────────────────────
+  // Invite a mortgage broker / inspector / lawyer / builder to a deal.
+  // Creates a stakeholder row via stakeholder_create RPC, queues a branded
+  // invite email in Approvals (Maxwell taps approve to send).
+  ROLE_LABELS: {
+    mortgage_broker: '🏦 Mortgage Broker',
+    inspector:       '🔍 Inspector',
+    lawyer:          '⚖️ Lawyer / Notary',
+    builder:         '🏗️ Builder',
+  },
+
+  inviteStakeholder(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+    App.openModal(`
+      <div class="modal-title">📨 Invite a stakeholder</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        Add a broker, inspector, or lawyer to <strong>${App.esc(d.client_name||'this deal')}</strong>.
+        They'll get a private portal link by email.
+      </div>
+      <div class="form-group">
+        <label class="form-label">ROLE</label>
+        <select class="form-input" id="sh-role">
+          <option value="mortgage_broker">🏦 Mortgage Broker</option>
+          <option value="inspector">🔍 Inspector</option>
+          <option value="lawyer">⚖️ Lawyer / Notary</option>
+          <option value="builder">🏗️ Builder</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NAME</label>
+        <input class="form-input" id="sh-name" placeholder="e.g. Sarah Johnson">
+      </div>
+      <div class="form-group">
+        <label class="form-label">EMAIL</label>
+        <input class="form-input" id="sh-email" type="email" placeholder="sarah@bank.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PHONE (OPTIONAL)</label>
+        <input class="form-input" id="sh-phone" placeholder="(709) 555-0100">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-primary btn-block" onclick="Pipeline.submitStakeholderInvite('${d.id}')">📨 Send invite</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+      <div id="sh-msg" style="margin-top:10px;font-size:12px;"></div>
+    `);
+  },
+
+  async submitStakeholderInvite(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+    const role  = document.getElementById('sh-role').value;
+    const name  = document.getElementById('sh-name').value.trim();
+    const email = document.getElementById('sh-email').value.trim();
+    const phone = document.getElementById('sh-phone').value.trim() || null;
+    const msg   = document.getElementById('sh-msg');
+    if (!name || !email) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '⚠️ Name and email required.';
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '⚠️ That email doesn\'t look right.';
+      return;
+    }
+
+    // Auto-link client_id if missing (same self-heal as sharePortal)
+    if (!d.client_id && d.client_name) {
+      const { data: rows } = await db.from('clients')
+        .select('id, full_name, email')
+        .ilike('full_name', d.client_name).limit(2);
+      if (rows && rows.length === 1) {
+        d.client_id = rows[0].id;
+        await db.from('pipeline').update({ client_id: d.client_id }).eq('id', d.id);
+      }
+    }
+
+    msg.style.color = 'var(--text2)';
+    msg.textContent = 'Creating portal link…';
+
+    const { data, error } = await db.rpc('stakeholder_create', {
+      p_pipeline_id: d.id,
+      p_client_id:   d.client_id,
+      p_agent_id:    currentAgent?.id,
+      p_role:        role,
+      p_name:        name,
+      p_email:       email,
+      p_phone:       phone,
+      p_notes:       'Invited via Pipeline → Add Stakeholder'
+    });
+    if (error || !data || !data.ok) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = (error?.message) || (data?.error) || 'Could not create portal link.';
+      return;
+    }
+    const url = data.portal_url;
+
+    // Queue branded email in Approvals
+    const roleLbl = Pipeline.ROLE_LABELS[role] || role;
+    const property = d.property_address || 'a deal';
+    const subject = `${roleLbl.replace(/^[^\w]+/,'').trim()} portal — ${property}`;
+    const body =
+`Hi ${name.split(' ')[0]},
+
+Maxwell Delali (eXp Realty) has set up a private portal so you can manage your part of the deal on ${property}.
+
+Open your portal:
+   👉 ${url}
+
+You'll see the deal context, your specific tasks, and a "Mark my lane done" button when you're finished. The link is private and expires in 90 days (auto-extends each time you visit).
+
+Any questions, just reply to this email.
+
+— Maxwell Delali Midodzi
+REALTOR® · eXp Realty · (709) 325-0545`;
+
+    if (typeof Notify !== 'undefined' && Notify.queue) {
+      await Notify.queue(`${roleLbl} portal invite 📨`, d.client_id, name, email,
+        subject, body, d.id);
+    }
+
+    msg.style.color = 'var(--green)';
+    msg.textContent = `✅ Portal link created. Email queued in Approvals — tap Approve to send.`;
+    setTimeout(() => { App.closeModal(); Pipeline.load(); }, 1400);
+  },
+
+  // Render the list of stakeholders attached to a deal — called inline by the
+  // pipeline card render. Shows status (invited / accessed / completed) per role.
+  renderDealStakeholders(dealId) {
+    const stakes = (Pipeline._stakeholdersByPipelineId || {})[dealId] || [];
+    if (!stakes.length) return '';
+    const rows = stakes.map(s => {
+      const role = Pipeline.ROLE_LABELS[s.role] || s.role || 'Stakeholder';
+      const status = s.completed_at
+        ? '<span style="color:var(--green);font-weight:700;">✓ Done</span>'
+        : s.last_accessed
+          ? '<span style="color:var(--accent2);">👀 Opened</span>'
+          : '<span style="color:var(--text2);">📨 Invited</span>';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;">
+        <span style="color:var(--text);"><strong>${role}</strong> · ${App.esc(s.name||'')}</span>
+        <span>${status}</span>
+      </div>`;
+    }).join('');
+    return `<div style="margin:6px 0 8px;padding:6px 8px;border-left:2px solid var(--accent);background:rgba(204,120,92,0.04);">
+      <div style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:4px;">STAKEHOLDERS</div>
+      ${rows}
+    </div>`;
+  },
 };
 
 // ── PENDING REQUESTS (client offer submissions from respond page) ────────────
