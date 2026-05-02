@@ -162,6 +162,21 @@
     html += '<div class="status-banner-text"><strong>'+status.title+'</strong><span>'+status.sub+'</span></div>';
     html += '</div>';
 
+    // ============ Status marquee — scrolling news-ticker style ============
+    // Reads from pipeline.stage (returned by stakeholder_resolve) and shows
+    // a stage-appropriate, warmly worded message that loops continuously.
+    var tickerMsg = (function(stage){
+      if (stage === 'Closed')        return '🎉 Deal complete — congratulations and welcome home!';
+      if (stage === 'Fell Through')  return '';
+      if (stage === 'Walkthrough')   return '🔑 Closing is around the corner — final walkthrough scheduled. You\'re almost home!';
+      if (stage === 'Conditions')    return '📑 We\'re in the active phase — inspection, paperwork, and approvals being processed. Your agent will reach out as items resolve.';
+      if (stage === 'Accepted')      return '📋 Your deal is officially in motion. Initial paperwork is being handled — your agent will keep you updated.';
+      return '';
+    })(d.stage);
+    if (tickerMsg) {
+      html += '<div class="deal-ticker"><span>'+tickerMsg+'</span></div>';
+    }
+
     // ============ PHASE 1: Countdown to closing ============
     if(cd){
       html += '<div class="countdown" id="cd-wrap">';
