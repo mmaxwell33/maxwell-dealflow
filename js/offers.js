@@ -979,7 +979,8 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
           ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>` : ''}
           ${!isClosed && !isFell ? `
-            <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
+            <button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:700;" onclick="Pipeline.markAcceptedFlow('${d.id}')">✅ Offer Accepted</button>
+            <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">🏁 Mark Closed</button>
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>
             <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Reviews.requestPreClose('${d.id}')">📨 Pre-closing Check-in</button>` : ''}
@@ -2466,6 +2467,295 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     msg.style.color = 'var(--green)';
     msg.textContent = `✅ Portal link created. Email queued in Approvals — tap Approve to send.`;
     setTimeout(() => { App.closeModal(); Pipeline.load(); }, 1400);
+  },
+
+  // ── OFFER ACCEPTED — full handoff workflow ───────────────────────────
+  // Single tap that gathers documents + dates + per-stakeholder dispatch,
+  // then queues every email Maxwell needs (broker, inspector, lawyer, client
+  // congrats) — each branded, each with the right attachments, each with
+  // optional CC to the client. All routed through the existing Approval queue
+  // so Maxwell still taps Approve before any email ships.
+  async markAcceptedFlow(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+
+    // Fetch saved stakeholder contacts for this deal's client
+    const contacts = {};
+    if (d.client_id) {
+      const { data: rows } = await db.from('client_contacts')
+        .select('role, name, email, phone')
+        .eq('client_id', d.client_id);
+      (rows || []).forEach(r => { contacts[r.role] = r; });
+    }
+
+    // Pre-existing deal documents we can re-use
+    const { data: existingDocs } = await db.from('deal_documents')
+      .select('id, doc_type, file_name, file_path')
+      .eq('pipeline_id', dealId);
+    const hasOffer = (existingDocs || []).some(x => x.doc_type === 'accepted_offer');
+    const hasMLS   = (existingDocs || []).some(x => x.doc_type === 'mls_listing');
+
+    const stakeRow = (role, label, icon, hint) => {
+      const c = contacts[role];
+      if (!c) return `
+        <div style="padding:10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:8px;opacity:.55;">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);">${icon} ${label.toUpperCase()}</div>
+          <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px;">No ${label.toLowerCase()} on file — skip · save in Edit Client to auto-include next deal</div>
+        </div>`;
+      return `
+        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(204,120,92,0.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--accent);">${icon} ${label.toUpperCase()}</div>
+              <div style="font-size:12px;color:var(--text);font-weight:600;">${App.esc(c.name||'')} · ${App.esc(c.email||'')}</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);">
+              <input type="checkbox" id="oa-${role}-on" checked> Send
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">
+            <label style="display:flex;align-items:center;gap:4px;">
+              <input type="radio" name="oa-${role}-mode" value="email"  checked> 📧 Email only
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;">
+              <input type="radio" name="oa-${role}-mode" value="portal"> 🔗 Email + portal link
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+              <input type="checkbox" id="oa-${role}-cc"${role === 'lawyer' ? ' checked' : ''}> CC client
+            </label>
+          </div>
+          ${hint ? `<div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">${hint}</div>` : ''}
+        </div>`;
+    };
+
+    App.openModal(`
+      <div class="modal-title">✅ Mark Offer Accepted</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        ${App.esc(d.client_name||'this client')} · ${App.esc(d.property_address||'')}
+      </div>
+
+      <!-- Documents -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📑 Documents</div>
+      <div style="background:rgba(204,120,92,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Accepted offer (PDF)</div>
+        ${hasOffer
+          ? `<div style="font-size:12px;color:var(--green);margin-bottom:8px;">✓ Already uploaded — will be re-used</div>`
+          : `<input type="file" id="oa-file-offer" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;margin-bottom:8px;color:var(--text2);">`}
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">MLS listing (PDF)</div>
+        ${hasMLS
+          ? `<div style="font-size:12px;color:var(--green);">✓ Already uploaded — will be re-used</div>`
+          : `<input type="file" id="oa-file-mls" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;color:var(--text2);">`}
+      </div>
+
+      <!-- Dates -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📅 Key dates</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div>
+          <label style="font-size:10px;color:var(--text2);">Acceptance</label>
+          <input type="date" id="oa-acc"  class="form-input" value="${(d.acceptance_date||new Date().toISOString().slice(0,10))}" style="font-size:13px;padding:8px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text2);">Financing</label>
+          <input type="date" id="oa-fin"  class="form-input" value="${d.financing_date||''}" style="font-size:13px;padding:8px;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text2);">Inspection (or skip)</label>
+          <input type="date" id="oa-ins"  class="form-input" value="${d.inspection_date||''}" style="font-size:13px;padding:8px;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);margin-top:3px;">
+            <input type="checkbox" id="oa-ins-skip"${d.inspection_skipped?' checked':''}> Skip inspection
+          </label>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text2);">Closing</label>
+          <input type="date" id="oa-close" class="form-input" value="${d.closing_date||''}" style="font-size:13px;padding:8px;">
+        </div>
+      </div>
+
+      <!-- Stakeholders -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">👥 Stakeholder dispatch</div>
+      ${stakeRow('mortgage_broker','Mortgage Broker','🏦','Receives MLS + accepted offer attached')}
+      ${stakeRow('inspector','Inspector','🔍','Receives MLS only — no accepted offer')}
+      ${stakeRow('lawyer','Lawyer / Notary','⚖️','Receives MLS + accepted offer attached')}
+
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-style:italic;">
+        Every email queues in Approvals — you tap Approve before any goes out.
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="Pipeline.submitAcceptedFlow('${dealId}')">📨 Queue all emails</button>
+      <button class="btn btn-outline btn-block" style="margin-top:6px;" onclick="App.closeModal()">Cancel</button>
+      <div id="oa-msg" style="margin-top:10px;font-size:12px;text-align:center;"></div>
+    `);
+  },
+
+  async submitAcceptedFlow(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+    const msg = document.getElementById('oa-msg');
+    msg.style.color='var(--text2)'; msg.textContent='Working…';
+
+    // 1. Read inputs
+    const accDate = document.getElementById('oa-acc').value || null;
+    const finDate = document.getElementById('oa-fin').value || null;
+    const insDate = document.getElementById('oa-ins').value || null;
+    const insSkip = document.getElementById('oa-ins-skip').checked;
+    const closeDate = document.getElementById('oa-close').value || null;
+
+    // 2. Upload any new files (if not already in deal_documents)
+    const offerFile = document.getElementById('oa-file-offer')?.files?.[0];
+    const mlsFile   = document.getElementById('oa-file-mls')?.files?.[0];
+    const uploadOne = async (file, docType) => {
+      if (!file) return null;
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path = `${currentAgent.id}/${dealId}/${Date.now()}-${safe}`;
+      const { error: upErr } = await db.storage.from('deal-docs').upload(path, file);
+      if (upErr) { msg.style.color='var(--red)'; msg.textContent='⚠️ Upload failed: '+upErr.message; throw upErr; }
+      const visible = Pipeline.DOC_VISIBILITY[docType];
+      await db.from('deal_documents').insert({
+        pipeline_id: dealId, agent_id: currentAgent.id, doc_type: docType,
+        file_path: path, file_name: file.name, file_size_bytes: file.size,
+        visible_to_roles: visible
+      });
+      return { name: file.name, path, file };
+    };
+    try {
+      await uploadOne(offerFile, 'accepted_offer');
+      await uploadOne(mlsFile,   'mls_listing');
+    } catch (e) { return; /* error already shown */ }
+
+    // 3. Re-fetch all current deal_documents (so we have latest list w/ paths)
+    const { data: docs } = await db.from('deal_documents')
+      .select('id, doc_type, file_name, file_path')
+      .eq('pipeline_id', dealId);
+    const offerDoc = (docs || []).find(x => x.doc_type === 'accepted_offer');
+    const mlsDoc   = (docs || []).find(x => x.doc_type === 'mls_listing');
+
+    // 4. Update pipeline (stage + dates)
+    await db.from('pipeline').update({
+      stage: 'Accepted',
+      acceptance_date: accDate,
+      financing_date:  finDate,
+      inspection_date: insSkip ? null : insDate,
+      inspection_skipped: insSkip,
+      closing_date: closeDate,
+      updated_at: new Date().toISOString()
+    }).eq('id', dealId);
+
+    // 5. Helper — base64-encode a stored file so it can ride as Gmail attachment
+    const encodeForAttachment = async (storagePath, fileName) => {
+      const { data, error } = await db.storage.from('deal-docs').download(storagePath);
+      if (error || !data) return null;
+      const buf = await data.arrayBuffer();
+      // base64 (chunked to avoid stack overflow on large files)
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+      }
+      const base64 = btoa(bin);
+      const mime = fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf'
+                : fileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'image/jpeg'
+                : fileName.toLowerCase().endsWith('.png') ? 'image/png'
+                : fileName.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : 'application/octet-stream';
+      return { filename: fileName, mime_type: mime, data: base64 };
+    };
+
+    const offerAtt = offerDoc ? await encodeForAttachment(offerDoc.file_path, offerDoc.file_name) : null;
+    const mlsAtt   = mlsDoc   ? await encodeForAttachment(mlsDoc.file_path,   mlsDoc.file_name)   : null;
+
+    // 6. Helper — for each stakeholder, optionally create portal token + return URL
+    const portalize = async (role, contact) => {
+      const { data, error } = await db.rpc('stakeholder_create', {
+        p_pipeline_id: dealId, p_client_id: d.client_id,
+        p_agent_id: currentAgent.id, p_role: role,
+        p_name: contact.name, p_email: contact.email, p_phone: contact.phone || null,
+        p_notes: 'Auto-invited from Offer Accepted workflow'
+      });
+      if (error || !data?.ok) return null;
+      return data.portal_url;
+    };
+
+    // 7. Pull saved contacts for this client
+    const { data: contacts } = await db.from('client_contacts')
+      .select('role, name, email, phone').eq('client_id', d.client_id || '00000000-0000-0000-0000-000000000000');
+    const byRole = {};
+    (contacts || []).forEach(r => { byRole[r.role] = r; });
+
+    // Updated deal object for templates (with new dates)
+    const dealForTemplate = { ...d,
+      acceptance_date: accDate, financing_date: finDate,
+      inspection_date: insSkip ? null : insDate, inspection_skipped: insSkip,
+      closing_date: closeDate
+    };
+    const clientForTemplate = { full_name: d.client_name, email: d.client_email };
+    const agent = currentAgent;
+
+    let queued = 0;
+
+    // 8. Per-stakeholder dispatch
+    for (const role of ['mortgage_broker','inspector','lawyer']) {
+      const contact = byRole[role];
+      if (!contact) continue;
+      const enabledEl = document.getElementById(`oa-${role}-on`);
+      if (enabledEl && !enabledEl.checked) continue;
+      const modeEl = document.querySelector(`input[name="oa-${role}-mode"]:checked`);
+      const isPortal = modeEl?.value === 'portal';
+      const ccClient = document.getElementById(`oa-${role}-cc`)?.checked;
+
+      let portalUrl = null;
+      if (isPortal) portalUrl = await portalize(role, contact);
+
+      // Per-role: which attachments
+      let attachments = [];
+      if (role === 'inspector') {
+        if (mlsAtt) attachments.push(mlsAtt);   // MLS only
+      } else {
+        if (offerAtt) attachments.push(offerAtt);
+        if (mlsAtt)   attachments.push(mlsAtt);
+      }
+
+      // Per-role template
+      const tmpl = role === 'mortgage_broker'
+        ? Notify.templates.offer_accepted_broker(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl)
+        : role === 'inspector'
+        ? Notify.templates.offer_accepted_inspector(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl)
+        : Notify.templates.offer_accepted_lawyer(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl);
+
+      const ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+
+      await Notify.queue(
+        `Offer accepted → ${role.replace('_',' ')} 📨`,
+        d.client_id, contact.name, contact.email,
+        tmpl.subject, tmpl.body, dealId,
+        null, null, ccEmail, attachments
+      );
+      queued++;
+    }
+
+    // 9. Client congratulations email — separate, no attachments, with portal link
+    let clientPortalUrl = null;
+    if (d.client_id && d.client_email) {
+      const { data } = await db.rpc('stakeholder_create', {
+        p_pipeline_id: dealId, p_client_id: d.client_id, p_agent_id: currentAgent.id,
+        p_role: 'client', p_name: d.client_name, p_email: d.client_email,
+        p_phone: null, p_notes: 'Auto-invited from Offer Accepted workflow'
+      });
+      if (data?.ok) clientPortalUrl = data.portal_url;
+    }
+    if (d.client_email) {
+      const t = Notify.templates.offer_accepted_client(clientForTemplate, dealForTemplate, agent, clientPortalUrl || '');
+      await Notify.queue(
+        'Offer accepted → client 🎉',
+        d.client_id, d.client_name, d.client_email,
+        t.subject, t.body, dealId
+      );
+      queued++;
+    }
+
+    msg.style.color='var(--green)';
+    msg.textContent=`✅ ${queued} email${queued===1?'':'s'} queued in Approvals — tap Approve to send.`;
+    setTimeout(() => { App.closeModal(); Pipeline.load(); }, 1600);
   },
 
   // ── DEAL DOCUMENTS (V2 Phase 2.A) ────────────────────────────────────

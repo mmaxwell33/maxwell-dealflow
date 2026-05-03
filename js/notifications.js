@@ -565,6 +565,147 @@ maxwellmidodzi.exprealty.com
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
+    // ── OFFER ACCEPTED — full handoff dispatch templates ──────────────────
+    // Used by Pipeline.submitAcceptedFlow when the agent taps "✅ Offer Accepted".
+    // Each template matches Maxwell's professional eXp footer + confidentiality block.
+
+    offer_accepted_client: (client, deal, agent, portalUrl) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      return {
+        subject: `🎉 Congratulations on your accepted offer — ${deal.property_address}`,
+        body: `Hi ${first},
+
+Congratulations — your offer has been accepted on ${deal.property_address}!
+
+📍 Property: ${deal.property_address}
+💰 Offer Amount: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+📅 Closing Date: ${fmtDate(deal.closing_date)}
+🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+${deal.inspection_date ? '🔍 Inspection: ' + fmtDate(deal.inspection_date) : (deal.inspection_skipped ? '🔍 Inspection: Waived' : '')}
+
+✅ Here's what happens next:
+• I've sent the accepted offer and MLS listing to your lawyer — they'll be in touch within 24-48 hours to walk you through their requirements
+• Your mortgage broker has the file and is starting the financing approval process
+${deal.inspection_date ? '• Your inspector has been scheduled and will reach out to coordinate the visit' : ''}
+• You can track your full deal progress here at any time:
+   👉 ${portalUrl}
+
+Take a moment to celebrate — this is a big milestone. I'll keep you updated as each piece of the process moves forward, and I'm here for any questions along the way.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
+    offer_accepted_broker: (brokerName, client, deal, agent, portalUrl) => {
+      const first = brokerName?.split(' ')[0] || 'there';
+      const clientFirst = client.full_name?.split(' ')[0] || 'the client';
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      return {
+        subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
+        body: `Hi ${first},
+
+${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached for your file.
+
+📍 Property: ${deal.property_address}
+💰 Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+📅 Closing Date: ${fmtDate(deal.closing_date)}
+🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+
+📑 Attached:
+• Accepted Offer
+• MLS Listing
+
+${clientFirst}'s contact information if you need to reach them directly is on file. Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
+
+If it's easier to track on your end, I've set up a private portal for this deal where you can mark each step complete:
+   👉 ${portalUrl}` : ''}
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
+    offer_accepted_inspector: (inspectorName, client, deal, agent, portalUrl) => {
+      const first = inspectorName?.split(' ')[0] || 'there';
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      return {
+        subject: `Inspection request — ${deal.property_address} · ${fmtDate(deal.inspection_date) || 'date TBD'}`,
+        body: `Hi ${first},
+
+I have a buyer with an accepted offer on ${deal.property_address}. I'd like to book an inspection — the MLS listing is attached for your reference.
+
+📍 Property: ${deal.property_address}
+📅 Proposed Inspection Date: ${fmtDate(deal.inspection_date)}
+👤 Buyer: ${client.full_name || '—'}
+
+📑 Attached:
+• MLS Listing
+
+Please confirm availability for the proposed date or send back a few options that work, and I'll coordinate access with the listing agent. Once the inspection is complete, please send me the report directly.${portalUrl ? `
+
+I've also set up a private portal where you can confirm completion when the inspection is done:
+   👉 ${portalUrl}` : ''}
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
+    offer_accepted_lawyer: (lawyerName, client, deal, agent, portalUrl) => {
+      const first = lawyerName?.split(' ')[0] || 'Counsel';
+      const clientFirst = client.full_name?.split(' ')[0] || 'the buyer';
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      return {
+        subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
+        body: `Hi ${first},
+
+${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.
+
+📍 Property: ${deal.property_address}
+💰 Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+📅 Closing Date: ${fmtDate(deal.closing_date)}
+🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+
+📑 Attached:
+• Accepted Offer
+• MLS Listing
+
+I've cc'd ${clientFirst} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
+
+I've also set up a private portal where you can mark title search, funds-in-trust, and ready-to-close as each step completes:
+   👉 ${portalUrl}` : ''}
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
     walkthrough_reminder: (client, deal, agent) => ({
       subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
