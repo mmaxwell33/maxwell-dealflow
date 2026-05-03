@@ -1316,7 +1316,30 @@ const Pipeline = {
       const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
       await Notify.onDealClosed(d, client);
     }
-    App.toast('✅ Deal closed & client archived! 🎉 Congrats email queued in Approvals.');
+    // Fan-out a "thanks for your work" email to every non-client stakeholder
+    // who's still active on this deal. Each lands in Approvals — Maxwell taps
+    // approve before any of them ship.
+    let stakesThanked = 0;
+    if (typeof Notify !== "undefined" && Notify.templates?.closing_day_stakeholder_thanks) {
+      const { data: stakes } = await db.from('deal_stakeholders')
+        .select('role, name, email')
+        .eq('pipeline_id', id)
+        .is('revoked_at', null)
+        .neq('role', 'client');
+      const dealForT = { ...d, closing_date: close };
+      const clientForT = { full_name: d?.client_name };
+      for (const s of (stakes || [])) {
+        if (!s.email) continue;
+        const t = Notify.templates.closing_day_stakeholder_thanks(s.name, s.role, clientForT, dealForT, currentAgent);
+        await Notify.queue(
+          `Closing thanks → ${s.role.replace('_',' ')} 🙏`,
+          d?.client_id, s.name, s.email,
+          t.subject, t.body, id
+        );
+        stakesThanked++;
+      }
+    }
+    App.toast(`✅ Deal closed${stakesThanked ? ` · ${stakesThanked + 1} thank-you email${stakesThanked === 0 ? '' : 's'} queued` : ' · congrats email queued'} in Approvals 🎉`);
     Pipeline.load(); Clients.load(); App.loadOverview();
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },

@@ -706,6 +706,39 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // ── DEAL CLOSED — thank-you fan-out to all stakeholders ──────────────
+    closing_day_stakeholder_thanks: (stakeholderName, role, client, deal, agent) => {
+      const first = stakeholderName?.split(' ')[0] || 'there';
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      const roleLbl = role === 'mortgage_broker' ? 'work on the financing'
+                    : role === 'inspector'       ? 'thorough inspection'
+                    : role === 'lawyer'          ? 'work on the legal side'
+                    : role === 'builder'         ? 'work throughout the build'
+                    : 'work on this file';
+      return {
+        subject: `Thank you — ${client.full_name || 'client'}'s deal closed on ${fmtDate(deal.closing_date)}`,
+        body: `Hi ${first},
+
+Wanted to send a quick note: ${client.full_name || 'my client'}'s deal on ${deal.property_address} closed today.
+
+📍 Property: ${deal.property_address}
+📅 Closed: ${fmtDate(deal.closing_date)}
+
+Thank you for your ${roleLbl} on this one — it was a pleasure working with you, and I appreciated the responsiveness throughout.
+
+I'll keep you in mind for the next file. If you have a moment, please feel free to reply with any feedback on how we worked together — always trying to make the process smoother for the next deal.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
     walkthrough_reminder: (client, deal, agent) => ({
       subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},

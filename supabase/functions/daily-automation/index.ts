@@ -467,6 +467,97 @@ ${sig(agent)}`;
     }).select();
   }
 
+  // ── 8. STAKEHOLDER NUDGE (T+48h, one-time) + AGENT ALERT (T+5d) ───────
+  // For every non-client stakeholder that's been invited but hasn't acted:
+  //   • At T+48h since invite, send ONE polite nudge (mark `last_nudged_at`).
+  //   • At T+5d since invite, drop an agent-side activity_log alert so
+  //     Maxwell can pick up the phone himself.
+  const fortyEightHoursAgo = new Date(today.getTime() - 48 * 60 * 60 * 1000).toISOString();
+  const fiveDaysAgo        = new Date(today.getTime() -  5 * 86_400_000).toISOString();
+
+  const { data: pendingStakes } = await supabase.from('deal_stakeholders')
+    .select('id, agent_id, pipeline_id, client_id, role, name, email, token, created_at, last_accessed, completed_at, last_nudged_at')
+    .is('revoked_at', null)
+    .is('completed_at', null)
+    .neq('role', 'client');
+
+  const PORTAL_BASE = 'https://maxwell-dealflow.vercel.app/stakeholder.html';
+  let nudgesQueued = 0, alertsLogged = 0;
+
+  for (const s of (pendingStakes ?? [])) {
+    const created = s.created_at ? new Date(s.created_at).getTime() : 0;
+    const opened  = s.last_accessed ? new Date(s.last_accessed).getTime() : 0;
+    const ageMs   = today.getTime() - created;
+
+    // Skip if they've already opened — they're in motion, no nudge needed
+    if (opened > 0) continue;
+
+    // T+48h nudge — only ONCE (last_nudged_at must be null)
+    if (ageMs >= 48 * 60 * 60 * 1000 && !s.last_nudged_at && s.email) {
+      const portalUrl = `${PORTAL_BASE}?t=${s.token}`;
+      const roleLbl = s.role === 'mortgage_broker' ? 'mortgage broker'
+                    : s.role === 'inspector'       ? 'inspection'
+                    : s.role === 'lawyer'          ? 'lawyer / notary'
+                    : s.role;
+      const first = (s.name || '').split(' ')[0] || 'there';
+      // Look up client name + property for context
+      const { data: pipe } = await supabase.from('pipeline')
+        .select('client_name, property_address').eq('id', s.pipeline_id).single();
+      const subj = `Quick reminder — your portal for ${pipe?.client_name || 'the deal'} on ${pipe?.property_address || ''}`;
+      const body = `Hi ${first},
+
+Just circling back — I sent you a portal link 48 hours ago for ${pipe?.client_name || 'my client'}'s deal on ${pipe?.property_address || 'the property'}. No urgency, but it would help me if you could open it when you have a moment so we can keep things moving.
+
+Open your portal: ${portalUrl}
+
+Thank you,
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: (709) 325-0545 | Email: Maxwell.Midodzi@exprealty.com
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      await supabase.from('approval_queue').insert({
+        agent_id: s.agent_id,
+        client_name: s.name, client_email: s.email,
+        approval_type: `Stakeholder nudge → ${roleLbl} 🔔`,
+        email_subject: subj, email_body: body,
+        related_id: s.pipeline_id, status: 'Pending'
+      });
+      await supabase.from('deal_stakeholders').update({
+        last_nudged_at: new Date().toISOString()
+      }).eq('id', s.id);
+      nudgesQueued++;
+    }
+
+    // T+5d agent alert — only ONCE per stakeholder (we use activity_log for idempotency)
+    if (ageMs >= 5 * 86_400_000) {
+      // Check we haven't already logged this alert
+      const { data: existing } = await supabase.from('activity_log')
+        .select('id').eq('related_id', s.id)
+        .eq('activity_type', 'STAKEHOLDER_STUCK_ALERT').limit(1);
+      if (!existing?.length) {
+        const { data: pipe } = await supabase.from('pipeline')
+          .select('client_name, property_address').eq('id', s.pipeline_id).single();
+        await supabase.from('activity_log').insert({
+          agent_id: s.agent_id,
+          activity_type: 'STAKEHOLDER_STUCK_ALERT',
+          note: `${s.role.replace('_',' ')} ${s.name || ''} has not opened their portal for ${pipe?.client_name || 'a deal'} after 5 days. Consider calling them directly.`,
+          related_id: s.id
+        });
+        alertsLogged++;
+      }
+    }
+  }
+
+  // Add to summary
+  (summary as any).stakeholder_nudges_sent = nudgesQueued;
+  (summary as any).stakeholder_alerts     = alertsLogged;
+
   return new Response(JSON.stringify(summary), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
