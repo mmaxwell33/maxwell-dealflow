@@ -329,9 +329,30 @@ const Clients = {
     `);
   },
 
-  openEdit(id) {
+  async openEdit(id) {
     const c = Clients.all.find(x => x.id === id);
     if (!c) return;
+
+    // Load existing stakeholder contacts for this client (if any)
+    const { data: contacts } = await db.from('client_contacts')
+      .select('role, name, email, phone')
+      .eq('client_id', id);
+    const byRole = {};
+    (contacts || []).forEach(r => { byRole[r.role] = r; });
+    const get = (role, field) => (byRole[role]?.[field] || '');
+
+    const stakeRow = (role, label, icon) => `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:.06em;">
+          ${icon} ${label.toUpperCase()}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <input class="form-input" id="ce-${role}-name"  placeholder="Name"  value="${App.esc(get(role,'name'))}"  style="font-size:13px;padding:8px;">
+          <input class="form-input" id="ce-${role}-email" placeholder="Email" type="email" value="${App.esc(get(role,'email'))}" style="font-size:13px;padding:8px;">
+        </div>
+        <input class="form-input" id="ce-${role}-phone" placeholder="Phone (optional)" value="${App.esc(get(role,'phone'))}" style="font-size:13px;padding:8px;margin-top:6px;">
+      </div>`;
+
     App.openModal(`
       <div class="modal-title">✏️ Edit Client</div>
       <div class="form-group">
@@ -359,7 +380,22 @@ const Clients = {
         <label class="form-label">Notes</label>
         <textarea class="form-input" id="ce-notes" rows="3">${c.notes||''}</textarea>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+
+      <!-- Their Stakeholders — saved once, reused on every deal -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+          👥 Their Stakeholders
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px;font-style:italic;">
+          Save each contact once — every future deal pre-fills the Add-Stakeholder modal.
+        </div>
+        ${stakeRow('mortgage_broker', 'Mortgage Broker', '🏦')}
+        ${stakeRow('lawyer',          'Lawyer / Notary', '⚖️')}
+        ${stakeRow('inspector',       'Inspector',       '🔍')}
+        ${stakeRow('builder',         'Builder',         '🏗️')}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Clients.update('${c.id}')">💾 Save</button>
       </div>
@@ -379,6 +415,26 @@ const Clients = {
       updated_at: new Date().toISOString()
     }).eq('id', id);
     if (error) { st.style.color='var(--red)'; st.textContent = error.message; return; }
+
+    // Upsert any stakeholder contacts entered. Skip empty rows.
+    const roles = ['mortgage_broker','lawyer','inspector','builder'];
+    const contactRows = roles.map(role => {
+      const name  = document.getElementById(`ce-${role}-name`)?.value.trim()  || '';
+      const email = document.getElementById(`ce-${role}-email`)?.value.trim() || '';
+      const phone = document.getElementById(`ce-${role}-phone`)?.value.trim() || '';
+      if (!name && !email && !phone) return null;  // skip empty
+      return {
+        client_id: id, agent_id: currentAgent.id, role,
+        name: name || null, email: email || null, phone: phone || null,
+        updated_at: new Date().toISOString()
+      };
+    }).filter(Boolean);
+    if (contactRows.length) {
+      // upsert by (client_id, role) unique key
+      const { error: cErr } = await db.from('client_contacts')
+        .upsert(contactRows, { onConflict: 'client_id,role' });
+      if (cErr) console.warn('client_contacts upsert:', cErr);
+    }
     // Sync any pending approval emails for this client with updated name/email
     const newName  = document.getElementById('ce-name').value.trim();
     const newEmail = document.getElementById('ce-email').value.trim();

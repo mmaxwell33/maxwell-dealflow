@@ -289,6 +289,30 @@
     }
     html += '</div>';
 
+    // ============ DEAL DOCUMENTS — role-filtered by stakeholder_resolve ============
+    const docs = d.documents || [];
+    if (docs.length) {
+      const DOC_LABELS = {
+        accepted_offer: '📄 Accepted Offer',
+        mls_listing:    '🏠 MLS Listing',
+        other:          '📎 Document',
+      };
+      html += '<div class="card" style="margin-bottom:14px"><h3>📑 Deal Documents from '+(d.agent_name||'Maxwell').split(' ')[0]+'</h3>';
+      docs.forEach(function(doc){
+        const label = DOC_LABELS[doc.doc_type] || doc.doc_type;
+        const when  = doc.uploaded_at ? fmtDate(doc.uploaded_at) : '';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card2);border-radius:10px;margin-bottom:6px;">';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:13px;font-weight:700;color:var(--text1);">'+label+'</div>';
+        html += '<div style="font-size:11px;color:var(--text3);">'+(doc.file_name||'')+(when?' · '+when:'')+'</div>';
+        html += '</div>';
+        html += '<a href="'+doc.url+'" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;font-size:13px;text-decoration:none;padding:6px 12px;border:1px solid var(--accent);border-radius:8px;">View</a>';
+        html += '</div>';
+      });
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;font-style:italic;">These documents are private — only people with this link can see them.</div>';
+      html += '</div>';
+    }
+
     // ============ Revoke link card ============
     html += '<div class="card" style="margin-bottom:14px"><h3>This link</h3>';
     html += row('Expires', fmtDate(d.expires_at));

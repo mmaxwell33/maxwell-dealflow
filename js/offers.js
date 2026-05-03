@@ -986,6 +986,7 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
@@ -1083,6 +1084,7 @@ const Pipeline = {
         <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>`}
         <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
       </div>
       ${Pipeline.renderDealStakeholders(d.id)}
@@ -2318,9 +2320,26 @@ const Pipeline = {
     builder:         '🏗️ Builder',
   },
 
-  inviteStakeholder(dealId) {
+  async inviteStakeholder(dealId) {
     const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) return;
+
+    // Pre-load this client's saved contacts so we can pre-fill on role change.
+    Pipeline._currentInviteContacts = {};
+    if (d.client_id) {
+      const { data: contacts } = await db.from('client_contacts')
+        .select('role, name, email, phone')
+        .eq('client_id', d.client_id);
+      (contacts || []).forEach(r => { Pipeline._currentInviteContacts[r.role] = r; });
+    }
+
+    const initialRole = 'mortgage_broker';
+    const seed = Pipeline._currentInviteContacts[initialRole] || {};
+    const known = Object.keys(Pipeline._currentInviteContacts).length;
+    const knownNote = known > 0
+      ? `<div style="margin-top:8px;font-size:11px;color:var(--accent2);font-style:italic;">💾 ${known} contact${known>1?'s':''} on file — pre-filled when you pick the role.</div>`
+      : `<div style="margin-top:8px;font-size:11px;color:var(--text3);font-style:italic;">💡 Tip: save this contact on the client record (Edit Client → Their Stakeholders) so it pre-fills next time.</div>`;
+
     App.openModal(`
       <div class="modal-title">📨 Invite a stakeholder</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
@@ -2329,24 +2348,25 @@ const Pipeline = {
       </div>
       <div class="form-group">
         <label class="form-label">ROLE</label>
-        <select class="form-input" id="sh-role">
+        <select class="form-input" id="sh-role" onchange="Pipeline._fillFromContacts()">
           <option value="mortgage_broker">🏦 Mortgage Broker</option>
           <option value="inspector">🔍 Inspector</option>
           <option value="lawyer">⚖️ Lawyer / Notary</option>
           <option value="builder">🏗️ Builder</option>
         </select>
+        ${knownNote}
       </div>
       <div class="form-group">
         <label class="form-label">NAME</label>
-        <input class="form-input" id="sh-name" placeholder="e.g. Sarah Johnson">
+        <input class="form-input" id="sh-name" placeholder="e.g. Sarah Johnson" value="${App.esc(seed.name||'')}">
       </div>
       <div class="form-group">
         <label class="form-label">EMAIL</label>
-        <input class="form-input" id="sh-email" type="email" placeholder="sarah@bank.com">
+        <input class="form-input" id="sh-email" type="email" placeholder="sarah@bank.com" value="${App.esc(seed.email||'')}">
       </div>
       <div class="form-group">
         <label class="form-label">PHONE (OPTIONAL)</label>
-        <input class="form-input" id="sh-phone" placeholder="(709) 555-0100">
+        <input class="form-input" id="sh-phone" placeholder="(709) 555-0100" value="${App.esc(seed.phone||'')}">
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn btn-primary btn-block" onclick="Pipeline.submitStakeholderInvite('${d.id}')">📨 Send invite</button>
@@ -2354,6 +2374,19 @@ const Pipeline = {
       </div>
       <div id="sh-msg" style="margin-top:10px;font-size:12px;"></div>
     `);
+  },
+
+  // Fired when the role <select> changes — pre-fill name/email/phone from the
+  // saved client_contacts row for that role (if one exists).
+  _fillFromContacts() {
+    const role = document.getElementById('sh-role')?.value;
+    const c = (Pipeline._currentInviteContacts || {})[role];
+    if (!c) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v || ''; };
+    // Always overwrite — switching role should pull that role's contact fresh.
+    document.getElementById('sh-name').value  = c.name  || '';
+    document.getElementById('sh-email').value = c.email || '';
+    document.getElementById('sh-phone').value = c.phone || '';
   },
 
   async submitStakeholderInvite(dealId) {
@@ -2433,6 +2466,144 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     msg.style.color = 'var(--green)';
     msg.textContent = `✅ Portal link created. Email queued in Approvals — tap Approve to send.`;
     setTimeout(() => { App.closeModal(); Pipeline.load(); }, 1400);
+  },
+
+  // ── DEAL DOCUMENTS (V2 Phase 2.A) ────────────────────────────────────
+  // Default role visibility per doc type. Inspectors don't see the
+  // accepted offer — they only need the MLS listing.
+  DOC_VISIBILITY: {
+    accepted_offer: ['client','mortgage_broker','lawyer','builder'],          // NOT inspector
+    mls_listing:    ['client','mortgage_broker','inspector','lawyer','builder'],
+    other:          ['client','mortgage_broker','inspector','lawyer','builder'],
+  },
+  DOC_TYPE_LABELS: {
+    accepted_offer: '📄 Accepted Offer',
+    mls_listing:    '🏠 MLS Listing',
+    other:          '📎 Other Document',
+  },
+
+  async openDocs(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) return;
+    const { data: docs } = await db.from('deal_documents')
+      .select('id, doc_type, file_name, file_size_bytes, created_at, visible_to_roles')
+      .eq('pipeline_id', dealId)
+      .order('created_at', { ascending: false });
+
+    const docList = (docs || []).map(doc => {
+      const sizeKB = doc.file_size_bytes ? Math.round(doc.file_size_bytes / 1024) : 0;
+      const visibleRoleIcons = (doc.visible_to_roles || []).map(r => {
+        if (r === 'inspector') return '🔍';
+        if (r === 'mortgage_broker') return '🏦';
+        if (r === 'lawyer') return '⚖️';
+        if (r === 'builder') return '🏗️';
+        if (r === 'client') return '👤';
+        return r;
+      }).join(' ');
+      const dt = Pipeline.DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--text);">${dt}</div>
+          <div style="font-size:11px;color:var(--text2);">${App.esc(doc.file_name||'')} · ${sizeKB} KB</div>
+          <div style="font-size:10px;color:var(--accent2);margin-top:2px;">Visible to: ${visibleRoleIcons}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);font-size:11px;padding:3px 8px;" onclick="Pipeline.deleteDoc('${doc.id}','${dealId}')">🗑</button>
+      </div>`;
+    }).join('');
+
+    App.openModal(`
+      <div class="modal-title">📄 Deal Documents</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+        Upload to <strong>${App.esc(d.client_name||'this deal')}</strong>. Stakeholders see only what their role allows.
+      </div>
+
+      <div style="background:rgba(204,120,92,0.06);border:1px dashed var(--accent);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add a document</div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label" style="font-size:11px;">DOCUMENT TYPE</label>
+          <select class="form-input" id="dd-type" onchange="Pipeline._refreshDocVisibilityHint()">
+            <option value="accepted_offer">📄 Accepted Offer (broker + lawyer only — not inspector)</option>
+            <option value="mls_listing">🏠 MLS Listing (everyone)</option>
+            <option value="other">📎 Other Document (everyone)</option>
+          </select>
+          <div id="dd-vis-hint" style="font-size:10px;color:var(--accent2);margin-top:4px;"></div>
+        </div>
+        <input type="file" id="dd-file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style="font-size:13px;margin-bottom:8px;color:var(--text2);">
+        <button class="btn btn-primary btn-block" onclick="Pipeline.uploadDoc('${dealId}')">📤 Upload</button>
+        <div id="dd-msg" style="margin-top:8px;font-size:12px;text-align:center;"></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
+        UPLOADED (${docs?.length || 0})
+      </div>
+      ${docList || '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">No documents yet</div>'}
+
+      <button class="btn btn-outline btn-block" style="margin-top:12px;" onclick="App.closeModal()">Done</button>
+    `);
+    setTimeout(() => Pipeline._refreshDocVisibilityHint(), 50);
+  },
+
+  _refreshDocVisibilityHint() {
+    const sel = document.getElementById('dd-type');
+    const hint = document.getElementById('dd-vis-hint');
+    if (!sel || !hint) return;
+    const roles = Pipeline.DOC_VISIBILITY[sel.value] || [];
+    const labels = roles.map(r => {
+      if (r === 'inspector')       return '🔍 Inspector';
+      if (r === 'mortgage_broker') return '🏦 Broker';
+      if (r === 'lawyer')          return '⚖️ Lawyer';
+      if (r === 'builder')         return '🏗️ Builder';
+      if (r === 'client')          return '👤 Client';
+      return r;
+    });
+    hint.textContent = '👁  Visible to: ' + labels.join(' · ');
+  },
+
+  async uploadDoc(dealId) {
+    const fileInput = document.getElementById('dd-file');
+    const docType   = document.getElementById('dd-type').value;
+    const msg       = document.getElementById('dd-msg');
+    const file      = fileInput?.files?.[0];
+    if (!file) { msg.style.color='var(--red)'; msg.textContent='⚠️ Pick a file first'; return; }
+    if (file.size > 25 * 1024 * 1024) { msg.style.color='var(--red)'; msg.textContent='⚠️ File too large (max 25 MB)'; return; }
+
+    msg.style.color = 'var(--text2)';
+    msg.textContent = 'Uploading…';
+
+    // Path: <agent_id>/<pipeline_id>/<timestamp>-<filename>
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${currentAgent.id}/${dealId}/${Date.now()}-${safe}`;
+    const { error: upErr } = await db.storage.from('deal-docs').upload(path, file, {
+      cacheControl: '3600', upsert: false,
+    });
+    if (upErr) { msg.style.color='var(--red)'; msg.textContent='⚠️ ' + upErr.message; return; }
+
+    const visible = Pipeline.DOC_VISIBILITY[docType] || ['client','mortgage_broker','lawyer','builder'];
+    const { error: dbErr } = await db.from('deal_documents').insert({
+      pipeline_id: dealId,
+      agent_id: currentAgent.id,
+      doc_type: docType,
+      file_path: path,
+      file_name: file.name,
+      file_size_bytes: file.size,
+      visible_to_roles: visible,
+    });
+    if (dbErr) { msg.style.color='var(--red)'; msg.textContent='⚠️ ' + dbErr.message; return; }
+
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Uploaded — stakeholders will see it on their portal.';
+    setTimeout(() => Pipeline.openDocs(dealId), 800);  // re-render the modal
+  },
+
+  async deleteDoc(docId, dealId) {
+    if (!confirm('Delete this document?\n\nIt will be removed from all stakeholder portals.')) return;
+    // Look up file_path first so we can clean up storage too
+    const { data: doc } = await db.from('deal_documents').select('file_path').eq('id', docId).single();
+    if (doc?.file_path) {
+      await db.storage.from('deal-docs').remove([doc.file_path]);
+    }
+    await db.from('deal_documents').delete().eq('id', docId);
+    Pipeline.openDocs(dealId);  // re-render
   },
 
   // Render the list of stakeholders attached to a deal — called inline by the
