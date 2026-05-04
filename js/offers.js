@@ -185,10 +185,12 @@ const Offers = {
       }
     }
 
-    // Queue notification emails for approval
+    // Queue notification emails for approval.
+    // Note: do NOT call onOfferAccepted here even if status === 'Accepted' —
+    // createFromOfferWithDates() (called via askAcceptanceDetails below) handles
+    // that single source of truth. Calling it here would duplicate the email.
     if (typeof Notify !== "undefined" && client?.email) {
       await Notify.onOfferSubmitted(data, client);
-      if (status === 'Accepted') await Notify.onOfferAccepted(data, client);
     }
 
     // If accepted, ask for the closing details + commission, THEN create pipeline + commission row
@@ -243,7 +245,8 @@ const Offers = {
     const client = Clients.all.find(c => c.id === o.client_id);
     await db.from('offers').update({ status: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
     await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
-    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
+    // Email is fired by createFromOfferWithDates after Maxwell confirms the
+    // closing details. Calling it here would duplicate the client's congrats email.
     App.closeModal();
     Pipeline.askAcceptanceDetails(o, client);
     Offers.load(); Clients.load(); App.loadOverview();
@@ -318,9 +321,11 @@ const Offers = {
     if (status === 'Accepted' && o) {
       const client = Clients.all.find(c => c.id === o.client_id);
       await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
-      // Queue accepted notification for approval
-      if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
+      // This is the "quick mark accepted" path that does NOT go through
+      // askAcceptanceDetails → createFromOfferWithDates. It needs its own
+      // single email call. (The full-flow paths fire from createFromOfferWithDates.)
       await Pipeline.createFromOffer(o, client);
+      if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferAccepted(o, client);
       App.toast('🎉 Accepted! Pipeline entry created.');
     } else {
       App.toast(`Offer marked ${status}`);
@@ -557,36 +562,91 @@ const Pipeline = {
     return 'var(--accent2)';
   },
 
-  // Show modal to capture closing dates + commission rate before creating pipeline
-  askAcceptanceDetails(offer, client) {
+  // Show modal to capture closing dates + commission rate + per-stakeholder
+  // dispatch options before creating pipeline. Replaces the old modal —
+  // single source of truth for the Offer Accepted workflow.
+  async askAcceptanceDetails(offer, client) {
     const today = new Date().toISOString().slice(0,10);
     const addDays = n => { const d = new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
     Pipeline._pendingOffer = offer;
     Pipeline._pendingClient = client;
+
+    // Pre-load any saved stakeholder contacts for this client
+    Pipeline._acceptStakeholders = {};
+    if (client?.id) {
+      const { data: rows } = await db.from('client_contacts')
+        .select('role, name, email, phone')
+        .eq('client_id', client.id);
+      (rows || []).forEach(r => { Pipeline._acceptStakeholders[r.role] = r; });
+    }
+
+    const stakeRow = (role, label, icon, hint) => {
+      const c = Pipeline._acceptStakeholders[role] || {};
+      const hasOnFile = !!c.email;
+      return `
+        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(204,120,92,0.04);">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">
+            ${icon} ${label.toUpperCase()}
+            ${hasOnFile ? '<span style="font-size:10px;color:var(--green);font-weight:500;margin-left:6px;">✓ on file</span>' : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <input class="form-input" id="ad-${role}-name"  placeholder="Name *"  value="${App.esc(c.name||'')}"  style="font-size:12px;padding:7px;">
+            <input class="form-input" id="ad-${role}-email" placeholder="Email *" type="email" value="${App.esc(c.email||'')}" style="font-size:12px;padding:7px;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <input class="form-input" id="ad-${role}-firm"  placeholder="Firm (optional)" value="${App.esc(c.firm||'')}" style="font-size:12px;padding:7px;">
+            <input class="form-input" id="ad-${role}-phone" placeholder="Phone (optional)" value="${App.esc(c.phone||'')}" style="font-size:12px;padding:7px;">
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">
+            <label style="display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" id="ad-${role}-on" checked> Send email
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" id="ad-${role}-portal"> Also include portal link
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+              <input type="checkbox" id="ad-${role}-cc"${role === 'lawyer' ? ' checked' : ''}> CC client
+            </label>
+          </div>
+          ${hint ? `<div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">${hint}</div>` : ''}
+        </div>`;
+    };
+
     App.openModal(`
       <div class="modal-title">🎉 Offer Accepted — Closing Details</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
-        ${App.esc(offer.property_address)} · ${App.fmtMoney(offer.offer_amount)}
+        ${App.esc(offer.property_address)} · ${App.fmtMoney(offer.offer_amount)} · ${App.esc(client?.full_name || offer.client_name || '—')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+
+      <!-- Dates with skip toggles -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📅 Key dates</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">📅 Inspection Date</label>
-          <input class="form-input" type="date" id="ad-inspection" value="${addDays(7)}">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">📅 Financing Date</label>
+          <label class="form-label">Financing Date</label>
           <input class="form-input" type="date" id="ad-financing" value="${addDays(10)}">
         </div>
         <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">📅 Final Walkthrough</label>
-          <input class="form-input" type="date" id="ad-walkthrough" value="${addDays(28)}">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">📅 Final Closing Date</label>
+          <label class="form-label">Final Closing Date</label>
           <input class="form-input" type="date" id="ad-closing" value="${addDays(30)}">
         </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Inspection Date</label>
+          <input class="form-input" type="date" id="ad-inspection" value="${addDays(7)}">
+          <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);margin-top:3px;">
+            <input type="checkbox" id="ad-inspection-skip"> Skip inspection
+          </label>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Final Walkthrough</label>
+          <input class="form-input" type="date" id="ad-walkthrough" value="${addDays(28)}">
+          <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);margin-top:3px;">
+            <input type="checkbox" id="ad-walkthrough-skip"> Skip walkthrough
+          </label>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:14px;">
+
+      <!-- Commission -->
+      <div class="form-group" style="margin-bottom:14px;">
         <label class="form-label">💰 Your Commission %</label>
         <select class="form-input" id="ad-comm-rate" onchange="Pipeline.toggleCustomRate()">
           <option value="1.5">1.5%</option>
@@ -597,10 +657,30 @@ const Pipeline = {
         </select>
         <input class="form-input" type="number" step="0.01" id="ad-comm-custom" placeholder="Enter custom % (e.g. 2.75)" style="display:none;margin-top:8px;">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
-        <button class="btn btn-primary" onclick="Pipeline.confirmAcceptance()">Confirm & Move to Pipeline</button>
+
+      <!-- Documents -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📑 Documents to dispatch</div>
+      <div style="background:rgba(204,120,92,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Accepted offer (PDF) — sent to broker + lawyer</div>
+        <input type="file" id="ad-file-offer" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;margin-bottom:8px;color:var(--text2);">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">MLS listing (PDF) — sent to everyone (broker, inspector, lawyer)</div>
+        <input type="file" id="ad-file-mls" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;color:var(--text2);">
+      </div>
+
+      <!-- Stakeholders -->
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">👥 Stakeholder dispatch</div>
+      ${stakeRow('mortgage_broker','Mortgage Broker','🏦','Receives MLS + accepted offer attached')}
+      ${stakeRow('inspector','Inspector','🔍','Receives MLS only — no accepted offer')}
+      ${stakeRow('lawyer','Lawyer / Notary','⚖️','Receives MLS + accepted offer attached')}
+      <div style="font-size:11px;color:var(--text3);margin:0 0 12px;font-style:italic;">
+        Name + email required per role. Firm + phone optional. Every email queues in Approvals — you tap Approve before any goes out.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Pipeline.confirmAcceptance()">Confirm & Send All</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
+      <div id="ad-msg" style="margin-top:10px;font-size:12px;text-align:center;"></div>
     `);
   },
 
@@ -614,26 +694,181 @@ const Pipeline = {
     const offer = Pipeline._pendingOffer;
     const client = Pipeline._pendingClient;
     if (!offer) { App.closeModal(); return; }
+    const msg = document.getElementById('ad-msg');
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Working…'; }
+
     const ins = document.getElementById('ad-inspection').value;
     const fin = document.getElementById('ad-financing').value;
     const walk = document.getElementById('ad-walkthrough').value;
     const close = document.getElementById('ad-closing').value;
+    const insSkip  = document.getElementById('ad-inspection-skip')?.checked;
+    const walkSkip = document.getElementById('ad-walkthrough-skip')?.checked;
     const sel = document.getElementById('ad-comm-rate').value;
     let rate = sel === 'custom'
       ? parseFloat(document.getElementById('ad-comm-custom').value)
       : parseFloat(sel);
-    if (!rate || rate <= 0 || rate > 20) { App.toast('⚠️ Enter a valid commission %', 'var(--red)'); return; }
+    if (!rate || rate <= 0 || rate > 20) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Enter a valid commission %'; }
+      else App.toast('⚠️ Enter a valid commission %', 'var(--red)');
+      return;
+    }
 
-    // Stash the dates onto the offer so createFromOffer + checklist generator pick them up
-    offer.inspection_date = ins;
+    // Stash the dates + skip flags onto the offer for downstream use
+    offer.inspection_date = insSkip ? null : ins;
     offer.financing_date = fin;
-    offer.walkthrough_date = walk;
+    offer.walkthrough_date = walkSkip ? null : walk;
     offer.closing_date = close;
+    offer.inspection_skipped = !!insSkip;
+    offer.walkthrough_skipped = !!walkSkip;
 
-    await Pipeline.createFromOfferWithDates(offer, client, { ins, fin, walk, close, rate });
-    Pipeline._pendingOffer = null; Pipeline._pendingClient = null;
+    // Create the pipeline row + commission row + fire client congrats email (single source)
+    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, rate, insSkip, walkSkip });
+
+    // Look up the just-created pipeline row so we can attach stakeholders + docs to it
+    const { data: newPipe } = await db.from('pipeline')
+      .select('id').eq('agent_id', currentAgent.id)
+      .eq('property_address', offer.property_address)
+      .order('created_at', { ascending: false }).limit(1).single();
+    const pipelineId = newPipe?.id;
+
+    // Save dispatch dates as the canonical pipeline row (createFromOfferWithDates already did, but we refresh skip flags)
+    if (pipelineId) {
+      await db.from('pipeline').update({
+        inspection_skipped: !!insSkip,
+        walkthrough_skipped: !!walkSkip,
+        updated_at: new Date().toISOString()
+      }).eq('id', pipelineId);
+    }
+
+    // Upload the docs (accepted offer + MLS) to deal_documents bucket
+    const offerFile = document.getElementById('ad-file-offer')?.files?.[0];
+    const mlsFile   = document.getElementById('ad-file-mls')?.files?.[0];
+    const uploadDoc = async (file, docType) => {
+      if (!file || !pipelineId) return null;
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path = `${currentAgent.id}/${pipelineId}/${Date.now()}-${safe}`;
+      const { error: upErr } = await db.storage.from('deal-docs').upload(path, file);
+      if (upErr) return null;
+      const visible = (Pipeline.DOC_VISIBILITY && Pipeline.DOC_VISIBILITY[docType])
+        || ['client','mortgage_broker','lawyer','builder'];
+      await db.from('deal_documents').insert({
+        pipeline_id: pipelineId, agent_id: currentAgent.id, doc_type: docType,
+        file_path: path, file_name: file.name, file_size_bytes: file.size,
+        visible_to_roles: visible
+      });
+      return { name: file.name, path, file };
+    };
+    await uploadDoc(offerFile, 'accepted_offer');
+    await uploadDoc(mlsFile,   'mls_listing');
+
+    // Re-fetch docs for attachments
+    let offerAtt = null, mlsAtt = null;
+    if (pipelineId) {
+      const { data: docs } = await db.from('deal_documents')
+        .select('id, doc_type, file_name, file_path').eq('pipeline_id', pipelineId);
+      const encodeAttachment = async (storagePath, fileName) => {
+        const { data, error } = await db.storage.from('deal-docs').download(storagePath);
+        if (error || !data) return null;
+        const buf = await data.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        const base64 = btoa(bin);
+        const mime = fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf'
+                   : fileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'image/jpeg'
+                   : fileName.toLowerCase().endsWith('.png') ? 'image/png'
+                   : fileName.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                   : 'application/octet-stream';
+        return { filename: fileName, mime_type: mime, data: base64 };
+      };
+      const offerDoc = (docs || []).find(x => x.doc_type === 'accepted_offer');
+      const mlsDoc   = (docs || []).find(x => x.doc_type === 'mls_listing');
+      if (offerDoc) offerAtt = await encodeAttachment(offerDoc.file_path, offerDoc.file_name);
+      if (mlsDoc)   mlsAtt   = await encodeAttachment(mlsDoc.file_path,   mlsDoc.file_name);
+    }
+
+    // Build a deal-shaped object for the templates
+    const dealForT = {
+      ...offer,
+      acceptance_date: offer.offer_date || new Date().toISOString().slice(0,10),
+      financing_date: fin,
+      inspection_date: insSkip ? null : ins,
+      inspection_skipped: !!insSkip,
+      walkthrough_date: walkSkip ? null : walk,
+      walkthrough_skipped: !!walkSkip,
+      closing_date: close,
+    };
+    const clientForT = client || { full_name: offer.client_name, email: offer.client_email };
+    const agent = currentAgent;
+
+    // Per-stakeholder dispatch — read fields from the modal, save back to client_contacts
+    let queuedDispatch = 0;
+    for (const role of ['mortgage_broker','inspector','lawyer']) {
+      const enabledEl = document.getElementById(`ad-${role}-on`);
+      if (enabledEl && !enabledEl.checked) continue;
+      const name  = document.getElementById(`ad-${role}-name`)?.value.trim()  || '';
+      const email = document.getElementById(`ad-${role}-email`)?.value.trim() || '';
+      const phone = document.getElementById(`ad-${role}-phone`)?.value.trim() || null;
+      const firm  = document.getElementById(`ad-${role}-firm`)?.value.trim()  || null;
+      if (!name || !email) continue;  // require name + email per Albert's spec
+
+      // Save (or upsert) the contact for next time
+      if (client?.id) {
+        await db.from('client_contacts').upsert({
+          client_id: client.id, agent_id: currentAgent.id, role,
+          name, email, phone, notes: firm ? `Firm: ${firm}` : null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'client_id,role' });
+      }
+
+      // Optional portal link
+      const wantPortal = document.getElementById(`ad-${role}-portal`)?.checked;
+      let portalUrl = null;
+      if (wantPortal && pipelineId && client?.id) {
+        const { data } = await db.rpc('stakeholder_create', {
+          p_pipeline_id: pipelineId, p_client_id: client.id,
+          p_agent_id: currentAgent.id, p_role: role,
+          p_name: name, p_email: email, p_phone: phone,
+          p_notes: 'Auto-invited via Offer Accepted modal'
+        });
+        if (data?.ok) portalUrl = data.portal_url;
+      }
+
+      // Per-role attachment policy
+      let attachments = [];
+      if (role === 'inspector') {
+        if (mlsAtt) attachments.push(mlsAtt);
+      } else {
+        if (offerAtt) attachments.push(offerAtt);
+        if (mlsAtt)   attachments.push(mlsAtt);
+      }
+
+      const tmpl = role === 'mortgage_broker'
+        ? Notify.templates.offer_accepted_broker(name, clientForT, dealForT, agent, portalUrl)
+        : role === 'inspector'
+        ? Notify.templates.offer_accepted_inspector(name, clientForT, dealForT, agent, portalUrl)
+        : Notify.templates.offer_accepted_lawyer(name, clientForT, dealForT, agent, portalUrl);
+
+      const ccClient = document.getElementById(`ad-${role}-cc`)?.checked;
+      const ccEmail = (ccClient && (client?.email || offer.client_email)) ? (client?.email || offer.client_email) : null;
+
+      await Notify.queue(
+        `Offer accepted → ${role.replace('_',' ')} 📨`,
+        client?.id, name, email,
+        tmpl.subject, tmpl.body, pipelineId,
+        null, null, ccEmail, attachments
+      );
+      queuedDispatch++;
+    }
+
+    Pipeline._pendingOffer = null;
+    Pipeline._pendingClient = null;
     App.closeModal();
-    App.toast('🎉 Pipeline created + Commission row added (status: Pending)');
+    const msgPart = queuedDispatch > 0 ? ` + ${queuedDispatch} stakeholder email${queuedDispatch === 1 ? '' : 's'} queued in Approvals` : '';
+    App.toast(`🎉 Pipeline created${msgPart}`);
     Pipeline.load(); Commission.load && Commission.load(); App.loadOverview();
   },
 
@@ -979,7 +1214,6 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
           ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>` : ''}
           ${!isClosed && !isFell ? `
-            <button class="btn btn-sm" style="background:var(--accent);color:#fff;font-weight:700;" onclick="Pipeline.markAcceptedFlow('${d.id}')">✅ Offer Accepted</button>
             <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">🏁 Mark Closed</button>
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
             <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>
