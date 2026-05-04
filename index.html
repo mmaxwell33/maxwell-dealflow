@@ -362,6 +362,20 @@
         </div>
       </div>
 
+      <!-- New Offer Requests Alert (sits ABOVE the followup alert because it's higher-urgency) -->
+      <div id="newoffer-alert" class="card2" style="display:none;cursor:pointer;margin-top:16px;background:linear-gradient(135deg,rgba(204,120,92,0.14),rgba(204,120,92,0.06));border:1px solid var(--accent);" onclick="App.switchTab('offers');setTimeout(()=>{const t=document.querySelector('[data-offer-tab=&quot;requests&quot;]');if(t)t.click();},200)" title="Tap to review">
+        <div class="card2-header" style="margin-bottom:6px;">
+          <div>
+            <div class="card2-title" style="display:flex;align-items:center;gap:8px;color:var(--accent);">
+              <span>📬</span> New Offer Requests
+              <span class="pill2 pill2-amber" id="newoffer-count-badge">0</span>
+            </div>
+            <div class="card2-sub" id="newoffer-summary">Clients submitted offers waiting for you to formalize</div>
+          </div>
+          <span class="pill2" style="background:var(--accent);color:#fff;">Tap to review →</span>
+        </div>
+      </div>
+
       <!-- Needs Follow-Up Alert v2 -->
       <div id="followup-alert" class="card2 followup-alert" style="display:none;cursor:pointer;margin-top:16px;" onclick="App.switchTab('clients')" title="Tap to view clients">
         <div class="card2-header" style="margin-bottom:10px;">

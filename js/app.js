@@ -694,7 +694,8 @@ const App = {
       { count: newCount },
       { data: allClients },
       { data: recent },
-      { data: deals }
+      { data: deals },
+      { data: pendingOffers }
     ] = await Promise.all([
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
@@ -704,7 +705,8 @@ const App = {
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
       db.from('clients').select('id,full_name,stage,updated_at').eq('agent_id',agentId).neq('status','Archived'),
       db.from('activity_log').select('*').eq('agent_id',agentId).order('created_at',{ascending:false}).limit(6),
-      db.from('pipeline').select('*').eq('agent_id',agentId).not('stage','in','("Closed","Fell Through")').limit(3)
+      db.from('pipeline').select('*').eq('agent_id',agentId).not('stage','in','("Closed","Fell Through")').limit(3),
+      db.from('pending_offers').select('id, client_name, property_address, offer_amount, created_at').eq('agent_id',agentId).eq('status','Pending').order('created_at',{ascending:false})
     ]);
 
     // Hero greeting (Phase 2.B.2)
@@ -736,6 +738,29 @@ const App = {
     document.getElementById('stat-viewings').textContent = viewingsCount || 0;
     document.getElementById('stat-pipeline').textContent = pipelineCount || 0;
     document.getElementById('stat-closed').textContent = closedCount || 0;
+
+    // ── New Offer Requests banner — surfaces pending_offers on Overview ──
+    // Highest urgency (clients waiting for you to formalize their offer).
+    try {
+      const newOfferAlert = document.getElementById('newoffer-alert');
+      const newOfferBadge = document.getElementById('newoffer-count-badge');
+      const newOfferSummary = document.getElementById('newoffer-summary');
+      const offers = pendingOffers || [];
+      if (newOfferAlert) {
+        if (offers.length > 0) {
+          newOfferAlert.style.display = 'block';
+          if (newOfferBadge) newOfferBadge.textContent = offers.length;
+          if (newOfferSummary) {
+            const first = offers[0];
+            newOfferSummary.textContent = offers.length === 1
+              ? `${first.client_name || 'A client'} submitted an offer on ${first.property_address || 'a property'} — needs your review`
+              : `${offers.length} clients have submitted offers — newest from ${offers[0].client_name || 'a client'}`;
+          }
+        } else {
+          newOfferAlert.style.display = 'none';
+        }
+      }
+    } catch(e) { /* banner is non-critical */ }
 
     // Needs follow-up: clients not updated in 7+ days
     const followups = (allClients || []).filter(c => {
