@@ -104,7 +104,7 @@ const Approvals = {
     if (!_isResend && !item.batch_id) try {
       const oneDayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
       const { data: dupes } = await db.from('approval_queue')
-        .select('id')
+        .select('id, client_name, updated_at')
         .eq('agent_id', item.agent_id)
         .eq('client_email', item.client_email || '')
         .eq('email_subject', item.email_subject || '')
@@ -113,9 +113,24 @@ const Approvals = {
         .neq('id', id)
         .limit(1);
       if (dupes?.length) {
-        App.toast('🛡️ Duplicate blocked — this exact email was already sent to this recipient within 24h', 'var(--yellow)');
-        Approvals._sending.delete(id);
-        return;
+        // Confirm-dialog escape hatch — silently blocking made testing painful
+        // when re-creating a deleted client with the same email. Now Maxwell
+        // can override the dedup explicitly.
+        const prevWhen = dupes[0].updated_at ? new Date(dupes[0].updated_at).toLocaleString() : 'recently';
+        const prevWho  = dupes[0].client_name || 'this recipient';
+        const proceed = confirm(
+          `⚠️ Duplicate detected\n\n` +
+          `An identical email was already sent to ${item.client_email}\n` +
+          `(to ${prevWho}) at ${prevWhen}.\n\n` +
+          `Send it again anyway?\n\n` +
+          `OK = send · Cancel = block`
+        );
+        if (!proceed) {
+          App.toast('🛡️ Duplicate skipped', 'var(--yellow)');
+          Approvals._sending.delete(id);
+          return;
+        }
+        App.toast('📨 Sending duplicate per your override…', 'var(--accent2)');
       }
     } catch { /* non-blocking — continue if check fails */ }
 
