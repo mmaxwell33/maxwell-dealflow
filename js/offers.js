@@ -746,16 +746,27 @@ const Pipeline = {
     const uploadDoc = async (file, docType) => {
       if (!file || !pipelineId) return null;
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-      const path = `${currentAgent.id}/${pipelineId}/${Date.now()}-${safe}`;
+      // Use auth.uid() for the folder so storage RLS (which checks foldername[1] = auth.uid()) passes
+      const { data: { user } } = await db.auth.getUser();
+      const folderId = user?.id || currentAgent.id;
+      const path = `${folderId}/${pipelineId}/${Date.now()}-${safe}`;
       const { error: upErr } = await db.storage.from('deal-docs').upload(path, file);
-      if (upErr) return null;
+      if (upErr) {
+        console.error(`[Doc upload] ${docType} failed:`, upErr);
+        App.toast(`❌ Upload ${docType}: ${upErr.message || upErr.error || 'denied'}`, 'var(--red)');
+        return null;
+      }
       const visible = (Pipeline.DOC_VISIBILITY && Pipeline.DOC_VISIBILITY[docType])
         || ['client','mortgage_broker','lawyer','builder'];
-      await db.from('deal_documents').insert({
+      const { error: insErr } = await db.from('deal_documents').insert({
         pipeline_id: pipelineId, agent_id: currentAgent.id, doc_type: docType,
         file_path: path, file_name: file.name, file_size_bytes: file.size,
         visible_to_roles: visible
       });
+      if (insErr) {
+        console.error(`[deal_documents insert] ${docType} failed:`, insErr);
+        App.toast(`❌ Doc metadata ${docType}: ${insErr.message}`, 'var(--red)');
+      }
       return { name: file.name, path, file };
     };
     await uploadDoc(offerFile, 'accepted_offer');
@@ -828,13 +839,23 @@ const Pipeline = {
       const wantPortal = document.getElementById(`ad-${role}-portal`)?.checked;
       let portalUrl = null;
       if (wantPortal && pipelineId && client?.id) {
-        const { data } = await db.rpc('stakeholder_create', {
+        const { data, error: rpcErr } = await db.rpc('stakeholder_create', {
           p_pipeline_id: pipelineId, p_client_id: client.id,
           p_agent_id: currentAgent.id, p_role: role,
           p_name: name, p_email: email, p_phone: phone,
           p_notes: 'Auto-invited via Offer Accepted modal'
         });
+        if (rpcErr) {
+          console.error(`[stakeholder_create] ${role} failed:`, rpcErr);
+          App.toast(`❌ Portal ${role}: ${rpcErr.message}`, 'var(--red)');
+        }
         if (data?.ok) portalUrl = data.portal_url;
+        else if (data && !data.ok) {
+          console.error(`[stakeholder_create] ${role} returned not-ok:`, data);
+          App.toast(`⚠️ Portal ${role}: ${data.error || 'rpc returned not-ok'}`, 'var(--red)');
+        }
+      } else if (wantPortal && !pipelineId) {
+        App.toast(`⚠️ Portal ${role} skipped — no pipeline id (deal didn't insert)`, 'var(--yellow)');
       }
 
       // Per-role attachment policy
@@ -899,10 +920,16 @@ const Pipeline = {
     const { data: pipelineRow, error } = await db.from('pipeline').insert(_pInsert).select('id').single();
     pipelineId = pipelineRow?.id || null;
     if (error) {
+      console.error('[Pipeline insert] primary failed:', error);
+      App.toast(`⚠️ Pipeline insert: ${error.code || ''} ${error.message}`, 'var(--red)');
       // Fallback for older RLS configs: retry without commission_rate column if it doesn't exist
       const fallback = { ..._pInsert };
       delete fallback.commission_rate;
-      await db.from('pipeline').insert(fallback);
+      const { error: fbErr } = await db.from('pipeline').insert(fallback);
+      if (fbErr) {
+        console.error('[Pipeline insert] fallback also failed:', fbErr);
+        App.toast(`❌ Pipeline insert (fallback): ${fbErr.message}`, 'var(--red)');
+      }
       const { data: latest } = await db.from('pipeline')
         .select('id').eq('agent_id', currentAgent.id)
         .eq('property_address', offer.property_address)

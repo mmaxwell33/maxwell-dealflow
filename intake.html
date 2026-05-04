@@ -330,8 +330,14 @@
   <div style="background:rgba(204,120,92,.07);border:1px solid rgba(204,120,92,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
     <div style="font-size:11px;font-weight:700;color:#D98B6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🔒 Privacy &amp; Consent</div>
     <div style="font-size:12px;color:#94a3b8;line-height:1.65;">
-      By submitting this form you consent to Maxwell Delali Midodzi, REALTOR® (eXp Realty) collecting and using your information to provide real estate services, including sending you property listings and service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#D98B6F;">Maxwell.Midodzi@exprealty.com</a>.
+      Maxwell Delali Midodzi, REALTOR® (eXp Realty) will collect and use your information to provide real estate services, including sending you property listings and service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#D98B6F;">Maxwell.Midodzi@exprealty.com</a>.
     </div>
+    <label for="f-consent" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:10px 12px;background:rgba(204,120,92,.10);border-radius:8px;cursor:pointer;">
+      <input type="checkbox" id="f-consent" style="margin-top:3px;width:18px;height:18px;accent-color:#D98B6F;flex-shrink:0;">
+      <span style="font-size:13px;color:#e2e8f0;line-height:1.5;">
+        I consent to Maxwell Delali Midodzi (eXp Realty) collecting and using my personal information for the purposes described above. <span style="color:#D98B6F;">(required)</span>
+      </span>
+    </label>
   </div>
 
   <button class="btn-submit" onclick="submitIntake()" id="submit-btn">
@@ -494,6 +500,16 @@ async function submitIntake() {
   if (!firstName || !lastName || !email) {
     st.style.color = '#f87171';
     st.textContent = '⚠️ Please go back and fill in your name and email.';
+    return;
+  }
+
+  // ── EXPLICIT CONSENT GUARD ─────────────────────────────────────────────────
+  // Client must affirmatively check the consent box (PIPEDA / express consent).
+  const consentEl = document.getElementById('f-consent');
+  if (consentEl && !consentEl.checked) {
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Please check the consent box before submitting.';
+    consentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
