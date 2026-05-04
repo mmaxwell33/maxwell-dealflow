@@ -670,6 +670,7 @@ const App = {
     if (tab === 'settings') Settings.load();
     if (tab === 'calendar') Calendar.load();
     if (tab === 'broadcast') Broadcast.load();
+    if (tab === 'reviews') Reviews.load();
     if (tab === 'pipeline-archive') Pipeline.loadArchive();
   },
 
@@ -775,22 +776,42 @@ const App = {
         </div>`).join('');
     }
 
-    // Pipeline snapshot
+    // Pipeline snapshot — uses the SAME milestone calculation as the Pipeline
+    // tab (Pipeline.milestonesDone) so the percentage matches everywhere.
     const snapEl = document.getElementById('pipeline-snapshot');
     if (!deals?.length) {
       snapEl.innerHTML = '<div class="card text-muted" style="font-size:13px;text-align:center;padding:20px;">No active deals in pipeline.</div>';
     } else {
-      const stages = ['Accepted','Conditions','Closing','Closed'];
       snapEl.innerHTML = deals.map(d => {
-        const si = stages.indexOf(d.stage);
+        // Use the canonical Pipeline milestone calculation if it's available,
+        // so Overview's progress bar can never disagree with the Pipeline tab.
+        let pct = 0, doneInt = 0, total = 5;
+        if (typeof Pipeline !== 'undefined' && Pipeline.milestonesDone) {
+          const m = Pipeline.milestonesDone(d);
+          pct = Math.round((m.done / m.total) * 100);
+          doneInt = m.doneInt;
+          total = m.total;
+        }
+        const isClosed = d.stage === 'Closed';
+        const isFell   = d.stage === 'Fell Through';
+        const finPast  = d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString());
+        const badgeLabel = isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : finPast ? 'UNDER CONTRACT' : 'IN PROGRESS';
+        const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
+        const fillPct  = isClosed ? 100 : isFell ? 0 : pct;
         return `<div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div class="fw-700">${d.client_name || 'Unknown'}</div>
-            <span class="stage-badge ${d.stage === 'Closed' ? 'badge-default' : d.stage === 'Fell Through' ? 'badge-default' : 'badge-accepted'}">${d.stage === 'Closed' ? 'CLOSED' : d.stage === 'Fell Through' ? 'FELL THROUGH' : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString())) ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
+            <span class="stage-badge ${isClosed ? 'badge-default' : isFell ? 'badge-default' : 'badge-accepted'}">${badgeLabel}</span>
           </div>
-          <div class="text-muted" style="font-size:12px;margin-bottom:10px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
-          <div class="pipeline-bar">${stages.map((s,i)=>`<div class="pipeline-step ${i===si?'active':i<si?'done':''}"></div>`).join('')}</div>
-          <div style="font-size:11px;color:var(--text2);text-align:right;">${d.closing_date ? '🗓 Closes '+App.fmtDate(d.closing_date) : ''}</div>
+          <div class="text-muted" style="font-size:12px;margin-bottom:8px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
+          <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
+            <div style="height:100%;width:${fillPct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);">
+            <span>${doneInt} of ${total} milestones passed</span>
+            <span>${fillPct}%</span>
+          </div>
+          ${d.closing_date ? `<div style="font-size:11px;color:var(--text2);text-align:right;margin-top:4px;">🗓 Closes ${App.fmtDate(d.closing_date)}</div>` : ''}
         </div>`;
       }).join('');
     }

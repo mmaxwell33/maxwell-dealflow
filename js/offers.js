@@ -3247,12 +3247,15 @@ const PendingRequests = {
     await db.from('pending_offers').update({ status: 'Processing', updated_at: new Date().toISOString() }).eq('id', id);
     Offers._showForm(r.client_id, r.client_name);
     setTimeout(() => {
-      const addr = document.getElementById('of-address');
-      const amt  = document.getElementById('of-amount');
-      const lp   = document.getElementById('of-listprice');
-      if (addr) addr.value = r.property_address || '';
-      if (amt)  amt.value  = r.offer_amount || '';
-      if (lp)   lp.value   = r.list_price || '';
+      // Pre-fill EVERYTHING the client already submitted so Maxwell isn't
+      // retyping the listing's MLS or the conditions the client stated.
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      setVal('of-address',     r.property_address);
+      setVal('of-amount',      r.offer_amount);
+      setVal('of-listprice',   r.list_price);
+      setVal('of-mls',         r.mls_number);
+      setVal('of-conditions',  r.conditions || r.client_notes);
+      setVal('of-notes',       r.agent_notes);
     }, 150);
     PendingRequests.load();
   },

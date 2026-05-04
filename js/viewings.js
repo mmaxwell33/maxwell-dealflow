@@ -378,18 +378,24 @@ const Viewings = {
     const firstName = clientObj.full_name?.split(' ')[0] || 'your client';
 
     if (typeof Notify !== "undefined") {
-      // Queue follow-up email and immediately auto-approve it — no manual Approvals stop
-      await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
-      // Find the queued row and approve it right away
+      // For 'interested' feedback we send ONLY the richer 'Ready to Make an Offer?' email
+      // (it already opens with "Based on your strong interest…"). Sending the
+      // separate viewing-followup on top would be a duplicate to the same client.
+      const skipFollowupEmail = (feedback === 'interested');
       const { data: { user } } = await db.auth.getUser();
       const agentId = user?.id || currentAgent?.id;
-      if (agentId) {
-        const { data: queued } = await db.from('approval_queue')
-          .select('id').eq('agent_id', agentId).eq('status', 'Pending')
-          .eq('approval_type', 'Post-Viewing Follow-Up').eq('related_id', id)
-          .order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (queued?.id && typeof Approvals !== 'undefined') {
-          setTimeout(() => Approvals.approve(queued.id), 500);
+
+      if (!skipFollowupEmail) {
+        // Non-interested feedback (good / not interested) — send the standard followup
+        await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
+        if (agentId) {
+          const { data: queued } = await db.from('approval_queue')
+            .select('id').eq('agent_id', agentId).eq('status', 'Pending')
+            .eq('approval_type', 'Post-Viewing Follow-Up').eq('related_id', id)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (queued?.id && typeof Approvals !== 'undefined') {
+            setTimeout(() => Approvals.approve(queued.id), 500);
+          }
         }
       }
 
