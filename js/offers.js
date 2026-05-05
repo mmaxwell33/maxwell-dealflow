@@ -942,15 +942,19 @@ const Pipeline = {
     // pipeline_id is a separate REQUIRED uuid column (in addition to the auto-PK `id`).
     // commission_rate lives on the `commissions` table, NOT here — including it
     // produces PGRST204 ("column not found in schema cache").
+    // Sanitize inputs: client_id can be invalid (orphan UUID) → set to null to avoid FK violation.
+    // Force offer_amount to numeric (forms can pass strings with $ signs / commas).
+    const safeClientId = (offer.client_id && typeof offer.client_id === 'string' && offer.client_id.length > 30) ? offer.client_id : null;
+    const safeOfferAmt = parseFloat(String(offer.offer_amount || '').replace(/[^0-9.-]/g, '')) || 0;
     const _pInsert = {
       pipeline_id: crypto.randomUUID(),
       agent_id: currentAgent.id,
-      client_id: offer.client_id,
-      client_name: client?.full_name || offer.client_name,
-      client_email: client?.email || '',
-      property_address: offer.property_address,
+      client_id: safeClientId,
+      client_name: client?.full_name || offer.client_name || 'Unknown',
+      client_email: client?.email || offer.client_email || '',
+      property_address: offer.property_address || 'Unspecified',
       mls_number: offer.mls_number || null,
-      offer_amount: offer.offer_amount,
+      offer_amount: safeOfferAmt,
       acceptance_date: acceptDate,
       inspection_date: dates.ins || null,
       financing_date:  dates.fin || null,
@@ -964,13 +968,18 @@ const Pipeline = {
     pipelineId = pipelineRow?.id || null;
     if (error) {
       console.error('[Pipeline insert] failed:', error);
+      console.error('[Pipeline insert] payload was:', JSON.stringify(_pInsert, null, 2));
+      // BLOCKING alert so the error cannot be missed regardless of toast layering or modal state
+      alert(`❌ Pipeline insert FAILED\n\nCode: ${error.code || 'n/a'}\nMessage: ${error.message}\nDetails: ${error.details || 'none'}\nHint: ${error.hint || 'none'}\n\nThe payload has been logged to console. Screenshot this and send it.`);
       App.toast(`❌ Pipeline insert: ${error.code || ''} ${error.message}`, 'var(--red)');
       // Last-resort fallback: try without optional columns (older schemas)
       const fallback = { ..._pInsert };
       delete fallback.mls_number;
-      const { error: fbErr } = await db.from('pipeline').insert(fallback);
+      delete fallback.client_id;   // also drop client_id in case FK is the issue
+      const { error: fbErr } = await db.from('pipeline').insert(fallback).select('id').single().then(r => ({ error: r.error })).catch(e => ({ error: e }));
       if (fbErr) {
         console.error('[Pipeline insert] fallback also failed:', fbErr);
+        alert(`❌ Pipeline FALLBACK insert ALSO FAILED\n\nCode: ${fbErr.code || 'n/a'}\nMessage: ${fbErr.message}\n\nScreenshot and send.`);
         App.toast(`❌ Pipeline insert (fallback): ${fbErr.message}`, 'var(--red)');
       }
       const { data: latest } = await db.from('pipeline')
@@ -1117,6 +1126,76 @@ const Pipeline = {
     }));
 
     await db.from('deal_checklist').insert(rows);
+  },
+
+  // Renders a segmented stage progress bar (additive — sits below the existing bar).
+  // Each segment fills based on time elapsed within that stage.  Same logic as the
+  // client portal so the agent and the buyer see identical visualizations.
+  _segmentedBarHtml(d) {
+    const today = new Date();
+    const stages = [
+      { label: 'Accepted',    date: d.acceptance_date,  skipped: false },
+      { label: 'Financing',   date: d.financing_date,   skipped: false },
+      { label: 'Inspection',  date: d.inspection_date,  skipped: !!d.inspection_skipped },
+      { label: 'Walkthrough', date: d.walkthrough_date, skipped: !!d.walkthrough_skipped },
+      { label: 'Closing',     date: d.closing_date,     skipped: false }
+    ];
+    let prevDate = null;
+    let currentMarked = false;
+    const segments = stages.map((s) => {
+      const sd = s.date ? new Date(s.date + 'T00:00:00') : null;
+      if (s.skipped) return Object.assign({}, s, { fill: 100, status: 'skipped' });
+      if (!sd)       return Object.assign({}, s, { fill: 0,   status: 'pending' });
+      if (sd <= today) { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'done' }); }
+      if (!currentMarked) {
+        currentMarked = true;
+        const start = prevDate || sd;
+        const totalMs = sd - start;
+        const elapsedMs = today - start;
+        const fill = totalMs > 0 ? Math.max(0, Math.min(100, Math.round((elapsedMs / totalMs) * 100))) : 0;
+        return Object.assign({}, s, { fill, status: 'current' });
+      }
+      return Object.assign({}, s, { fill: 0, status: 'pending' });
+    });
+    // Single continuous bar — all segments combined add to 100%.
+    // Each stage owns 1/N of the bar width. Total = sum of (stageShare * fill/100).
+    const N = segments.length;
+    const stageShare = 100 / N;
+    let overallFill = 0;
+    segments.forEach(s => { overallFill += stageShare * (s.fill / 100); });
+    overallFill = Math.round(overallFill);
+
+    let sections = '';
+    let labels = '';
+    segments.forEach((s, i) => {
+      const segColor = s.status === 'skipped' ? 'rgba(124,124,255,0.35)'
+                     : s.status === 'done'    ? 'var(--accent)'
+                     : s.status === 'current' ? 'var(--accent2)'
+                     :                          'transparent';
+      sections += `<div style="flex:1;height:100%;position:relative;${i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : ''}">
+                     <div style="width:${s.fill}%;height:100%;background:${segColor};transition:width 0.4s;"></div>
+                   </div>`;
+      const labelColor = s.status === 'done'    ? 'var(--text1)'
+                       : s.status === 'current' ? 'var(--accent2)'
+                       : s.status === 'skipped' ? 'var(--text3)'
+                       :                          'var(--text3)';
+      const fontWeight = s.status === 'current' ? '700' : '500';
+      const indicator  = s.status === 'done'    ? ' ✓'
+                       : s.status === 'skipped' ? ' —'
+                       : s.status === 'current' ? ' ' + s.fill + '%'
+                       :                          '';
+      labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
+                   ${s.label}<br><span style="opacity:0.75;">${indicator}</span>
+                 </div>`;
+    });
+    return `<div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                <div style="font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Stage progress</div>
+                <div style="font-size:10px;color:var(--accent2);font-weight:700;">${overallFill}%</div>
+              </div>
+              <div style="display:flex;height:10px;background:var(--border);border-radius:5px;overflow:hidden;">${sections}</div>
+              <div style="display:flex;margin-top:4px;">${labels}</div>
+            </div>`;
   },
 
   // Returns true if a date string is in the past (milestone completed)
@@ -1276,6 +1355,7 @@ const Pipeline = {
           <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${doneInt} of ${total} milestones passed ⓘ</span>
           <span id="pl-pct-lbl-${d.id}">${pct}%</span>
         </div>
+        ${Pipeline._segmentedBarHtml ? Pipeline._segmentedBarHtml(d) : ''}
         ${dealTickerHtml}
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>

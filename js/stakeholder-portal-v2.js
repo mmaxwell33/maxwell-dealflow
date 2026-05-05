@@ -259,6 +259,90 @@
     html += '<div class="card"><h3>Overall progress</h3>';
     html += '<div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%"></div></div>';
     html += '<div class="progress-meta"><span>'+done+' of '+total+' milestones complete</span><span>'+pct+'%</span></div></div>';
+
+    // ============ SEGMENTED STAGE BAR (additive — does not replace anything above) ============
+    // Each segment fills based on:
+    //   • milestone date in the past → 100% (filled, accent color)
+    //   • milestone marked skipped → 100% (tinted purple)
+    //   • current segment (between previous and next milestone) → fills proportionally to days elapsed
+    //   • future → 0% (empty)
+    // Labels sit underneath each segment so the stakeholder/client can see exactly where the deal is.
+    try {
+      const today = new Date();
+      const stages = [
+        { label: 'Accepted',    date: d.acceptance_date,      skipped: false },
+        { label: 'Financing',   date: d.financing_deadline,   skipped: false },
+        { label: 'Inspection',  date: d.inspection_deadline,  skipped: !!d.inspection_skipped },
+        { label: 'Walkthrough', date: d.walkthrough_date,     skipped: !!d.walkthrough_skipped },
+        { label: 'Closing',     date: d.closing_date,         skipped: false }
+      ];
+      let prevDate = null;
+      let currentMarked = false;
+      const segments = stages.map(function(s){
+        const sd = s.date ? new Date(s.date + 'T00:00:00') : null;
+        if (s.skipped)            return Object.assign({}, s, { fill: 100, status: 'skipped' });
+        if (!sd)                  return Object.assign({}, s, { fill: 0,   status: 'pending' });
+        if (sd <= today)          { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'done' }); }
+        if (!currentMarked) {
+          currentMarked = true;
+          const start = prevDate || sd;
+          const totalMs = sd - start;
+          const elapsedMs = today - start;
+          const fill = totalMs > 0 ? Math.max(0, Math.min(100, Math.round((elapsedMs / totalMs) * 100))) : 0;
+          return Object.assign({}, s, { fill: fill, status: 'current' });
+        }
+        return Object.assign({}, s, { fill: 0, status: 'pending' });
+      });
+
+      // ONE continuous bar — all segments combined add to 100%.
+      // Each stage owns 1/N of the bar width (20% for 5 stages).
+      // Total fill = sum of (stage_share × stage.fill).
+      const N = segments.length;
+      const stageShare = 100 / N;
+      let overallFill = 0;
+      segments.forEach(function(s){ overallFill += stageShare * (s.fill / 100); });
+      overallFill = Math.round(overallFill);
+
+      html += '<div style="margin-top:18px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">';
+      html += '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Stage progress</div>';
+      html += '<div style="font-size:11px;color:var(--accent2);font-weight:700;">'+overallFill+'%</div>';
+      html += '</div>';
+
+      // The bar is one strip; each stage is a vertical "section" inside it
+      html += '<div style="position:relative;height:14px;background:var(--card2);border-radius:7px;overflow:hidden;display:flex;">';
+      segments.forEach(function(s, i){
+        const segColor = s.status === 'skipped' ? 'rgba(124,124,255,0.35)'
+                       : s.status === 'done'    ? 'var(--accent)'
+                       : s.status === 'current' ? 'var(--accent2)'
+                       :                          'transparent';
+        // each section is 1/N of total width; fill within it is s.fill (0-100)
+        html += '<div style="flex:1;height:100%;position:relative;'+(i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : '')+'">'
+             +    '<div style="width:'+s.fill+'%;height:100%;background:'+segColor+';transition:width 0.4s;"></div>'
+             +  '</div>';
+      });
+      html += '</div>';
+
+      // Labels under each section, equal-width spacing
+      html += '<div style="display:flex;margin-top:6px;">';
+      segments.forEach(function(s){
+        const labelColor  = s.status === 'done'    ? 'var(--text1)'
+                          : s.status === 'current' ? 'var(--accent2)'
+                          : s.status === 'skipped' ? 'var(--text3)'
+                          :                          'var(--text3)';
+        const fontWeight  = s.status === 'current' ? '700' : '500';
+        const indicator   = s.status === 'done'    ? ' ✓'
+                          : s.status === 'skipped' ? ' —'
+                          : s.status === 'current' ? ' '+s.fill+'%'
+                          :                          '';
+        html += '<div style="flex:1;text-align:center;font-size:10.5px;color:'+labelColor+';font-weight:'+fontWeight+';line-height:1.3;">'
+             +    s.label + '<br><span style="opacity:0.75;">' + indicator + '</span>'
+             +  '</div>';
+      });
+      html += '</div>';
+      html += '</div>';
+    } catch(e) { /* segmented bar is additive — never block the rest of the render */ }
+
     html += row('Financing deadline',  fmtDate(d.financing_deadline));
     html += row('Inspection deadline', fmtDate(d.inspection_deadline));
     html += row('Walkthrough',         fmtDate(d.walkthrough_date));

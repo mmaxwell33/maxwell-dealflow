@@ -943,6 +943,86 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // ── BRIEF RE-ENGAGEMENT TEMPLATES ─────────────────────────────────────────
+    // Short, friendly nudges sent automatically when a client has no activity
+    // in the last N days.  All four end with a soft CTA + the eXp signature.
+    reengagement_brief: (client, agent) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      return {
+        subject: `Quick check-in — anything I can help with?`,
+        body: `Hi ${first},
+
+It's been a little quiet on my end and I just wanted to check in. Are you still actively looking, or has anything changed on your timeline?
+
+Either way — even a one-line reply helps me know how to support you best from here.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+      };
+    },
+
+    reengagement_buyer_match: (client, agent) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      const areas = client.preferred_areas || 'your preferred areas';
+      return {
+        subject: `Still looking in ${areas}? — a few new ones worth a peek`,
+        body: `Hi ${first},
+
+A few homes have hit the market in ${areas} that line up with the budget and bedroom count we talked about. Want me to send the shortlist?
+
+If your search has paused or shifted, just say the word — no pressure, just keeping you in the loop.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+      };
+    },
+
+    reengagement_pre_approval: (client, agent) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      return {
+        subject: `Quick nudge on the pre-approval`,
+        body: `Hi ${first},
+
+Just circling back — you mentioned your pre-approval was in progress. Has the mortgage broker confirmed your number yet? Once we have that locked in, we can move quickly when the right place comes up.
+
+Happy to recommend a broker if you're still shopping around.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+      };
+    },
+
+    reengagement_seller: (client, agent) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      return {
+        subject: `Where are we at on the sale?`,
+        body: `Hi ${first},
+
+Wanted to check in on your selling plans. The market has shifted a bit — happy to do a fresh comparable-sales pull so you know what your home would list for today.
+
+Even if you're just curious, no obligation. Reply or give me a quick call when you have a minute.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+      };
+    },
+
     new_listing_match: (client, listing, agent) => ({
       subject: `New Listing That Matches Your Criteria - ${listing.address || 'Check This Out!'}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
@@ -1271,6 +1351,82 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, deal.id
     );
+  },
+
+  // ── INACTIVE CLIENT RE-ENGAGEMENT ─────────────────────────────────────────
+  // Scans for clients with no activity in the last N days and queues a
+  // stage-appropriate re-engagement email through the approval queue.
+  // Maxwell can approve, edit, or skip in the Approvals tab.
+  // Idempotent via activity_log key — won't re-queue the same client within 14 days.
+  async checkInactiveClients(daysThreshold = 7) {
+    if (!currentAgent?.id) return { queued: 0, skipped: 0 };
+    const agent = currentAgent;
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - daysThreshold * 86400000).toISOString();
+    const recencyWindow = new Date(now.getTime() - 14 * 86400000).toISOString();
+
+    try {
+      // 1. Find active clients with no recent updated_at
+      const { data: stale, error } = await db.from('clients')
+        .select('id, full_name, email, phone, stage, status, current_status, preapproval, preferred_areas, updated_at')
+        .eq('agent_id', agent.id)
+        .neq('status', 'Archived')
+        .lt('updated_at', cutoff)
+        .not('email', 'is', null)
+        .limit(20);
+      if (error) { console.error('[checkInactiveClients] query failed:', error); return { queued: 0, skipped: 0 }; }
+      if (!stale?.length) return { queued: 0, skipped: 0 };
+
+      // 2. Skip clients we've already nudged in the last 14 days
+      const { data: recentLogs } = await db.from('activity_log')
+        .select('client_email')
+        .eq('agent_id', agent.id)
+        .eq('activity_type', 'REENGAGEMENT_QUEUED')
+        .gte('created_at', recencyWindow);
+      const recentEmails = new Set((recentLogs || []).map(r => r.client_email));
+
+      let queued = 0, skipped = 0;
+      for (const c of stale) {
+        if (recentEmails.has(c.email)) { skipped++; continue; }
+
+        // 3. Pick a template based on client state — variety + relevance
+        let templateName, queueLabel;
+        const isSeller = (c.current_status || '').toLowerCase().includes('sell');
+        const preApproval = (c.preapproval || '').toLowerCase();
+        const isPreApprovalInProgress = preApproval.includes('progress') || preApproval.includes('pending');
+
+        if (isSeller) {
+          templateName = 'reengagement_seller';
+          queueLabel = 'Re-engagement (seller) 📨';
+        } else if (isPreApprovalInProgress) {
+          templateName = 'reengagement_pre_approval';
+          queueLabel = 'Re-engagement (pre-approval) 📨';
+        } else if (c.preferred_areas) {
+          templateName = 'reengagement_buyer_match';
+          queueLabel = 'Re-engagement (buyer match) 📨';
+        } else {
+          templateName = 'reengagement_brief';
+          queueLabel = 'Re-engagement (check-in) 📨';
+        }
+
+        const tmpl = Notify.templates[templateName](c, agent);
+        await Notify.queue(queueLabel, c.id, c.full_name, c.email, tmpl.subject, tmpl.body, null);
+
+        // Log so we don't re-queue this same client in the next 14 days
+        try {
+          await App.logActivity('REENGAGEMENT_QUEUED', c.full_name, c.email,
+            `Re-engagement email queued via ${templateName}`, c.id);
+        } catch(_) {}
+        queued++;
+      }
+      if (queued > 0) {
+        App.toast(`📨 ${queued} re-engagement email${queued === 1 ? '' : 's'} queued in Approvals${skipped > 0 ? ` · ${skipped} skipped (already nudged recently)` : ''}`, 'var(--accent2)');
+      }
+      return { queued, skipped };
+    } catch (e) {
+      console.error('[checkInactiveClients] error:', e);
+      return { queued: 0, skipped: 0 };
+    }
   },
 
   async onDealFellThrough(deal, client, reason) {

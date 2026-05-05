@@ -255,6 +255,10 @@ const App = {
     // Check for overdue seller response follow-ups on login + every 5 minutes
     setTimeout(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 6000);
     setInterval(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 5 * 60 * 1000);
+    // Scan for inactive clients (no activity in 7+ days) on login + every 6 hours.
+    // Queues a stage-appropriate re-engagement email through Approvals.
+    setTimeout(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 7000);
+    setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 6 * 60 * 60 * 1000);
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
