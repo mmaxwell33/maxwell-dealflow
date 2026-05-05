@@ -980,6 +980,15 @@ const Pipeline = {
       pipelineId = latest?.id || null;
     }
 
+    // Guard: if pipeline insert ultimately failed, do NOT proceed with commission /
+    // checklist / notify.  Otherwise we end up with orphan commission rows for deals
+    // that don't exist in the pipeline (the bug Maxwell spotted).
+    if (!pipelineId) {
+      console.error('[createFromOfferWithDates] pipeline insert failed — skipping commission + checklist + notify to avoid orphans');
+      App.toast('❌ Skipped commission + checklist (pipeline never inserted)', 'var(--red)');
+      return;
+    }
+
     // Build & insert the Commission row (status=Pending, will flip on close/fell-through)
     const sale = parseFloat(offer.offer_amount) || 0;
     const rate = parseFloat(dates.rate) || 2.5;
