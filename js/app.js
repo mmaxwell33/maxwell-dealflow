@@ -800,6 +800,69 @@ const App = {
       alertEl.style.display = 'none';
     }
 
+    // 🔔 Pending notifications surface on Overview — same items as the bell.
+    // Injected above "Recent activity" so Maxwell sees what needs his attention
+    // without having to open the bell panel.
+    try {
+      await App.loadNotifications();   // refresh bell badge + items
+      const actEl0 = document.getElementById('recent-activity');
+      if (actEl0) {
+        // Build a compact summary card from the same data sources as the bell
+        const todayDate    = now.toISOString().slice(0, 10);
+        const tomorrowDate = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+        const [
+          { count: todayVCount    = 0 } = {},
+          { count: tomorrowVCount = 0 } = {},
+          { count: pendingApprovals = 0 } = {},
+          { count: newIntakeCount = 0 } = {}
+        ] = await Promise.all([
+          db.from('viewings').select('*', { count: 'exact', head: true })
+            .eq('agent_id', agentId).eq('viewing_date', todayDate).neq('viewing_status', 'Completed'),
+          db.from('viewings').select('*', { count: 'exact', head: true })
+            .eq('agent_id', agentId).eq('viewing_date', tomorrowDate).neq('viewing_status', 'Completed'),
+          db.from('approval_queue').select('*', { count: 'exact', head: true })
+            .eq('agent_id', agentId).eq('status', 'Pending'),
+          db.from('client_intake').select('*', { count: 'exact', head: true })
+            .eq('status', 'New')
+        ]);
+
+        const tiles = [];
+        if (pendingApprovals > 0) tiles.push({ icon: '✅', label: `${pendingApprovals} approval${pendingApprovals === 1 ? '' : 's'} pending`, color: '#f59e0b', tab: 'approvals' });
+        if (todayVCount    > 0) tiles.push({ icon: '🏠', label: `${todayVCount} viewing${todayVCount === 1 ? '' : 's'} today`,           color: '#7c7cff', tab: 'viewings'  });
+        if (tomorrowVCount > 0) tiles.push({ icon: '📅', label: `${tomorrowVCount} viewing${tomorrowVCount === 1 ? '' : 's'} tomorrow`,   color: '#06b6d4', tab: 'viewings'  });
+        if (newIntakeCount > 0) tiles.push({ icon: '📋', label: `${newIntakeCount} new intake${newIntakeCount === 1 ? '' : 's'}`,         color: '#8b5cf6', tab: 'formresponses' });
+
+        // Find or create the notifications card
+        let notifCard = document.getElementById('overview-notifications-card');
+        if (tiles.length > 0) {
+          if (!notifCard) {
+            notifCard = document.createElement('div');
+            notifCard.id = 'overview-notifications-card';
+            notifCard.className = 'card';
+            notifCard.style.cssText = 'margin-bottom:14px;padding:14px;background:linear-gradient(135deg,rgba(91,91,214,0.08),rgba(124,124,255,0.05));border:1px solid var(--accent2);';
+            // Insert before recent-activity's parent block
+            actEl0.parentElement.insertBefore(notifCard, actEl0.parentElement.firstChild);
+          }
+          notifCard.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:0.06em;">🔔 Pending Now</div>
+              <button class="btn btn-sm" style="padding:3px 10px;font-size:10px;" onclick="App.toggleNotifPanel()">View all →</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">
+              ${tiles.map(t => `
+                <div onclick="App.switchTab('${t.tab}')" style="cursor:pointer;padding:10px;background:var(--card);border-radius:8px;border-left:3px solid ${t.color};display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:18px;">${t.icon}</div>
+                  <div style="font-size:12px;color:var(--text1);font-weight:600;">${t.label}</div>
+                </div>
+              `).join('')}
+            </div>`;
+        } else if (notifCard) {
+          // Nothing pending — remove the card so the Overview doesn't carry a stale empty box
+          notifCard.remove();
+        }
+      }
+    } catch (e) { /* notifications widget is non-critical */ }
+
     // Recent activity
     const actEl = document.getElementById('recent-activity');
     if (!recent?.length) {
