@@ -598,15 +598,18 @@ const Pipeline = {
             <input class="form-input" id="ad-${role}-phone" placeholder="Phone (optional)" value="${App.esc(c.phone||'')}" style="font-size:12px;padding:7px;">
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">
-            <label style="display:flex;align-items:center;gap:4px;">
-              <input type="checkbox" id="ad-${role}-on" checked> Send email
+            <label style="display:flex;align-items:center;gap:4px;" title="Email goes out with attachments + buyer contact">
+              <input type="checkbox" id="ad-${role}-on" checked> 📧 Send email
             </label>
-            <label style="display:flex;align-items:center;gap:4px;">
-              <input type="checkbox" id="ad-${role}-portal"> Also include portal link
+            <label style="display:flex;align-items:center;gap:4px;" title="Generate a private portal link for this stakeholder">
+              <input type="checkbox" id="ad-${role}-portal"> 🔗 Send portal link
             </label>
             <label style="display:flex;align-items:center;gap:4px;margin-left:auto;">
               <input type="checkbox" id="ad-${role}-cc"${role === 'lawyer' ? ' checked' : ''}> CC client
             </label>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">
+            Pick either, both, or neither. If portal is on without email, you'll get the link to share manually.
           </div>
           ${hint ? `<div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">${hint}</div>` : ''}
         </div>`;
@@ -815,16 +818,24 @@ const Pipeline = {
     const clientForT = client || { full_name: offer.client_name, email: offer.client_email };
     const agent = currentAgent;
 
-    // Per-stakeholder dispatch — read fields from the modal, save back to client_contacts
+    // Per-stakeholder dispatch — email and portal are NOW INDEPENDENT toggles.
+    // - email on  + portal off  → email goes out (no portal url)
+    // - email off + portal on   → portal token created, URL surfaced via toast for manual share
+    // - both on                 → email goes out WITH portal url embedded
+    // - both off                → skip this stakeholder entirely
     let queuedDispatch = 0;
+    let portalsOnly = 0;
+    const portalUrlsForCopy = [];   // collected so we can show them after the modal closes
     for (const role of ['mortgage_broker','inspector','lawyer']) {
-      const enabledEl = document.getElementById(`ad-${role}-on`);
-      if (enabledEl && !enabledEl.checked) continue;
+      const wantEmail  = !!document.getElementById(`ad-${role}-on`)?.checked;
+      const wantPortal = !!document.getElementById(`ad-${role}-portal`)?.checked;
+      if (!wantEmail && !wantPortal) continue;   // nothing to do for this role
+
       const name  = document.getElementById(`ad-${role}-name`)?.value.trim()  || '';
       const email = document.getElementById(`ad-${role}-email`)?.value.trim() || '';
       const phone = document.getElementById(`ad-${role}-phone`)?.value.trim() || null;
       const firm  = document.getElementById(`ad-${role}-firm`)?.value.trim()  || null;
-      if (!name || !email) continue;  // require name + email per Albert's spec
+      if (!name || !email) continue;  // require name + email regardless of channel
 
       // Save (or upsert) the contact for next time
       if (client?.id) {
@@ -835,8 +846,7 @@ const Pipeline = {
         }, { onConflict: 'client_id,role' });
       }
 
-      // Optional portal link
-      const wantPortal = document.getElementById(`ad-${role}-portal`)?.checked;
+      // Portal token creation (independent of whether email goes out)
       let portalUrl = null;
       if (wantPortal && pipelineId && client?.id) {
         const { data, error: rpcErr } = await db.rpc('stakeholder_create', {
@@ -848,9 +858,9 @@ const Pipeline = {
         if (rpcErr) {
           console.error(`[stakeholder_create] ${role} failed:`, rpcErr);
           App.toast(`❌ Portal ${role}: ${rpcErr.message}`, 'var(--red)');
-        }
-        if (data?.ok) portalUrl = data.portal_url;
-        else if (data && !data.ok) {
+        } else if (data?.ok) {
+          portalUrl = data.portal_url;
+        } else if (data && !data.ok) {
           console.error(`[stakeholder_create] ${role} returned not-ok:`, data);
           App.toast(`⚠️ Portal ${role}: ${data.error || 'rpc returned not-ok'}`, 'var(--red)');
         }
@@ -858,38 +868,69 @@ const Pipeline = {
         App.toast(`⚠️ Portal ${role} skipped — no pipeline id (deal didn't insert)`, 'var(--yellow)');
       }
 
-      // Per-role attachment policy
-      let attachments = [];
-      if (role === 'inspector') {
-        if (mlsAtt) attachments.push(mlsAtt);
-      } else {
-        if (offerAtt) attachments.push(offerAtt);
-        if (mlsAtt)   attachments.push(mlsAtt);
+      // Email dispatch
+      if (wantEmail) {
+        // Per-role attachment policy
+        let attachments = [];
+        if (role === 'inspector') {
+          if (mlsAtt) attachments.push(mlsAtt);
+        } else {
+          if (offerAtt) attachments.push(offerAtt);
+          if (mlsAtt)   attachments.push(mlsAtt);
+        }
+
+        const tmpl = role === 'mortgage_broker'
+          ? Notify.templates.offer_accepted_broker(name, clientForT, dealForT, agent, portalUrl)
+          : role === 'inspector'
+          ? Notify.templates.offer_accepted_inspector(name, clientForT, dealForT, agent, portalUrl)
+          : Notify.templates.offer_accepted_lawyer(name, clientForT, dealForT, agent, portalUrl);
+
+        const ccClient = document.getElementById(`ad-${role}-cc`)?.checked;
+        const ccEmail = (ccClient && (client?.email || offer.client_email)) ? (client?.email || offer.client_email) : null;
+
+        await Notify.queue(
+          `Offer accepted → ${role.replace('_',' ')} 📨`,
+          client?.id, name, email,
+          tmpl.subject, tmpl.body, pipelineId,
+          null, null, ccEmail, attachments
+        );
+        queuedDispatch++;
+      } else if (portalUrl) {
+        // Portal-only path — collect the URL so we can show it after closing the modal
+        portalsOnly++;
+        portalUrlsForCopy.push({ role, name, url: portalUrl });
       }
-
-      const tmpl = role === 'mortgage_broker'
-        ? Notify.templates.offer_accepted_broker(name, clientForT, dealForT, agent, portalUrl)
-        : role === 'inspector'
-        ? Notify.templates.offer_accepted_inspector(name, clientForT, dealForT, agent, portalUrl)
-        : Notify.templates.offer_accepted_lawyer(name, clientForT, dealForT, agent, portalUrl);
-
-      const ccClient = document.getElementById(`ad-${role}-cc`)?.checked;
-      const ccEmail = (ccClient && (client?.email || offer.client_email)) ? (client?.email || offer.client_email) : null;
-
-      await Notify.queue(
-        `Offer accepted → ${role.replace('_',' ')} 📨`,
-        client?.id, name, email,
-        tmpl.subject, tmpl.body, pipelineId,
-        null, null, ccEmail, attachments
-      );
-      queuedDispatch++;
     }
 
     Pipeline._pendingOffer = null;
     Pipeline._pendingClient = null;
     App.closeModal();
-    const msgPart = queuedDispatch > 0 ? ` + ${queuedDispatch} stakeholder email${queuedDispatch === 1 ? '' : 's'} queued in Approvals` : '';
+    const parts = [];
+    if (queuedDispatch > 0) parts.push(`${queuedDispatch} email${queuedDispatch === 1 ? '' : 's'} queued in Approvals`);
+    if (portalsOnly > 0)    parts.push(`${portalsOnly} portal-only link${portalsOnly === 1 ? '' : 's'} created`);
+    const msgPart = parts.length ? ` + ${parts.join(' + ')}` : '';
     App.toast(`🎉 Pipeline created${msgPart}`);
+
+    // Surface portal-only URLs so Maxwell can copy + send via SMS / WhatsApp
+    if (portalUrlsForCopy.length) {
+      const html = portalUrlsForCopy.map(p =>
+        `<div style="margin:8px 0;padding:10px;background:rgba(124,124,255,0.08);border:1px solid var(--accent2);border-radius:8px;">
+           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">${p.role.replace('_',' ')} · ${App.esc(p.name)}</div>
+           <div style="font-size:12px;color:var(--text1);word-break:break-all;font-family:monospace;">${App.esc(p.url)}</div>
+           <button class="btn btn-sm btn-primary" style="margin-top:6px;" onclick="navigator.clipboard.writeText('${p.url.replace(/'/g, "\\'")}'); App.toast('Copied to clipboard ✓', 'var(--green)');">📋 Copy link</button>
+         </div>`
+      ).join('');
+      setTimeout(() => {
+        App.openModal(`
+          <div class="modal-title">🔗 Portal links to share manually</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+            These stakeholders weren't emailed — copy the link and send via SMS, WhatsApp, or wherever works for them.
+          </div>
+          ${html}
+          <button class="btn btn-secondary" onclick="App.closeModal()" style="margin-top:14px;">Done</button>
+        `);
+      }, 600);
+    }
     Pipeline.load(); Commission.load && Commission.load(); App.loadOverview();
   },
 

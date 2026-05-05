@@ -619,11 +619,19 @@ ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_
 📅 Closing Date: ${fmtDate(deal.closing_date)}
 🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
 
+👤 BUYER CONTACT
+   Name: ${client.full_name || '—'}
+   Email: ${client.email || '—'}
+   Phone: ${client.phone || '—'}
+   Pre-approval: ${client.preapproval || 'unknown'}
+   Budget: ${client.budget_max ? '$' + Number(client.budget_max).toLocaleString() : '—'}
+   Timeline: ${client.timeline || '—'}
+
 📑 Attached:
 • Accepted Offer
 • MLS Listing
 
-${clientFirst}'s contact information if you need to reach them directly is on file. Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
+Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
 
 If it's easier to track on your end, I've set up a private portal for this deal where you can mark each step complete:
    👉 ${portalUrl}` : ''}
@@ -650,7 +658,11 @@ I have a buyer with an accepted offer on ${deal.property_address}. I'd like to b
 
 📍 Property: ${deal.property_address}
 📅 Proposed Inspection Date: ${fmtDate(deal.inspection_date)}
-👤 Buyer: ${client.full_name || '—'}
+
+👤 BUYER CONTACT
+   Name: ${client.full_name || '—'}
+   Email: ${client.email || '—'}
+   Phone: ${client.phone || '—'}
 
 📑 Attached:
 • MLS Listing
@@ -685,6 +697,11 @@ ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_
 💰 Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 📅 Closing Date: ${fmtDate(deal.closing_date)}
 🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+
+👤 BUYER CONTACT
+   Name: ${client.full_name || '—'}
+   Email: ${client.email || '—'}
+   Phone: ${client.phone || '—'}
 
 📑 Attached:
 • Accepted Offer

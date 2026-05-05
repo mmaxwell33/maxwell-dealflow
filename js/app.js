@@ -335,6 +335,20 @@ const App = {
       });
       const json = await res.json().catch(() => ({}));
       console.log('[Push] Edge fn →', res.status, JSON.stringify(json));
+
+      // Auto-prune expired subscriptions (status 410 = "subscription has unsubscribed or expired")
+      // This keeps the push_subscriptions table clean so future sends only target live devices.
+      if (Array.isArray(json.detail)) {
+        const expiredEndpoints = json.detail
+          .map((d, i) => (d?.status === 410 || d?.status === 404) ? subs[i]?.endpoint : null)
+          .filter(Boolean);
+        if (expiredEndpoints.length) {
+          console.log(`[Push] Pruning ${expiredEndpoints.length} expired subscription(s)`);
+          await db.from('push_subscriptions')
+            .delete()
+            .in('endpoint', expiredEndpoints);
+        }
+      }
     } catch (err) {
       console.warn('[Push] sendWebPush failed:', err.message);
     }
