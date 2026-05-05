@@ -533,6 +533,64 @@ const Pipeline = {
     return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
   },
 
+  // Segmented stage bar for NEW BUILD deals — 5 stages, fill within each = % of
+  // that stage's steps completed. Same visual language as existing-home segmented bar.
+  _segmentedBuildBarHtml(d, build) {
+    const pm = build?.pipeline_milestones || {};
+    const stageKeys = [
+      { key: 'pre_construction', label: 'Pre-construction' },
+      { key: 'financing',        label: 'Financing'        },
+      { key: 'construction',     label: 'Construction'     },
+      { key: 'conditions',       label: 'Conditions'       },
+      { key: 'possession',       label: 'Possession'       }
+    ];
+    const isFullyClosed = d.stage === 'Closed' || d.stage === 'Done';
+    let foundCurrent = false;
+    const segments = stageKeys.map(sk => {
+      if (isFullyClosed) return { label: sk.label, fill: 100, status: 'done' };
+      const stage = pm[sk.key] || {};
+      const steps = stage.steps || {};
+      const stepValues = Object.values(steps);
+      const stepTotal = stepValues.length;
+      const stepDone  = stepValues.filter(v => v).length;
+      if (stepTotal === 0)        return { label: sk.label, fill: 0,   status: 'pending' };
+      if (stepDone === stepTotal) return { label: sk.label, fill: 100, status: 'done' };
+      if (stepDone === 0 && foundCurrent) return { label: sk.label, fill: 0, status: 'pending' };
+      foundCurrent = true;
+      return { label: sk.label, fill: Math.round((stepDone / stepTotal) * 100), status: 'current' };
+    });
+
+    const N = segments.length;
+    const stageShare = 100 / N;
+    let overallFill = 0;
+    segments.forEach(s => { overallFill += stageShare * (s.fill / 100); });
+    overallFill = Math.round(overallFill);
+
+    let sections = '', labels = '';
+    segments.forEach((s, i) => {
+      const segColor = s.status === 'done'    ? 'var(--accent)'
+                     : s.status === 'current' ? 'var(--accent2)'
+                     :                          'transparent';
+      sections += `<div style="flex:1;height:100%;position:relative;${i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : ''}">
+                     <div style="width:${s.fill}%;height:100%;background:${segColor};transition:width 0.4s;"></div>
+                   </div>`;
+      const labelColor = s.status === 'done' ? 'var(--text1)' : s.status === 'current' ? 'var(--accent2)' : 'var(--text3)';
+      const fontWeight = s.status === 'current' ? '700' : '500';
+      const indicator  = s.status === 'done' ? ' ✓' : s.status === 'current' ? ' ·' : '';
+      labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
+                   ${s.label}${indicator}
+                 </div>`;
+    });
+    return `<div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                <div style="font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Stage progress</div>
+                <div style="font-size:10px;color:var(--accent2);font-weight:700;">${overallFill}%</div>
+              </div>
+              <div style="display:flex;height:10px;background:var(--border);border-radius:5px;overflow:hidden;">${sections}</div>
+              <div style="display:flex;margin-top:4px;">${labels}</div>
+            </div>`;
+  },
+
   // Generic stage-aware message for existing-home pipeline deals.
   // Used by the marquee ticker on existing-home pipeline cards.
   dealStatusMessage(d) {
@@ -1140,9 +1198,13 @@ const Pipeline = {
       { label: 'Walkthrough', date: d.walkthrough_date, skipped: !!d.walkthrough_skipped },
       { label: 'Closing',     date: d.closing_date,     skipped: false }
     ];
+    // Closed/Done deals → all stages at 100% green, regardless of which dates were
+    // actually filled in (some old deals were closed before all dates were tracked).
+    const isFullyClosed = d.stage === 'Closed' || d.stage === 'Done';
     let prevDate = null;
     let currentMarked = false;
     const segments = stages.map((s) => {
+      if (isFullyClosed) return Object.assign({}, s, { fill: 100, status: 'done' });
       const sd = s.date ? new Date(s.date + 'T00:00:00') : null;
       if (s.skipped) return Object.assign({}, s, { fill: 100, status: 'skipped' });
       if (!sd)       return Object.assign({}, s, { fill: 0,   status: 'pending' });
@@ -1445,17 +1507,9 @@ const Pipeline = {
       ? ''
       : `<div class="build-ticker"><span>${tickerMsg}</span></div>`;
 
-    // Build-progress bar: % of all steps complete across the 5 milestone sections
-    const { done: bDone, total: bTotal, pct: bPct } = Pipeline.buildPercent(linkedBuild);
-    const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
-    const progressHtml = bTotal > 0 ? `
-      <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
-        <div style="height:100%;width:${isClosed?100:bPct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
-        <span>${bDone} of ${bTotal} build steps complete</span>
-        <span>${isClosed?100:bPct}%</span>
-      </div>` : '';
+    // Build-progress bar — segmented across the 5 high-level new-build stages.
+    // Each stage fills based on % of that stage's steps completed.
+    const progressHtml = linkedBuild ? Pipeline._segmentedBuildBarHtml(d, linkedBuild) : '';
 
     return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">

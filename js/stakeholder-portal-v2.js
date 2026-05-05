@@ -276,9 +276,12 @@
         { label: 'Walkthrough', date: d.walkthrough_date,     skipped: !!d.walkthrough_skipped },
         { label: 'Closing',     date: d.closing_date,         skipped: false }
       ];
+      // Closed/Done deals show fully green across all stages
+      const isFullyClosed = d.stage === 'Closed' || d.stage === 'Done';
       let prevDate = null;
       let currentMarked = false;
       const segments = stages.map(function(s){
+        if (isFullyClosed)        return Object.assign({}, s, { fill: 100, status: 'done' });
         const sd = s.date ? new Date(s.date + 'T00:00:00') : null;
         if (s.skipped)            return Object.assign({}, s, { fill: 100, status: 'skipped' });
         if (!sd)                  return Object.assign({}, s, { fill: 0,   status: 'pending' });
