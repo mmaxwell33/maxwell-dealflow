@@ -785,9 +785,12 @@ const Pipeline = {
     // Create the pipeline row + commission row + fire client congrats email (single source)
     await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, rate, insSkip, walkSkip });
 
-    // Look up the just-created pipeline row so we can attach stakeholders + docs to it
+    // Look up the just-created pipeline row so we can attach stakeholders + docs to it.
+    // Use auth.uid() for the agent_id filter — same as the insert — so RLS-aware SELECT matches.
+    const { data: { user: _authU } } = await db.auth.getUser();
+    const _authAgentId = _authU?.id || currentAgent.id;
     const { data: newPipe } = await db.from('pipeline')
-      .select('id').eq('agent_id', currentAgent.id)
+      .select('id').eq('agent_id', _authAgentId)
       .eq('property_address', offer.property_address)
       .order('created_at', { ascending: false }).limit(1).single();
     const pipelineId = newPipe?.id;
@@ -1002,11 +1005,15 @@ const Pipeline = {
     // produces PGRST204 ("column not found in schema cache").
     // Sanitize inputs: client_id can be invalid (orphan UUID) → set to null to avoid FK violation.
     // Force offer_amount to numeric (forms can pass strings with $ signs / commas).
+    // CRITICAL: agent_id MUST equal auth.uid() for RLS to pass on the pipeline insert.
+    // currentAgent.id might not match auth.uid() in all cases — pull the auth user directly.
+    const { data: { user: authUser } } = await db.auth.getUser();
+    const authAgentId = authUser?.id || currentAgent.id;
     const safeClientId = (offer.client_id && typeof offer.client_id === 'string' && offer.client_id.length > 30) ? offer.client_id : null;
     const safeOfferAmt = parseFloat(String(offer.offer_amount || '').replace(/[^0-9.-]/g, '')) || 0;
     const _pInsert = {
       pipeline_id: crypto.randomUUID(),
-      agent_id: currentAgent.id,
+      agent_id: authAgentId,
       client_id: safeClientId,
       client_name: client?.full_name || offer.client_name || 'Unknown',
       client_email: client?.email || offer.client_email || '',
