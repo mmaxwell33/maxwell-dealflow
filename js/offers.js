@@ -1182,7 +1182,7 @@ const Pipeline = {
       const fontWeight = s.status === 'current' ? '700' : '500';
       const indicator  = s.status === 'done'    ? ' ✓'
                        : s.status === 'skipped' ? ' —'
-                       : s.status === 'current' ? ' ' + s.fill + '%'
+                       : s.status === 'current' ? ' ·'
                        :                          '';
       labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
                    ${s.label}<br><span style="opacity:0.75;">${indicator}</span>
