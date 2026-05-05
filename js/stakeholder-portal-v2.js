@@ -257,8 +257,8 @@
     html += '</div>';
 
     html += '<div class="card"><h3>Overall progress</h3>';
-    html += '<div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%"></div></div>';
-    html += '<div class="progress-meta"><span>'+done+' of '+total+' milestones complete</span><span>'+pct+'%</span></div></div>';
+    // Hidden legacy elements kept for any external code that reads them
+    html += '<span class="progress-fill" data-pct="'+pct+'" style="display:none;"></span>';
 
     // ============ SEGMENTED STAGE BAR (additive — does not replace anything above) ============
     // Each segment fills based on:
@@ -331,12 +331,14 @@
                           : s.status === 'skipped' ? 'var(--text3)'
                           :                          'var(--text3)';
         const fontWeight  = s.status === 'current' ? '700' : '500';
-        const indicator   = s.status === 'done'    ? ' ✓'
-                          : s.status === 'skipped' ? ' —'
-                          : s.status === 'current' ? ' ·'
-                          :                          '';
+        // For skipped stages, write out "No <stage>" instead of just a dash
+        const skippedLabel = s.label === 'Inspection'  ? 'No inspection'
+                           : s.label === 'Walkthrough' ? 'No walkthrough'
+                           :                              s.label;
+        const visibleLabel = s.status === 'skipped' ? skippedLabel : s.label;
+        const indicator    = s.status === 'done' ? ' ✓' : s.status === 'current' ? ' ·' : '';
         html += '<div style="flex:1;text-align:center;font-size:10.5px;color:'+labelColor+';font-weight:'+fontWeight+';line-height:1.3;">'
-             +    s.label + '<br><span style="opacity:0.75;">' + indicator + '</span>'
+             +    visibleLabel + indicator
              +  '</div>';
       });
       html += '</div>';

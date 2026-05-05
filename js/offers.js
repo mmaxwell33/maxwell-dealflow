@@ -1180,12 +1180,14 @@ const Pipeline = {
                        : s.status === 'skipped' ? 'var(--text3)'
                        :                          'var(--text3)';
       const fontWeight = s.status === 'current' ? '700' : '500';
-      const indicator  = s.status === 'done'    ? ' ✓'
-                       : s.status === 'skipped' ? ' —'
-                       : s.status === 'current' ? ' ·'
-                       :                          '';
+      // For skipped stages, write out "No <stage>" instead of just a dash
+      const skippedLabel = s.label === 'Inspection'  ? 'No inspection'
+                         : s.label === 'Walkthrough' ? 'No walkthrough'
+                         :                              s.label;
+      const visibleLabel = s.status === 'skipped' ? skippedLabel : s.label;
+      const indicator    = s.status === 'done' ? ' ✓' : s.status === 'current' ? ' ·' : '';
       labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
-                   ${s.label}<br><span style="opacity:0.75;">${indicator}</span>
+                   ${visibleLabel}${indicator}
                  </div>`;
     });
     return `<div style="margin-bottom:10px;">
@@ -1348,13 +1350,10 @@ const Pipeline = {
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
           <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString())) ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
         </div>
-        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
-          <div id="pl-bar-${d.id}" style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text3);margin-bottom:8px;">
-          <span id="pl-milestone-lbl-${d.id}" title="Bar auto-advances as each milestone date passes">${doneInt} of ${total} milestones passed ⓘ</span>
-          <span id="pl-pct-lbl-${d.id}">${pct}%</span>
-        </div>
+        <!-- Hidden legacy single-bar (kept for compatibility with code that updates pl-bar-* / pl-pct-lbl-* / pl-milestone-lbl-*) -->
+        <span id="pl-bar-${d.id}" data-pct="${pct}" style="display:none;"></span>
+        <span id="pl-milestone-lbl-${d.id}" style="display:none;">${doneInt} of ${total}</span>
+        <span id="pl-pct-lbl-${d.id}" style="display:none;">${pct}%</span>
         ${Pipeline._segmentedBarHtml ? Pipeline._segmentedBarHtml(d) : ''}
         ${dealTickerHtml}
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
