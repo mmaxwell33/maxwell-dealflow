@@ -51,19 +51,10 @@ const PROFILE = {
   watchlist: ['XEQT', 'VFV', 'VEQT', 'ZSP', 'XIC', 'XGRO', '^GSPTSE'],
 };
 
-const SYSTEM_PROMPT = `You are Maxwell's personal Canadian money desk — three people in one: (1) a senior financial researcher who reads Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA reports, and TSX/ETF flows; (2) two warm, conversational podcast hosts who alternate to deliver a NotebookLM-style audio brief; (3) an auditor who flags uncertainty and never invents numbers.
+// CALL 1 — structured fields (gpt-4o-mini, fast + cheap)
+const STRUCTURED_PROMPT = `You are a Canadian personal-finance research desk. You read Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA monthly reports, and TSX/ETF flows. You never invent numbers — when uncertain, use [NEEDS REVIEW].
 
-About Maxwell:
-- Lives in ${PROFILE.city} (${PROFILE.timezone})
-- Real estate agent at eXp Realty in St. John's, NL
-- First-time home buyer, target close: ${PROFILE.closing_target}
-- Trades on ${PROFILE.trading_platform} (Canadian Webull supports FHSA, TFSA, RRSP)
-- Income: $${PROFILE.monthly_income}/month base + real estate commissions (variable)
-- Fixed expenses: $${PROFILE.monthly_fixed_costs}/month
-- Net savings: ~$${PROFILE.monthly_savings_now}/month until July, ~$${PROFILE.monthly_savings_after_july}/month after
-- Lump sums: $8,000 on May 15, $16,000 in October
-- Account state: FHSA $${PROFILE.accounts.fhsa.contributed_ytd}/$${PROFILE.accounts.fhsa.annual_limit}, TFSA $${PROFILE.accounts.tfsa.contributed_ytd}/$${PROFILE.accounts.tfsa.room_2026}, RRSP $${PROFILE.accounts.rrsp.contributed_ytd}, HISA cash $${PROFILE.accounts.hisa_cash}
-- Watchlist: ${PROFILE.watchlist.join(', ')}
+Audience: Canadians saving for a first home (think first-time buyer in their late 20s / 30s, modest income, planning to close in 2027). Lives in ${PROFILE.city}. Watches XEQT, VFV, VEQT, ZSP, XIC, XGRO. Has FHSA, TFSA, RRSP room available.
 
 Output ONE JSON object with this EXACT structure (no markdown, no prose outside JSON):
 {
@@ -86,17 +77,15 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
     "amortization_note": "On $400K at the fixed rate, 25-yr amortization."
   },
   "stories": [
-    {
-      "headline": "Concrete, specific. NOT 'Markets move.' Try 'Oil at $XX keeps gasoline — and your grocery bill — under pressure.'",
-      "body": "3-4 sentences of plain factual recap with at least one specific number and one named source. Include a definition for any acronym used.",
-      "plain_english": "ONE sentence. What this means for someone like Maxwell saving for a first home in St. John's."
-    },
+    { "headline": "Concrete, specific. e.g. 'Oil at $XX keeps gasoline — and your grocery bill — under pressure.'",
+      "body": "3-4 sentences of plain factual recap with at least one specific number and one named source. Define any acronym used.",
+      "plain_english": "ONE sentence. What this means for first-time buyers." },
     { "headline": "...", "body": "...", "plain_english": "..." },
     { "headline": "...", "body": "...", "plain_english": "..." }
   ],
   "one_move": {
     "title": "One direct action this week. e.g. 'Top up the FHSA before the next paycheque.'",
-    "explanation": "2-3 sentences. Why now, how much, which account. Tie to Maxwell's actual savings rate ($1,140-$2,040/month) and Webull."
+    "explanation": "2-3 sentences. Why now, how much, which account. Reference a $1,000-$2,000/month savings rate."
   },
   "watch_list": [
     { "date": "Mon DD", "event": "CPI release / BoC decision / earnings", "matters_because": "one line on impact to mortgage rate or portfolio" },
@@ -110,37 +99,67 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
     { "label": "NLREA monthly stats", "url": "https://www.nlrea.ca/" },
     { "label": "Ratehub mortgage rates", "url": "https://www.ratehub.ca/" }
   ],
-  "audit_footer": "Flag any specific data points marked [NEEDS REVIEW]. End with: 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner who is accountable to you, not to commissions.'",
+  "audit_footer": "Flag any specific data points marked [NEEDS REVIEW]. End with: 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner who is accountable to you, not to commissions.'"
+}
+
+Rules:
+- Use [NEEDS REVIEW] for unknown data. NEVER guess prices, closes, or rates.
+- Cite Canadian sources only (BoC, StatsCan, CMHC, NLREA, CREA, Ratehub). NO US politics. NO tech-bro hype.
+- Tone: direct, warm, plain. No jargon without immediately defining it.`;
+
+// CALL 2 — podcast script ONLY (gpt-4o, dedicated to long output)
+const PODCAST_PROMPT = `You are writing a NotebookLM-style two-host podcast script for a daily Canadian money show called "Today in Canadian Money."
+
+THE TWO HOSTS:
+- Host A is "Avery" — calm analyst voice. Explains rates, CPI, the macro picture. Knows the numbers.
+- Host B is "Sam" — the everyday saver. Asks the questions a regular person would ask. Translates jargon. Makes it concrete.
+
+AUDIENCE: General Canadian listener saving for a first home. Address them as "you," "if you're saving for a first home," "anyone watching their down payment grow." DO NOT use any specific person's name — this is a public podcast, not a personal voice memo.
+
+OUTPUT FORMAT — JSON only, no markdown:
+{
   "podcast": [
-    { "speaker": "A", "text": "Avery's first turn — sets the date, headline of the day, and what's on the page." },
-    { "speaker": "B", "text": "Sam's response — picks up the thread, asks a clarifying question, makes it concrete." },
     { "speaker": "A", "text": "..." },
     { "speaker": "B", "text": "..." }
   ]
 }
 
-CRITICAL rules for the "podcast" field — DO NOT SKIP OR SHORTEN:
-- HARD MINIMUM: 22 turns (i.e. exactly 22 to 28 entries in the podcast array).
-- HARD MINIMUM total word count across all turns combined: 1300 words. Target: 1400. This is non-negotiable. A 300-word podcast is a FAILURE.
-- HARD MINIMUM length per turn: 50 words. Target per turn: 60-90 words. NO 1-line turns. NO 10-word turns.
-- Goal: produce a 7-8 minute spoken episode. At ~150 words/minute that means ~1100-1200 words MINIMUM.
-- Alternate strictly: A, B, A, B, A, B... Avery (A) is the calm analyst. Sam (B) is the everyday saver who asks "what does that mean for me?".
-- This is a real two-host podcast (NotebookLM style). They build on each other, agree, gently push back, finish each other's thoughts, ask real follow-up questions. They are NOT taking turns reading bullet points.
-- Cover ALL THREE stories from the "stories" field, the BoC rate, mortgage rates, the "one move" action item, AND the upcoming dates. That's the bulk of the content.
-- Open with Avery (A) saying the date and previewing what's on today's page. Spend ~2 minutes on the snapshot + rates, ~4 minutes on the three stories, ~1 minute on the action item, ~30 seconds on what's coming up.
-- Spell numbers as words: "two and a quarter percent", NOT "2.25%". "Four thousand dollars", NOT "$4,000". "April nineteenth", NOT "April 19".
-- Expand acronyms first use: "First Home Savings Account, FHSA". "Tax-Free Savings Account, TFSA". "Bank of Canada".
-- Reference Maxwell by name 2-3 times ("for someone like Maxwell, saving fourteen hundred a month..."). Mention St. John's, Newfoundland at least once. Mention his June twenty twenty-seven closing target once.
-- Sam ends the episode with EXACTLY: "That's the page for today. Stay steady, Maxwell. We'll do this again tomorrow."
-- NO emojis. NO markdown. NO stage directions. Just spoken prose.
+═══ HARD REQUIREMENTS — these will be programmatically measured ═══
+1. EXACTLY 24 turns (no fewer than 22, no more than 26). Strictly alternating A, B, A, B, A, B...
+2. EVERY TURN must be 60-100 words. NO short turns. NO one-sentence replies. If a turn is under 50 words, the whole episode is a failure.
+3. TOTAL word count across all turns: 1500-1800 words. Target 1700. At ~150 words/min spoken, that's a 10-12 minute episode.
+4. Before submitting, count your words. If under 1500, add detail and re-count. Do not submit a short episode.
 
-If you generate fewer than 22 turns or fewer than 1300 words in the podcast field, you have failed the task.
+═══ COMPREHENSION RULES — make it actually understandable ═══
+Every time a host uses a financial term — even basic ones like "yield," "amortization," "CPI," "bond," "variable rate," "policy rate," "FHSA," "TFSA" — they MUST do this in the same turn:
+  (a) Define the term in plain words (one sentence)
+  (b) Give a concrete dollar example using real numbers
 
-Other rules:
-- Use [NEEDS REVIEW] in any field where you do not have current data — do NOT guess prices, closes, or rates.
-- Cite specific Canadian sources (BoC, StatsCan, CMHC, NLREA, CREA, Ratehub).
-- Stories must be Canadian personal-finance / macro relevant. No US politics. No tech-bro hype. No US-only stocks.
-- Tone: direct, warm, NL-aware. Casual but informed.`;
+Good example:
+  Avery: "The Bank of Canada cut its policy rate again. Quick reminder — the policy rate is just the price banks pay to borrow money overnight from the central bank. When that goes down, mortgage rates and HELOC rates usually follow. So if you're holding a four-hundred-thousand dollar variable mortgage, a quarter-point cut saves you about fifty-five bucks a month. Real money over the year."
+
+Bad example (too short, no definition, no example):
+  Avery: "BoC cut rates again. Mortgages should follow."
+
+═══ NUMBERS RULES ═══
+- Spell out numbers as a presenter would say them: "two and a quarter percent" — NOT "2.25%". "Four hundred thousand dollars" — NOT "$400,000". "April nineteenth" — NOT "April 19".
+- Expand acronyms on first use: "First Home Savings Account, FHSA." "Tax-Free Savings Account, TFSA."
+
+═══ EPISODE STRUCTURE (cover all of this) ═══
+1. Open (Avery, 1 turn): say the date, preview what the show will cover today.
+2. The snapshot (4-5 turns): BoC rate, what it means, CPI, oil context. Sam asks "so what does that mean for someone trying to buy a place this year?"
+3. Mortgage rates (4-5 turns): fixed vs variable, the math on a real four-hundred-thousand-dollar mortgage, what's "amortization" — explain with a concrete monthly payment example.
+4. The three stories (8-10 turns): walk through each. Avery gives the facts, Sam asks "ok, but what does that actually do to my finances?", Avery answers with a number.
+5. The one move this week (2-3 turns): the concrete action, who it's for, how much, which account, why now.
+6. Watch list (1-2 turns): 2-3 dates coming up that matter.
+7. Close (Sam, 1 turn): EXACTLY this line — "That's the page for today. Stay steady. We'll do this again tomorrow."
+
+═══ STYLE ═══
+- Real conversation, not bullet-point reading. Hosts agree, gently push back, finish each other's thoughts, ask "wait — does that mean...?"
+- No emojis. No markdown. No stage directions like "[laughs]". Just spoken prose.
+- Warm Canadian tone. No US politics. No tech-bro hype.
+
+If you generate fewer than 22 turns or fewer than 1500 total words, the response is rejected and the user gets nothing.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -185,44 +204,93 @@ For all other fields (CPI, ETF closes, TSX, CAD/USD, oil, NL home prices, mortga
 
 Generate today's briefing as a single JSON object per the system prompt's schema. ONLY the JSON object, nothing else.`;
 
-    // ── 3. Call OpenAI for the briefing text ───────────────────────────────
-    // Using gpt-4o-mini for speed + cost (~$0.003/briefing). Forces JSON via response_format.
-    console.log('[briefing] calling OpenAI chat...');
-    const llmStart = Date.now();
-    const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    // ── 3a. Call OpenAI #1: structured brief data (gpt-4o-mini, fast) ──────
+    console.log('[briefing] LLM call 1: structured fields...');
+    const llm1Start = Date.now();
+    const llm1Res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',         // bumped from gpt-4o-mini — mini was lazy with long podcast scripts
-        max_tokens: 5000,        // ~1300-1500 words for podcast + ~500 for structured fields
+        model: 'gpt-4o-mini',
+        max_tokens: 2500,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: STRUCTURED_PROMPT },
           { role: 'user',   content: userPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(60000),  // hard 60s cap on LLM call
+      signal: AbortSignal.timeout(40000),
     });
-    console.log('[briefing] LLM response in', Date.now() - llmStart, 'ms, status:', llmRes.status);
-    if (!llmRes.ok) {
-      const errText = await llmRes.text();
-      return json({ error: `OpenAI chat failed: ${llmRes.status} ${errText}` }, 500);
+    console.log('[briefing] LLM call 1 in', Date.now() - llm1Start, 'ms, status:', llm1Res.status);
+    if (!llm1Res.ok) {
+      const errText = await llm1Res.text();
+      return json({ error: `OpenAI call 1 failed: ${llm1Res.status} ${errText}` }, 500);
     }
-    const llmJson = await llmRes.json();
-    const briefingText = llmJson.choices?.[0]?.message?.content || '';
-    console.log('[briefing] LLM body length:', briefingText.length);
+    const llm1Json = await llm1Res.json();
+    const briefingText = llm1Json.choices?.[0]?.message?.content || '';
     let brief: any;
     try {
       brief = JSON.parse(briefingText);
     } catch (e) {
-      return json({ error: `LLM returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
+      return json({ error: `LLM call 1 non-JSON: ${briefingText.slice(0, 500)}` }, 500);
+    }
+    console.log('[briefing] structured fields parsed (snapshot, stories, mortgage_rates, one_move)');
+
+    // ── 3b. Call OpenAI #2: podcast script ONLY (gpt-4o, long output) ─────
+    // Splitting the call dramatically improves length compliance — gpt-4o-mini
+    // was producing 300-word podcasts in single-call mode. Dedicated call gets
+    // 1500+ words reliably.
+    console.log('[briefing] LLM call 2: podcast script (dedicated)...');
+    const llm2Start = Date.now();
+    const podcastUserPrompt = `Today is ${dateStr} (${PROFILE.timezone}).
+
+Use these facts (already researched) for today's episode:
+${JSON.stringify({
+  snapshot: brief.snapshot,
+  mortgage_rates: brief.mortgage_rates,
+  stories: brief.stories,
+  one_move: brief.one_move,
+  watch_list: brief.watch_list,
+}, null, 2)}
+
+Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, total 1500-1800 words. ONLY the JSON object.`;
+
+    const llm2Res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 8000,    // big budget — podcast alone is ~2500 tokens
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: PODCAST_PROMPT },
+          { role: 'user',   content: podcastUserPrompt },
+        ],
+      }),
+      signal: AbortSignal.timeout(70000),
+    });
+    console.log('[briefing] LLM call 2 in', Date.now() - llm2Start, 'ms, status:', llm2Res.status);
+    if (!llm2Res.ok) {
+      const errText = await llm2Res.text();
+      return json({ error: `OpenAI call 2 failed: ${llm2Res.status} ${errText}` }, 500);
+    }
+    const llm2Json = await llm2Res.json();
+    const podcastText = llm2Json.choices?.[0]?.message?.content || '';
+    try {
+      const podcastObj = JSON.parse(podcastText);
+      brief.podcast = Array.isArray(podcastObj.podcast) ? podcastObj.podcast : [];
+    } catch (e) {
+      return json({ error: `LLM call 2 non-JSON: ${podcastText.slice(0, 500)}` }, 500);
     }
     const podcastTurns = Array.isArray(brief.podcast) ? brief.podcast : [];
     const totalWords = podcastTurns.reduce((sum: number, t: any) => sum + ((t.text || '').trim().split(/\s+/).filter(Boolean).length), 0);
-    console.log('[briefing] parsed brief — podcast turns:', podcastTurns.length, 'total words:', totalWords, '(~' + Math.round(totalWords / 150) + ' min spoken)');
+    console.log('[briefing] podcast — turns:', podcastTurns.length, 'words:', totalWords, '(~' + Math.round(totalWords / 150) + ' min spoken)');
 
     // ── 4. Generate 2-voice podcast audio via batched TTS ──────────────────
     // Each turn is TTS'd with a voice based on the speaker:
