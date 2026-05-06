@@ -333,27 +333,17 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       console.warn('[briefing] DB save failed:', e?.message);
     }
 
-    // ── 7. Email Albert with MP3 attached ──────────────────────────────────
-    // Use base64-encoded MP3 as attachment via the existing send-email edge fn.
-    // mp3 size for ~3-4 min @ tts-1 is ~1.5 MB → fine for gmail.
-    // btoa(String.fromCharCode(...mp3Bytes)) blows the JS call-stack on multi-MB
-    // arrays. Encode in 32 KB chunks instead.
-    console.log('[briefing] base64 encoding mp3...');
-    const b64Start = Date.now();
-    let base64Mp3 = '';
-    const CHUNK = 0x8000;
-    for (let i = 0; i < mp3Bytes.length; i += CHUNK) {
-      base64Mp3 += String.fromCharCode(...mp3Bytes.subarray(i, i + CHUNK));
-    }
-    base64Mp3 = btoa(base64Mp3);
-    console.log('[briefing] base64 done in', Date.now() - b64Start, 'ms, length:', base64Mp3.length);
-
+    // ── 7. Email Maxwell — link to the MP3 instead of attaching it ─────────
+    // Free-tier edge functions hit WORKER_RESOURCE_LIMIT (~256 MB RAM) when
+    // base64-encoding a 4-7 MB MP3 into a MIME multipart message. Since the
+    // MP3 is already at a public URL, we just link to it. Same one-tap UX,
+    // no memory limits, faster delivery, no 25 MB Gmail attachment cap.
     const niceDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-CA', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: PROFILE.timezone,
     });
     const emailHtml = renderBriefingHtml(brief, dateStr, niceDate, mp3Url);
 
-    console.log('[briefing] sending email...');
+    console.log('[briefing] sending email (no attachment, link only)...');
     const emStart = Date.now();
     const emailRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
       method: 'POST',
@@ -365,14 +355,9 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       body: JSON.stringify({
         to: PROFILE.email,
         subject: `Today in Canadian money — ${niceDate}`,
-        body: emailHtml.replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n').trim() || 'See attached MP3.',
+        body: `Listen to today's audio briefing: ${mp3Url || '(audio unavailable)'}\n\n${emailHtml.replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(0, 2000)}`,
         html: emailHtml,
         from_name: 'Maxwell Money Brief',
-        attachments: [{
-          filename: `briefing-${dateStr}.mp3`,
-          mime_type: 'audio/mpeg',
-          data: base64Mp3,
-        }],
       }),
     });
     const emailJson = await emailRes.json().catch(() => ({}));
@@ -459,9 +444,12 @@ function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Ur
 
   <div style="padding:8px 24px 32px;">
 
-    <!-- Audio link banner -->
-    ${mp3Url ? `<div style="background:#1a1d2e; color:#fefdf9; padding:14px 18px; border-radius:6px; margin:20px 0 28px; font-family:-apple-system,Helvetica,sans-serif; font-size:14px;">
-      <strong>Audio briefing attached</strong> · 2 hosts, ~7 min · <a href="${esc(mp3Url)}" style="color:#a8a8ff; text-decoration:underline;">stream from web</a>
+    <!-- Audio play button — large, tappable, links to public MP3 -->
+    ${mp3Url ? `<div style="margin:24px 0 32px; text-align:center;">
+      <a href="${esc(mp3Url)}" style="display:inline-block; background:#1a1d2e; color:#fefdf9; padding:18px 28px; border-radius:8px; font-family:-apple-system,Helvetica,sans-serif; font-size:16px; font-weight:600; text-decoration:none;">
+        ▶ &nbsp;Listen to today's briefing
+      </a>
+      <div style="font-family:-apple-system,Helvetica,sans-serif; font-size:12px; color:#8a90a8; margin-top:8px;">2 hosts · about 7 minutes · streams from anywhere</div>
     </div>` : ''}
 
     <!-- Metric cards (2x2) -->
