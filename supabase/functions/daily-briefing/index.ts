@@ -41,7 +41,8 @@ const PROFILE = {
   // Real-estate commissions (taxable income, deposit straight to bank — NOT yet allocated):
   upcoming_cash: [
     { date: '2026-05-17', amount: 9000, source: 'real estate commission' },
-    { date: '2026-10-17', amount: 14000, source: 'real estate commission' },
+    { date: '2026-10-17', amount: 16000, source: 'real estate commission' },
+    // More cash coming "soon" — date unknown. Will be added when known.
   ],
   trading_platform: 'Webull',
   // NL combined federal + provincial marginal rate at $50K-$93K total income ≈ 29.5%
@@ -75,14 +76,32 @@ const PROFILE = {
 const STRUCTURED_PROMPT = `You are a Canadian personal-finance research desk + portfolio coach. You read Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA monthly reports, and TSX/ETF flows. You never invent numbers — when uncertain, use [NEEDS REVIEW].
 
 ═══ THE LISTENER'S CURRENT SITUATION (use this for the personal_plan section) ═══
-- Lives in ${PROFILE.city}, age ~30, first-time home buyer, target close ${PROFILE.closing_target}
-- Day job income: $${PROFILE.monthly_income}/month base. Marginal tax rate: ${PROFILE.marginal_tax_rate_pct}% (NL combined fed+prov)
-- Real-estate side income (commissions) lands in bank as taxable income — currently sitting in chequing
-- INCOMING CASH: $${PROFILE.upcoming_cash[0].amount.toLocaleString()} on ${PROFILE.upcoming_cash[0].date} (real estate commission), then $${PROFILE.upcoming_cash[1].amount.toLocaleString()} on ${PROFILE.upcoming_cash[1].date}
-- ACCOUNTS NOT YET OPENED on ${PROFILE.trading_platform}: FHSA, TFSA, RRSP — must be opened ASAP to use this year's room
-- 2026 ROOM: FHSA $${PROFILE.accounts.fhsa.annual_limit} (this year), TFSA $${PROFILE.accounts.tfsa.room_2026}, RRSP ~$${PROFILE.accounts.rrsp.room_estimate}
-- Trading platform: ${PROFILE.trading_platform} (Canadian; supports FHSA/TFSA/RRSP registered accounts)
-- Watchlist: ${PROFILE.watchlist.join(', ')}
+CASH FLOW (use these numbers in the math — quote them in dollars):
+- Monthly day-job income: $${PROFILE.monthly_income}/month gross base salary
+- Monthly fixed expenses: $${PROFILE.monthly_fixed_costs}/month (car ~$840, rent ~$1,500, insurance ~$320, brokerage fees ~$400)
+- Monthly net savings BEFORE July: ~$${PROFILE.monthly_savings_now}/month available for investing
+- Monthly net savings AFTER July: ~$${PROFILE.monthly_savings_after_july}/month (sister moves out, frees up cash)
+- That means between May and December the listener has ~7 months × $${PROFILE.monthly_savings_now} (May–Jul) + 5 months × $${PROFILE.monthly_savings_after_july} (Aug–Dec) ≈ $${(3 * PROFILE.monthly_savings_now + 5 * PROFILE.monthly_savings_after_july).toLocaleString()} in regular savings on top of commissions
+- Marginal tax rate: ${PROFILE.marginal_tax_rate_pct}% (NL combined fed+prov)
+
+INCOMING REAL-ESTATE COMMISSIONS (taxable side income, currently in chequing):
+- $${PROFILE.upcoming_cash[0].amount.toLocaleString()} on ${PROFILE.upcoming_cash[0].date} (${PROFILE.upcoming_cash[0].source})
+- $${PROFILE.upcoming_cash[1].amount.toLocaleString()} on ${PROFILE.upcoming_cash[1].date} (${PROFILE.upcoming_cash[1].source})
+- Plus more commissions expected — date unknown, but listener actively closing deals
+
+TARGET CLOSE: ${PROFILE.closing_target} for first home — ~14 months runway from May 2026
+LOCATION: ${PROFILE.city}
+
+ACCOUNTS — ALL THREE STILL UNOPENED on ANY broker as of today. Must open by May 20, 2026 (before May 17 cash arrives) to deploy this year:
+- FHSA: $${PROFILE.accounts.fhsa.annual_limit}/yr room ($${PROFILE.accounts.fhsa.lifetime_limit} lifetime). Tax-deductible going in, tax-free coming out. PRIORITY 1.
+- TFSA: $${PROFILE.accounts.tfsa.room_2026} room for 2026. Tax-free growth.
+- RRSP: ~$${PROFILE.accounts.rrsp.room_estimate} room. Tax-deductible — best for sheltering commission income.
+
+Trading platforms to choose from (recommend ONE primary): Wealthsimple Trade, Questrade, Interactive Brokers Canada, Webull Canada.
+Watchlist (core): ${PROFILE.watchlist.join(', ')}
+Satellite watchlist (risk-on): ${PROFILE.satellite_watchlist.join(', ')}
+
+CRITICAL: Every plan must explicitly reference the listener's monthly savings rate ($${PROFILE.monthly_savings_now}-$${PROFILE.monthly_savings_after_july}/mo) AND the commission timeline. Do NOT recommend a deposit larger than what's actually arriving.
 
 Output ONE JSON object with this EXACT structure (no markdown, no prose outside JSON):
 {
@@ -180,14 +199,14 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
       "tfsa_reasoning": "Park $1,000 in TFSA as starter — emergency fund builds from October.",
       "estimated_tax_refund": "$8,000 × ${PROFILE.marginal_tax_rate_pct}% = ~$2,240 refund at tax time"
     },
-    "october_distribution_14k": {
-      "summary": "How to split the $14,000 hitting in October",
-      "emergency_fund_amount": 5000,
-      "emergency_fund_reasoning": "Build the safety buffer FIRST — park in CASH.TO inside TFSA at ~4.5% yield.",
-      "tfsa_amount": 5000,
-      "tfsa_reasoning": "Top up TFSA toward 2026 limit (already $1K from May, $5K emergency = $6K used; $1K more equity room).",
+    "october_distribution_16k": {
+      "summary": "How to split the $16,000 hitting in October — full picture",
+      "emergency_fund_amount": 6000,
+      "emergency_fund_reasoning": "Build the safety buffer FIRST — 2 months of expenses ($3,060/mo × ~2 = $6K). Park in CASH.TO inside TFSA at ~4.5% yield. Listener still has time to top this up to 3 months before closing.",
+      "tfsa_amount": 6000,
+      "tfsa_reasoning": "Top up TFSA toward 2026 limit. Combined with $1K from May ($1K equity) + $6K emergency in CASH.TO = $13K of $13K room used cleanly.",
       "rrsp_amount": 4000,
-      "rrsp_reasoning": "Tax shelter on commission income. Refund.",
+      "rrsp_reasoning": "Shelter the commission income. RRSP deduction at ${PROFILE.marginal_tax_rate_pct}% marginal rate triggers a tax refund — deploy the refund as additional FHSA contribution next year.",
       "estimated_tax_refund": "$4,000 RRSP × ${PROFILE.marginal_tax_rate_pct}% = ~$1,120 refund"
     },
     "core_picks": [
@@ -635,7 +654,7 @@ function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Ur
 function renderPersonalPlan(plan: any): string {
   if (!plan || typeof plan !== 'object') return '';
   const may       = plan.this_week_distribution_9k || {};
-  const oct       = plan.october_distribution_14k || {};
+  const oct       = plan.october_distribution_16k || plan.october_distribution_14k || {};
   const corePicks = Array.isArray(plan.core_picks) ? plan.core_picks : (Array.isArray(plan.stock_picks) ? plan.stock_picks : []);
   const satPicks  = Array.isArray(plan.satellite_risk_picks) ? plan.satellite_risk_picks : [];
   const tax       = plan.tax_strategy || {};
@@ -715,13 +734,14 @@ function renderPersonalPlan(plan: any): string {
     </table>
     <div style="font-size:13px; color:#1a8a4f; font-weight:600; font-family:-apple-system,Helvetica,sans-serif; margin:0 0 22px;">Estimated tax refund: ${esc(may.estimated_tax_refund || '—')}</div>
 
-    <h4 style="font-size:17px; font-weight:600; margin:18px 0 8px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">$14,000 incoming October — distribution</h4>
+    <h4 style="font-size:17px; font-weight:600; margin:18px 0 8px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">$16,000 incoming October — distribution</h4>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px; border-collapse:collapse; border:1px solid #e8eaf2; border-radius:6px;">
       <tr style="background:#f8f7f3;">
         <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Amount</td>
         <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Account</td>
         <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Why</td>
       </tr>
+      ${oct.emergency_fund_amount ? cashRow('EF', oct.emergency_fund_amount || 0, 'Emergency fund', oct.emergency_fund_reasoning || '') : ''}
       ${cashRow('TFSA', oct.tfsa_amount || 0, 'TFSA', oct.tfsa_reasoning || '')}
       ${cashRow('RRSP', oct.rrsp_amount || 0, 'RRSP', oct.rrsp_reasoning || '')}
     </table>
