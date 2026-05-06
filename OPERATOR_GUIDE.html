@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maxwell DealFlow — Operator Guide</title>
+<style>
+  :root{
+    --bg:#0b1220; --card:#121a2e; --card2:#192340;
+    --accent:#5b5bd6; --accent2:#7c7cff; --terracotta:#CC785C;
+    --text1:#F8FAFC; --text2:#94a3b8; --border:rgba(255,255,255,.08);
+    --green:#10B981; --yellow:#f59e0b; --red:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text1);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;line-height:1.6;font-size:16px}
+  .layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh;max-width:1400px;margin:0 auto}
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:32px 24px;border-right:1px solid var(--border);background:var(--card)}
+  nav h1{font-size:18px;margin:0 0 4px;color:var(--text1)}
+  nav .sub{font-size:12px;color:var(--text2);margin-bottom:24px;letter-spacing:.04em;text-transform:uppercase}
+  nav ol{list-style:none;padding:0;margin:0;counter-reset:s}
+  nav ol li{counter-increment:s;margin:0}
+  nav ol li a{display:block;padding:7px 10px;border-radius:6px;color:var(--text2);text-decoration:none;font-size:13px;border-left:2px solid transparent}
+  nav ol li a::before{content:counter(s) ".";display:inline-block;width:24px;color:var(--accent2);font-variant-numeric:tabular-nums;font-weight:600}
+  nav ol li a:hover{color:var(--text1);background:rgba(124,124,255,.08);border-left-color:var(--accent2)}
+  main{padding:48px 56px;max-width:920px}
+  .hero{padding:32px 32px 36px;background:linear-gradient(135deg,#1a2347 0%,#241b3d 100%);border:1px solid var(--border);border-radius:16px;margin-bottom:48px}
+  .hero .tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--terracotta);font-weight:700;margin-bottom:10px}
+  .hero h1{margin:0 0 8px;font-size:34px;line-height:1.2}
+  .hero p{margin:0;color:var(--text2);font-size:15px}
+  .hero .meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:20px;font-size:12px;color:var(--text2)}
+  .hero .meta b{color:var(--text1);font-weight:600;display:block;font-size:13px}
+  h2{font-size:24px;margin:56px 0 12px;border-bottom:1px solid var(--border);padding-bottom:10px}
+  h2 .num{color:var(--terracotta);font-weight:800;margin-right:10px;font-variant-numeric:tabular-nums}
+  h3{font-size:17px;margin:24px 0 6px;color:var(--text1)}
+  p{margin:10px 0}
+  ul{padding-left:22px}
+  li{margin:4px 0}
+  code{background:var(--card2);padding:1px 6px;border-radius:4px;font-size:13px;color:var(--accent2);font-family:"SF Mono",Consolas,monospace}
+  pre{background:var(--card2);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;border:1px solid var(--border)}
+  pre code{background:none;padding:0;color:var(--text1)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  th{background:var(--card2);font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2)}
+  tr:hover td{background:rgba(124,124,255,.04)}
+  .callout{padding:14px 18px;background:rgba(204,120,92,.08);border-left:3px solid var(--terracotta);border-radius:0 8px 8px 0;margin:18px 0;font-size:14px}
+  .callout.green{background:rgba(16,185,129,.08);border-left-color:var(--green)}
+  .callout.yellow{background:rgba(245,158,11,.08);border-left-color:var(--yellow)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(124,124,255,.16);color:var(--accent2);margin-right:4px}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr}
+    nav{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+    main{padding:24px}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <h1>Maxwell DealFlow</h1>
+  <div class="sub">Operator Guide</div>
+  <ol>
+    <li><a href="#s1">What it is</a></li>
+    <li><a href="#s2">Sign in</a></li>
+    <li><a href="#s3">Dashboard</a></li>
+    <li><a href="#s4">Clients</a></li>
+    <li><a href="#s5">Viewings</a></li>
+    <li><a href="#s6">Offers</a></li>
+    <li><a href="#s7">Pipeline</a></li>
+    <li><a href="#s8">New Builds</a></li>
+    <li><a href="#s9">Commissions</a></li>
+    <li><a href="#s10">Reports</a></li>
+    <li><a href="#s11">Email</a></li>
+    <li><a href="#s12">Approvals</a></li>
+    <li><a href="#s13">Broadcast</a></li>
+    <li><a href="#s14">Calendar</a></li>
+    <li><a href="#s15">Analytics + Portal Traffic</a></li>
+    <li><a href="#s16">Activity Log</a></li>
+    <li><a href="#s17">Ask AI</a></li>
+    <li><a href="#s18">Push Notifications</a></li>
+    <li><a href="#s19">Daily Automation</a></li>
+    <li><a href="#s20">System Health</a></li>
+    <li><a href="#s21">Settings</a></li>
+    <li><a href="#s22">Public Pages</a></li>
+    <li><a href="#s23">Database Tables</a></li>
+    <li><a href="#s24">Config &amp; Deploy</a></li>
+    <li><a href="#s25">5 Surgical Rules</a></li>
+    <li><a href="#s26">Common Procedures</a></li>
+    <li><a href="#s27">When Things Break</a></li>
+    <li><a href="#s28">30-second pitch</a></li>
+  </ol>
+</nav>
+<main>
+
+<div class="hero">
+  <div class="tag">📡 Operator Guide</div>
+  <h1>Maxwell DealFlow</h1>
+  <p>The complete end-to-end manual. Every screen, every feature, every public link, every edge function. Written so anyone can pick this up and run the brokerage.</p>
+  <div class="meta">
+    <div><b>Brokerage</b>eXp Realty</div>
+    <div><b>Agent</b>Maxwell Delali Midodzi</div>
+    <div><b>Stack</b>PWA · Supabase · Vercel · Gmail · Web Push · Claude</div>
+    <div><b>Cost</b>~$20/month to run</div>
+  </div>
+</div>
+
+<h2 id="s1"><span class="num">01</span>What Maxwell DealFlow Is</h2>
+<p>Maxwell DealFlow is a Progressive Web App (PWA) — it runs in a browser but installs to your iPhone home screen and works offline like a native app. It is the operating system for one real-estate agent's brokerage: tracking clients, booking viewings, sending offers, managing closings, talking to builders, and emailing everyone involved without ever leaving the app.</p>
+<p>Three things separate it from an off-the-shelf CRM:</p>
+<ol>
+  <li><b>It speaks to clients directly.</b> Every viewing booking, build update, and stakeholder portal lives at its own public URL. No login required for the recipient — they tap the link in their text or email and the page just works.</li>
+  <li><b>It sends real emails from Maxwell's real Gmail.</b> Through a Supabase Edge Function that signs into Gmail's API, every confirmation, reminder, and update reaches the inbox from <code>maxwell@…</code>, not a no-reply address. Every outbound email signs off as eXp Realty.</li>
+  <li><b>It pushes notifications to the phone even when closed.</b> Web Push (VAPID, P-256 / JWK) wakes the phone the moment a client responds, an offer comes in, or a viewing is confirmed.</li>
+</ol>
+
+<h2 id="s2"><span class="num">02</span>Sign In</h2>
+<p>Open the app URL on iPhone or laptop. The first screen is a login form. Email + password logs you into Supabase Auth. After login, the app loads <code>index.html</code>, the home dashboard. Use "Add to Home Screen" to install the PWA as a real app icon.</p>
+<p>If a session expires, Supabase refreshes the token automatically. If refresh fails, you're sent back to the login screen. To reset a password, run <code>supabase auth users update &lt;email&gt; --password &lt;new&gt;</code> from a machine with the Supabase CLI signed in.</p>
+
+<h2 id="s3"><span class="num">03</span>The Dashboard (Overview)</h2>
+<p>First screen after login. It answers one question: <em>what needs my attention right now?</em></p>
+<p>Top cards show: active clients, viewings today/this week, pipeline value (sum of <code>offer_amount</code> across live deals), outstanding tasks across every deal, and pending approvals. Below the cards, an activity feed lists every recent action — sourced from <code>activity_log</code>. Tap any item to jump to its source screen.</p>
+<p>The bell icon (top right) opens the in-app notification tray. The moon toggles dark/light mode. The purple "Ask AI" button opens the assistant (Section 17).</p>
+
+<h2 id="s4"><span class="num">04</span>Clients</h2>
+<p><b>Where:</b> Clients tab. <b>File:</b> <code>js/clients.js</code>. <b>Table:</b> <code>clients</code>.</p>
+<p>The master list of every buyer or seller. Each row shows name, last contact date, and quick-action buttons.</p>
+<p><b>Privacy masking:</b> names and contact info are masked by default — <code>J••• A•••</code> instead of <code>Jane Anderson</code>. Tap to reveal. Powered by <code>App.privateName()</code> and <code>App.privateContact()</code>.</p>
+<p><b>Add a client:</b> tap <code>+</code>. Fill name, email, phone, status (Active / Archived / Lead), notes. Save.</p>
+<p><b>Intake form:</b> every client gets a public intake link (<code>intake.html?token=…</code>). Send it; they fill it; their answers land in <code>intake_responses</code> and a push fires on Maxwell's phone.</p>
+<p><b>Responses tab:</b> intake submissions, stakeholder replies, viewing feedback all show up here, sourced from <code>client_responses</code> and <code>form_responses</code>.</p>
+
+<h2 id="s5"><span class="num">05</span>Viewings (Showings)</h2>
+<p><b>Where:</b> Viewings tab. <b>File:</b> <code>js/viewings.js</code>. <b>Tables:</b> <code>viewings</code>, <code>viewing_responses</code>.</p>
+<p><b>Book a viewing:</b> tap <code>+</code>, pick client, enter address, MLS, date, time, duration. Save. Three things happen automatically:</p>
+<ol>
+  <li>A row inserts into <code>viewings</code>.</li>
+  <li>An email is queued (Section 11) with a calendar invite (.ics) attached.</li>
+  <li>A respond link is generated and embedded in the email — when the client taps it, they land on <code>respond.html?token=…</code> (no login) and can confirm, reschedule, or cancel.</li>
+</ol>
+<p><b>Auto-completion:</b> after a viewing's scheduled end-time passes, it auto-flips to "completed" and prompts Maxwell with the Agent Feedback Modal — log how it went, the client's reaction, follow-up notes, and a 1–5 score. Goes back into the client's history.</p>
+
+<h2 id="s6"><span class="num">06</span>Offers</h2>
+<p><b>Where:</b> Offers tab. <b>File:</b> <code>js/offers.js</code>. <b>Tables:</b> <code>offers</code>, <code>pending_offers</code>.</p>
+<p><b>Create an offer:</b> pick a client, enter property address, offer amount, conditions, deadlines (financing, inspection, closing). Save. The system formats it into a presentable PDF using the built-in PDF export.</p>
+<p><b>Pending offers</b> sit in <code>pending_offers</code> for editing. Once sent, they move into <code>offers</code>. Accepted offers auto-promote to the Pipeline (Section 7). The Requests tab shows change requests sent in by clients or stakeholders through their portals.</p>
+
+<h2 id="s7"><span class="num">07</span>Pipeline (the deal tracker)</h2>
+<p><b>Where:</b> Pipeline tab. <b>Files:</b> <code>js/offers.js</code>, <code>js/tracker.js</code>. <b>Tables:</b> <code>pipeline</code>, <code>pipeline_tasks</code>, <code>checklist_items</code>.</p>
+<p>Once an offer is accepted, it lives here until closing. Stages: Acceptance → Financing → Inspection → Walkthrough → Closing. Each has a deadline.</p>
+<p><b>Transaction Room:</b> tap any deal to open its detail view — property details, all five stage countdowns, a checklist of tasks, document area for contracts and inspection reports, and an activity timeline scoped to that deal.</p>
+<p><b>Daily reminders:</b> the daily-automation function (Section 19) checks for upcoming deadlines and pushes a notification: "Inspection deadline for 100 Sample Build Lane in 2 days."</p>
+<p><b>PDF export</b> dumps the entire deal for handoff to a lawyer or lender. <b>Archive</b> a closed deal — stamped with <code>archived_at</code> and kept for commission tracking.</p>
+
+<h2 id="s8"><span class="num">08</span>New Builds</h2>
+<p><b>Where:</b> New Builds tab. <b>Files:</b> <code>js/newbuilds.js</code>, <code>js/extras.js</code>. <b>Table:</b> <code>new_builds</code>.</p>
+<p>When a client buys a not-yet-built home, that's a new build — typically 12–18 months of construction. Each record tracks client info, builder info (<code>builder_name</code>, <code>builder_email</code>, community, <code>lot_address</code>), current stage (1–9 milestones), estimated completion, and MLS number.</p>
+<p><b>Builder Portal:</b> each build has a public URL (<code>builder.html?token=…</code>) the builder visits to upload photos and tick milestones — no login required. Production version: <code>builder-portal.js</code>.</p>
+<p><b>Client view:</b> same data, cleaned up for clients at <code>portal.html?token=…</code>.</p>
+<p><b>Builder visit loop:</b> when a build hits a milestone needing inspection, the system emails the builder a calendar invite for a site visit (migration 019).</p>
+
+<h2 id="s9"><span class="num">09</span>Commissions</h2>
+<p><b>Where:</b> Commissions tab. <b>File:</b> <code>js/extras.js</code>. <b>Table:</b> <code>commissions</code>.</p>
+<p>Tracks earnings on closed deals. Auto-calculates as sale price × commission rate (default 2.5%). Records co-listing splits when applicable. Shows a running YTD total broken out by month.</p>
+
+<h2 id="s10"><span class="num">10</span>Reports</h2>
+<p><b>Where:</b> Reports tab. <b>File:</b> <code>js/extras.js</code>. <b>Table:</b> <code>reports</code> + aggregations.</p>
+<p>Pre-built monthly review reports: month-over-month volume (viewings booked, offers written, deals closed), conversion funnel (leads → showings → offers → closings), client lifetime value, and source attribution. Tap any report to drill in or export to PDF.</p>
+
+<h2 id="s11"><span class="num">11</span>Email (Inbox + Send)</h2>
+<p><b>Where:</b> Email tab. <b>Files:</b> <code>js/extras.js</code>, <code>js/notifications.js</code>. <b>Edge function:</b> <code>send-email</code>. <b>Tables:</b> <code>email_inbox</code>, <code>approval_queue</code>.</p>
+<p>Two-way Gmail integration. Outbound: <code>send-email</code> authenticates against Gmail's API using stored OAuth and sends from Maxwell's real account. Inbound: <code>fetch-inbox</code> polls Gmail every few minutes and writes new messages to <code>email_inbox</code>, keyed by <code>gmail_thread_id</code> so replies thread correctly.</p>
+<p><b>Templates</b> in <code>js/notifications.js</code> cover viewing confirmation, viewing reminder, offer sent, offer accepted, build update, closing congratulations, etc. Each has placeholders filled at send time.</p>
+<p><b>Approvals queue:</b> by default every system email lands in <code>approval_queue</code> first. Maxwell reviews on the Approvals screen and taps Approve. Some templates have auto-approve enabled and skip the queue. Migration 017 enforces a per-recipient rate limit so the system can't spam.</p>
+
+<h2 id="s12"><span class="num">12</span>Approvals</h2>
+<p><b>Where:</b> Approvals tab. <b>File:</b> <code>js/extras.js</code>. <b>Table:</b> <code>approval_queue</code>.</p>
+<p>The safety net. Every system-generated email passes through here unless auto-approve is set. Each row shows From / To / Subject and a body preview. Buttons: Approve (sends now), Edit (modify before sending), Reject (discard).</p>
+
+<h2 id="s13"><span class="num">13</span>Broadcast</h2>
+<p><b>Where:</b> Broadcast tab. <b>File:</b> <code>js/extras.js</code>.</p>
+<p>Send a single message to a filtered list of clients at once. Useful for: open-house announcements, market updates, brokerage news. Choose a filter (active / past / leads), write the message, preview, send. Each individual email goes through the approval queue.</p>
+
+<h2 id="s14"><span class="num">14</span>Calendar</h2>
+<p><b>Where:</b> Calendar tab. <b>File:</b> <code>js/calendar.js</code>.</p>
+<p>A unified calendar showing every dated event: viewings, offer deadlines, pipeline deadlines, builder visits, closings. Tap any event to jump to its source. All dates formatted via <code>App.fmtDate()</code> which handles both plain <code>YYYY-MM-DD</code> and full Supabase timestamps.</p>
+
+<h2 id="s15"><span class="num">15</span>Analytics + Portal Traffic</h2>
+<p><b>Where:</b> Analytics and Portal Traffic tabs. <b>Files:</b> <code>js/analytics.js</code>, <code>js/portal-traffic.js</code>. <b>Charting:</b> Chart.js. <b>Tables:</b> <code>portal_views</code> + aggregations.</p>
+<p><b>Analytics:</b> high-level dashboard — bar/line charts of viewings per month, offers per month, conversion ratios, sources of business.</p>
+<p><b>Portal Traffic</b> answers: <em>did the link I sent actually get opened?</em> Every portal open inserts into <code>portal_views</code>. The screen shows:</p>
+<ul>
+  <li><b>Stat cards</b> — total views, today's views, unique clients, top portal type.</li>
+  <li><b>Views over time chart</b> — 7/30/90-day line chart split by portal type, each in its own color (Client orange, Builder purple, Stakeholder green).</li>
+  <li><b>By Viewer table</b> — one row per <em>(deal × recipient)</em>. Sample Builder Co. opening Client B's build link shows up as its own row, separate from Client B's client portal views. Each row carries a role badge (Client / Builder / Lawyer / Lender) and a subline with deal owner + address.</li>
+  <li><b>Recent Portal Views</b> — last 20 opens, color-coded pills, recipient name, deal context, plus a "Mark as self" button to exclude self-tests.</li>
+</ul>
+<div class="callout">This is the screen that confirms <em>yes, the builder actually clicked the link I sent</em>.</div>
+
+<h2 id="s16"><span class="num">16</span>Activity Log</h2>
+<p><b>Where:</b> Activity tab. <b>Table:</b> <code>activity_log</code>.</p>
+<p>Every meaningful action gets logged: client created, viewing booked, offer sent, email approved, milestone ticked, portal opened. Reverse-chronological feed. Each entry stores actor, verb, object ID, timestamp. The audit trail.</p>
+
+<h2 id="s17"><span class="num">17</span>AI Assistant ("Ask AI")</h2>
+<p><b>Where:</b> purple Ask AI button (top right of every screen). <b>File:</b> <code>js/ai.js</code>. <b>Edge function:</b> <code>claude-chat</code>. <b>Model:</b> Claude Haiku.</p>
+<p>A chat panel slides in. Ask anything: "Who's closing this month?" "Draft an email to Sample Builder about the framing inspection." "What's my YTD commission?" The assistant has read access to a curated database subset (clients, recent viewings, active builds, open pipeline deals) and feeds that context to Claude before answering. It can draft emails and summarize deals on demand. It's read-only — it cannot send emails or edit data.</p>
+
+<h2 id="s18"><span class="num">18</span>Push Notifications</h2>
+<p><b>Files:</b> <code>sw.js</code>, <code>js/app.js</code>. <b>Edge function:</b> <code>send-push</code>. <b>Table:</b> <code>push_subscriptions</code>.</p>
+<p>On first install the app asks "Allow notifications?" Tap Allow. The browser hands back a VAPID subscription (P-256 / JWK) which gets stored in <code>push_subscriptions</code> keyed to Maxwell's user ID. From then on, anytime the system needs to alert Maxwell — viewing response, new offer, builder portal open, morning briefing — <code>send-push</code> reads the stored subscription, signs a VAPID JWT, and pushes through Apple's / Google's push servers. Notifications arrive even when the app is closed.</p>
+
+<h2 id="s19"><span class="num">19</span>Daily Automation</h2>
+<p><b>File:</b> <code>js/notifications.js</code>. <b>Edge functions:</b> <code>daily-automation</code>, <code>morning-briefing</code>, <code>check-followups</code>. <b>Cron:</b> migrations 002 and 008.</p>
+<table>
+<tr><th>Job</th><th>When</th><th>What it does</th></tr>
+<tr><td>Morning briefing</td><td>8:00 AM</td><td>Scans today's viewings, offer deadlines, closings within 7 days. Pushes a summary to the phone.</td></tr>
+<tr><td>Follow-up checker</td><td>every 4 hours</td><td>Finds clients not contacted in 14+ days. Queues a follow-up email to approvals.</td></tr>
+<tr><td>Backup</td><td>nightly 2:00 AM</td><td>Dumps the database to a backup table. Accidental deletions reversible for 30 days.</td></tr>
+</table>
+<p>All three scheduled inside Supabase via <code>pg_cron</code>.</p>
+
+<h2 id="s20"><span class="num">20</span>System Health</h2>
+<p><b>Where:</b> Settings → System Health. <b>File:</b> <code>js/extras.js</code>.</p>
+<p>Diagnostic screen showing: last successful Gmail sync, last push notification, edge function health (latency per function), push subscription count, database row counts per table, cron last-run timestamps. If anything's red, most likely a Supabase outage or expired Gmail OAuth — fix the latter at Settings → Re-authenticate Gmail.</p>
+
+<h2 id="s21"><span class="num">21</span>Settings</h2>
+<p><b>Where:</b> Settings tab. <b>File:</b> <code>js/extras.js</code>.</p>
+<p>Per-agent configuration: profile (name, email, phone, brokerage, license), email signature, auto-approve toggles, theme, push (re-subscribe / disable), Re-authenticate Gmail (re-runs OAuth), and privacy mode toggle.</p>
+
+<h2 id="s22"><span class="num">22</span>Public Pages (no login)</h2>
+<p>URLs that get sent to clients, builders, lawyers, lenders. None require login — they're tokenized, time-limited, revocable. Default expiry: 90 days. Revoke any token from Settings or the deal's Transaction Room.</p>
+<table>
+<tr><th>Page</th><th>File</th><th>Recipient</th><th>What it does</th></tr>
+<tr><td>Respond</td><td><code>respond.html</code></td><td>Buyers/sellers</td><td>Confirm / reschedule / cancel a viewing or stakeholder request</td></tr>
+<tr><td>Portal</td><td><code>portal.html</code></td><td>Clients</td><td>Pipeline progress, milestones, documents</td></tr>
+<tr><td>Intake</td><td><code>intake.html</code></td><td>New leads</td><td>Fill new-client questionnaire</td></tr>
+<tr><td>Builder portal</td><td><code>builder.html</code></td><td>Builders</td><td>Upload photos, tick milestones</td></tr>
+<tr><td>Stakeholder portal</td><td><code>stakeholder.html</code></td><td>Lawyers, lenders, co-buyers</td><td>View deal status with limited info</td></tr>
+</table>
+
+<h2 id="s23"><span class="num">23</span>Database Tables (Supabase)</h2>
+<table>
+<tr><th>Table</th><th>Purpose</th></tr>
+<tr><td><code>clients</code></td><td>Buyer/seller master list</td></tr>
+<tr><td><code>viewings</code></td><td>Showing bookings</td></tr>
+<tr><td><code>viewing_responses</code></td><td>Client confirm/reschedule/cancel</td></tr>
+<tr><td><code>offers</code></td><td>Live and sent offers</td></tr>
+<tr><td><code>pending_offers</code></td><td>Drafts not yet sent</td></tr>
+<tr><td><code>pipeline</code></td><td>Accepted deals in flight</td></tr>
+<tr><td><code>pipeline_tasks</code></td><td>Per-deal task list</td></tr>
+<tr><td><code>checklist_items</code></td><td>Per-deal checklist</td></tr>
+<tr><td><code>commissions</code></td><td>Earnings on closed deals</td></tr>
+<tr><td><code>reports</code></td><td>Saved report snapshots</td></tr>
+<tr><td><code>activity_log</code></td><td>Audit trail of every action</td></tr>
+<tr><td><code>approval_queue</code></td><td>Pending outbound emails</td></tr>
+<tr><td><code>push_subscriptions</code></td><td>VAPID subscriptions per device</td></tr>
+<tr><td><code>agents</code></td><td>Agent profiles</td></tr>
+<tr><td><code>intake_responses</code></td><td>Submissions from <code>intake.html</code></td></tr>
+<tr><td><code>client_responses</code></td><td>Generic client replies</td></tr>
+<tr><td><code>new_builds</code></td><td>Build progress tracking</td></tr>
+<tr><td><code>form_responses</code></td><td>Custom form submissions</td></tr>
+<tr><td><code>email_inbox</code></td><td>Two-way Gmail sync</td></tr>
+<tr><td><code>deal_stakeholders</code></td><td>Lawyers/lenders/co-buyers per deal</td></tr>
+<tr><td><code>portal_views</code></td><td>Every portal open</td></tr>
+</table>
+<p>RLS is enforced everywhere — see migration 007 for the hardening pass and migration 020 for builder portal security. Tokens scope what public pages can read.</p>
+
+<h2 id="s24"><span class="num">24</span>Configuration &amp; Deployment</h2>
+<p><b>Front-end:</b> GitHub <code>master</code> branch auto-deploys to Vercel. Push to master and within ~30 seconds the new version is live globally. No build step — vanilla HTML/JS/CSS served directly.</p>
+<p><b><code>config.js</code></b> holds three values: <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code> (public, RLS-protected), <code>VAPID_PUBLIC_KEY</code>.</p>
+<p><b>Service Worker</b> (<code>sw.js</code>) handles offline cache and Web Push delivery. Cache-busts on each deploy via a version string.</p>
+<p><b>Edge Functions</b> (TypeScript / Deno) deploy via the Supabase CLI:</p>
+<pre><code>supabase functions deploy send-email
+supabase functions deploy send-push
+supabase functions deploy claude-chat
+supabase functions deploy fetch-inbox
+supabase functions deploy daily-automation
+supabase functions deploy morning-briefing
+supabase functions deploy check-followups
+supabase functions deploy backup-data</code></pre>
+<p>Each function reads its secrets from Supabase's secret store (Gmail OAuth tokens, VAPID private key, Anthropic API key).</p>
+<p><b>Migrations</b> in <code>supabase/migrations/</code> apply with <code>supabase db push</code>. Numbered <code>001_…</code> through <code>026_…</code> and must be applied in order on a fresh database.</p>
+
+<h2 id="s25"><span class="num">25</span>The Five Surgical Update Rules</h2>
+<p>From <code>CLAUDE.md</code>. Anyone editing this app — human or AI — follows these:</p>
+<ol>
+  <li><b>Read before editing.</b> Use grep or read the file first; never blind-edit.</li>
+  <li><b>One function at a time.</b> Change only the specific block. Leave everything else untouched.</li>
+  <li><b>Show the diff first.</b> Non-trivial changes show BEFORE / AFTER before applying.</li>
+  <li><b>Web-search before implementing new features.</b> Check current best practices and standard APIs.</li>
+  <li><b>Verify before committing.</b> Run <code>node --check</code> or grep the changed file before staging.</li>
+</ol>
+<pre><code>git add &lt;only the specific files changed&gt;
+git commit -m "fix/feat/chore: &lt;what changed and why&gt;"
+git push origin master</code></pre>
+
+<h2 id="s26"><span class="num">26</span>Common Operating Procedures</h2>
+
+<h3>A new buyer client comes in</h3>
+<ol>
+  <li>Clients tab → <code>+</code> → fill name, email, phone → Save.</li>
+  <li>Tap their card → Send intake form → email goes through approvals.</li>
+  <li>They submit; you get a push.</li>
+  <li>Their answers populate the Responses tab on their profile.</li>
+</ol>
+
+<h3>Booking a showing</h3>
+<ol>
+  <li>Viewings → <code>+</code> → pick client, address, date, time.</li>
+  <li>Save. Confirmation email + .ics goes out (after approval if not auto-approved).</li>
+  <li>Client taps respond link, confirms.</li>
+  <li>Push fires.</li>
+  <li>After the showing, the auto-completion modal asks for feedback.</li>
+</ol>
+
+<h3>Writing an offer</h3>
+<ol>
+  <li>Offers → <code>+</code> → pick client, fill property, amount, conditions.</li>
+  <li>Save → PDF auto-generated.</li>
+  <li>Send to client / co-agent through approvals.</li>
+  <li>On acceptance, mark accepted → auto-promotes to Pipeline.</li>
+</ol>
+
+<h3>Tracking a new build</h3>
+<ol>
+  <li>New Builds → <code>+</code> → pick client, fill builder name + email, lot address, MLS, est completion.</li>
+  <li>Save → builder gets emailed a portal link automatically.</li>
+  <li>Builder logs progress at <code>builder.html?token=…</code>.</li>
+  <li>Client sees the cleaner version at <code>portal.html?token=…</code>.</li>
+  <li>Maxwell watches both via the Portal Traffic screen.</li>
+</ol>
+
+<h3>Closing a deal</h3>
+<ol>
+  <li>Pipeline → tap deal → tick remaining checklist items.</li>
+  <li>Set closing date completed.</li>
+  <li>Deal auto-flips to Archived → appears in Commissions YTD total.</li>
+  <li>Closing congratulations email auto-fires.</li>
+</ol>
+
+<h2 id="s27"><span class="num">27</span>When Things Break</h2>
+<table>
+<tr><th>Symptom</th><th>Most likely cause</th><th>Fix</th></tr>
+<tr><td>Push notifications stop arriving</td><td>VAPID key mismatch / expired subscription</td><td>Settings → Re-enable push</td></tr>
+<tr><td>Outbound emails stop sending</td><td>Gmail OAuth token expired</td><td>Settings → Re-authenticate Gmail</td></tr>
+<tr><td>A screen is blank</td><td>JS error</td><td>Open browser console (Safari → Develop → iPhone). Look for the red error.</td></tr>
+<tr><td>Approval queue isn't draining</td><td>Cron stopped</td><td>Check System Health → cron status</td></tr>
+<tr><td>Portal link gives 404</td><td>Token revoked or expired</td><td>Settings → Tokens → re-issue</td></tr>
+<tr><td>Login loops</td><td>Auth refresh failing</td><td>Clear site data, sign in fresh</td></tr>
+</table>
+<p>If the whole site is down, check Vercel's deployment status first (it auto-deploys from <code>master</code>), then Supabase's status page.</p>
+
+<h2 id="s28"><span class="num">28</span>The 30-second pitch</h2>
+<div class="callout green">
+<p>Maxwell DealFlow is a one-person brokerage's entire operating system in a single PWA. It tracks every client from lead to closing, sends every email and notification automatically, gives the builder and the lawyer their own portal, and runs on a phone in offline mode. It deploys with a single <code>git push</code>. It costs roughly $20/month to run (Supabase + Vercel + Anthropic API). It gives a solo agent the operational leverage of a small team.</p>
+<p style="margin-top:10px;"><b>That's the whole system.</b></p>
+</div>
+
+</main>
+</div>
+</body>
+</html>

@@ -57,9 +57,9 @@ This is not a dumb form-and-list app. There are **5 layers of intelligence** bui
 
 ### Layer 1 — Claude AI Assistant (On-Demand Intelligence)
 Every screen has access to the AI assistant via the FAB menu. You can ask it:
-- "Draft a follow-up email for Abraham Ayuba after his inspection"
+- "Draft a follow-up email for Client K after his inspection"
 - "What should I say to a buyer who's nervous about the financing condition?"
-- "Summarise the market at 615 Topsail Road"
+- "Summarise the market at 700 Sample Boulevard"
 
 It knows the context of your CRM and responds like a real estate expert. It runs through a Supabase Edge Function so your Claude API key is never exposed to the browser.
 

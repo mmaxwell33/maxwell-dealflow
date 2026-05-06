@@ -15,3 +15,17 @@ supabase/.temp/
 # Unrelated files
 refined/
 stakeholder-v2-*.html
+
+# Generated session artifacts (PDFs, decks, HTML mockups)
+*.pdf
+*.pptx
+DealFlow_*.png
+DealFlow_*.html
+maxwell-*.pdf
+maxwell-*.html
+preview_*.png
+builder-v2-*.html
+NotebookLM_Prompt.md
+MASTER_BUILDER_PROMPT.md
+SCREENSHOT_CHECKLIST.md
+AUDIT.md

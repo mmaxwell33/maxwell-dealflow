@@ -374,14 +374,14 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 2500,
+        max_tokens: 5000,        // bumped — personal_plan schema is large (platforms + picks + wisdom + ...)
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: STRUCTURED_PROMPT },
           { role: 'user',   content: userPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(40000),
+      signal: AbortSignal.timeout(50000),
     });
     console.log('[briefing] LLM call 1 in', Date.now() - llm1Start, 'ms, status:', llm1Res.status);
     if (!llm1Res.ok) {

@@ -129,7 +129,7 @@ Once an offer is accepted, it lives in the Pipeline until closing. Each row is a
 - A document area for uploaded contracts, inspection reports, and lender letters.
 - An activity timeline for that specific deal.
 
-**Daily reminders:** every morning the daily-automation function (Section 19) checks for upcoming deadlines and pushes a notification: "Inspection deadline for 16 Knightsbridge in 2 days."
+**Daily reminders:** every morning the daily-automation function (Section 19) checks for upcoming deadlines and pushes a notification: "Inspection deadline for 100 Sample Build Lane in 2 days."
 
 **PDF export:** the Pipeline screen has a button to export the entire deal to PDF for handoff to a lawyer or lender.
 
@@ -240,7 +240,7 @@ This is the safety net. Maxwell sees every word the system wants to send before 
 
 Send a single message to a filtered list of clients at once. Useful for:
 
-- "Open house this Saturday at 16 Knightsbridge."
+- "Open house this Saturday at 100 Sample Build Lane."
 - "Spring market update."
 - "We're now licensed in Newfoundland — your referrals welcome."
 
@@ -272,7 +272,7 @@ Same date logic everywhere: dates are formatted via `App.fmtDate()` which handle
 
 - **Stat cards** — total views, today's views, unique clients, top portal type.
 - **Views over time chart** — 7-, 30-, or 90-day line chart split by portal type (Client / Builder / Stakeholder), each in its own color.
-- **By Viewer table** — one row per (deal × recipient). So if McCrowe Homes opened the build link Maxwell sent for Zinabu's deal, you see "McCrowe Homes [Builder] · Builder portal · 6" as its own row, separate from "Zinabu Yakubu [Client] · Client portal · 8." Each row shows a role badge and a subline with the deal owner and address.
+- **By Viewer table** — one row per (deal × recipient). So if Sample Builder Co. opened the build link Maxwell sent for Client B's deal, you see "Sample Builder Co. [Builder] · Builder portal · 6" as its own row, separate from "Client B [Client] · Client portal · 8." Each row shows a role badge and a subline with the deal owner and address.
 - **Recent Portal Views feed** — the last 20 opens, each with timestamp, portal type pill (color-coded), recipient name, and deal context. Each row has a "Mark as self" button — use it to flag a view as your own self-test so it's excluded from totals.
 
 This is the screen that confirms "yes, the builder actually clicked the link I sent."
@@ -297,7 +297,7 @@ Each entry stores the actor (always Maxwell), the verb (created, sent, marked co
 **Edge function:** `supabase/functions/claude-chat/`.
 **Model:** Claude Haiku.
 
-Tap the button. A chat panel slides in. Ask anything: "Who's closing this month?" "Draft an email to the McCrowe builder about the 16 Knightsbridge framing inspection." "What's my YTD commission?"
+Tap the button. A chat panel slides in. Ask anything: "Who's closing this month?" "Draft an email to the Sample Builder builder about the 100 Sample Build Lane framing inspection." "What's my YTD commission?"
 
 The assistant has read access to a curated subset of the database — clients, recent viewings, active builds, open pipeline deals — and feeds that context into Claude before answering. It can draft emails, summarize a deal, or pull stats on demand. It cannot send emails or edit data; it's read-only and advisory.
 

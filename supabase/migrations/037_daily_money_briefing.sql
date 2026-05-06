@@ -70,7 +70,8 @@ SELECT cron.schedule(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer <YOUR_SERVICE_KEY>'
     ),
-    body    := '{}'::jsonb
+    body                 := '{}'::jsonb,
+    timeout_milliseconds := 90000  -- briefing takes ~30-45s; default 5s would always time out
   );
   $$
 );
@@ -85,6 +86,7 @@ SELECT cron.schedule(
 --     'Content-Type',  'application/json',
 --     'Authorization', 'Bearer <YOUR_SERVICE_KEY>'
 --   ),
---   body    := '{}'::jsonb
+--   body                 := '{}'::jsonb,
+--   timeout_milliseconds := 90000
 -- );
 -- Then watch the response: SELECT * FROM net._http_response ORDER BY id DESC LIMIT 1;
