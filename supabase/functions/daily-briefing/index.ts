@@ -197,13 +197,14 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       },
       body: JSON.stringify({
         model: 'gpt-4o',         // bumped from gpt-4o-mini — mini was lazy with long podcast scripts
-        max_tokens: 6000,        // headroom for full ~1500-word podcast + structured fields
+        max_tokens: 5000,        // ~1300-1500 words for podcast + ~500 for structured fields
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user',   content: userPrompt },
         ],
       }),
+      signal: AbortSignal.timeout(60000),  // hard 60s cap on LLM call
     });
     console.log('[briefing] LLM response in', Date.now() - llmStart, 'ms, status:', llmRes.status);
     if (!llmRes.ok) {
@@ -223,48 +224,55 @@ Generate today's briefing as a single JSON object per the system prompt's schema
     const totalWords = podcastTurns.reduce((sum: number, t: any) => sum + ((t.text || '').trim().split(/\s+/).filter(Boolean).length), 0);
     console.log('[briefing] parsed brief — podcast turns:', podcastTurns.length, 'total words:', totalWords, '(~' + Math.round(totalWords / 150) + ' min spoken)');
 
-    // ── 4. Generate 2-voice podcast audio via parallel TTS ─────────────────
-    // Each turn is TTS'd separately with a voice based on the speaker:
+    // ── 4. Generate 2-voice podcast audio via batched TTS ──────────────────
+    // Each turn is TTS'd with a voice based on the speaker:
     //   speaker "A" (Avery, analyst) → onyx
     //   speaker "B" (Sam, host)      → nova
-    // All calls fire in parallel, then we concatenate the MP3 byte arrays.
-    // MP3 frames are self-contained so naive concat plays cleanly in any player.
-    console.log('[briefing] calling OpenAI TTS (2-voice, parallel)...');
+    // We batch in groups of 6 to stay under OpenAI's tts-1 concurrency limit.
+    // Each call has a 20s timeout. If a turn fails, we substitute silence so the
+    // whole episode still ships.
+    console.log('[briefing] calling OpenAI TTS (2-voice, batched)...');
     const ttsStart = Date.now();
-
     const voiceFor = (speaker: string) => speaker === 'B' ? 'nova' : 'onyx';
 
-    const ttsPromises = podcastTurns.map((turn: any, idx: number) => {
-      const text = (turn.text || '').slice(0, 4000);
-      if (!text) return Promise.resolve(new ArrayBuffer(0));
-      return fetch('https://api.openai.com/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'tts-1',
-          voice: voiceFor(turn.speaker || 'A'),
-          input: text,
-          format: 'mp3',
-        }),
-      }).then(async (r) => {
+    const ttsOne = async (turn: any, idx: number): Promise<ArrayBuffer> => {
+      const text = (turn?.text || '').slice(0, 4000);
+      if (!text) return new ArrayBuffer(0);
+      try {
+        const r = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            voice: voiceFor(turn.speaker || 'A'),
+            input: text,
+            format: 'mp3',
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
         if (!r.ok) {
-          const errTxt = await r.text();
-          throw new Error(`TTS turn ${idx} failed: ${r.status} ${errTxt.slice(0, 200)}`);
+          console.warn(`[briefing] TTS turn ${idx} failed status ${r.status}`);
+          return new ArrayBuffer(0);
         }
-        return r.arrayBuffer();
-      });
-    });
+        return await r.arrayBuffer();
+      } catch (e: any) {
+        console.warn(`[briefing] TTS turn ${idx} threw: ${e?.message}`);
+        return new ArrayBuffer(0);
+      }
+    };
 
-    let ttsBuffers: ArrayBuffer[];
-    try {
-      ttsBuffers = await Promise.all(ttsPromises);
-    } catch (e: any) {
-      return json({ error: `TTS failed: ${e?.message || String(e)}` }, 500);
+    const BATCH = 6;
+    const ttsBuffers: ArrayBuffer[] = [];
+    for (let i = 0; i < podcastTurns.length; i += BATCH) {
+      const chunk = podcastTurns.slice(i, i + BATCH);
+      const results = await Promise.all(chunk.map((turn: any, j: number) => ttsOne(turn, i + j)));
+      ttsBuffers.push(...results);
+      console.log(`[briefing] TTS batch ${Math.floor(i/BATCH)+1} done (${ttsBuffers.length}/${podcastTurns.length} segments)`);
     }
-    console.log('[briefing] TTS done in', Date.now() - ttsStart, 'ms, segments:', ttsBuffers.length);
+    console.log('[briefing] TTS done in', Date.now() - ttsStart, 'ms, total segments:', ttsBuffers.length);
 
     // Concatenate MP3 byte arrays into one continuous file
     const totalLen = ttsBuffers.reduce((s, b) => s + b.byteLength, 0);
