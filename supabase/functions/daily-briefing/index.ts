@@ -119,17 +119,22 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
   ]
 }
 
-CRITICAL rules for the "podcast" field:
-- It must be an ARRAY of 18-24 turns alternating "A" (Avery, the analyst) and "B" (Sam, the practical one).
-- Total length: 1100-1500 words across all turns combined. Each turn 30-90 words. Aim for ~7-8 minutes when spoken.
-- Avery (A) is calm, analytical, breaks down rates / CPI / BoC mechanics in human language.
-- Sam (B) is the everyday saver — asks "what does that mean for someone like me trying to buy in 2027?", makes jokes, brings emotional warmth.
-- This is NotebookLM-style: a real conversation. They build on each other's points, agree, gently push back, ask follow-ups. NOT one person reading bullet points.
-- Spell out numbers as a presenter would say them: "two and a quarter percent", NOT "2.25%". "Four thousand dollars" not "$4,000".
-- Expand acronyms first time used: "First Home Savings Account, FHSA". "Tax-Free Savings Account, TFSA".
-- Reference Maxwell by name once or twice ("for someone like Maxwell, saving fourteen hundred a month..."). Mention St. John's, Newfoundland once.
-- Sam ends the episode with: "That's the page for today. Stay steady, Maxwell. We'll do this again tomorrow."
-- NO emojis. NO markdown. NO stage directions like "[laughs]" — just clean spoken prose.
+CRITICAL rules for the "podcast" field — DO NOT SKIP OR SHORTEN:
+- HARD MINIMUM: 22 turns (i.e. exactly 22 to 28 entries in the podcast array).
+- HARD MINIMUM total word count across all turns combined: 1300 words. Target: 1400. This is non-negotiable. A 300-word podcast is a FAILURE.
+- HARD MINIMUM length per turn: 50 words. Target per turn: 60-90 words. NO 1-line turns. NO 10-word turns.
+- Goal: produce a 7-8 minute spoken episode. At ~150 words/minute that means ~1100-1200 words MINIMUM.
+- Alternate strictly: A, B, A, B, A, B... Avery (A) is the calm analyst. Sam (B) is the everyday saver who asks "what does that mean for me?".
+- This is a real two-host podcast (NotebookLM style). They build on each other, agree, gently push back, finish each other's thoughts, ask real follow-up questions. They are NOT taking turns reading bullet points.
+- Cover ALL THREE stories from the "stories" field, the BoC rate, mortgage rates, the "one move" action item, AND the upcoming dates. That's the bulk of the content.
+- Open with Avery (A) saying the date and previewing what's on today's page. Spend ~2 minutes on the snapshot + rates, ~4 minutes on the three stories, ~1 minute on the action item, ~30 seconds on what's coming up.
+- Spell numbers as words: "two and a quarter percent", NOT "2.25%". "Four thousand dollars", NOT "$4,000". "April nineteenth", NOT "April 19".
+- Expand acronyms first use: "First Home Savings Account, FHSA". "Tax-Free Savings Account, TFSA". "Bank of Canada".
+- Reference Maxwell by name 2-3 times ("for someone like Maxwell, saving fourteen hundred a month..."). Mention St. John's, Newfoundland at least once. Mention his June twenty twenty-seven closing target once.
+- Sam ends the episode with EXACTLY: "That's the page for today. Stay steady, Maxwell. We'll do this again tomorrow."
+- NO emojis. NO markdown. NO stage directions. Just spoken prose.
+
+If you generate fewer than 22 turns or fewer than 1300 words in the podcast field, you have failed the task.
 
 Other rules:
 - Use [NEEDS REVIEW] in any field where you do not have current data — do NOT guess prices, closes, or rates.
@@ -191,8 +196,8 @@ Generate today's briefing as a single JSON object per the system prompt's schema
         'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 4000,        // bumped — podcast script alone is ~2k tokens
+        model: 'gpt-4o',         // bumped from gpt-4o-mini — mini was lazy with long podcast scripts
+        max_tokens: 6000,        // headroom for full ~1500-word podcast + structured fields
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -215,7 +220,8 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       return json({ error: `LLM returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
     }
     const podcastTurns = Array.isArray(brief.podcast) ? brief.podcast : [];
-    console.log('[briefing] parsed brief, podcast turns:', podcastTurns.length);
+    const totalWords = podcastTurns.reduce((sum: number, t: any) => sum + ((t.text || '').trim().split(/\s+/).filter(Boolean).length), 0);
+    console.log('[briefing] parsed brief — podcast turns:', podcastTurns.length, 'total words:', totalWords, '(~' + Math.round(totalWords / 150) + ' min spoken)');
 
     // ── 4. Generate 2-voice podcast audio via parallel TTS ─────────────────
     // Each turn is TTS'd separately with a voice based on the speaker:
