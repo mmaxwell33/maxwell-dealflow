@@ -235,6 +235,9 @@
             <button class="nav-item" data-tab="reviews" onclick="App.switchTab('reviews')">
               <span class="nav-icon">📝</span><span class="nav-label">Reviews</span>
             </button>
+            <button class="nav-item" data-tab="briefing" onclick="App.switchTab('briefing')">
+              <span class="nav-icon">📈</span><span class="nav-label">Money Brief</span>
+            </button>
             <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
               <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
               <span class="nav-badge" id="inbox-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px;"></span>
@@ -964,6 +967,18 @@
         <button class="btn btn-outline btn-sm" onclick="Reviews.load()">🔄 Refresh</button>
       </div>
       <div id="reviews-list"></div>
+    </div>
+
+    <!-- BRIEFING SCREEN — daily money brief -->
+    <div id="screen-briefing" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;">📈 Money Briefing</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Daily Canadian money brief — auto-generated each morning</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Briefing.load()">🔄 Refresh</button>
+      </div>
+      <div id="briefing-container"><div style="text-align:center;padding:40px;color:var(--text2);">Loading…</div></div>
     </div>
 
     <!-- INBOX SCREEN -->
@@ -1775,6 +1790,7 @@
 <script src="js/ai.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/reviews.js"></script>
+<script src="js/briefing.js"></script>
 
 <!-- Share-to-socials modal (post-close reviews only) -->
 <div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:20px;">

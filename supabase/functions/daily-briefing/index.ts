@@ -547,6 +547,7 @@ Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, t
           one_move: brief.one_move || null,
           mortgage_rates: brief.mortgage_rates || null,
           sources: brief.sources || null,
+          personal_plan: brief.personal_plan || null,
           podcast_turns: (brief.podcast || []).length,
         },
         watch_list: brief.watch_list,

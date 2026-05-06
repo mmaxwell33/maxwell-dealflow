@@ -689,6 +689,7 @@ const App = {
     if (tab === 'calendar') Calendar.load();
     if (tab === 'broadcast') Broadcast.load();
     if (tab === 'reviews') Reviews.load();
+    if (tab === 'briefing') Briefing.load();
     if (tab === 'pipeline-archive') Pipeline.loadArchive();
   },
 
