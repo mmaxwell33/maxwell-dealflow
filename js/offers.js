@@ -9,8 +9,47 @@ const Offers = {
       .eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
     Offers.all = data || [];
+
+    // Detect orphan accepted offers — offer.status='Accepted' but NO pipeline row.
+    // These happen when the dispatch modal got interrupted (refresh, navigate, etc.)
+    // before Confirm & Send All was tapped.  Cache a Set of property addresses
+    // that currently have a pipeline row so the UI can show a "Resume" affordance.
+    Offers._pipelineAddresses = new Set();
+    try {
+      const { data: pRows } = await db.from('pipeline')
+        .select('property_address')
+        .eq('agent_id', currentAgent.id)
+        .is('archived_at', null);
+      (pRows || []).forEach(p => Offers._pipelineAddresses.add((p.property_address || '').trim().toLowerCase()));
+    } catch (_) { /* non-fatal — orphan detection just shows for everyone */ }
+
     Offers.render(Offers.all);
     if (typeof PendingRequests !== 'undefined') PendingRequests.loadBadge();
+  },
+
+  // Returns true if an Accepted offer has no matching pipeline row
+  isOrphanAccepted(o) {
+    if (!o || o.status !== 'Accepted') return false;
+    if (!Offers._pipelineAddresses) return false;
+    const key = (o.property_address || '').trim().toLowerCase();
+    return !Offers._pipelineAddresses.has(key);
+  },
+
+  // Re-open the dispatch modal for an Accepted offer that never made it to pipeline
+  async resumeAcceptance(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) { App.toast('Offer not found', 'var(--red)'); return; }
+    let client = null;
+    if (o.client_id) {
+      const { data } = await db.from('clients').select('*').eq('id', o.client_id).single();
+      client = data;
+    }
+    if (!client) {
+      // Build a minimal client object from what's on the offer
+      client = { full_name: o.clients?.full_name || o.client_name, email: o.clients?.email || o.client_email, id: o.client_id || null };
+    }
+    App.toast('🔄 Resuming acceptance — finish + tap Confirm & Send All', 'var(--accent2)');
+    Pipeline.askAcceptanceDetails(o, client);
   },
 
   filter(f, btn) {
@@ -51,8 +90,17 @@ const Offers = {
       Conditions:'pill2-amber',
       Closing:   'pill2-indigo'
     };
-    el.innerHTML = list.map(o => `
-      <div class="card2" onclick="Offers.openDetail('${o.id}')" style="margin-bottom:10px;cursor:pointer;">
+    el.innerHTML = list.map(o => {
+      const isOrphan = Offers.isOrphanAccepted(o);
+      // Inline resume affordance — shown directly on card so Maxwell sees it without opening detail
+      const resumeBanner = isOrphan
+        ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.10);border:1px solid var(--yellow);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;">
+             <span style="color:var(--yellow);font-weight:600;">⚠️ Acceptance not finished — pipeline missing</span>
+             <button class="btn btn-sm" style="background:var(--yellow);color:#000;font-weight:700;padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();Offers.resumeAcceptance('${o.id}')">🔄 Resume</button>
+           </div>`
+        : '';
+      return `
+      <div class="card2" onclick="Offers.openDetail('${o.id}')" style="margin-bottom:10px;cursor:pointer;${isOrphan ? 'border-left:3px solid var(--yellow);' : ''}">
         <div class="card2-header" style="margin-bottom:6px;">
           <div class="card2-title" style="flex:1;margin-right:8px;">${o.property_address || '—'}</div>
           <span class="pill2 ${statusPill[o.status]||'pill2-neutral'}">${o.status}</span>
@@ -63,7 +111,9 @@ const Offers = {
           <span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(o.offer_amount)}</span>
           <span style="color:var(--text2);">${App.fmtDate(o.offer_date)}</span>
         </div>
-      </div>`).join('');
+        ${resumeBanner}
+      </div>`;
+    }).join('');
   },
 
   openAdd() {
@@ -234,7 +284,15 @@ const Offers = {
           <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}')">❌ Seller Rejected — Notify buyer</button>
           <button class="btn btn-outline" onclick="Offers.snoozeFollowUp('${o.id}')" style="border-color:var(--yellow);color:var(--yellow);">⏳ Still Waiting — Set new reminder</button>
         </div>
-      </div>` : o.status === 'Accepted' ? `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>` : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
+      </div>` : o.status === 'Accepted' ? (
+        Offers.isOrphanAccepted(o)
+          ? `<div style="background:rgba(245,158,11,.1);border:2px solid var(--yellow);border-radius:10px;padding:14px;margin-bottom:10px;">
+               <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:6px;">⚠️ Acceptance not finished</div>
+               <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">This offer was marked Accepted but the dispatch modal didn't complete — no pipeline row exists yet.  Tap Resume to pick up where you left off (dates, documents, stakeholders).</div>
+               <button class="btn btn-block" style="background:var(--yellow);color:#000;font-weight:700;" onclick="App.closeModal();Offers.resumeAcceptance('${o.id}')">🔄 Resume Acceptance</button>
+             </div>`
+          : `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>`
+      ) : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
       <button class="btn btn-outline btn-block" style="margin-top:4px;" onclick="App.closeModal()">Close</button>
     `);
   },
