@@ -1,18 +1,20 @@
-// Maxwell DealFlow — Daily Money Briefing edge function
+// Maxwell DealFlow — Daily Money Briefing edge function (v2)
 //
-// Generates Albert's personalised Canadian money briefing.
-// Run daily at 09:30 UTC (~6:00 AM NDT) via pg_cron, or manually invoke for testing.
+// Generates Maxwell's personalised Canadian money briefing.
+// Run daily at 09:00 UTC (~6:30 AM NDT, ~5:30 AM NST) via pg_cron, or manually invoke.
 //
-// Pipeline:
+// v2 pipeline:
 //   1. Fetch live data: BoC overnight rate (BoC Valet API, free, no key)
-//   2. Build prompt with Albert's profile + portfolio + market data
-//   3. Call Claude (claude-haiku-4-5) → structured JSON briefing
-//   4. Call OpenAI TTS (tts-1-hd, voice=onyx) → MP3 buffer
-//   5. Save brief to briefings table; upload MP3 to storage
-//   6. Email Albert via send-email edge fn with MP3 attached
+//   2. Call OpenAI gpt-4o-mini → rich JSON brief (snapshot, mortgage rates, 3 stories,
+//      one-move-this-week, sources, audit footer, plus a 2-host podcast script)
+//   3. Generate 2-voice podcast audio: each turn TTS'd in parallel (onyx for Host A,
+//      nova for Host B), MP3 buffers concatenated for a single ~6-8 min file
+//   4. Upload MP3 to storage; save brief to briefings table
+//   5. Render the newsletter HTML (hero band, metric cards, mortgage rates, 3 stories,
+//      one-move callout, sources) and email it with the MP3 attached
 //
 // Required Supabase secrets:
-//   OPENAI_API_KEY      — used for both the briefing text (gpt-4o-mini) and TTS audio (tts-1-hd)
+//   OPENAI_API_KEY      — gpt-4o-mini for briefing, tts-1 for audio
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — built-in
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -24,11 +26,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// ── Albert's profile (hardcoded for v1; later move to a user_briefing_settings table)
+// ── Maxwell's profile (hardcoded for v1; later move to a user_briefing_settings table)
 const PROFILE = {
-  name: 'Albert',
+  name: 'Maxwell',
   email: 'maxwelldelali22@gmail.com',
-  city: 'St. John\'s, Newfoundland',
+  city: "St. John's, Newfoundland",
   timezone: 'America/St_Johns',
   closing_target: 'June 2027',
   monthly_income: 4200,        // base salary; real-estate commissions are bonus
@@ -49,67 +51,91 @@ const PROFILE = {
   watchlist: ['XEQT', 'VFV', 'VEQT', 'ZSP', 'XIC', 'XGRO', '^GSPTSE'],
 };
 
-const SYSTEM_PROMPT = `You are Albert's personal Canadian money desk — three people in one. (1) A senior financial researcher who reads Bank of Canada releases, Statistics Canada CPI reports, CMHC housing data, and TSX/ETF flows. (2) A calm news presenter who can deliver a 4-minute spoken briefing without jargon. (3) An auditor who flags risks, conflicts, and anything that smells like hype. You also have the instincts of an experienced ETF and equity strategist who tracks the Canadian market — TSX, XEQT, VFV, VEQT, ZSP, XIC, XGRO, HXS, sector ETFs, GICs, and the major Canadian banks — and who understands when to buy, hold, trim, or sell based on macro signals (rates, CPI, employment, oil, CAD/USD).
+const SYSTEM_PROMPT = `You are Maxwell's personal Canadian money desk — three people in one: (1) a senior financial researcher who reads Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA reports, and TSX/ETF flows; (2) two warm, conversational podcast hosts who alternate to deliver a NotebookLM-style audio brief; (3) an auditor who flags uncertainty and never invents numbers.
 
-About Albert:
+About Maxwell:
 - Lives in ${PROFILE.city} (${PROFILE.timezone})
+- Real estate agent at eXp Realty in St. John's, NL
 - First-time home buyer, target close: ${PROFILE.closing_target}
 - Trades on ${PROFILE.trading_platform} (Canadian Webull supports FHSA, TFSA, RRSP)
-- Income: $${PROFILE.monthly_income}/month base salary + real estate commissions (variable)
+- Income: $${PROFILE.monthly_income}/month base + real estate commissions (variable)
 - Fixed expenses: $${PROFILE.monthly_fixed_costs}/month
-- Net savings: ~$${PROFILE.monthly_savings_now}/month until July, ~$${PROFILE.monthly_savings_after_july}/month after (sister finishes school)
-- Lump sums incoming: $8,000 on May 15, $16,000 in October
-- Ghanaian-Canadian, diaspora-aware tone — direct, warm, no fluff
+- Net savings: ~$${PROFILE.monthly_savings_now}/month until July, ~$${PROFILE.monthly_savings_after_july}/month after
+- Lump sums: $8,000 on May 15, $16,000 in October
 - Account state: FHSA $${PROFILE.accounts.fhsa.contributed_ytd}/$${PROFILE.accounts.fhsa.annual_limit}, TFSA $${PROFILE.accounts.tfsa.contributed_ytd}/$${PROFILE.accounts.tfsa.room_2026}, RRSP $${PROFILE.accounts.rrsp.contributed_ytd}, HISA cash $${PROFILE.accounts.hisa_cash}
+- Watchlist: ${PROFILE.watchlist.join(', ')}
 
-Output a single JSON object with this exact structure (no prose, no markdown fences, ONLY valid JSON):
+Output ONE JSON object with this EXACT structure (no markdown, no prose outside JSON):
 {
   "snapshot": {
-    "boc_rate": "X.XX% (BoC overnight)",
-    "next_boc_meeting": "ISO date",
-    "cpi_latest": "X.X% YoY (StatsCan, MMM YYYY)",
-    "xeqt_close": "$XX.XX (+X.XX%)",
-    "tsx_close": "XX,XXX (+X.XX%)",
-    "cad_usd": "0.XXXX",
-    "wti_oil": "$XX.XX USD",
-    "nl_avg_home": "$XXX,XXX (CREA / NLREA)",
-    "best_5yr_fixed": "X.XX%",
-    "best_variable": "X.XX%"
+    "boc_rate": "X.XX%",
+    "boc_next_meeting": "Mon DD",
+    "xeqt_close": "$XX.XX",
+    "xeqt_change": "+X.X%",
+    "nl_avg_home": "$XXX,XXX",
+    "nl_avg_home_period": "Mon YYYY · NLREA",
+    "cpi": "X.X%",
+    "cpi_period": "Mon YYYY · YoY"
+  },
+  "mortgage_rates": {
+    "fixed_5yr": "X.XX%",
+    "variable": "X.XX%",
+    "boc_overnight": "X.XX%",
+    "monthly_pmt_400k": "~$X,XXX",
+    "boc_next_decision": "Mon DD",
+    "amortization_note": "On $400K at the fixed rate, 25-yr amortization."
   },
   "stories": [
-    { "headline": "...", "facts": "2-3 sentence factual recap", "plain_english": "one-line translation for non-finance people" },
-    { ... }, { ... }
+    {
+      "headline": "Concrete, specific. NOT 'Markets move.' Try 'Oil at $XX keeps gasoline — and your grocery bill — under pressure.'",
+      "body": "3-4 sentences of plain factual recap with at least one specific number and one named source. Include a definition for any acronym used.",
+      "plain_english": "ONE sentence. What this means for someone like Maxwell saving for a first home in St. John's."
+    },
+    { "headline": "...", "body": "...", "plain_english": "..." },
+    { "headline": "...", "body": "...", "plain_english": "..." }
   ],
-  "etf_call": {
-    "tickers": ["XEQT.TO"],
-    "stance": "Buy" | "Add" | "Hold" | "Trim" | "Sell" | "Avoid",
-    "reasoning": "two sentences",
-    "worked_example": "If Albert puts $X today at $Y, that buys ~Z units. Assuming 7% real return over 14 months to closing, $X grows to ~$W. Assumptions stated."
-  },
-  "action_item": {
-    "summary": "one-line directive",
-    "exact_dollars": 0,
-    "exact_account": "FHSA" | "TFSA" | "RRSP" | "HISA",
-    "exact_day": "Mon/Tue/Wed/Thu/Fri",
-    "ticker_buy": "XEQT.TO" | null,
-    "limit_price": null | number,
-    "tied_to_savings": "explanation linking this to Albert's $1,140-$2,040/month rate"
+  "one_move": {
+    "title": "One direct action this week. e.g. 'Top up the FHSA before the next paycheque.'",
+    "explanation": "2-3 sentences. Why now, how much, which account. Tie to Maxwell's actual savings rate ($1,140-$2,040/month) and Webull."
   },
   "watch_list": [
-    { "date": "ISO", "event": "CPI / BoC decision / jobs / earnings", "matters_because": "what it means for Albert's mortgage rate or portfolio" },
-    { ... }, { ... }
+    { "date": "Mon DD", "event": "CPI release / BoC decision / earnings", "matters_because": "one line on impact to mortgage rate or portfolio" },
+    { "date": "Mon DD", "event": "...", "matters_because": "..." },
+    { "date": "Mon DD", "event": "...", "matters_because": "..." }
   ],
-  "audit_footer": "any uncertainty flags + 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner.'",
-  "written_brief_html": "<div>... compact HTML, ready to paste into email body, with sections for snapshot, stories, ETF call, action, watchlist, audit footer ...</div>",
-  "spoken_script_text": "PURE PROSE for text-to-speech. Spell numbers out as a presenter would say them: 'two and a quarter percent', NOT '2.25%'. Expand acronyms first time: 'Tax-Free Savings Account, TFSA'. No emojis. No markdown. End with: 'That's your briefing. Have a steady day, Albert.' Aim for 3-4 minutes when read at normal pace (~500-700 words)."
+  "sources": [
+    { "label": "Bank of Canada interest rate", "url": "https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/" },
+    { "label": "BoC upcoming meetings", "url": "https://www.bankofcanada.ca/press/upcoming-events/" },
+    { "label": "StatsCan CPI", "url": "https://www150.statcan.gc.ca/n1/daily-quotidien/" },
+    { "label": "NLREA monthly stats", "url": "https://www.nlrea.ca/" },
+    { "label": "Ratehub mortgage rates", "url": "https://www.ratehub.ca/" }
+  ],
+  "audit_footer": "Flag any specific data points marked [NEEDS REVIEW]. End with: 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner who is accountable to you, not to commissions.'",
+  "podcast": [
+    { "speaker": "A", "text": "Avery's first turn — sets the date, headline of the day, and what's on the page." },
+    { "speaker": "B", "text": "Sam's response — picks up the thread, asks a clarifying question, makes it concrete." },
+    { "speaker": "A", "text": "..." },
+    { "speaker": "B", "text": "..." }
+  ]
 }
 
-Rules:
-- Use [NEEDS REVIEW] in any field where you do not have current data (do not guess).
-- Cite sources where possible (BoC, StatsCan, CMHC, TSX, Yahoo Finance).
-- Stories should be Canadian personal-finance / macro relevant. No US politics. No tech-bro news.
-- Action item must reference Albert's actual savings rate and Webull as the platform.
-- Spoken script must end with the exact closing line above.`;
+CRITICAL rules for the "podcast" field:
+- It must be an ARRAY of 18-24 turns alternating "A" (Avery, the analyst) and "B" (Sam, the practical one).
+- Total length: 1100-1500 words across all turns combined. Each turn 30-90 words. Aim for ~7-8 minutes when spoken.
+- Avery (A) is calm, analytical, breaks down rates / CPI / BoC mechanics in human language.
+- Sam (B) is the everyday saver — asks "what does that mean for someone like me trying to buy in 2027?", makes jokes, brings emotional warmth.
+- This is NotebookLM-style: a real conversation. They build on each other's points, agree, gently push back, ask follow-ups. NOT one person reading bullet points.
+- Spell out numbers as a presenter would say them: "two and a quarter percent", NOT "2.25%". "Four thousand dollars" not "$4,000".
+- Expand acronyms first time used: "First Home Savings Account, FHSA". "Tax-Free Savings Account, TFSA".
+- Reference Maxwell by name once or twice ("for someone like Maxwell, saving fourteen hundred a month..."). Mention St. John's, Newfoundland once.
+- Sam ends the episode with: "That's the page for today. Stay steady, Maxwell. We'll do this again tomorrow."
+- NO emojis. NO markdown. NO stage directions like "[laughs]" — just clean spoken prose.
+
+Other rules:
+- Use [NEEDS REVIEW] in any field where you do not have current data — do NOT guess prices, closes, or rates.
+- Cite specific Canadian sources (BoC, StatsCan, CMHC, NLREA, CREA, Ratehub).
+- Stories must be Canadian personal-finance / macro relevant. No US politics. No tech-bro hype. No US-only stocks.
+- Tone: direct, warm, NL-aware. Casual but informed.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -166,7 +192,7 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 2000,
+        max_tokens: 4000,        // bumped — podcast script alone is ~2k tokens
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -184,39 +210,65 @@ Generate today's briefing as a single JSON object per the system prompt's schema
     console.log('[briefing] LLM body length:', briefingText.length);
     let brief: any;
     try {
-      // OpenAI's response_format=json_object guarantees valid JSON; parse direct
       brief = JSON.parse(briefingText);
     } catch (e) {
       return json({ error: `LLM returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
     }
-    console.log('[briefing] parsed brief, spoken_script_text length:', (brief.spoken_script_text || '').length);
+    const podcastTurns = Array.isArray(brief.podcast) ? brief.podcast : [];
+    console.log('[briefing] parsed brief, podcast turns:', podcastTurns.length);
 
-    // ── 4. Generate audio via OpenAI TTS ───────────────────────────────────
-    console.log('[briefing] calling OpenAI TTS...');
+    // ── 4. Generate 2-voice podcast audio via parallel TTS ─────────────────
+    // Each turn is TTS'd separately with a voice based on the speaker:
+    //   speaker "A" (Avery, analyst) → onyx
+    //   speaker "B" (Sam, host)      → nova
+    // All calls fire in parallel, then we concatenate the MP3 byte arrays.
+    // MP3 frames are self-contained so naive concat plays cleanly in any player.
+    console.log('[briefing] calling OpenAI TTS (2-voice, parallel)...');
     const ttsStart = Date.now();
-    // Truncate spoken text to 4000 chars (TTS limit is 4096) to keep TTS fast
-    const ttsInput = (brief.spoken_script_text || 'No briefing content available today.').slice(0, 4000);
-    const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'tts-1',          // tts-1 is ~3x faster than tts-1-hd, still very listenable
-        voice: 'onyx',           // calm masculine voice
-        input: ttsInput,
-        format: 'mp3',
-      }),
+
+    const voiceFor = (speaker: string) => speaker === 'B' ? 'nova' : 'onyx';
+
+    const ttsPromises = podcastTurns.map((turn: any, idx: number) => {
+      const text = (turn.text || '').slice(0, 4000);
+      if (!text) return Promise.resolve(new ArrayBuffer(0));
+      return fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          voice: voiceFor(turn.speaker || 'A'),
+          input: text,
+          format: 'mp3',
+        }),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const errTxt = await r.text();
+          throw new Error(`TTS turn ${idx} failed: ${r.status} ${errTxt.slice(0, 200)}`);
+        }
+        return r.arrayBuffer();
+      });
     });
-    console.log('[briefing] TTS response in', Date.now() - ttsStart, 'ms, status:', ttsRes.status);
-    if (!ttsRes.ok) {
-      const errText = await ttsRes.text();
-      return json({ error: `OpenAI TTS failed: ${ttsRes.status} ${errText}` }, 500);
+
+    let ttsBuffers: ArrayBuffer[];
+    try {
+      ttsBuffers = await Promise.all(ttsPromises);
+    } catch (e: any) {
+      return json({ error: `TTS failed: ${e?.message || String(e)}` }, 500);
     }
-    const mp3Buffer = await ttsRes.arrayBuffer();
-    const mp3Bytes = new Uint8Array(mp3Buffer);
-    console.log('[briefing] mp3 bytes:', mp3Bytes.length);
+    console.log('[briefing] TTS done in', Date.now() - ttsStart, 'ms, segments:', ttsBuffers.length);
+
+    // Concatenate MP3 byte arrays into one continuous file
+    const totalLen = ttsBuffers.reduce((s, b) => s + b.byteLength, 0);
+    const mp3Bytes = new Uint8Array(totalLen);
+    let off = 0;
+    for (const buf of ttsBuffers) {
+      mp3Bytes.set(new Uint8Array(buf), off);
+      off += buf.byteLength;
+    }
+    console.log('[briefing] stitched mp3 bytes:', mp3Bytes.length);
 
     // ── 5. Upload MP3 to Supabase Storage ──────────────────────────────────
     console.log('[briefing] uploading mp3...');
@@ -240,18 +292,26 @@ Generate today's briefing as a single JSON object per the system prompt's schema
     console.log('[briefing] upload done in', Date.now() - upStart, 'ms, url:', mp3Url);
 
     // ── 6. Save the brief to briefings table ───────────────────────────────
+    // Note: action_item / etf_call columns kept for back-compat with v1 migration.
+    // We pack the v2-only fields (mortgage_rates, one_move, sources, podcast) into
+    // action_item as a wrapper jsonb so we don't need a new migration tonight.
     console.log('[briefing] saving to DB...');
     try {
       await admin.from('briefings').upsert({
         date: dateStr,
         snapshot: brief.snapshot,
         stories: brief.stories,
-        etf_call: brief.etf_call,
-        action_item: brief.action_item,
+        etf_call: null,
+        action_item: {
+          one_move: brief.one_move || null,
+          mortgage_rates: brief.mortgage_rates || null,
+          sources: brief.sources || null,
+          podcast_turns: (brief.podcast || []).length,
+        },
         watch_list: brief.watch_list,
         audit_footer: brief.audit_footer,
-        written_brief_html: brief.written_brief_html,
-        spoken_script_text: brief.spoken_script_text,
+        written_brief_html: null, // we now render HTML server-side from structured fields
+        spoken_script_text: (brief.podcast || []).map((t: any) => `[${t.speaker}] ${t.text}`).join('\n'),
         mp3_url: mp3Url,
         created_at: new Date().toISOString(),
       }, { onConflict: 'date' });
@@ -274,14 +334,10 @@ Generate today's briefing as a single JSON object per the system prompt's schema
     base64Mp3 = btoa(base64Mp3);
     console.log('[briefing] base64 done in', Date.now() - b64Start, 'ms, length:', base64Mp3.length);
 
-    const emailHtml = `<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;color:#1a1d2e;line-height:1.55;padding:20px;max-width:640px;margin:0 auto;">
-      <div style="font-size:11px;color:#5b6079;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Money Briefing · ${dateStr}</div>
-      <h1 style="font-size:22px;margin:0 0 18px;">Good morning, ${PROFILE.name}.</h1>
-      <p style="font-size:14px;color:#5b6079;margin:0 0 14px;">Your audio briefing is attached as an MP3 — tap to listen on your phone or in your car. Here's the written summary:</p>
-      ${brief.written_brief_html || ''}
-      <hr style="border:none;border-top:1px solid #e8eaf2;margin:24px 0;">
-      <p style="font-size:11px;color:#8a90a8;font-style:italic;">${brief.audit_footer || 'This is a thinking tool, not financial advice.'}</p>
-    </body></html>`;
+    const niceDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-CA', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: PROFILE.timezone,
+    });
+    const emailHtml = renderBriefingHtml(brief, dateStr, niceDate, mp3Url);
 
     console.log('[briefing] sending email...');
     const emStart = Date.now();
@@ -294,10 +350,10 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       },
       body: JSON.stringify({
         to: PROFILE.email,
-        subject: `Your money briefing — ${dateStr}`,
-        body: brief.written_brief_html?.replace(/<[^>]+>/g, '\n').replace(/\n+/g, '\n').trim() || 'See attached MP3.',
+        subject: `Today in Canadian money — ${niceDate}`,
+        body: emailHtml.replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n').trim() || 'See attached MP3.',
         html: emailHtml,
-        from_name: 'Maxwell DealFlow Money Brief',
+        from_name: 'Maxwell Money Brief',
         attachments: [{
           filename: `briefing-${dateStr}.mp3`,
           mime_type: 'audio/mpeg',
@@ -330,4 +386,153 @@ function json(obj: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+// HTML escape for any user-visible LLM text inserted into the email
+function esc(s: any): string {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Render the newsletter HTML — matches the "Today in Canadian money, in one page" layout.
+// All inline styles (Gmail strips <style> blocks, etc.).
+function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Url: string | null): string {
+  const snap     = brief.snapshot || {};
+  const mort     = brief.mortgage_rates || {};
+  const stories  = Array.isArray(brief.stories) ? brief.stories.slice(0, 3) : [];
+  const oneMove  = brief.one_move || {};
+  const watch    = Array.isArray(brief.watch_list) ? brief.watch_list.slice(0, 4) : [];
+  const sources  = Array.isArray(brief.sources) ? brief.sources : [];
+  const audit    = brief.audit_footer || 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner.';
+
+  const metricCard = (label: string, value: string, sub: string) => `
+    <td width="50%" style="padding:18px 14px; vertical-align:top; text-align:center; background:#fefdf9;">
+      <div style="font-size:11px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif;">${esc(label)}</div>
+      <div style="font-size:34px; font-weight:600; margin:8px 0 4px; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(value)}</div>
+      <div style="font-size:12px; color:#5b6079; font-family:-apple-system,Helvetica,sans-serif;">${esc(sub)}</div>
+    </td>`;
+
+  const storyBlock = (s: any, i: number) => `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px; border-collapse:collapse;">
+      <tr>
+        <td width="44" style="vertical-align:top; padding-top:4px;">
+          <div style="font-size:13px; color:#8a90a8; letter-spacing:0.06em; font-family:-apple-system,Helvetica,sans-serif;">${String(i+1).padStart(2,'0')}</div>
+        </td>
+        <td>
+          <h4 style="font-size:19px; line-height:1.35; font-weight:600; margin:0 0 10px; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(s.headline || '')}</h4>
+          <p style="font-size:15px; line-height:1.65; margin:0 0 12px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">${esc(s.body || '')}</p>
+          <div style="background:#f5efdf; border-radius:6px; padding:12px 16px; font-size:14px; line-height:1.55; color:#3d4254; font-family:-apple-system,Helvetica,sans-serif;">
+            <strong style="color:#5b6079;">Plain English →</strong> ${esc(s.plain_english || '')}
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  return `<!DOCTYPE html><html><body style="margin:0; padding:0; background:#fefdf9;">
+<div style="font-family:Georgia,'Times New Roman',serif; max-width:680px; margin:0 auto; padding:0; color:#1a1d2e; background:#fefdf9;">
+
+  <!-- Hero band -->
+  <div style="background:#f5efdf; padding:36px 32px 32px;">
+    <div style="font-size:13px; color:#5b6079; margin-bottom:14px; font-family:-apple-system,Helvetica,sans-serif;">As of <strong>${esc(niceDate)}</strong> · ${esc(PROFILE.city)}</div>
+    <h1 style="font-size:34px; line-height:1.15; margin:0 0 12px; font-weight:600; color:#1a1d2e;">Today in Canadian money, <em style="font-weight:500;">in one page.</em></h1>
+    <p style="font-size:15px; line-height:1.55; color:#3d4254; margin:0; font-style:italic;">Rates. Markets. Real estate. What it means for you — no jargon without a definition right next to it.</p>
+  </div>
+
+  <div style="padding:8px 24px 32px;">
+
+    <!-- Audio link banner -->
+    ${mp3Url ? `<div style="background:#1a1d2e; color:#fefdf9; padding:14px 18px; border-radius:6px; margin:20px 0 28px; font-family:-apple-system,Helvetica,sans-serif; font-size:14px;">
+      <strong>Audio briefing attached</strong> · 2 hosts, ~7 min · <a href="${esc(mp3Url)}" style="color:#a8a8ff; text-decoration:underline;">stream from web</a>
+    </div>` : ''}
+
+    <!-- Metric cards (2x2) -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 32px; border-collapse:collapse;">
+      <tr>
+        ${metricCard('BoC Rate', snap.boc_rate || '—', `Next meeting ${snap.boc_next_meeting || '—'}`)}
+        ${metricCard('XEQT Close', snap.xeqt_close || '—', snap.xeqt_change || '—')}
+      </tr>
+      <tr>
+        ${metricCard('NL Avg Home', snap.nl_avg_home || '—', snap.nl_avg_home_period || '—')}
+        ${metricCard('Inflation (CPI)', snap.cpi || '—', snap.cpi_period || '—')}
+      </tr>
+    </table>
+
+    <!-- Mortgage rates -->
+    <div style="margin:28px 0 8px;">
+      <div style="font-size:12px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif; margin-bottom:6px;">Mortgage rates today</div>
+      <h3 style="font-size:24px; font-weight:600; margin:0 0 16px; color:#1a1d2e;">What the banks are charging</h3>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px; border-collapse:collapse;">
+      <tr>
+        <td width="50%" style="padding:14px 14px 14px 0; vertical-align:top; text-align:center;">
+          <div style="font-size:30px; font-weight:600; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(mort.fixed_5yr || '—')}</div>
+          <div style="font-size:13px; color:#1a1d2e; font-weight:600; margin-top:6px; font-family:-apple-system,Helvetica,sans-serif;">5-year fixed</div>
+          <div style="font-size:12px; color:#5b6079; margin-top:3px; font-family:-apple-system,Helvetica,sans-serif;">Locked in. Same payment for five years.</div>
+        </td>
+        <td width="50%" style="padding:14px 0 14px 14px; vertical-align:top; text-align:center;">
+          <div style="font-size:30px; font-weight:600; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(mort.variable || '—')}</div>
+          <div style="font-size:13px; color:#1a1d2e; font-weight:600; margin-top:6px; font-family:-apple-system,Helvetica,sans-serif;">Variable</div>
+          <div style="font-size:12px; color:#5b6079; margin-top:3px; font-family:-apple-system,Helvetica,sans-serif;">Moves with the Bank of Canada.</div>
+        </td>
+      </tr>
+      <tr>
+        <td width="50%" style="padding:14px 14px 14px 0; vertical-align:top; text-align:center;">
+          <div style="font-size:30px; font-weight:600; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(mort.monthly_pmt_400k || '—')}</div>
+          <div style="font-size:13px; color:#1a1d2e; font-weight:600; margin-top:6px; font-family:-apple-system,Helvetica,sans-serif;">Monthly pmt</div>
+          <div style="font-size:12px; color:#5b6079; margin-top:3px; font-family:-apple-system,Helvetica,sans-serif;">${esc(mort.amortization_note || 'On $400K at the fixed rate, 25-yr amortization.')}</div>
+        </td>
+        <td width="50%" style="padding:14px 0 14px 14px; vertical-align:top; text-align:center;">
+          <div style="font-size:30px; font-weight:600; color:#1a1d2e; font-family:Georgia,'Times New Roman',serif;">${esc(mort.boc_overnight || snap.boc_rate || '—')}</div>
+          <div style="font-size:13px; color:#1a1d2e; font-weight:600; margin-top:6px; font-family:-apple-system,Helvetica,sans-serif;">Bank of Canada</div>
+          <div style="font-size:12px; color:#5b6079; margin-top:3px; font-family:-apple-system,Helvetica,sans-serif;">Next decision ${esc(mort.boc_next_decision || snap.boc_next_meeting || '—')}.</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Three stories -->
+    <div style="margin:32px 0 8px;">
+      <div style="font-size:12px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif; margin-bottom:6px;">What moved today</div>
+      <h3 style="font-size:28px; font-weight:600; margin:0 0 24px; line-height:1.2; color:#1a1d2e;">Three stories that actually affect you</h3>
+    </div>
+    ${stories.map(storyBlock).join('')}
+
+    <!-- One move -->
+    ${oneMove.title ? `<div style="background:#1a1d2e; color:#fefdf9; padding:28px 26px; border-radius:8px; margin:32px 0;">
+      <div style="font-size:11px; letter-spacing:0.16em; color:#8a90a8; text-transform:uppercase; margin-bottom:10px; font-family:-apple-system,Helvetica,sans-serif;">One move this week</div>
+      <h3 style="font-size:22px; font-weight:600; line-height:1.3; margin:0 0 12px; color:#fefdf9;">${esc(oneMove.title)}</h3>
+      <p style="font-size:15px; line-height:1.65; margin:0; color:#d4d6e0; font-family:-apple-system,Helvetica,sans-serif;">${esc(oneMove.explanation || '')}</p>
+    </div>` : ''}
+
+    <!-- Watch list -->
+    ${watch.length ? `<div style="margin:32px 0 8px;">
+      <div style="font-size:12px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif; margin-bottom:6px;">Coming up</div>
+      <h3 style="font-size:20px; font-weight:600; margin:0 0 12px; color:#1a1d2e;">Dates on the radar</h3>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px; border-collapse:collapse; font-family:-apple-system,Helvetica,sans-serif;">
+      ${watch.map((w: any) => `<tr>
+        <td width="80" style="padding:8px 12px 8px 0; vertical-align:top; font-size:13px; color:#5b5bd6; font-weight:600;">${esc(w.date || '—')}</td>
+        <td style="padding:8px 0; vertical-align:top; font-size:14px; color:#1a1d2e;"><strong>${esc(w.event || '')}</strong> — <span style="color:#5b6079;">${esc(w.matters_because || '')}</span></td>
+      </tr>`).join('')}
+    </table>` : ''}
+
+    <!-- Sources -->
+    ${sources.length ? `<div style="margin:32px 0 8px;">
+      <div style="font-size:12px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif; margin-bottom:8px;">Sources</div>
+    </div>
+    <div style="font-size:14px; line-height:1.9; font-family:-apple-system,Helvetica,sans-serif;">
+      ${sources.map((src: any) => `<a href="${esc(src.url)}" style="color:#5b5bd6; text-decoration:none; display:block;">${esc(src.label)}</a>`).join('')}
+    </div>` : ''}
+
+    <!-- Footer -->
+    <hr style="border:none; border-top:1px solid #e8eaf2; margin:36px 0 18px;">
+    <p style="font-size:11px; color:#8a90a8; font-style:italic; line-height:1.6; font-family:-apple-system,Helvetica,sans-serif;">${esc(audit)}</p>
+    <p style="font-size:10px; color:#a8aebf; margin-top:14px; font-family:-apple-system,Helvetica,sans-serif;">Maxwell DealFlow · Personal Money Brief · ${esc(dateStr)}</p>
+  </div>
+</div>
+</body></html>`;
 }
