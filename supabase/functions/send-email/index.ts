@@ -215,20 +215,32 @@ serve(async (req) => {
     const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
     const anonKey      = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const userClient   = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: 'Not signed in' }, 401);
+
+    // System call shortcut: a Bearer <service_role> token means an internal
+    // edge function (e.g. daily-briefing, daily-automation) is calling.
+    // Skip user lookup + per-agent rate limit for those.
+    const isSystemCall = authHeader === `Bearer ${serviceKey}`;
+
+    let userId: string | null = null;
+    if (!isSystemCall) {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return json({ error: 'Not signed in' }, 401);
+      userId = user.id;
+    }
 
     const adminDb = createClient(supabaseUrl, serviceKey);
 
-    // ── Rate limit per agent ────────────────────────────────────────────────
-    const { allowed, count } = await checkRateLimit(adminDb, user.id);
-    if (!allowed) {
-      return json({
-        error: `Rate limit exceeded (${count}/${RATE_LIMIT_MAX} emails this hour). Try again after the top of the next hour.`,
-      }, 429);
+    // ── Rate limit per agent (skipped for system calls) ─────────────────────
+    if (userId) {
+      const { allowed, count } = await checkRateLimit(adminDb, userId);
+      if (!allowed) {
+        return json({
+          error: `Rate limit exceeded (${count}/${RATE_LIMIT_MAX} emails this hour). Try again after the top of the next hour.`,
+        }, 429);
+      }
     }
 
     // ── Parse request ───────────────────────────────────────────────────────
