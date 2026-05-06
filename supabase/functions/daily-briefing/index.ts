@@ -26,35 +26,52 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// ── Maxwell's profile (hardcoded for v1; later move to a user_briefing_settings table)
+// ── Profile (hardcoded for v1; later move to a user_briefing_settings table)
+// NOT used by name in podcast — it's used as context for personal plan only.
 const PROFILE = {
-  name: 'Maxwell',
+  name: 'Maxwell',                                    // referenced in email salutation only, NOT podcast
   email: 'maxwelldelali22@gmail.com',
   city: "St. John's, Newfoundland",
   timezone: 'America/St_Johns',
   closing_target: 'June 2027',
-  monthly_income: 4200,        // base salary; real-estate commissions are bonus
-  monthly_fixed_costs: 3060,    // car 840 + rent 1500 + insurance 320 + brokerage 400
-  monthly_savings_now: 1140,    // until July when sister finishes school
+  monthly_income: 4200,                               // base salary
+  monthly_fixed_costs: 3060,                          // car 840 + rent 1500 + insurance 320 + brokerage 400
+  monthly_savings_now: 1140,                          // until July when sister finishes school
   monthly_savings_after_july: 2040,
-  lump_sums: [
-    { date: '2026-05-15', amount: 8000, label: 'incoming May 15' },
-    { date: '2026-10-15', amount: 16000, label: 'incoming October' },
+  // Real-estate commissions (taxable income, deposit straight to bank — NOT yet allocated):
+  upcoming_cash: [
+    { date: '2026-05-17', amount: 9000, source: 'real estate commission' },
+    { date: '2026-10-17', amount: 14000, source: 'real estate commission' },
   ],
   trading_platform: 'Webull',
+  // NL combined federal + provincial marginal rate at $50K-$93K total income ≈ 29.5%
+  // (Federal 20.5% + NL 14.5% past $44K). Use 28% as conservative blend for planning.
+  marginal_tax_rate_pct: 28,
+  // Accounts NOT YET OPENED — every briefing should remind to open these on Webull.
+  accounts_opened: { fhsa: false, tfsa: false, rrsp: false },
   accounts: {
     fhsa: { contributed_ytd: 0, annual_limit: 8000, lifetime_limit: 40000 },
     tfsa: { contributed_ytd: 0, room_2026: 7000 },
-    rrsp: { contributed_ytd: 0 },
+    rrsp: { contributed_ytd: 0, room_estimate: 7560 },  // 18% of $42K prior-year income
     hisa_cash: 0,
   },
-  watchlist: ['XEQT', 'VFV', 'VEQT', 'ZSP', 'XIC', 'XGRO', '^GSPTSE'],
+  // Real estate commission income YTD — used for tax planning (RRSP deduction value)
+  re_commissions_ytd: 0,
+  watchlist: ['XEQT.TO', 'VFV.TO', 'VEQT.TO', 'ZSP.TO', 'XIC.TO', 'XGRO.TO', 'RY.TO', 'TD.TO', 'BMO.TO'],
 };
 
 // CALL 1 — structured fields (gpt-4o-mini, fast + cheap)
-const STRUCTURED_PROMPT = `You are a Canadian personal-finance research desk. You read Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA monthly reports, and TSX/ETF flows. You never invent numbers — when uncertain, use [NEEDS REVIEW].
+const STRUCTURED_PROMPT = `You are a Canadian personal-finance research desk + portfolio coach. You read Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA monthly reports, and TSX/ETF flows. You never invent numbers — when uncertain, use [NEEDS REVIEW].
 
-Audience: Canadians saving for a first home (think first-time buyer in their late 20s / 30s, modest income, planning to close in 2027). Lives in ${PROFILE.city}. Watches XEQT, VFV, VEQT, ZSP, XIC, XGRO. Has FHSA, TFSA, RRSP room available.
+═══ THE LISTENER'S CURRENT SITUATION (use this for the personal_plan section) ═══
+- Lives in ${PROFILE.city}, age ~30, first-time home buyer, target close ${PROFILE.closing_target}
+- Day job income: $${PROFILE.monthly_income}/month base. Marginal tax rate: ${PROFILE.marginal_tax_rate_pct}% (NL combined fed+prov)
+- Real-estate side income (commissions) lands in bank as taxable income — currently sitting in chequing
+- INCOMING CASH: $${PROFILE.upcoming_cash[0].amount.toLocaleString()} on ${PROFILE.upcoming_cash[0].date} (real estate commission), then $${PROFILE.upcoming_cash[1].amount.toLocaleString()} on ${PROFILE.upcoming_cash[1].date}
+- ACCOUNTS NOT YET OPENED on ${PROFILE.trading_platform}: FHSA, TFSA, RRSP — must be opened ASAP to use this year's room
+- 2026 ROOM: FHSA $${PROFILE.accounts.fhsa.annual_limit} (this year), TFSA $${PROFILE.accounts.tfsa.room_2026}, RRSP ~$${PROFILE.accounts.rrsp.room_estimate}
+- Trading platform: ${PROFILE.trading_platform} (Canadian; supports FHSA/TFSA/RRSP registered accounts)
+- Watchlist: ${PROFILE.watchlist.join(', ')}
 
 Output ONE JSON object with this EXACT structure (no markdown, no prose outside JSON):
 {
@@ -99,12 +116,79 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
     { "label": "NLREA monthly stats", "url": "https://www.nlrea.ca/" },
     { "label": "Ratehub mortgage rates", "url": "https://www.ratehub.ca/" }
   ],
-  "audit_footer": "Flag any specific data points marked [NEEDS REVIEW]. End with: 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner who is accountable to you, not to commissions.'"
+  "audit_footer": "Flag any specific data points marked [NEEDS REVIEW]. End with: 'This is a thinking tool, not financial advice. For real decisions, talk to a fee-only Certified Financial Planner who is accountable to you, not to commissions.'",
+
+  "personal_plan": {
+    "open_accounts_first": [
+      "Open the FHSA on ${PROFILE.trading_platform} this week. It's tax-deductible going in (like an RRSP), tax-free coming out for a first home (like a TFSA). $${PROFILE.accounts.fhsa.annual_limit}/yr room, $${PROFILE.accounts.fhsa.lifetime_limit} lifetime cap.",
+      "Open the TFSA next. $${PROFILE.accounts.tfsa.room_2026} room for 2026. Tax-free growth.",
+      "Open the RRSP last (lower priority for a 2027 close)."
+    ],
+    "this_week_distribution_9k": {
+      "summary": "How to split the $9,000 hitting the bank on May 17",
+      "fhsa_amount": 8000,
+      "fhsa_reasoning": "Max out FHSA first — tax-deductible AND tax-free for first home. ALL room is gone if not used by Dec 31.",
+      "tfsa_amount": 1000,
+      "tfsa_reasoning": "Park the remaining $1,000 in TFSA for short-term emergency buffer.",
+      "estimated_tax_refund": "Compute as fhsa_amount × marginal_tax_rate (${PROFILE.marginal_tax_rate_pct}%). e.g., $8,000 × 28% = ~$2,240 back at tax time."
+    },
+    "october_distribution_14k": {
+      "summary": "How to split the $14,000 hitting in October",
+      "tfsa_amount": 6000,
+      "tfsa_reasoning": "Top up TFSA to its 2026 limit (already $1K from May).",
+      "rrsp_amount": 8000,
+      "rrsp_reasoning": "Use RRSP for additional tax shelter on the year's commission income. Triggers a refund.",
+      "estimated_tax_refund": "$8,000 RRSP × 28% = ~$2,240 refund."
+    },
+    "stock_picks": [
+      {
+        "ticker": "XEQT.TO",
+        "stance": "Buy & hold",
+        "allocation_pct": 70,
+        "reasoning": "Globally diversified all-equity ETF — 99% of single-stock risk eliminated. Best one-fund solution for an under-2yr horizon to home purchase.",
+        "buy_zone_cad": "Anytime under $30 — DCA (dollar-cost average) over 4 months",
+        "hold_until": "${PROFILE.closing_target} closing",
+        "sell_trigger": "Sell down to 30% if BoC raises 50bps in single decision (signals recession risk close to closing)"
+      },
+      {
+        "ticker": "VFV.TO",
+        "stance": "Buy & hold (smaller position)",
+        "allocation_pct": 20,
+        "reasoning": "S&P 500 in CAD-hedged. Higher US tech exposure. Adds growth at slight currency risk.",
+        "buy_zone_cad": "Below $130",
+        "hold_until": "${PROFILE.closing_target} closing",
+        "sell_trigger": "If S&P 500 drops 15% peak-to-trough → trim to 10% allocation"
+      },
+      {
+        "ticker": "GIC 1-year",
+        "stance": "Buy",
+        "allocation_pct": 10,
+        "reasoning": "Cash sleeve — keeps the down-payment cash safe, earning ~4-4.5% guaranteed. Locked but matures in 12 months.",
+        "buy_zone_cad": "Anytime",
+        "hold_until": "Maturity (~Q2 2027)",
+        "sell_trigger": "None — hold to maturity"
+      }
+    ],
+    "tax_strategy": {
+      "filing_year": "Tax year 2026 (filed by Apr 30 2027 — right when you close on a home)",
+      "expected_refund_rough": "~$4,500 if you fully use FHSA + RRSP this year. That refund can become extra closing-cost money.",
+      "tip_1": "Real-estate commission income is self-employment income — track expenses (gas, brokerage fees, MLS dues, Realtor.ca, courses) for deduction.",
+      "tip_2": "If you incorporate (PREC) you can defer commission income — talk to an accountant once commissions exceed $50K/year.",
+      "tip_3": "FHSA contributions made in Jan-Feb 2027 still count for 2026 tax year (60-day RRSP-style window applies)."
+    },
+    "next_steps": [
+      "1. This week: Open FHSA + TFSA on Webull (KYC takes 1 business day)",
+      "2. May 17: When the $9K lands, transfer $8,000 to FHSA, $1,000 to TFSA",
+      "3. Same day: place limit-buy orders for XEQT.TO and VFV.TO per the buy zones above",
+      "4. Set a recurring reminder: Oct 17 → distribute the $14K"
+    ]
+  }
 }
 
 Rules:
 - Use [NEEDS REVIEW] for unknown data. NEVER guess prices, closes, or rates.
 - Cite Canadian sources only (BoC, StatsCan, CMHC, NLREA, CREA, Ratehub). NO US politics. NO tech-bro hype.
+- The personal_plan should re-state the SAME plan every day until the listener confirms accounts are opened — repetition is FINE for a habit-forming brief. Update sell_trigger evaluations daily based on the snapshot data (e.g., if BoC actually raised 50bps, the sell signal IS triggered).
 - Tone: direct, warm, plain. No jargon without immediately defining it.`;
 
 // CALL 2 — podcast script ONLY (gpt-4o, dedicated to long output)
@@ -145,12 +229,19 @@ Bad example (too short, no definition, no example):
 - Spell out numbers as a presenter would say them: "two and a quarter percent" — NOT "2.25%". "Four hundred thousand dollars" — NOT "$400,000". "April nineteenth" — NOT "April 19".
 - Expand acronyms on first use: "First Home Savings Account, FHSA." "Tax-Free Savings Account, TFSA."
 
-═══ EPISODE STRUCTURE (cover all of this) ═══
-1. Open (Avery, 1 turn): say the date, preview what the show will cover today.
-2. The snapshot (4-5 turns): BoC rate, what it means, CPI, oil context. Sam asks "so what does that mean for someone trying to buy a place this year?"
-3. Mortgage rates (4-5 turns): fixed vs variable, the math on a real four-hundred-thousand-dollar mortgage, what's "amortization" — explain with a concrete monthly payment example.
-4. The three stories (8-10 turns): walk through each. Avery gives the facts, Sam asks "ok, but what does that actually do to my finances?", Avery answers with a number.
-5. The one move this week (2-3 turns): the concrete action, who it's for, how much, which account, why now.
+═══ EPISODE STRUCTURE (cover all of this — listener-specific plan is the heart of the show) ═══
+1. Open (Avery, 1 turn): say the date, preview what the show will cover today including "today's plan for the listener saving for their first home."
+2. The snapshot (3-4 turns): BoC rate, CPI, oil context. Sam asks "so what does that mean for someone trying to buy a place this year?"
+3. Mortgage rates (3-4 turns): fixed vs variable, the math on a real four-hundred-thousand-dollar mortgage, what's "amortization" — explain with a concrete monthly payment example.
+4. The three stories (6-8 turns): walk through each. Avery gives the facts, Sam asks "ok, but what does that actually do to my finances?", Avery answers with a number.
+5. **THE PERSONAL PLAN — this is the most important part (6-8 turns):**
+   - Avery: this week's nine-thousand-dollar real-estate commission is hitting the listener's bank account. Here's the play: open the First Home Savings Account, FHSA, and the Tax-Free Savings Account, TFSA, this week on Webull.
+   - Sam: wait, what's the FHSA, and why first? (Avery explains: tax-deductible going in like an RRSP, tax-free coming out for a first home like a TFSA — best of both. Eight thousand a year, forty thousand lifetime.)
+   - Avery: split is eight thousand to the FHSA, one thousand to the TFSA. At the listener's twenty-eight percent marginal tax bracket, that FHSA contribution alone earns about a twenty-two-hundred-dollar tax refund next April. Real money back.
+   - Sam: and what do they BUY inside those accounts? (Avery: seventy percent in XEQT — explain it: a one-fund globally diversified all-equity ETF, takes single-stock risk off the table. Twenty percent in VFV — explain: S&P 500 exposure in Canadian dollars. Ten percent in a one-year GIC for a safety sleeve.)
+   - Avery: sell triggers. If the Bank of Canada raises fifty basis points in a single decision, trim XEQT to thirty percent. If the S&P 500 drops fifteen percent peak-to-trough, trim VFV to ten percent.
+   - Sam: and the fourteen thousand coming in October?
+   - Avery: top up the TFSA to its 2026 limit, then put the rest in an RRSP for another tax-shelter shot. Estimated combined tax refund for both deposits across the year: about forty-five hundred dollars — that becomes extra down-payment money at closing.
 6. Watch list (1-2 turns): 2-3 dates coming up that matter.
 7. Close (Sam, 1 turn): EXACTLY this line — "That's the page for today. Stay steady. We'll do this again tomorrow."
 
@@ -469,6 +560,97 @@ function esc(s: any): string {
 // Render the newsletter HTML — matches the "Today in Canadian money, in one page" layout.
 // All inline styles (Gmail strips <style> blocks, etc.).
 function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Url: string | null): string {
+  return renderEmailShell(brief, dateStr, niceDate, mp3Url);
+}
+
+function renderPersonalPlan(plan: any): string {
+  if (!plan || typeof plan !== 'object') return '';
+  const may = plan.this_week_distribution_9k || {};
+  const oct = plan.october_distribution_14k || {};
+  const picks = Array.isArray(plan.stock_picks) ? plan.stock_picks : [];
+  const tax = plan.tax_strategy || {};
+  const accountSteps = Array.isArray(plan.open_accounts_first) ? plan.open_accounts_first : [];
+  const nextSteps = Array.isArray(plan.next_steps) ? plan.next_steps : [];
+
+  const cashRow = (label: string, amount: number, account: string, why: string) => `
+    <tr>
+      <td style="padding:10px 12px; border-bottom:1px solid #e8eaf2; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; color:#1a1d2e;"><strong>$${amount.toLocaleString()}</strong></td>
+      <td style="padding:10px 12px; border-bottom:1px solid #e8eaf2; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; color:#5b5bd6; font-weight:600;">${esc(account)}</td>
+      <td style="padding:10px 12px; border-bottom:1px solid #e8eaf2; font-family:-apple-system,Helvetica,sans-serif; font-size:13px; color:#5b6079;">${esc(why)}</td>
+    </tr>`;
+
+  const pickCard = (p: any) => `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px; border-collapse:collapse; background:#f5efdf; border-radius:6px;">
+      <tr>
+        <td style="padding:14px 18px; vertical-align:top; font-family:-apple-system,Helvetica,sans-serif;">
+          <div style="font-size:11px; letter-spacing:0.12em; color:#8a90a8; text-transform:uppercase;">${esc(p.stance || 'Hold')}</div>
+          <div style="font-size:18px; font-weight:600; color:#1a1d2e; margin:4px 0;">${esc(p.ticker || '—')} <span style="font-size:13px; color:#5b6079; font-weight:400;">· ${esc(p.allocation_pct ?? '—')}% allocation</span></div>
+          <div style="font-size:13px; line-height:1.5; color:#3d4254; margin-bottom:8px;">${esc(p.reasoning || '')}</div>
+          <div style="font-size:12px; color:#5b6079;">
+            <strong>Buy zone:</strong> ${esc(p.buy_zone_cad || 'Anytime')}<br>
+            <strong>Hold until:</strong> ${esc(p.hold_until || '—')}<br>
+            <strong style="color:#c44;">Sell trigger:</strong> ${esc(p.sell_trigger || 'None')}
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  return `
+    <!-- Personal plan section -->
+    <div style="margin:36px 0 8px;">
+      <div style="font-size:12px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; font-family:-apple-system,Helvetica,sans-serif; margin-bottom:6px;">Your plan</div>
+      <h3 style="font-size:26px; font-weight:600; margin:0 0 18px; line-height:1.2; color:#1a1d2e;">This week's playbook</h3>
+    </div>
+
+    ${accountSteps.length ? `<div style="background:#fff8e7; border-left:4px solid #c89b3c; padding:14px 18px; margin:0 0 22px; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; line-height:1.6; color:#3d4254;">
+      <strong style="color:#1a1d2e;">First — open your accounts on Webull:</strong>
+      <ol style="margin:8px 0 0; padding-left:20px;">
+        ${accountSteps.map((s: string) => `<li style="margin-bottom:4px;">${esc(s)}</li>`).join('')}
+      </ol>
+    </div>` : ''}
+
+    <h4 style="font-size:17px; font-weight:600; margin:18px 0 8px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">$9,000 incoming May 17 — distribution</h4>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px; border-collapse:collapse; border:1px solid #e8eaf2; border-radius:6px;">
+      <tr style="background:#f8f7f3;">
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Amount</td>
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Account</td>
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Why</td>
+      </tr>
+      ${cashRow('FHSA', may.fhsa_amount || 0, 'FHSA', may.fhsa_reasoning || '')}
+      ${cashRow('TFSA', may.tfsa_amount || 0, 'TFSA', may.tfsa_reasoning || '')}
+    </table>
+    <div style="font-size:13px; color:#1a8a4f; font-weight:600; font-family:-apple-system,Helvetica,sans-serif; margin:0 0 22px;">Estimated tax refund: ${esc(may.estimated_tax_refund || '—')}</div>
+
+    <h4 style="font-size:17px; font-weight:600; margin:18px 0 8px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">$14,000 incoming October — distribution</h4>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px; border-collapse:collapse; border:1px solid #e8eaf2; border-radius:6px;">
+      <tr style="background:#f8f7f3;">
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Amount</td>
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Account</td>
+        <td style="padding:8px 12px; font-family:-apple-system,Helvetica,sans-serif; font-size:11px; color:#8a90a8; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; border-bottom:1px solid #e8eaf2;">Why</td>
+      </tr>
+      ${cashRow('TFSA', oct.tfsa_amount || 0, 'TFSA', oct.tfsa_reasoning || '')}
+      ${cashRow('RRSP', oct.rrsp_amount || 0, 'RRSP', oct.rrsp_reasoning || '')}
+    </table>
+    <div style="font-size:13px; color:#1a8a4f; font-weight:600; font-family:-apple-system,Helvetica,sans-serif; margin:0 0 28px;">Estimated tax refund: ${esc(oct.estimated_tax_refund || '—')}</div>
+
+    ${picks.length ? `<h4 style="font-size:17px; font-weight:600; margin:18px 0 12px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">Stock picks — buy zones, sell triggers</h4>
+    ${picks.map(pickCard).join('')}` : ''}
+
+    ${tax.expected_refund_rough ? `<div style="background:#f0f9f4; border-left:4px solid #1a8a4f; padding:14px 18px; margin:22px 0; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; line-height:1.6; color:#1a1d2e;">
+      <strong>Tax strategy:</strong> ${esc(tax.expected_refund_rough)}<br>
+      <span style="font-size:13px; color:#5b6079;">${esc(tax.tip_1 || '')} ${esc(tax.tip_2 || '')} ${esc(tax.tip_3 || '')}</span>
+    </div>` : ''}
+
+    ${nextSteps.length ? `<div style="background:#1a1d2e; color:#fefdf9; padding:22px 24px; border-radius:8px; margin:22px 0;">
+      <div style="font-size:11px; letter-spacing:0.16em; color:#8a90a8; text-transform:uppercase; margin-bottom:10px; font-family:-apple-system,Helvetica,sans-serif;">Action checklist</div>
+      <ol style="margin:0; padding-left:20px; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; line-height:1.8; color:#fefdf9;">
+        ${nextSteps.map((s: string) => `<li>${esc(s)}</li>`).join('')}
+      </ol>
+    </div>` : ''}
+  `;
+}
+
+function renderEmailShell(brief: any, dateStr: string, niceDate: string, mp3Url: string | null): string {
   const snap     = brief.snapshot || {};
   const mort     = brief.mortgage_rates || {};
   const stories  = Array.isArray(brief.stories) ? brief.stories.slice(0, 3) : [];
@@ -577,6 +759,9 @@ function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Ur
       <h3 style="font-size:22px; font-weight:600; line-height:1.3; margin:0 0 12px; color:#fefdf9;">${esc(oneMove.title)}</h3>
       <p style="font-size:15px; line-height:1.65; margin:0; color:#d4d6e0; font-family:-apple-system,Helvetica,sans-serif;">${esc(oneMove.explanation || '')}</p>
     </div>` : ''}
+
+    <!-- Personal plan — cash distribution, stock picks, tax strategy -->
+    ${renderPersonalPlan(brief.personal_plan)}
 
     <!-- Watch list -->
     ${watch.length ? `<div style="margin:32px 0 8px;">
