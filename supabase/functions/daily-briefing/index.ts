@@ -129,13 +129,17 @@ serve(async (req) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: PROFILE.timezone });
 
+    console.log('[briefing] starting at', new Date().toISOString());
+
     // ── 1. Fetch BoC overnight rate (free, no key) ─────────────────────────
     let bocRate = '[NEEDS REVIEW]';
     try {
-      const bocRes = await fetch('https://www.bankofcanada.ca/valet/observations/V39079/json?recent=1');
+      const bocCtl = AbortSignal.timeout(5000);
+      const bocRes = await fetch('https://www.bankofcanada.ca/valet/observations/V39079/json?recent=1', { signal: bocCtl });
       const bocJson = await bocRes.json();
       const obs = bocJson.observations?.[0];
       if (obs?.V39079?.v) bocRate = `${obs.V39079.v}% (as of ${obs.d})`;
+      console.log('[briefing] BoC rate:', bocRate);
     } catch (e) {
       console.warn('[briefing] BoC fetch failed:', e?.message);
     }
@@ -152,6 +156,8 @@ Generate today's briefing as a single JSON object per the system prompt's schema
 
     // ── 3. Call OpenAI for the briefing text ───────────────────────────────
     // Using gpt-4o-mini for speed + cost (~$0.003/briefing). Forces JSON via response_format.
+    console.log('[briefing] calling OpenAI chat...');
+    const llmStart = Date.now();
     const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -160,7 +166,7 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: 4000,
+        max_tokens: 2000,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -168,12 +174,14 @@ Generate today's briefing as a single JSON object per the system prompt's schema
         ],
       }),
     });
+    console.log('[briefing] LLM response in', Date.now() - llmStart, 'ms, status:', llmRes.status);
     if (!llmRes.ok) {
       const errText = await llmRes.text();
       return json({ error: `OpenAI chat failed: ${llmRes.status} ${errText}` }, 500);
     }
     const llmJson = await llmRes.json();
     const briefingText = llmJson.choices?.[0]?.message?.content || '';
+    console.log('[briefing] LLM body length:', briefingText.length);
     let brief: any;
     try {
       // OpenAI's response_format=json_object guarantees valid JSON; parse direct
@@ -181,8 +189,13 @@ Generate today's briefing as a single JSON object per the system prompt's schema
     } catch (e) {
       return json({ error: `LLM returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
     }
+    console.log('[briefing] parsed brief, spoken_script_text length:', (brief.spoken_script_text || '').length);
 
     // ── 4. Generate audio via OpenAI TTS ───────────────────────────────────
+    console.log('[briefing] calling OpenAI TTS...');
+    const ttsStart = Date.now();
+    // Truncate spoken text to 4000 chars (TTS limit is 4096) to keep TTS fast
+    const ttsInput = (brief.spoken_script_text || 'No briefing content available today.').slice(0, 4000);
     const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -190,20 +203,24 @@ Generate today's briefing as a single JSON object per the system prompt's schema
         'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'tts-1-hd',
-        voice: 'onyx',     // calm masculine voice
-        input: brief.spoken_script_text || 'No briefing content available today.',
+        model: 'tts-1',          // tts-1 is ~3x faster than tts-1-hd, still very listenable
+        voice: 'onyx',           // calm masculine voice
+        input: ttsInput,
         format: 'mp3',
       }),
     });
+    console.log('[briefing] TTS response in', Date.now() - ttsStart, 'ms, status:', ttsRes.status);
     if (!ttsRes.ok) {
       const errText = await ttsRes.text();
       return json({ error: `OpenAI TTS failed: ${ttsRes.status} ${errText}` }, 500);
     }
     const mp3Buffer = await ttsRes.arrayBuffer();
     const mp3Bytes = new Uint8Array(mp3Buffer);
+    console.log('[briefing] mp3 bytes:', mp3Bytes.length);
 
     // ── 5. Upload MP3 to Supabase Storage ──────────────────────────────────
+    console.log('[briefing] uploading mp3...');
+    const upStart = Date.now();
     const mp3Path = `${dateStr}.mp3`;
     let mp3Url: string | null = null;
     try {
@@ -214,12 +231,16 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       if (!uploadRes.error) {
         const { data: pub } = admin.storage.from('briefings-audio').getPublicUrl(mp3Path);
         mp3Url = pub?.publicUrl || null;
+      } else {
+        console.warn('[briefing] upload error:', uploadRes.error);
       }
     } catch (e) {
       console.warn('[briefing] MP3 upload failed:', e?.message);
     }
+    console.log('[briefing] upload done in', Date.now() - upStart, 'ms, url:', mp3Url);
 
     // ── 6. Save the brief to briefings table ───────────────────────────────
+    console.log('[briefing] saving to DB...');
     try {
       await admin.from('briefings').upsert({
         date: dateStr,
@@ -240,8 +261,18 @@ Generate today's briefing as a single JSON object per the system prompt's schema
 
     // ── 7. Email Albert with MP3 attached ──────────────────────────────────
     // Use base64-encoded MP3 as attachment via the existing send-email edge fn.
-    // mp3 size for ~3-4 min @ tts-1-hd is ~3 MB → fine for gmail.
-    const base64Mp3 = btoa(String.fromCharCode(...mp3Bytes));
+    // mp3 size for ~3-4 min @ tts-1 is ~1.5 MB → fine for gmail.
+    // btoa(String.fromCharCode(...mp3Bytes)) blows the JS call-stack on multi-MB
+    // arrays. Encode in 32 KB chunks instead.
+    console.log('[briefing] base64 encoding mp3...');
+    const b64Start = Date.now();
+    let base64Mp3 = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < mp3Bytes.length; i += CHUNK) {
+      base64Mp3 += String.fromCharCode(...mp3Bytes.subarray(i, i + CHUNK));
+    }
+    base64Mp3 = btoa(base64Mp3);
+    console.log('[briefing] base64 done in', Date.now() - b64Start, 'ms, length:', base64Mp3.length);
 
     const emailHtml = `<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;color:#1a1d2e;line-height:1.55;padding:20px;max-width:640px;margin:0 auto;">
       <div style="font-size:11px;color:#5b6079;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Money Briefing · ${dateStr}</div>
@@ -252,6 +283,8 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       <p style="font-size:11px;color:#8a90a8;font-style:italic;">${brief.audit_footer || 'This is a thinking tool, not financial advice.'}</p>
     </body></html>`;
 
+    console.log('[briefing] sending email...');
+    const emStart = Date.now();
     const emailRes = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
       method: 'POST',
       headers: {
@@ -273,6 +306,8 @@ Generate today's briefing as a single JSON object per the system prompt's schema
       }),
     });
     const emailJson = await emailRes.json().catch(() => ({}));
+    console.log('[briefing] email response in', Date.now() - emStart, 'ms, status:', emailRes.status, 'body:', JSON.stringify(emailJson).slice(0, 300));
+    console.log('[briefing] DONE.');
 
     return json({
       ok: true,
