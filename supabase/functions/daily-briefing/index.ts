@@ -400,7 +400,7 @@ Generate today's briefing as a single JSON object per the system prompt's schema
           { role: 'user',   content: userPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(50000),
+      signal: AbortSignal.timeout(75000),  // 75s — was 50s, larger schema needs more time
     });
     console.log('[briefing] LLM call 1 in', Date.now() - llm1Start, 'ms, status:', llm1Res.status);
     if (!llm1Res.ok) {
@@ -451,7 +451,7 @@ Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, t
           { role: 'user',   content: podcastUserPrompt },
         ],
       }),
-      signal: AbortSignal.timeout(70000),
+      signal: AbortSignal.timeout(110000),  // 110s — gpt-4o producing 1500-word podcast can take 60-90s
     });
     console.log('[briefing] LLM call 2 in', Date.now() - llm2Start, 'ms, status:', llm2Res.status);
     if (!llm2Res.ok) {
