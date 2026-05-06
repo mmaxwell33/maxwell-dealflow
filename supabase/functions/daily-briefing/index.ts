@@ -191,6 +191,25 @@ Output ONE JSON object with this EXACT structure (no markdown, no prose outside 
       "reasoning": "For a first-time-buyer 2027 horizon: simplest path. Free trades on FHSA/TFSA/RRSP, no minimums, fast Canadian KYC. The 1.5% conversion fee on US stocks doesn't matter much for a core/satellite portfolio that's mostly Canadian-listed ETFs. Open it this week.",
       "secondary": "Add Questrade later if you want GICs in the mix — they have a better GIC marketplace than Wealthsimple."
     },
+    "monthly_savings_deployment": {
+      "summary": "How to deploy the listener's REGULAR monthly savings (not the lump-sum commissions) — auto-transfers from chequing into the right accounts every payday.",
+      "may_jun_jul_monthly": {
+        "available_cad": ${PROFILE.monthly_savings_now},
+        "split": "$900/mo → FHSA, $240/mo → TFSA. Set up automatic biweekly transfers on payday so you never see the money in chequing.",
+        "rationale": "$${PROFILE.monthly_income} income minus $${PROFILE.monthly_fixed_costs} expenses = $${PROFILE.monthly_savings_now} discretionary. Deploy ALL of it now while FHSA room is open and tax refund matters."
+      },
+      "aug_to_dec_monthly": {
+        "available_cad": ${PROFILE.monthly_savings_after_july},
+        "split": "$1,500/mo → FHSA (until annual $8K cap is hit, ~5 months at this rate), then redirect to TFSA. $540/mo → emergency fund / TFSA mix.",
+        "rationale": "Sister moves out July → frees $${PROFILE.monthly_savings_after_july - PROFILE.monthly_savings_now}/mo extra. Deploy aggressively into tax-sheltered accounts before Dec 31."
+      },
+      "total_year_end_estimate": {
+        "from_monthly_savings": "May–Jul: 3 × $${PROFILE.monthly_savings_now} = $${(3 * PROFILE.monthly_savings_now).toLocaleString()}. Aug–Dec: 5 × $${PROFILE.monthly_savings_after_july} = $${(5 * PROFILE.monthly_savings_after_july).toLocaleString()}. SUBTOTAL: $${(3 * PROFILE.monthly_savings_now + 5 * PROFILE.monthly_savings_after_july).toLocaleString()}",
+        "from_commissions": "May $9,000 + October $16,000 = $25,000",
+        "grand_total_deployable_2026": "Approximately $${(3 * PROFILE.monthly_savings_now + 5 * PROFILE.monthly_savings_after_july + 9000 + 16000).toLocaleString()} by Dec 31 — that fully fills FHSA + TFSA + half RRSP for 2026",
+        "tax_refund_potential": "If $8K to FHSA + $4K-$8K to RRSP — combined refund ~$3,360 to $4,480 at ${PROFILE.marginal_tax_rate_pct}% marginal rate"
+      }
+    },
     "this_week_distribution_9k": {
       "summary": "How to split the $9,000 hitting the bank on May 17",
       "fhsa_amount": 8000,
@@ -321,7 +340,8 @@ Bad example (too short, no definition, no example):
 3. Mortgage rates (2 turns): fixed vs variable + dollar example on a $400K mortgage.
 4. Three stories (4-5 turns): walk through each — Avery facts, Sam translates.
 5. **THE PERSONAL PLAN — heart of the show (8-10 turns):**
-   - **Emergency fund FIRST**: Avery — "Before any aggressive investing, anyone saving for a first home needs three months of expenses parked safely. At about three thousand dollars a month in fixed costs, that's nine thousand in cash that should NEVER be in stocks. The plan: build that buffer from the October fourteen thousand, not the May nine thousand — because FHSA room expires December 31."
+   - **Monthly cash flow FIRST** (1-2 turns): Avery — "Before we talk lump sums, the foundation is the monthly paycheque. The listener earns about four thousand two hundred a month gross from their day job. Fixed costs — car, rent, insurance, brokerage fees — eat about three thousand sixty. That leaves eleven hundred and forty a month of free cash to invest, growing to about two thousand forty after July when their sister moves out. So between May and December, that's roughly thirteen thousand five hundred and sixty in regular monthly savings — independent of any commission. The play is automatic transfers on payday: nine hundred a month into the FHSA, two hundred forty into the TFSA, until July. Then it bumps to fifteen hundred FHSA, five forty TFSA. That alone fills the FHSA almost entirely by year-end before we even count commissions."
+   - **Emergency fund SECOND**: Avery — "Three months of expenses safely parked. Roughly nine thousand in cash that should never be in stocks. Build it from October's sixteen thousand, not May's nine thousand — FHSA room expires December 31."
    - **Platform choice**: Sam — "Wait, where do I even open this stuff?" Avery walks through the options: Wealthsimple Trade (simplest, free), Questrade (more features), Interactive Brokers (cheapest for active traders), Webull. Avery's pick: "Wealthsimple Trade for simplicity. Free FHSA, TFSA, RRSP, fast Canadian onboarding. Add Questrade later if you want a GIC marketplace."
    - **The May nine-thousand split**: Eight thousand to FHSA (max it), one thousand to TFSA. At twenty-eight percent marginal tax, that FHSA earns about a twenty-two-hundred-dollar refund.
    - **The October fourteen-thousand split**: Five thousand to emergency fund (CASH-dot-T-O at four-and-a-half percent yield inside TFSA). Five thousand more to TFSA. Four thousand to RRSP for another tax-shelter hit.
@@ -653,6 +673,7 @@ function renderBriefingHtml(brief: any, dateStr: string, niceDate: string, mp3Ur
 
 function renderPersonalPlan(plan: any): string {
   if (!plan || typeof plan !== 'object') return '';
+  const monthly   = plan.monthly_savings_deployment || {};
   const may       = plan.this_week_distribution_9k || {};
   const oct       = plan.october_distribution_16k || plan.october_distribution_14k || {};
   const corePicks = Array.isArray(plan.core_picks) ? plan.core_picks : (Array.isArray(plan.stock_picks) ? plan.stock_picks : []);
@@ -721,6 +742,27 @@ function renderPersonalPlan(plan: any): string {
       <strong style="color:#a8a8ff;">▸ Recommended:</strong> ${esc(platRec.primary)}<br>
       <span style="color:#d4d6e0; font-size:13px;">${esc(platRec.reasoning || '')}</span>${platRec.secondary ? `<br><span style="color:#a8aebf; font-size:12px; font-style:italic;">Secondary: ${esc(platRec.secondary)}</span>` : ''}
     </div>` : ''}` : ''}
+
+    ${monthly.summary ? `<div style="background:#eef5ff; border-left:4px solid #3b6cb5; padding:16px 18px; margin:0 0 22px; font-family:-apple-system,Helvetica,sans-serif; font-size:14px; line-height:1.55; color:#1a1d2e;">
+      <div style="font-size:11px; letter-spacing:0.14em; color:#8a90a8; text-transform:uppercase; margin-bottom:8px;">Monthly savings deployment</div>
+      <div style="font-size:15px; font-weight:600; margin-bottom:10px;">From your $${PROFILE.monthly_income.toLocaleString()}/mo income − $${PROFILE.monthly_fixed_costs.toLocaleString()}/mo expenses</div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-size:13px; color:#5b6079; margin-bottom:2px;"><strong style="color:#1a1d2e;">May–July:</strong> $${PROFILE.monthly_savings_now}/month available</div>
+        <div style="font-size:12px; color:#5b6079; padding-left:12px;">→ ${esc(monthly.may_jun_jul_monthly?.split || `$900 FHSA + $240 TFSA per month`)}</div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-size:13px; color:#5b6079; margin-bottom:2px;"><strong style="color:#1a1d2e;">August–December:</strong> $${PROFILE.monthly_savings_after_july}/month available <span style="font-size:11px; font-style:italic;">(sister moves out)</span></div>
+        <div style="font-size:12px; color:#5b6079; padding-left:12px;">→ ${esc(monthly.aug_to_dec_monthly?.split || `$1,500 FHSA + $540 TFSA per month`)}</div>
+      </div>
+
+      <div style="background:#fff; padding:10px 12px; border-radius:6px; margin-top:10px; font-size:12px; color:#3d4254;">
+        <div style="margin-bottom:3px;"><strong>Year-end estimate (monthly only):</strong> ~$${((3 * PROFILE.monthly_savings_now) + (5 * PROFILE.monthly_savings_after_july)).toLocaleString()}</div>
+        <div style="margin-bottom:3px;"><strong>+ Commissions:</strong> $25,000 ($9K May + $16K Oct)</div>
+        <div><strong style="color:#1a8a4f;">Total deployable by Dec 31, 2026: ~$${((3 * PROFILE.monthly_savings_now) + (5 * PROFILE.monthly_savings_after_july) + 25000).toLocaleString()}</strong></div>
+      </div>
+    </div>` : ''}
 
     <h4 style="font-size:17px; font-weight:600; margin:18px 0 8px; color:#1a1d2e; font-family:-apple-system,Helvetica,sans-serif;">$9,000 incoming May 17 — distribution</h4>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px; border-collapse:collapse; border:1px solid #e8eaf2; border-radius:6px;">
