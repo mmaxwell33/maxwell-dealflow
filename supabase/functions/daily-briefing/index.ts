@@ -12,8 +12,7 @@
 //   6. Email Albert via send-email edge fn with MP3 attached
 //
 // Required Supabase secrets:
-//   ANTHROPIC_API_KEY   — already configured for Ask AI feature
-//   OPENAI_API_KEY      — for TTS audio generation
+//   OPENAI_API_KEY      — used for both the briefing text (gpt-4o-mini) and TTS audio (tts-1-hd)
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — built-in
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -120,10 +119,8 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
     const openaiKey    = Deno.env.get('OPENAI_API_KEY');
 
-    if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY missing' }, 500);
     if (!openaiKey)    return json({ error: 'OPENAI_API_KEY missing'    }, 500);
 
     const admin = createClient(supabaseUrl, serviceKey);
@@ -153,34 +150,36 @@ For all other fields (CPI, ETF closes, TSX, CAD/USD, oil, NL home prices, mortga
 
 Generate today's briefing as a single JSON object per the system prompt's schema. ONLY the JSON object, nothing else.`;
 
-    // ── 3. Call Claude ─────────────────────────────────────────────────────
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    // ── 3. Call OpenAI for the briefing text ───────────────────────────────
+    // Using gpt-4o-mini for speed + cost (~$0.003/briefing). Forces JSON via response_format.
+    const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'gpt-4o-mini',
         max_tokens: 4000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user',   content: userPrompt },
+        ],
       }),
     });
-    if (!claudeRes.ok) {
-      const errText = await claudeRes.text();
-      return json({ error: `Claude API failed: ${claudeRes.status} ${errText}` }, 500);
+    if (!llmRes.ok) {
+      const errText = await llmRes.text();
+      return json({ error: `OpenAI chat failed: ${llmRes.status} ${errText}` }, 500);
     }
-    const claudeJson = await claudeRes.json();
-    const briefingText = claudeJson.content?.[0]?.text || '';
+    const llmJson = await llmRes.json();
+    const briefingText = llmJson.choices?.[0]?.message?.content || '';
     let brief: any;
     try {
-      // Strip any leading/trailing prose Claude added
-      const jsonMatch = briefingText.match(/\{[\s\S]*\}/);
-      brief = JSON.parse(jsonMatch ? jsonMatch[0] : briefingText);
+      // OpenAI's response_format=json_object guarantees valid JSON; parse direct
+      brief = JSON.parse(briefingText);
     } catch (e) {
-      return json({ error: `Claude returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
+      return json({ error: `LLM returned non-JSON: ${briefingText.slice(0, 500)}` }, 500);
     }
 
     // ── 4. Generate audio via OpenAI TTS ───────────────────────────────────
