@@ -379,26 +379,84 @@ serve(async (req) => {
 
     console.log('[briefing] starting at', new Date().toISOString());
 
-    // ── 1. Fetch BoC overnight rate (free, no key) ─────────────────────────
-    let bocRate = '[NEEDS REVIEW]';
-    try {
-      const bocCtl = AbortSignal.timeout(5000);
-      const bocRes = await fetch('https://www.bankofcanada.ca/valet/observations/V39079/json?recent=1', { signal: bocCtl });
-      const bocJson = await bocRes.json();
-      const obs = bocJson.observations?.[0];
-      if (obs?.V39079?.v) bocRate = `${obs.V39079.v}% (as of ${obs.d})`;
-      console.log('[briefing] BoC rate:', bocRate);
-    } catch (e) {
-      console.warn('[briefing] BoC fetch failed:', e?.message);
-    }
+    // ── 1. Fetch live data: BoC rate + Tavily news in parallel ─────────────
+    const tavilyKey = Deno.env.get('TAVILY_API_KEY');
+
+    const fetchBoc = async (): Promise<string> => {
+      try {
+        const r = await fetch('https://www.bankofcanada.ca/valet/observations/V39079/json?recent=1', { signal: AbortSignal.timeout(5000) });
+        const j = await r.json();
+        const obs = j.observations?.[0];
+        if (obs?.V39079?.v) return `${obs.V39079.v}% (as of ${obs.d})`;
+      } catch (e: any) { console.warn('[briefing] BoC fetch failed:', e?.message); }
+      return '[NEEDS REVIEW]';
+    };
+
+    const tavilySearch = async (query: string, days = 2): Promise<{ answer: string; sources: Array<{title: string; url: string; snippet: string}> }> => {
+      if (!tavilyKey) return { answer: '', sources: [] };
+      try {
+        const r = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tavilyKey}` },
+          body: JSON.stringify({ query, search_depth: 'basic', max_results: 5, include_answer: true, days, topic: 'news' }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!r.ok) {
+          console.warn(`[briefing] tavily "${query.slice(0, 40)}" status ${r.status}`);
+          return { answer: '', sources: [] };
+        }
+        const d = await r.json();
+        return {
+          answer: d.answer || '',
+          sources: (d.results || []).slice(0, 5).map((res: any) => ({
+            title: res.title || '',
+            url: res.url || '',
+            snippet: (res.content || '').slice(0, 350),
+          })),
+        };
+      } catch (e: any) {
+        console.warn(`[briefing] tavily error "${query.slice(0, 40)}":`, e?.message);
+        return { answer: '', sources: [] };
+      }
+    };
+
+    console.log('[briefing] fetching BoC + Tavily live news (parallel)...');
+    const newsStart = Date.now();
+    const [bocRate, finNews, stJohnsNews, marketNews, mortgageNews] = await Promise.all([
+      fetchBoc(),
+      tavilySearch('Canadian personal finance news Bank of Canada FHSA TFSA RRSP', 2),
+      tavilySearch("St. John's Newfoundland real estate housing news today", 3),
+      tavilySearch('XEQT VFV TSX S&P 500 Canadian ETF close today', 1),
+      tavilySearch('Canada 5-year fixed variable mortgage rates today', 3),
+    ]);
+    console.log('[briefing] live data done in', Date.now() - newsStart, 'ms — BoC:', bocRate, '| news bytes:', JSON.stringify({ finNews, stJohnsNews, marketNews, mortgageNews }).length);
 
     // ── 2. Build prompt with today's data ──────────────────────────────────
+    const formatNews = (label: string, n: any) => {
+      if (!n.answer && (!n.sources || !n.sources.length)) return `${label}: (no live data)\n`;
+      const sourceLines = (n.sources || []).map((s: any) =>
+        `  • ${s.title}\n    ${s.url}\n    ${s.snippet}`
+      ).join('\n');
+      return `${label}:\nSummary: ${n.answer || '(none)'}\nSources:\n${sourceLines}\n`;
+    };
+
     const userPrompt = `Today is ${dateStr} (${PROFILE.timezone}).
 
-Live data fetched:
-- Bank of Canada overnight rate: ${bocRate}
+═══ LIVE DATA — fetched ${new Date().toISOString()} ═══
 
-For all other fields (CPI, ETF closes, TSX, CAD/USD, oil, NL home prices, mortgage rates), use your most recent knowledge or [NEEDS REVIEW] if uncertain.
+Bank of Canada overnight rate: ${bocRate}
+
+${formatNews('CANADIAN FINANCE NEWS (last 2 days)', finNews)}
+${formatNews("ST. JOHN'S NEWFOUNDLAND NEWS (last 3 days)", stJohnsNews)}
+${formatNews('CANADIAN MARKETS — XEQT, VFV, TSX, S&P 500 (last 1 day)', marketNews)}
+${formatNews('CANADIAN MORTGAGE RATES (last 3 days)', mortgageNews)}
+
+═══ INSTRUCTIONS ═══
+1. USE THE LIVE FACTS ABOVE for the snapshot, mortgage_rates, and stories sections. Quote real numbers from the source snippets where available.
+2. Cite the actual Tavily source URLs in the "sources" field — replace generic links with the real URLs returned above.
+3. For at least ONE of the three stories, use a St. John's / Newfoundland local angle if the news above contains anything relevant.
+4. ONLY use [NEEDS REVIEW] if neither the live data nor your knowledge has the figure.
+5. NEVER repeat advice that's already been delivered — focus today on what's NEW (new BoC commentary, new stock moves, new dates announced).
 
 Generate today's briefing as a single JSON object per the system prompt's schema. ONLY the JSON object, nothing else.`;
 
