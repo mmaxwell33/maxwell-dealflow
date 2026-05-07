@@ -555,16 +555,13 @@ Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, t
     // We batch in groups of 6 to stay under OpenAI's tts-1 concurrency limit.
     // Each call has a 20s timeout. If a turn fails, we substitute silence so the
     // whole episode still ships.
-    console.log('[briefing] calling OpenAI TTS (gpt-4o-mini-tts, NotebookLM-style voices)...');
+    console.log('[briefing] calling OpenAI TTS (tts-1, echo + shimmer)...');
     const ttsStart = Date.now();
-    // NotebookLM-style 2-host setup using OpenAI's newer gpt-4o-mini-tts model.
-    // Voices "ash" (warm male) + "coral" (warm female) sound far more natural
-    // than tts-1's onyx/nova. The "instructions" field steers the tone.
-    const voiceFor = (speaker: string) => speaker === 'B' ? 'coral' : 'ash';
-    const instructionsFor = (speaker: string) =>
-      speaker === 'B'
-        ? 'Speak as a warm, curious podcast co-host. Conversational pace. Use natural inflection. Slightly playful when asking clarifying questions. Treat numbers smoothly, don\'t robot-spell them.'
-        : 'Speak as a calm, expert podcast analyst. Measured pace, clear articulation. Confident but warm. Pause briefly at sentence ends for impact. Treat numbers smoothly.';
+    // Reverted from gpt-4o-mini-tts — too slow for free-tier 150s function wall.
+    // tts-1 + echo (warmer/conversational male) + shimmer (warm female) is the
+    // best-sounding combination on tts-1. Faster, more reliable, ~80% as good
+    // as gpt-4o-mini-tts for our use case.
+    const voiceFor = (speaker: string) => speaker === 'B' ? 'shimmer' : 'echo';
 
     const ttsOne = async (turn: any, idx: number): Promise<ArrayBuffer> => {
       const text = (turn?.text || '').slice(0, 4000);
@@ -577,13 +574,12 @@ Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, t
             'Authorization': `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini-tts',
+            model: 'tts-1',
             voice: voiceFor(turn.speaker || 'A'),
             input: text,
-            instructions: instructionsFor(turn.speaker || 'A'),
             response_format: 'mp3',
           }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(20000),
         });
         if (!r.ok) {
           console.warn(`[briefing] TTS turn ${idx} failed status ${r.status}`);
