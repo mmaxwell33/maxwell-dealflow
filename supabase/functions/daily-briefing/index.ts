@@ -540,15 +540,35 @@ Generate the podcast JSON now. Remember: 22-26 turns, every turn 60-100 words, t
     }
     console.log('[briefing] TTS done in', Date.now() - ttsStart, 'ms, total segments:', ttsBuffers.length);
 
-    // Concatenate MP3 byte arrays into one continuous file
-    const totalLen = ttsBuffers.reduce((s, b) => s + b.byteLength, 0);
+    // Concatenate MP3 byte arrays into one continuous file.
+    // CRITICAL: each TTS segment ships with its own ID3v2 tag at the start.
+    // If we naive-concat, multiple ID3 tags appear mid-file and decoders
+    // (Chrome/iOS) refuse to determine duration → play button does nothing.
+    // Fix: keep the first segment's ID3 tag (so the file has valid metadata),
+    // strip ID3 from segments 2+, and concat the audio frames cleanly.
+    const stripId3 = (b: Uint8Array): Uint8Array => {
+      if (b.length < 10) return b;
+      // ID3v2 magic: bytes [0,1,2] == "ID3" (0x49, 0x44, 0x33)
+      if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) {
+        // Synchsafe size: each byte uses only 7 bits
+        const size = (b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9];
+        return b.subarray(10 + size);
+      }
+      return b;
+    };
+
+    const cleanedBuffers = ttsBuffers.map((buf, i) => {
+      const arr = new Uint8Array(buf);
+      return i === 0 ? arr : stripId3(arr);
+    });
+    const totalLen = cleanedBuffers.reduce((s, b) => s + b.byteLength, 0);
     const mp3Bytes = new Uint8Array(totalLen);
     let off = 0;
-    for (const buf of ttsBuffers) {
-      mp3Bytes.set(new Uint8Array(buf), off);
+    for (const buf of cleanedBuffers) {
+      mp3Bytes.set(buf, off);
       off += buf.byteLength;
     }
-    console.log('[briefing] stitched mp3 bytes:', mp3Bytes.length);
+    console.log('[briefing] stitched mp3 bytes:', mp3Bytes.length, '(after ID3 strip)');
 
     // ── 5. Upload MP3 to Supabase Storage ──────────────────────────────────
     console.log('[briefing] uploading mp3...');
