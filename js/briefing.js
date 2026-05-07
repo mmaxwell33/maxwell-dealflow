@@ -105,19 +105,39 @@ const Briefing = {
         </div>` : ''}
       </div>`;
 
+    // Collapsible section helper — uses native HTML <details> (works on all devices,
+    // remembers open/closed state during the session, no JS needed).
+    // `open` param: true = expanded by default, false = collapsed by default
+    const section = (label, body, open = true) => `
+      <details ${open ? 'open' : ''} style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:14px;">
+        <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;font-size:11px;letter-spacing:0.1em;color:var(--text2);text-transform:uppercase;font-weight:600;outline:none;">
+          <span>${Briefing._esc(label)}</span>
+          <span class="briefing-caret" style="font-size:14px;color:var(--text2);transition:transform 0.2s;">▾</span>
+        </summary>
+        <div style="margin-top:10px;">${body}</div>
+      </details>`;
+
     return `
+      <style>
+        details > summary::-webkit-details-marker { display: none; }
+        details:not([open]) .briefing-caret { transform: rotate(-90deg); }
+      </style>
       <div class="card" style="padding:14px;margin-bottom:16px;">
         ${!isToday ? `<div style="margin-bottom:12px;"><button class="btn btn-outline btn-sm" onclick="Briefing.load()">← Back to today</button></div>` : ''}
 
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">${isToday ? "Today" : "Archive"} · ${Briefing._esc(Briefing._formatDate(b.date))}</div>
         <h2 style="margin:0 0 12px;font-size:20px;font-weight:700;">Today in Canadian money</h2>
 
-        ${b.mp3_url ? `<div style="margin-bottom:16px;background:var(--bg);padding:12px;border-radius:8px;">
+        ${b.mp3_url ? `<div style="margin-bottom:16px;background:var(--bg);padding:12px;border-radius:8px;position:sticky;top:0;z-index:5;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">▶ Audio briefing · 2 hosts · ~9 min</div>
           <audio controls preload="metadata" style="width:100%;" src="${Briefing._esc(b.mp3_url)}"></audio>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;" onclick="Briefing._toggleAll(false)">⊟ Collapse all</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;" onclick="Briefing._toggleAll(true)">⊞ Expand all</button>
+          </div>
         </div>` : ''}
 
-        <!-- Metric cards 2x2 -->
+        <!-- Snapshot — always visible, never collapsed -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
           ${metric('BoC Rate', snap.boc_rate, 'Next ' + (snap.boc_next_meeting || ''))}
           ${metric('XEQT Close', snap.xeqt_close, snap.xeqt_change)}
@@ -125,47 +145,40 @@ const Briefing = {
           ${metric('Inflation', snap.cpi, snap.cpi_period)}
         </div>
 
-        ${(mort.fixed_5yr || mort.variable) ? `<div style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:14px;">
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Mortgage rates today</div>
+        ${(mort.fixed_5yr || mort.variable) ? section('Mortgage rates today', `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div><div style="font-size:18px;font-weight:700;">${Briefing._esc(mort.fixed_5yr || '—')}</div><div style="font-size:11px;color:var(--text2);">5-yr fixed</div></div>
             <div><div style="font-size:18px;font-weight:700;">${Briefing._esc(mort.variable || '—')}</div><div style="font-size:11px;color:var(--text2);">Variable</div></div>
             <div><div style="font-size:18px;font-weight:700;">${Briefing._esc(mort.monthly_pmt_400k || '—')}</div><div style="font-size:11px;color:var(--text2);">$400K monthly pmt</div></div>
             <div><div style="font-size:18px;font-weight:700;">${Briefing._esc(mort.boc_overnight || snap.boc_rate || '—')}</div><div style="font-size:11px;color:var(--text2);">BoC overnight</div></div>
           </div>
-        </div>` : ''}
+        `, true) : ''}
 
-        <!-- Stories -->
-        ${stories.length ? `<div style="margin-bottom:14px;">
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Three stories that affect you</div>
-          ${stories.map(story).join('')}
-        </div>` : ''}
+        ${stories.length ? section('Three stories that affect you', stories.map(story).join(''), true) : ''}
 
-        <!-- One move -->
         ${oneMove.title ? `<div style="background:var(--accent);color:#fff;padding:14px;border-radius:8px;margin-bottom:14px;">
           <div style="font-size:10px;opacity:0.75;text-transform:uppercase;letter-spacing:0.12em;">One move this week</div>
           <div style="font-weight:600;font-size:15px;margin:6px 0 6px;">${Briefing._esc(oneMove.title)}</div>
           <div style="font-size:13px;line-height:1.5;opacity:0.92;">${Briefing._esc(oneMove.explanation || '')}</div>
         </div>` : ''}
 
-        <!-- Watch list -->
-        ${watch.length ? `<div style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:14px;">
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Coming up</div>
-          ${watch.map(w => `<div style="display:flex;gap:10px;padding:6px 0;font-size:13px;">
+        ${watch.length ? section('Coming up', watch.map(w => `<div style="display:flex;gap:10px;padding:6px 0;font-size:13px;">
             <div style="min-width:64px;font-weight:600;color:var(--accent);">${Briefing._esc(w.date || '—')}</div>
             <div style="flex:1;color:var(--text2);"><strong style="color:var(--text1);">${Briefing._esc(w.event || '')}</strong> — ${Briefing._esc(w.matters_because || '')}</div>
-          </div>`).join('')}
-        </div>` : ''}
+          </div>`).join(''), false) : ''}
 
-        <!-- Sources -->
-        ${sources.length ? `<div style="margin-bottom:10px;">
-          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Sources</div>
-          ${sources.map(s => `<a href="${Briefing._esc(s.url)}" target="_blank" rel="noopener" style="display:block;font-size:13px;color:var(--accent);text-decoration:none;padding:3px 0;">${Briefing._esc(s.label)}</a>`).join('')}
-        </div>` : ''}
+        ${sources.length ? section('Sources', sources.map(s => `<a href="${Briefing._esc(s.url)}" target="_blank" rel="noopener" style="display:block;font-size:13px;color:var(--accent);text-decoration:none;padding:3px 0;">${Briefing._esc(s.label)}</a>`).join(''), false) : ''}
 
         ${audit ? `<div style="font-size:11px;color:var(--text2);font-style:italic;line-height:1.5;margin-top:14px;padding-top:14px;border-top:1px solid var(--bg);">${Briefing._esc(audit)}</div>` : ''}
       </div>
     `;
+  },
+
+  // Expand or collapse all <details> sections in the briefing card
+  _toggleAll(open) {
+    const container = document.getElementById('briefing-container');
+    if (!container) return;
+    container.querySelectorAll('details').forEach(d => { d.open = !!open; });
   },
 
   // ─── Render the archive list ───────────────────────────────────────────────
