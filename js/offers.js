@@ -1332,7 +1332,11 @@ const Pipeline = {
     const today = new Date(); today.setHours(0,0,0,0);
     const isPast = (dateStr) => {
       if (!dateStr) return false;
-      const dt = new Date(dateStr); dt.setHours(0,0,0,0);
+      // Force local parsing — bare "YYYY-MM-DD" parses as UTC, which in NL (UTC-2:30)
+      // rolls back to the previous local day and makes the closing milestone flip
+      // to "done" a day early. Slice handles full timestamptz strings too.
+      const datePart = String(dateStr).slice(0, 10);
+      const dt = new Date(datePart + 'T00:00:00');
       return dt <= today;
     };
     // Skipped optional milestones (inspection_skipped / walkthrough_skipped)
