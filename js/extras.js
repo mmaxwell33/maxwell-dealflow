@@ -381,24 +381,52 @@ const FormResponses = {
       ${data.map(r => {
         const isNew = r.status === 'New';
         const date = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+        // Seller-side feature: render seller-specific fields when intake_type === 'seller'
+        const isSeller = r.intake_type === 'seller';
+        const typeBadge = isSeller
+          ? `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(204,120,92,.15);color:var(--accent2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">🏷 Seller</span>`
+          : `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(59,130,246,.12);color:#3b82f6;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">🏠 Buyer</span>`;
+        const fmtPrice = (v) => {
+          if (!v) return null;
+          const n = Number(String(v).replace(/[^0-9.]/g,''));
+          return Number.isFinite(n) && n > 0 ? '$' + n.toLocaleString() : String(v);
+        };
+        const askingDisplay = isSeller
+          ? (r.price_preference === 'advise'
+              ? 'Let Maxwell advise'
+              : (fmtPrice(r.asking_price) || (r.price_preference || '—')))
+          : null;
+        const detailsGrid = isSeller ? `
+            ${r.property_address ? `<div>📍 Address: <strong style="color:var(--text1);">${r.property_address}</strong></div>` : ''}
+            ${r.property_type    ? `<div>🏠 Type: ${r.property_type}</div>` : ''}
+            ${r.property_bedrooms  ? `<div>🛏 Beds: ${r.property_bedrooms}</div>` : ''}
+            ${r.property_bathrooms ? `<div>🛁 Baths: ${r.property_bathrooms}</div>` : ''}
+            ${r.property_sqft    ? `<div>📐 SqFt: ${r.property_sqft}</div>` : ''}
+            ${r.sell_reason      ? `<div>💭 Reason: ${r.sell_reason}</div>` : ''}
+            ${r.sell_timeline    ? `<div>⏱ Timeline: ${r.sell_timeline}</div>` : ''}
+            ${askingDisplay      ? `<div>💰 Price: <strong style="color:var(--green);">${askingDisplay}</strong></div>` : ''}
+            ${r.best_contact_time ? `<div>📞 Best time: ${r.best_contact_time}</div>` : ''}
+        ` : `
+            ${r.budget_max     ? `<div>💰 Max Budget: <strong style="color:var(--green);">$${Number(r.budget_max).toLocaleString()}</strong></div>` : ''}
+            ${r.timeline       ? `<div>⏱ Timeline: ${r.timeline}</div>` : ''}
+            ${r.preapproval    ? `<div>🏦 Pre-Approved: ${r.preapproval}</div>` : ''}
+            ${r.bedrooms       ? `<div>🛏 Bedrooms: ${r.bedrooms}+</div>` : ''}
+            ${r.preferred_areas? `<div>📍 Areas: ${r.preferred_areas}</div>` : ''}
+            ${r.property_types ? `<div>🏠 Type: ${r.property_types}</div>` : ''}
+        `;
         return `
         <div class="card" style="margin-bottom:12px;border-left:3px solid ${isNew?'var(--accent2)':'var(--green)'};">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
             <div>
-              <div class="fw-700" style="font-size:15px;">${r.full_name || '—'}</div>
+              <div class="fw-700" style="font-size:15px;">${r.full_name || '—'}${typeBadge}</div>
               <div style="font-size:12px;color:var(--text2);">📧 ${r.email || '—'} ${r.phone ? '· 📞 '+r.phone : ''}</div>
             </div>
             <span class="stage-badge ${isNew?'badge-conditions':'badge-accepted'}" style="font-size:10px;white-space:nowrap;">${isNew?'🆕 New':'✅ Added'}</span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:var(--text2);margin-bottom:10px;">
-            ${r.budget_max ? `<div>💰 Max Budget: <strong style="color:var(--green);">$${Number(r.budget_max).toLocaleString()}</strong></div>` : ''}
-            ${r.timeline ? `<div>⏱ Timeline: ${r.timeline}</div>` : ''}
-            ${r.preapproval ? `<div>🏦 Pre-Approved: ${r.preapproval}</div>` : ''}
-            ${r.bedrooms ? `<div>🛏 Bedrooms: ${r.bedrooms}+</div>` : ''}
-            ${r.preferred_areas ? `<div>📍 Areas: ${r.preferred_areas}</div>` : ''}
-            ${r.property_types ? `<div>🏠 Type: ${r.property_types}</div>` : ''}
+            ${detailsGrid}
           </div>
-          ${r.must_haves ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">✅ Must-haves: ${r.must_haves}</div>` : ''}
+          ${!isSeller && r.must_haves ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">✅ Must-haves: ${r.must_haves}</div>` : ''}
           ${r.notes ? `<div style="font-size:12px;background:var(--bg);padding:8px;border-radius:6px;color:var(--text2);margin-bottom:10px;line-height:1.5;">📝 ${r.notes}</div>` : ''}
           <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Submitted ${date}</div>
           ${isNew ? `
@@ -432,25 +460,40 @@ const FormResponses = {
       return;
     }
 
-    // Build notes from intake data
-    const notes = [
-      r.property_types ? `Looking for: ${r.property_types}` : '',
-      r.must_haves ? `Must-haves: ${r.must_haves}` : '',
-      r.current_status ? `Current status: ${r.current_status}` : '',
-      r.preapproval ? `Pre-approval: ${r.preapproval}` : '',
-      r.referral_source ? `Referred by: ${r.referral_source}` : '',
-      r.notes ? `Client notes: ${r.notes}` : ''
-    ].filter(Boolean).join('\n');
+    // Seller-side feature: build notes + client row differently for sellers.
+    const isSellerIntake = r.intake_type === 'seller';
+    const notes = isSellerIntake
+      ? [
+          r.property_address  ? `Property: ${r.property_address}` : '',
+          r.property_type     ? `Type: ${r.property_type}` : '',
+          (r.property_bedrooms || r.property_bathrooms) ? `Beds/Baths: ${r.property_bedrooms || '—'} / ${r.property_bathrooms || '—'}` : '',
+          r.property_sqft     ? `SqFt: ${r.property_sqft}` : '',
+          r.sell_reason       ? `Reason: ${r.sell_reason}` : '',
+          r.sell_timeline     ? `Timeline: ${r.sell_timeline}` : '',
+          r.price_preference  ? `Price preference: ${r.price_preference}${r.asking_price ? ' (' + r.asking_price + ')' : ''}` : '',
+          r.best_contact_time ? `Best time to reach: ${r.best_contact_time}` : '',
+          r.notes ? `Client notes: ${r.notes}` : ''
+        ].filter(Boolean).join('\n')
+      : [
+          r.property_types ? `Looking for: ${r.property_types}` : '',
+          r.must_haves ? `Must-haves: ${r.must_haves}` : '',
+          r.current_status ? `Current status: ${r.current_status}` : '',
+          r.preapproval ? `Pre-approval: ${r.preapproval}` : '',
+          r.referral_source ? `Referred by: ${r.referral_source}` : '',
+          r.notes ? `Client notes: ${r.notes}` : ''
+        ].filter(Boolean).join('\n');
 
     const { error } = await db.from('clients').insert({
       agent_id: currentAgent.id,
       full_name: r.full_name,
       email: r.email,
       phone: r.phone || null,
-      budget_min: r.budget_min ? Number(r.budget_min) : null,
-      budget_max: r.budget_max ? Number(r.budget_max) : null,
-      preferred_areas: r.preferred_areas || null,
-      bedrooms: r.bedrooms || null,
+      // Seller intakes leave buyer fields null
+      budget_min: !isSellerIntake && r.budget_min ? Number(r.budget_min) : null,
+      budget_max: !isSellerIntake && r.budget_max ? Number(r.budget_max) : null,
+      preferred_areas: !isSellerIntake ? (r.preferred_areas || null) : null,
+      bedrooms: !isSellerIntake ? (r.bedrooms || null) : null,
+      client_type: isSellerIntake ? 'seller' : 'buyer',
       stage: 'New Lead',
       status: 'Active',
       notes: notes || null
@@ -473,6 +516,26 @@ const FormResponses = {
     // Mark intake as processed
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
     await App.logActivity('CLIENT_ADDED', r.full_name, r.email, `Added from intake form: ${r.full_name}`);
+
+    // Seller-side feature: create a listings row so the seller's property
+    // is tracked from day one. Non-fatal if the listings table isn't
+    // migrated yet — we just log and carry on.
+    if (isSellerIntake && r.property_address && newClient?.id) {
+      const askingNum = r.asking_price ? Number(String(r.asking_price).replace(/[^0-9.]/g,'')) : null;
+      const { error: listErr } = await db.from('listings').insert({
+        agent_id:         currentAgent.id,
+        client_id:        newClient.id,
+        property_address: r.property_address,
+        property_type:    r.property_type || null,
+        bedrooms:         r.property_bedrooms || null,
+        bathrooms:        r.property_bathrooms || null,
+        sqft:             r.property_sqft || null,
+        asking_price:     (Number.isFinite(askingNum) && askingNum > 0) ? askingNum : null,
+        listing_status:   'pre_listing',
+        notes:            r.notes || null
+      });
+      if (listErr) console.warn('Listings insert non-fatal error:', listErr.message);
+    }
 
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
     // Use newClient if fetched, otherwise build a minimal client object from intake
