@@ -1284,13 +1284,12 @@ const Pipeline = {
       }
       return Object.assign({}, s, { fill: 0, status: 'pending' });
     });
-    // Single continuous bar — all segments combined add to 100%.
-    // Each stage owns 1/N of the bar width. Total = sum of (stageShare * fill/100).
+    // Headline % uses the canonical Pipeline.milestonesDone() so the detail card,
+    // the Overview snapshot, and the Pipeline tab summary all agree. Per-segment
+    // fills below still use the time-elapsed logic to drive the visual segments.
     const N = segments.length;
-    const stageShare = 100 / N;
-    let overallFill = 0;
-    segments.forEach(s => { overallFill += stageShare * (s.fill / 100); });
-    overallFill = Math.round(overallFill);
+    const m = Pipeline.milestonesDone(d);
+    const overallFill = Math.round((m.done / m.total) * 100);
 
     let sections = '';
     let labels = '';
