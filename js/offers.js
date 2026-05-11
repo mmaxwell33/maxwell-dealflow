@@ -462,13 +462,39 @@ const Offers = {
   }
 };
 
+// ── SELLER-SIDE PIPELINE STAGES ──────────────────────────────────────────
+// Stage labels for sell-side pipeline rows (deal_side='sell'). Buyer stages
+// remain free-form per existing behaviour — these are referenced by the
+// stage dropdown in the seller-side detail view (added in a later pass).
+const SELLER_STAGES = [
+  'Lead / Consultation Booked',
+  'CMA Delivered',
+  'Listing Agreement Signed',
+  'Pre-Listing Prep',
+  'Active on MLS',
+  'Showings & Open Houses',
+  'Offer Received',
+  'Negotiating',
+  'Conditional Sale',
+  'Firm Sale',
+  'Closing Prep',
+  'Closed'
+];
+
 // ── PIPELINE ──
 const Pipeline = {
   all: [],
   currentFilter: 'all',  // 'all' | 'existing_home' | 'new_build'
+  currentSideFilter: 'all',  // seller-side feature: 'all' | 'buy' | 'sell'
 
   setFilter(key) {
     Pipeline.currentFilter = key;
+    Pipeline.render(Pipeline.all);
+  },
+
+  // seller-side feature: filter pipeline by deal_side (buy vs sell).
+  setSideFilter(key) {
+    Pipeline.currentSideFilter = key;
     Pipeline.render(Pipeline.all);
   },
 
@@ -1377,7 +1403,13 @@ const Pipeline = {
 
     // ── Apply deal_type filter (All / Existing Home / New Build) ──
     const filter = Pipeline.currentFilter || 'all';
-    const filtered = filter === 'all' ? list : list.filter(d => (d.deal_type || 'existing_home') === filter);
+    let filtered = filter === 'all' ? list : list.filter(d => (d.deal_type || 'existing_home') === filter);
+
+    // ── Apply deal_side filter (All / Buyer / Seller) — seller-side feature ──
+    const sideFilter = Pipeline.currentSideFilter || 'all';
+    if (sideFilter !== 'all') {
+      filtered = filtered.filter(d => (d.deal_side || 'buy') === sideFilter);
+    }
 
     // Counts for filter chip labels
     const counts = {
@@ -1385,16 +1417,31 @@ const Pipeline = {
       existing_home: list.filter(d => (d.deal_type || 'existing_home') === 'existing_home').length,
       new_build: list.filter(d => d.deal_type === 'new_build').length
     };
+    const sideCounts = {
+      all:  list.length,
+      buy:  list.filter(d => (d.deal_side || 'buy')  === 'buy').length,
+      sell: list.filter(d => (d.deal_side || 'buy')  === 'sell').length
+    };
     const chip = (key, label) => `
       <button onclick="Pipeline.setFilter('${key}')"
         style="padding:7px 14px;border:1px solid ${filter===key?'var(--accent)':'var(--border)'};background:${filter===key?'var(--accent)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
         ${label} <span style="opacity:.7;font-weight:400;">${counts[key]}</span>
       </button>`;
+    const sideChip = (key, label) => `
+      <button onclick="Pipeline.setSideFilter('${key}')"
+        style="padding:7px 14px;border:1px solid ${sideFilter===key?'var(--accent)':'var(--border)'};background:${sideFilter===key?'var(--accent)':'transparent'};color:${sideFilter===key?'#fff':'var(--text2)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
+        ${label} <span style="opacity:.7;font-weight:400;">${sideCounts[key]}</span>
+      </button>`;
     const filterRow = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
         ${chip('all','All')}
         ${chip('existing_home','🏠 Existing Home')}
         ${chip('new_build','🏗️ New Build')}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${sideChip('all','Both Sides')}
+        ${sideChip('buy','🏠 Buyers')}
+        ${sideChip('sell','🏷 Sellers')}
       </div>`;
 
     const active = filtered.filter(d => !['Closed','Fell Through'].includes(d.stage));

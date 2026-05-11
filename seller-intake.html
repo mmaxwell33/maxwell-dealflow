@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Maxwell Delali Midodzi — Seller Intake</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh;padding-bottom:60px;}
+
+    /* HEADER */
+    .hdr{background:linear-gradient(160deg,#CC785C 0%,#D98B6F 100%);border-bottom:1px solid rgba(204,120,92,.25);padding:32px 20px 28px;text-align:center;}
+    .hdr-avatar{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#CC785C,#B3654A);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(204,120,92,.35);}
+    .hdr-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px;}
+    .hdr-role{font-size:13px;color:rgba(255,255,255,.92);margin-top:4px;font-weight:600;}
+    .hdr-sub{margin-top:14px;font-size:13.5px;color:rgba(255,255,255,.85);line-height:1.65;max-width:460px;margin-left:auto;margin-right:auto;}
+
+    /* PROGRESS BAR */
+    .progress-wrap{max-width:560px;margin:20px auto 0;padding:0 16px;}
+    .progress-bar{height:4px;background:rgba(204,120,92,.15);border-radius:4px;overflow:hidden;}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#CC785C,#D98B6F);border-radius:4px;transition:width .4s ease;}
+    .progress-steps{display:flex;justify-content:space-between;margin-top:8px;}
+    .progress-step{font-size:11px;color:#475569;font-weight:600;}
+    .progress-step.active{color:#D98B6F;}
+
+    /* SECTIONS */
+    .wrap{max-width:560px;margin:0 auto;padding:0 16px;}
+    .section{display:none;}
+    .section.active{display:block;}
+    .section-hdr{margin:28px 0 20px;}
+    .section-hdr h2{font-size:18px;font-weight:800;color:#fff;}
+    .section-hdr p{font-size:13px;color:#64748b;margin-top:4px;line-height:1.5;}
+
+    /* FIELDS */
+    .field{margin-bottom:16px;}
+    .field-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block;}
+    .field-label .req{color:#f87171;}
+    input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{
+      width:100%;padding:13px 15px;background:#131c30;border:1.5px solid rgba(204,120,92,.18);
+      border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;transition:border-color .2s;
+      font-family:inherit;
+    }
+    input:focus,select:focus,textarea:focus{border-color:#CC785C;}
+    textarea{resize:vertical;min-height:90px;line-height:1.6;}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:460px){.row{grid-template-columns:1fr;}}
+
+    /* PILL BUTTONS */
+    .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
+    .pill{
+      padding:9px 16px;border-radius:50px;border:1.5px solid rgba(204,120,92,.2);
+      background:#131c30;color:#94a3b8;font-size:13px;font-weight:600;
+      cursor:pointer;transition:all .18s;user-select:none;-webkit-user-select:none;
+    }
+    .pill:hover{border-color:#CC785C;color:#E8A78D;}
+    .pill.selected{background:rgba(204,120,92,.18);border-color:#CC785C;color:#E8A78D;}
+    .pill.selected::before{content:'✓ ';}
+
+    /* PRICE SLIDER */
+    .price-display{text-align:center;font-size:22px;font-weight:800;color:#CC785C;margin:10px 0 6px;}
+    input[type=range]{width:100%;accent-color:#CC785C;height:6px;margin:4px 0;}
+    .price-mode-group{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+    .price-mode{padding:14px 16px;background:#131c30;border:1.5px solid rgba(204,120,92,.18);border-radius:10px;cursor:pointer;transition:all .18s;}
+    .price-mode:hover{border-color:#CC785C;}
+    .price-mode.selected{border-color:#CC785C;background:rgba(204,120,92,.10);}
+    .price-mode-title{font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:3px;}
+    .price-mode-desc{font-size:12px;color:#94a3b8;}
+    .price-mode-extra{display:none;margin-top:12px;}
+    .price-mode.selected .price-mode-extra{display:block;}
+
+    /* NAV BUTTONS */
+    .nav-row{display:flex;gap:12px;margin-top:28px;}
+    .btn-back{flex:1;padding:14px;background:transparent;border:1.5px solid rgba(204,120,92,.2);color:#94a3b8;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;}
+    .btn-back:hover{border-color:#CC785C;color:#E8A78D;}
+    .btn-next{flex:2;padding:14px;background:linear-gradient(135deg,#CC785C,#B86A50);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .18s;box-shadow:0 4px 14px rgba(204,120,92,.35);}
+    .btn-next:hover{opacity:.9;}
+    .btn-submit{width:100%;padding:16px;background:linear-gradient(135deg,#CC785C,#B3654A);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:28px;box-shadow:0 4px 14px rgba(204,120,92,.35);letter-spacing:.02em;}
+    .btn-submit:disabled{opacity:.5;cursor:not-allowed;}
+    #form-status{text-align:center;margin-top:10px;font-size:14px;font-weight:600;min-height:20px;}
+
+    /* SUCCESS */
+    #success-screen{display:none;max-width:560px;margin:60px auto;padding:0 20px;text-align:center;}
+    .success-icon{font-size:72px;margin-bottom:20px;}
+    .success-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:12px;}
+    .success-msg{font-size:14px;color:#94a3b8;line-height:1.8;max-width:380px;margin:0 auto;}
+    .success-steps{background:#131c30;border:1px solid rgba(204,120,92,.15);border-radius:14px;padding:20px;margin-top:28px;text-align:left;}
+    .success-steps h3{font-size:13px;font-weight:700;color:#D98B6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
+    .success-step-item{display:flex;gap:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5;align-items:flex-start;}
+    .step-num{width:24px;height:24px;border-radius:50%;background:rgba(204,120,92,.2);color:#D98B6F;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+
+    .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
+    .footer a{color:#475569;text-decoration:none;}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-avatar">🏷</div>
+  <div class="hdr-name">Maxwell Delali Midodzi</div>
+  <div class="hdr-role">REALTOR® · eXp Realty · (709) 325-0545</div>
+  <div class="hdr-sub">Thinking about selling? Tell me a bit about your property and I'll be in touch within 24 hours to set up a free consultation — including a comparative market analysis.</div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:20%"></div></div>
+  <div class="progress-steps">
+    <span class="progress-step active" id="ps-1">You</span>
+    <span class="progress-step" id="ps-2">Property</span>
+    <span class="progress-step" id="ps-3">Timing</span>
+    <span class="progress-step" id="ps-4">Price</span>
+    <span class="progress-step" id="ps-5">Done</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ══ SECTION 1 — CONTACT ════════════════════════════════════════════ -->
+<div class="section active" id="sec-1">
+  <div class="section-hdr">
+    <h2>👤 Tell me about yourself</h2>
+    <p>So I know how to reach you for your free consultation.</p>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <span class="field-label">First Name <span class="req">*</span></span>
+      <input type="text" id="f-firstname" placeholder="Sarah" autocomplete="given-name">
+    </div>
+    <div class="field">
+      <span class="field-label">Last Name <span class="req">*</span></span>
+      <input type="text" id="f-lastname" placeholder="Hynes" autocomplete="family-name">
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Email <span class="req">*</span></span>
+    <input type="email" id="f-email" placeholder="you@example.com" autocomplete="email">
+  </div>
+
+  <div class="field">
+    <span class="field-label">Phone</span>
+    <input type="tel" id="f-phone" placeholder="(709) 555-1234" autocomplete="tel">
+  </div>
+
+  <div class="field">
+    <span class="field-label">Best time to reach you?</span>
+    <div class="pills" id="pills-contact-time">
+      <div class="pill" data-val="Morning"   onclick="togglePill(this,'pills-contact-time',true)">🌅 Morning</div>
+      <div class="pill" data-val="Afternoon" onclick="togglePill(this,'pills-contact-time',true)">☀️ Afternoon</div>
+      <div class="pill" data-val="Evening"   onclick="togglePill(this,'pills-contact-time',true)">🌆 Evening</div>
+      <div class="pill" data-val="Anytime"   onclick="togglePill(this,'pills-contact-time',true)">📞 Anytime</div>
+    </div>
+  </div>
+
+  <div class="nav-row" style="margin-top:18px;">
+    <button class="btn-next" onclick="goNext(1)" style="flex:1;">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 2 — PROPERTY ═══════════════════════════════════════════ -->
+<div class="section" id="sec-2">
+  <div class="section-hdr">
+    <h2>🏡 Your property</h2>
+    <p>Basics about the home you're thinking of selling.</p>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Property Address <span class="req">*</span></span>
+    <input type="text" id="f-address" placeholder="123 Main Street, St. John's, NL" autocomplete="street-address">
+  </div>
+
+  <div class="field">
+    <span class="field-label">Property Type <span class="req">*</span></span>
+    <div class="pills" id="pills-ptype">
+      <div class="pill" data-val="Detached"      onclick="togglePill(this,'pills-ptype',true)">🏠 Detached</div>
+      <div class="pill" data-val="Semi-detached" onclick="togglePill(this,'pills-ptype',true)">🏘 Semi</div>
+      <div class="pill" data-val="Townhouse"     onclick="togglePill(this,'pills-ptype',true)">🏚 Townhouse</div>
+      <div class="pill" data-val="Condo"         onclick="togglePill(this,'pills-ptype',true)">🏢 Condo</div>
+      <div class="pill" data-val="Mobile home"   onclick="togglePill(this,'pills-ptype',true)">🚐 Mobile</div>
+      <div class="pill" data-val="Other"         onclick="togglePill(this,'pills-ptype',true)">❓ Other</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <span class="field-label">Bedrooms</span>
+      <div class="pills" id="pills-bed">
+        <div class="pill" data-val="1"  onclick="togglePill(this,'pills-bed',true)">1</div>
+        <div class="pill" data-val="2"  onclick="togglePill(this,'pills-bed',true)">2</div>
+        <div class="pill" data-val="3"  onclick="togglePill(this,'pills-bed',true)">3</div>
+        <div class="pill" data-val="4"  onclick="togglePill(this,'pills-bed',true)">4</div>
+        <div class="pill" data-val="5+" onclick="togglePill(this,'pills-bed',true)">5+</div>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Bathrooms</span>
+      <div class="pills" id="pills-bath">
+        <div class="pill" data-val="1"   onclick="togglePill(this,'pills-bath',true)">1</div>
+        <div class="pill" data-val="1.5" onclick="togglePill(this,'pills-bath',true)">1.5</div>
+        <div class="pill" data-val="2"   onclick="togglePill(this,'pills-bath',true)">2</div>
+        <div class="pill" data-val="2.5" onclick="togglePill(this,'pills-bath',true)">2.5</div>
+        <div class="pill" data-val="3+"  onclick="togglePill(this,'pills-bath',true)">3+</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Approximate Size (sq. ft.)</span>
+    <input type="text" id="f-sqft" placeholder="e.g. 1,800 (optional)">
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-back" onclick="goBack(2)">← Back</button>
+    <button class="btn-next" onclick="goNext(2)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 3 — SITUATION & TIMING ═════════════════════════════════ -->
+<div class="section" id="sec-3">
+  <div class="section-hdr">
+    <h2>🗓 Your timing</h2>
+    <p>This helps me prep the right consultation for you.</p>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Why are you selling?</span>
+    <div class="pills" id="pills-reason">
+      <div class="pill" data-val="Moving"      onclick="togglePill(this,'pills-reason',true)">📦 Moving</div>
+      <div class="pill" data-val="Upsizing"    onclick="togglePill(this,'pills-reason',true)">📈 Upsizing</div>
+      <div class="pill" data-val="Downsizing"  onclick="togglePill(this,'pills-reason',true)">📉 Downsizing</div>
+      <div class="pill" data-val="Investment"  onclick="togglePill(this,'pills-reason',true)">💼 Investment</div>
+      <div class="pill" data-val="Estate"      onclick="togglePill(this,'pills-reason',true)">📜 Estate</div>
+      <div class="pill" data-val="Other"       onclick="togglePill(this,'pills-reason',true)">❓ Other</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">When would you like to sell?</span>
+    <div class="pills" id="pills-timeline">
+      <div class="pill" data-val="ASAP"             onclick="togglePill(this,'pills-timeline',true)">⚡ ASAP</div>
+      <div class="pill" data-val="1–3 months"       onclick="togglePill(this,'pills-timeline',true)">📅 1–3 months</div>
+      <div class="pill" data-val="3–6 months"       onclick="togglePill(this,'pills-timeline',true)">📅 3–6 months</div>
+      <div class="pill" data-val="6–12 months"      onclick="togglePill(this,'pills-timeline',true)">📅 6–12 months</div>
+      <div class="pill" data-val="Just exploring"   onclick="togglePill(this,'pills-timeline',true)">🔍 Just exploring</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Have you sold a property before?</span>
+    <div class="pills" id="pills-experience">
+      <div class="pill" data-val="First-time seller" onclick="togglePill(this,'pills-experience',true)">🌱 First time</div>
+      <div class="pill" data-val="Sold before"       onclick="togglePill(this,'pills-experience',true)">🏆 Sold before</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-back" onclick="goBack(3)">← Back</button>
+    <button class="btn-next" onclick="goNext(3)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 4 — PRICE EXPECTATION ══════════════════════════════════ -->
+<div class="section" id="sec-4">
+  <div class="section-hdr">
+    <h2>💰 Price expectation</h2>
+    <p>No pressure — most sellers prefer the comparative market analysis.</p>
+  </div>
+
+  <div class="price-mode-group">
+    <div class="price-mode" id="pm-advise" onclick="selectPriceMode('advise')">
+      <div class="price-mode-title">🎯 Let Maxwell advise me <span style="color:#CC785C;font-size:11px;">RECOMMENDED</span></div>
+      <div class="price-mode-desc">A free comparative market analysis based on recent sales in your area.</div>
+    </div>
+
+    <div class="price-mode" id="pm-range" onclick="selectPriceMode('range')">
+      <div class="price-mode-title">📊 I have a range in mind</div>
+      <div class="price-mode-desc">Drag the slider to your target.</div>
+      <div class="price-mode-extra">
+        <div class="price-display" id="price-display">$450,000</div>
+        <input type="range" id="f-price-range" min="100000" max="2000000" step="25000" value="450000" oninput="updatePriceDisplay(this.value)">
+      </div>
+    </div>
+
+    <div class="price-mode" id="pm-firm" onclick="selectPriceMode('firm')">
+      <div class="price-mode-title">💯 I have a firm number</div>
+      <div class="price-mode-desc">Tell me what you're aiming for.</div>
+      <div class="price-mode-extra">
+        <input type="text" id="f-price-firm" placeholder="$500,000">
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-back" onclick="goBack(4)">← Back</button>
+    <button class="btn-next" onclick="goNext(4)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ SECTION 5 — FINAL ══════════════════════════════════════════════ -->
+<div class="section" id="sec-5">
+  <div class="section-hdr">
+    <h2>📝 Anything else?</h2>
+    <p>Renovations, special features, urgency, anything I should know before our call.</p>
+  </div>
+
+  <div class="field">
+    <textarea id="f-notes" placeholder="e.g. Renovated kitchen 2023. Tenant in basement suite. Need to be out by Sept. Open to multiple offers..."></textarea>
+  </div>
+
+  <!-- HONEYPOT (real humans never see / fill these — bots fill every field) -->
+  <div style="display:none;visibility:hidden;position:absolute;left:-9999px;" aria-hidden="true">
+    <input type="text" id="hp-website" name="website" tabindex="-1" autocomplete="off" placeholder="Your website">
+    <input type="text" id="hp-phone2"  name="phone2"  tabindex="-1" autocomplete="off" placeholder="Second phone">
+  </div>
+  <input type="hidden" id="hp-timestamp" value="">
+
+  <div style="background:rgba(204,120,92,.07);border:1px solid rgba(204,120,92,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+    <div style="font-size:11px;font-weight:700;color:#D98B6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🔒 Privacy &amp; Consent</div>
+    <div style="font-size:12px;color:#94a3b8;line-height:1.65;">
+      Maxwell Delali Midodzi, REALTOR® (eXp Realty) will collect and use your information to provide real estate services, including evaluating your property and sending you service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#D98B6F;">Maxwell.Midodzi@exprealty.com</a>.
+    </div>
+    <label for="f-consent" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:10px 12px;background:rgba(204,120,92,.10);border-radius:8px;cursor:pointer;">
+      <input type="checkbox" id="f-consent" style="margin-top:3px;width:18px;height:18px;accent-color:#D98B6F;flex-shrink:0;">
+      <span style="font-size:13px;color:#e2e8f0;line-height:1.5;">
+        I consent to Maxwell Delali Midodzi (eXp Realty) collecting and using my personal information for the purposes described above. <span style="color:#D98B6F;">(required)</span>
+      </span>
+    </label>
+  </div>
+
+  <button class="btn-submit" onclick="submitIntake()" id="submit-btn">
+    🏷 Submit — Book My Free Consultation
+  </button>
+  <div id="form-status"></div>
+
+  <div class="nav-row" style="margin-top:12px;">
+    <button class="btn-back" onclick="goBack(5)" style="flex:1;">← Back</button>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- SUCCESS SCREEN -->
+<div id="success-screen">
+  <div class="success-icon">🎉</div>
+  <div class="success-title">Thanks for reaching out!</div>
+  <div class="success-msg">
+    Maxwell has received your information and will personally call you <strong style="color:#e2e8f0">within 24 hours</strong> to book your free consultation.
+  </div>
+
+  <div class="success-steps" style="max-width:520px;margin:28px auto 0;">
+    <h3>📋 What Happens Next</h3>
+    <div class="success-step-item">
+      <div class="step-num">1</div>
+      <div><strong style="color:#e2e8f0;">Personal Call</strong><br>Maxwell will call you within 24 hours to introduce himself and book your free consultation at a time that works.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">2</div>
+      <div><strong style="color:#e2e8f0;">Free Consultation</strong><br>A 30–45 minute meeting (in person or Zoom) to walk through your property, your goals, and the local market.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">3</div>
+      <div><strong style="color:#e2e8f0;">Comparative Market Analysis</strong><br>A full report on recent sales, current listings, and a recommended pricing strategy for your home.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">4</div>
+      <div><strong style="color:#e2e8f0;">Marketing Plan</strong><br>Professional photography, MLS exposure, social media, staging guidance — Maxwell handles the marketing.</div>
+    </div>
+    <div class="success-step-item">
+      <div class="step-num">5</div>
+      <div><strong style="color:#e2e8f0;">Sold 🔑</strong><br>From listing through showings, offers, negotiations, conditions, and closing — Maxwell guides you the whole way.</div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:20px;background:#131c30;border-radius:14px;max-width:520px;margin-left:auto;margin-right:auto;border:1px solid rgba(204,120,92,.15);">
+    <div style="font-size:13px;color:#64748b;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Your Agent</div>
+    <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
+    <div style="font-size:13px;color:#D98B6F;margin-top:3px;">REALTOR® · eXp Realty</div>
+    <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.8;">
+      📞 (709) 325-0545<br>
+      ✉️ Maxwell.Midodzi@exprealty.com
+    </div>
+  </div>
+
+  <!-- If they came in via "I'm doing both", offer a quick link to the buyer side -->
+  <div id="both-cta" style="display:none;margin-top:28px;text-align:center;">
+    <a href="intake.html?type=buy" style="display:inline-block;padding:14px 22px;background:linear-gradient(135deg,#CC785C,#B86A50);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 4px 14px rgba(204,120,92,.35);">Next: tell me what you want to buy →</a>
+  </div>
+</div>
+
+<div class="footer" style="margin-top:40px;">
+  <a href="https://maxwell-dealflow.vercel.app" target="_blank">Maxwell DealFlow CRM</a> · eXp Realty · Your information is private and secure.
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = supabase;
+const db = createClient(
+  'https://bxwmbrdndsetjwcexwpc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc'
+);
+
+let currentSection = 1;
+const TOTAL = 5;
+let priceMode = null; // 'advise' | 'range' | 'firm'
+
+// ── PILL TOGGLE ───────────────────────────────────────────────────────────────
+function togglePill(el, groupId, single = false) {
+  if (single) {
+    document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove('selected'));
+  }
+  el.classList.toggle('selected');
+}
+function getPills(groupId) {
+  return [...document.querySelectorAll(`#${groupId} .pill.selected`)]
+    .map(p => p.dataset.val).join(', ');
+}
+
+// ── PRICE MODE ────────────────────────────────────────────────────────────────
+function selectPriceMode(mode) {
+  priceMode = mode;
+  ['advise','range','firm'].forEach(m => {
+    const el = document.getElementById('pm-' + m);
+    if (el) el.classList.toggle('selected', m === mode);
+  });
+}
+function updatePriceDisplay(v) {
+  const n = parseInt(v, 10);
+  document.getElementById('price-display').textContent = '$' + n.toLocaleString();
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function goNext(from) {
+  if (from === 1) {
+    const fn = document.getElementById('f-firstname').value.trim();
+    const ln = document.getElementById('f-lastname').value.trim();
+    const em = document.getElementById('f-email').value.trim();
+    if (!fn || !ln) { alert('Please enter your first and last name.'); return; }
+    if (!em || !em.includes('@')) { alert('Please enter a valid email address.'); return; }
+  }
+  if (from === 2) {
+    const addr = document.getElementById('f-address').value.trim();
+    const ptype = getPills('pills-ptype');
+    if (!addr)  { alert('Please enter the property address.'); return; }
+    if (!ptype) { alert('Please pick a property type.');       return; }
+  }
+  showSection(from + 1);
+}
+function goBack(from) { showSection(from - 1); }
+function showSection(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + n).classList.add('active');
+  currentSection = n;
+  const pct = (n / TOTAL) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  for (let i = 1; i <= TOTAL; i++) {
+    const el = document.getElementById('ps-' + i);
+    if (el) el.classList.toggle('active', i <= n);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const tsEl = document.getElementById('hp-timestamp');
+  if (tsEl) tsEl.value = String(Date.now());
+});
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+async function submitIntake() {
+  const st  = document.getElementById('form-status');
+  const btn = document.getElementById('submit-btn');
+
+  // ── BOT DETECTION (same pattern as buyer intake) ───────────────────────────
+  const hp1 = document.getElementById('hp-website')?.value || '';
+  const hp2 = document.getElementById('hp-phone2')?.value  || '';
+  if (hp1 || hp2) {
+    document.querySelector('.wrap').style.display = 'none';
+    document.querySelector('.progress-wrap').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'block';
+    return;
+  }
+  const loadTime = parseInt(document.getElementById('hp-timestamp')?.value || '0', 10);
+  const elapsed  = Date.now() - loadTime;
+  if (loadTime > 0 && elapsed < 3000) {
+    document.querySelector('.wrap').style.display = 'none';
+    document.querySelector('.progress-wrap').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'block';
+    return;
+  }
+
+  const firstName = document.getElementById('f-firstname').value.trim();
+  const lastName  = document.getElementById('f-lastname').value.trim();
+  const email     = document.getElementById('f-email').value.trim();
+
+  if (!firstName || !lastName || !email) {
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Please go back and fill in your name and email.';
+    return;
+  }
+
+  const consentEl = document.getElementById('f-consent');
+  if (consentEl && !consentEl.checked) {
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Please check the consent box before submitting.';
+    consentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  st.style.color = '#94a3b8';
+  st.textContent = 'Sending your information securely...';
+
+  // Price expectation
+  let askingPrice = null;
+  if (priceMode === 'range') askingPrice = document.getElementById('f-price-range').value;
+  if (priceMode === 'firm')  askingPrice = document.getElementById('f-price-firm').value.trim() || null;
+
+  const payload = {
+    intake_type:       'seller',
+    full_name:         `${firstName} ${lastName}`,
+    first_name:        firstName,
+    last_name:         lastName,
+    email,
+    phone:             document.getElementById('f-phone').value.trim() || null,
+    best_contact_time: getPills('pills-contact-time') || null,
+    property_address:  document.getElementById('f-address').value.trim() || null,
+    property_type:     getPills('pills-ptype') || null,
+    property_bedrooms: getPills('pills-bed')   || null,
+    property_bathrooms:getPills('pills-bath')  || null,
+    property_sqft:     document.getElementById('f-sqft').value.trim() || null,
+    sell_reason:       getPills('pills-reason')     || null,
+    sell_timeline:     getPills('pills-timeline')   || null,
+    price_preference:  priceMode || 'advise',
+    asking_price:      askingPrice,
+    notes:             document.getElementById('f-notes').value.trim() || null,
+    status:            'New',
+    submitted_at:      new Date().toISOString()
+  };
+
+  const { error } = await db.from('client_intake').insert(payload);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = '🏷 Submit — Book My Free Consultation';
+    st.style.color = '#f87171';
+    st.textContent = '⚠️ Something went wrong. Please try again.';
+    console.error(error);
+    return;
+  }
+
+  // Show success
+  document.querySelector('.wrap').style.display = 'none';
+  document.querySelector('.progress-wrap').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+
+  // If they came via "I'm doing both" flow, show the CTA to continue to buyer side
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('then') === 'buy') {
+    document.getElementById('both-cta').style.display = 'block';
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

@@ -85,6 +85,18 @@
     /* FOOTER */
     .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
     .footer a{color:#475569;text-decoration:none;}
+
+    /* ── INTAKE TYPE ROUTER (seller-side feature) ─────────────────────── */
+    .router-screen{max-width:560px;margin:32px auto 20px;padding:0 16px;}
+    .router-screen h1{font-size:22px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;letter-spacing:-.2px;}
+    .router-screen .router-sub{font-size:14px;color:#94a3b8;text-align:center;line-height:1.6;margin-bottom:24px;}
+    .choice-card{background:#131c30;border:1.5px solid rgba(204,120,92,.18);border-radius:14px;padding:22px 20px;cursor:pointer;transition:all .2s;margin-bottom:12px;display:flex;align-items:center;gap:16px;}
+    .choice-card:hover{border-color:#CC785C;background:rgba(204,120,92,.08);}
+    .choice-card .choice-icon{font-size:38px;flex-shrink:0;}
+    .choice-card .choice-body{flex:1;}
+    .choice-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;}
+    .choice-desc{font-size:13px;color:#94a3b8;line-height:1.5;}
+    .choice-arrow{font-size:22px;color:#CC785C;flex-shrink:0;}
   </style>
 </head>
 <body>
@@ -96,6 +108,63 @@
   <div class="hdr-role">REALTOR® · eXp Realty · (709) 325-0545</div>
   <div class="hdr-sub">Let's find your perfect home! Fill out this quick form so I can send you personalized listings that match exactly what you're looking for.</div>
 </div>
+
+<!-- ══ ROUTER — Buyer or Seller? (seller-side feature) ══════════════════ -->
+<div class="router-screen" id="router-screen">
+  <h1>👋 Welcome!</h1>
+  <div class="router-sub">Before we start — are you looking to <strong style="color:#e2e8f0">buy a home</strong>, or do you have a <strong style="color:#e2e8f0">property you'd like to sell</strong>?</div>
+  <div class="choice-card" onclick="chooseRoute('buy')">
+    <div class="choice-icon">🏠</div>
+    <div class="choice-body">
+      <div class="choice-title">I'm Buying a Home</div>
+      <div class="choice-desc">Tell Maxwell what you're looking for and start getting personalized listings.</div>
+    </div>
+    <div class="choice-arrow">→</div>
+  </div>
+  <div class="choice-card" onclick="chooseRoute('sell')">
+    <div class="choice-icon">🏷</div>
+    <div class="choice-body">
+      <div class="choice-title">I'm Selling My Home</div>
+      <div class="choice-desc">Free consultation, comparative market analysis, and a marketing plan from Maxwell.</div>
+    </div>
+    <div class="choice-arrow">→</div>
+  </div>
+  <div class="choice-card" onclick="chooseRoute('both')">
+    <div class="choice-icon">🔄</div>
+    <div class="choice-body">
+      <div class="choice-title">I'm Doing Both</div>
+      <div class="choice-desc">Selling one home and buying another? Let's start with the sale, then we'll set up your buyer search.</div>
+    </div>
+    <div class="choice-arrow">→</div>
+  </div>
+</div>
+
+<script>
+  // ── Intake router (additive — does not touch existing buyer logic) ───
+  (function () {
+    var qp = new URLSearchParams(location.search);
+    var skipRouter = qp.get('type') === 'buy';
+    document.addEventListener('DOMContentLoaded', function () {
+      if (skipRouter) {
+        // Came from seller-intake.html "both" flow — show buyer form directly
+        var r = document.getElementById('router-screen'); if (r) r.style.display = 'none';
+      } else {
+        // Hide buyer intake until visitor picks "I'm Buying"
+        var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = 'none';
+        var w  = document.querySelector('.wrap');          if (w)  w.style.display  = 'none';
+      }
+    });
+    window.chooseRoute = function (type) {
+      if (type === 'sell') { location.href = 'seller-intake.html'; return; }
+      if (type === 'both') { location.href = 'seller-intake.html?then=buy'; return; }
+      // 'buy' — reveal existing buyer intake
+      var r  = document.getElementById('router-screen'); if (r)  r.style.display  = 'none';
+      var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = '';
+      var w  = document.querySelector('.wrap');          if (w)  w.style.display  = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  })();
+</script>
 
 <!-- PROGRESS -->
 <div class="progress-wrap">

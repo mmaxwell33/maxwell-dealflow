@@ -1147,6 +1147,105 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         html
       };
     },
+
+    // ── SELLER WELCOME EMAIL (seller-side feature) ─────────────────────────
+    // Sent after a seller intake is converted into a client. Sets expectations
+    // for the free consultation, positions Maxwell as the marketing expert,
+    // and signs off as eXp Realty. Signatures (disclosures, listing agreement,
+    // etc.) are handled outside DealFlow — this email is purely the warm intro.
+    seller_welcome_email: (client, intake, agent) => {
+      const firstName    = client.full_name?.split(' ')[0] || client.first_name || 'there';
+      const agentName    = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
+      const agentPhone   = agent?.phone   || '(709) 325-0545';
+      const agentEmail   = agent?.email   || 'Maxwell.Midodzi@exprealty.com';
+      const agentWebsite = agent?.website_url      || 'maxwellmidodzi.exprealty.com';
+      const agentAddress = agent?.brokerage_address || '33 Pippy PL, Suite 101, St. John\'s, NL A1B 3X2';
+      const propAddr     = intake?.property_address || null;
+      const timeline     = intake?.sell_timeline    || null;
+
+      // Property summary block (only if we have one)
+      const propLines = [];
+      if (propAddr)                  propLines.push(`📍 <strong>Property:</strong> ${propAddr}`);
+      if (intake?.property_type)     propLines.push(`🏠 <strong>Type:</strong> ${intake.property_type}`);
+      if (intake?.property_bedrooms) propLines.push(`🛏 <strong>Bedrooms:</strong> ${intake.property_bedrooms}`);
+      if (timeline)                  propLines.push(`📅 <strong>Timeline:</strong> ${timeline}`);
+      const propertyHTML = propLines.length
+        ? propLines.map(l => `<p style="margin:6px 0;font-size:14px;color:#333;">${l}</p>`).join('')
+        : '';
+
+      const steps = [
+        { n:1, color:'#4f46e5', title:'Personal Call',             desc:'I\'ll call you within 24 hours to introduce myself and book the consultation' },
+        { n:2, color:'#059669', title:'Free Consultation',         desc:'30–45 minutes (in person or Zoom) to walk through your home and your goals' },
+        { n:3, color:'#d97706', title:'Comparative Market Analysis', desc:'A full report on comparable sales so we price your home right from day one' },
+        { n:4, color:'#7c3aed', title:'Marketing Plan',            desc:'Professional photos, MLS exposure, social media, and staging guidance' },
+        { n:5, color:'#0891b2', title:'Sold',                       desc:'I guide you from listing through offers, conditions, and closing' }
+      ];
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
+        .wrap{max-width:560px;margin:0 auto;}
+        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
+        .sig-name{font-weight:700;font-size:15px;}
+        .sig-line{font-size:13px;color:#555;margin:2px 0;}
+        .sig-line a{color:#1a6ef5;text-decoration:none;}
+        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+        .step-row{padding:12px 0;border-bottom:1px solid #eee;font-size:14px;}
+        .step-row:last-child{border-bottom:none;}
+        .prop-box{background:#fff7f3;border:1px solid #f3d8c9;border-radius:8px;padding:14px 16px;margin:14px 0;}
+      </style></head><body><div class="wrap">
+        <p>Hi ${firstName},</p>
+        <p>Thanks for reaching out about selling your home. I'm <strong>${agentName}</strong> with eXp Realty, and I'm looking forward to helping you through this.</p>
+        <p>I'll <strong>personally call you within 24 hours</strong> to introduce myself and book your free consultation at a time that works for you.</p>
+        ${propLines.length ? `<p style="margin-top:18px;"><strong>Here's what you told me about your property:</strong></p><div class="prop-box">${propertyHTML}</div>` : ''}
+        <p><strong>Here's what happens next:</strong></p>
+        <div>
+          ${steps.map(s => `<div class="step-row"><strong>${s.n}. ${s.title}</strong> — ${s.desc}</div>`).join('')}
+        </div>
+        <p style="margin-top:20px;">Selling a home is a big decision and I take that seriously. Whether you're ready to list this month or just exploring, the consultation is free and there's no obligation. My job is to give you the information you need to make the right call for you and your family.</p>
+        <p>Talk soon!</p>
+        <hr>
+        <p>Best regards,</p>
+        <p class="sig-name">${agentName}</p>
+        <p class="sig-line">REALTOR® | eXp Realty</p>
+        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
+        <p class="sig-line">eXp Realty, ${agentAddress}</p>
+        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
+        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+      </div></body></html>`;
+
+      const plainText = `Hi ${firstName},
+
+Thanks for reaching out about selling your home. I'm ${agentName} with eXp Realty, and I'm looking forward to helping you through this.
+
+I'll personally call you within 24 hours to introduce myself and book your free consultation at a time that works for you.
+${propAddr ? `\nProperty on file: ${propAddr}${timeline ? ` (timeline: ${timeline})` : ''}\n` : ''}
+Here's what happens next:
+1. Personal Call — I'll call you within 24 hours to introduce myself and book the consultation
+2. Free Consultation — 30–45 minutes (in person or Zoom) to walk through your home and your goals
+3. Comparative Market Analysis — a full report on comparable sales so we price your home right from day one
+4. Marketing Plan — professional photos, MLS exposure, social media, and staging guidance
+5. Sold — I guide you from listing through offers, conditions, and closing
+
+Selling a home is a big decision and I take that seriously. Whether you're ready to list this month or just exploring, the consultation is free and there's no obligation. My job is to give you the information you need to make the right call for you and your family.
+
+Talk soon!
+
+Best regards,
+${agentName}
+REALTOR® | eXp Realty
+${agentPhone} | ${agentEmail}
+eXp Realty, ${agentAddress}
+${agentWebsite}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      return {
+        subject: `Thanks for reaching out, ${firstName} — Maxwell here`,
+        body: plainText,
+        html
+      };
+    },
   },
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
@@ -1338,6 +1437,17 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const tmpl = Notify.templates.welcome_email(client, intake, agent);
     await Notify.queue(
       'Welcome Email',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, null, tmpl.html
+    );
+  },
+
+  // Seller-side parallel of onClientAdded — keeps buyer welcome path untouched.
+  async onSellerClientAdded(client, intake) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.seller_welcome_email(client, intake, agent);
+    await Notify.queue(
+      'Seller Welcome Email',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, null, tmpl.html
     );

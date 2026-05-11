@@ -478,7 +478,12 @@ const FormResponses = {
     // Use newClient if fetched, otherwise build a minimal client object from intake
     const clientForEmail = newClient || { id: null, full_name: r.full_name, email: r.email };
     if (typeof Notify !== "undefined") {
-      await Notify.onClientAdded(clientForEmail, r);
+      // Seller-side feature: route seller intakes to the seller welcome email.
+      if (r.intake_type === 'seller' && typeof Notify.onSellerClientAdded === 'function') {
+        await Notify.onSellerClientAdded(clientForEmail, r);
+      } else {
+        await Notify.onClientAdded(clientForEmail, r);
+      }
     }
 
     App.toast(`✅ ${r.full_name} added! Welcome email queued for your approval.`, 'var(--green)');
