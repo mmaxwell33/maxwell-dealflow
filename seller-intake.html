@@ -173,14 +173,22 @@
 
   <div class="field">
     <span class="field-label">Property Type <span class="req">*</span></span>
-    <div class="pills" id="pills-ptype">
-      <div class="pill" data-val="Detached"      onclick="togglePill(this,'pills-ptype',true)">🏠 Detached</div>
-      <div class="pill" data-val="Semi-detached" onclick="togglePill(this,'pills-ptype',true)">🏘 Semi</div>
-      <div class="pill" data-val="Townhouse"     onclick="togglePill(this,'pills-ptype',true)">🏚 Townhouse</div>
-      <div class="pill" data-val="Condo"         onclick="togglePill(this,'pills-ptype',true)">🏢 Condo</div>
-      <div class="pill" data-val="Mobile home"   onclick="togglePill(this,'pills-ptype',true)">🚐 Mobile</div>
-      <div class="pill" data-val="Other"         onclick="togglePill(this,'pills-ptype',true)">❓ Other</div>
-    </div>
+    <select id="f-ptype">
+      <option value="">— Choose a property type —</option>
+      <option value="Single Family Home">🏠 Single Family Home</option>
+      <option value="Detached">🏠 Detached</option>
+      <option value="Semi-Detached">🏘 Semi-Detached</option>
+      <option value="Townhouse">🏚 Townhouse</option>
+      <option value="Row House">🏚 Row House</option>
+      <option value="Condo / Apartment">🏢 Condo / Apartment</option>
+      <option value="Multi-Family (Duplex / Triplex)">🏘 Multi-Family (Duplex / Triplex)</option>
+      <option value="Mobile / Manufactured">🚐 Mobile / Manufactured Home</option>
+      <option value="Cottage / Cabin">🏕 Cottage / Cabin</option>
+      <option value="Vacant Land / Lot">🌲 Vacant Land / Lot</option>
+      <option value="Acreage / Farm">🌾 Acreage / Farm</option>
+      <option value="Commercial">🏪 Commercial</option>
+      <option value="Other">❓ Other</option>
+    </select>
   </div>
 
   <div class="row">
@@ -341,6 +349,31 @@
 
 </div><!-- /wrap -->
 
+<!-- ══ ALREADY-SUBMITTED SCREEN (submit-once guard) ════════════════════ -->
+<!-- Shown if the visitor returns to this link after a previous submission.
+     Prevents accidental duplicate submissions — the client must contact
+     Maxwell directly to update their information. -->
+<div id="already-submitted" style="display:none;max-width:560px;margin:60px auto;padding:0 20px;text-align:center;">
+  <div style="font-size:72px;margin-bottom:20px;">✅</div>
+  <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:12px;">You've already submitted</div>
+  <div style="font-size:14px;color:#94a3b8;line-height:1.8;max-width:420px;margin:0 auto;">
+    Maxwell has your information on file and is preparing for your call.
+    To avoid duplicates, this form can only be submitted once per device.
+  </div>
+  <div style="margin-top:32px;padding:20px;background:#131c30;border-radius:14px;max-width:520px;margin-left:auto;margin-right:auto;border:1px solid rgba(204,120,92,.15);">
+    <div style="font-size:13px;color:#64748b;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Need to change something?</div>
+    <div style="font-size:14px;color:#cbd5e1;line-height:1.6;margin-bottom:14px;">
+      Reach out to Maxwell directly and he'll update your file.
+    </div>
+    <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
+    <div style="font-size:13px;color:#D98B6F;margin-top:3px;">REALTOR® · eXp Realty</div>
+    <div style="font-size:13px;color:#94a3b8;margin-top:10px;line-height:1.9;">
+      📞 <a href="tel:7093250545" style="color:#D98B6F;text-decoration:none;">(709) 325-0545</a><br>
+      ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#D98B6F;text-decoration:none;">Maxwell.Midodzi@exprealty.com</a>
+    </div>
+  </div>
+</div>
+
 <!-- SUCCESS SCREEN -->
 <div id="success-screen">
   <div class="success-icon">🎉</div>
@@ -440,8 +473,8 @@ function goNext(from) {
     if (!em || !em.includes('@')) { alert('Please enter a valid email address.'); return; }
   }
   if (from === 2) {
-    const addr = document.getElementById('f-address').value.trim();
-    const ptype = getPills('pills-ptype');
+    const addr  = document.getElementById('f-address').value.trim();
+    const ptype = document.getElementById('f-ptype').value;
     if (!addr)  { alert('Please enter the property address.'); return; }
     if (!ptype) { alert('Please pick a property type.');       return; }
   }
@@ -465,6 +498,18 @@ function showSection(n) {
 document.addEventListener('DOMContentLoaded', () => {
   const tsEl = document.getElementById('hp-timestamp');
   if (tsEl) tsEl.value = String(Date.now());
+
+  // Submit-once guard — if this device has already submitted, show the
+  // "already submitted" screen instead of the form. Client must contact
+  // Maxwell directly to update their info.
+  try {
+    if (localStorage.getItem('df-seller-intake-submitted')) {
+      document.querySelector('.wrap').style.display = 'none';
+      document.querySelector('.progress-wrap').style.display = 'none';
+      document.querySelector('.hdr').style.display = 'none';
+      document.getElementById('already-submitted').style.display = 'block';
+    }
+  } catch (_) { /* localStorage blocked — fail open, form still works */ }
 });
 
 // ── SUBMIT ────────────────────────────────────────────────────────────────────
@@ -527,7 +572,7 @@ async function submitIntake() {
     phone:             document.getElementById('f-phone').value.trim() || null,
     best_contact_time: getPills('pills-contact-time') || null,
     property_address:  document.getElementById('f-address').value.trim() || null,
-    property_type:     getPills('pills-ptype') || null,
+    property_type:     document.getElementById('f-ptype').value || null,
     property_bedrooms: getPills('pills-bed')   || null,
     property_bathrooms:getPills('pills-bath')  || null,
     property_sqft:     document.getElementById('f-sqft').value.trim() || null,
@@ -550,6 +595,15 @@ async function submitIntake() {
     console.error(error);
     return;
   }
+
+  // Set the submit-once flag so reloading the link shows the "already
+  // submitted" screen on this device.
+  try {
+    localStorage.setItem('df-seller-intake-submitted', JSON.stringify({
+      submittedAt: new Date().toISOString(),
+      email: email
+    }));
+  } catch (_) { /* localStorage blocked — non-fatal */ }
 
   // Show success
   document.querySelector('.wrap').style.display = 'none';
