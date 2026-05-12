@@ -756,6 +756,37 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // ── Closing rescheduled — sent when Pipeline.rescheduleClosing fires.
+    // reason: a human-friendly label ('Lender / financing delay' etc).
+    // notes:  optional free text — the lawyer/lender's actual words. Only
+    // included when present so the buyer doesn't get awkward empty sections.
+    closing_rescheduled: (client, deal, reason, notes, agent) => ({
+      subject: `Closing Date Update — ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+I wanted to give you a quick heads-up: the closing on ${deal.property_address} has been rescheduled.
+
+📅 Original closing date: ${App.fmtDate(deal.original_closing_date)}
+📅 New expected closing date: ${App.fmtDate(deal.closing_date)}
+
+Reason: ${reason}${notes ? `\n\nDetails: ${notes}` : ''}
+
+This kind of adjustment is fairly normal when financing, legal, or paperwork timelines need a little more room — it does not change the deal itself, just the date the keys change hands. I'm coordinating with the parties involved to keep everything on track for the new date.
+
+Your live deal portal has been updated automatically. You'll see the new countdown and the reason for the change there as well.
+
+If you have any questions or concerns, please call or text me anytime.
+
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
+eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
+maxwellmidodzi.exprealty.com
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
     walkthrough_reminder: (client, deal, agent) => ({
       subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},

@@ -1471,23 +1471,42 @@ const Pipeline = {
       // skipKey: when set ('inspection' or 'walkthrough'), renders a small
       // Do/Skip dropdown above the date input so optional milestones can be
       // waived without dragging the progress bar down.
+      // Special case: skipKey === 'closing' forces the input to read-only on
+      // active deals and surfaces a Reschedule button + rescheduled-from
+      // history badge — silent overwrites are no longer allowed once a deal
+      // is in pipeline (use Pipeline.rescheduleClosing instead).
       const dateField = (label, icon, inputId, dateVal, skipKey) => {
-        const readonly = isClosed || isFell;
+        const isClosingField = skipKey === 'closing';
+        // Active closing field is read-only — must go through the modal.
+        const readonly = isClosed || isFell || isClosingField;
         const onChange = readonly ? '' : `oninput="Pipeline.previewProgress('${d.id}')"`;
         const isSkipped = skipKey === 'inspection'  ? !!d.inspection_skipped
                         : skipKey === 'walkthrough' ? !!d.walkthrough_skipped
                         : false;
-        const skipDD = skipKey ? `
+        const skipDD = (skipKey && skipKey !== 'closing') ? `
           <select class="form-input" id="${inputId}-skip" style="font-size:11px;padding:3px 6px;margin-bottom:4px;width:100%;" ${readonly?'disabled':''}
             onchange="Pipeline.toggleSkip('${d.id}','${skipKey}',this.value==='skip')">
             <option value="do"   ${isSkipped?'':'selected'}>Do ${label.toLowerCase()}</option>
             <option value="skip" ${isSkipped?'selected':''}>Skip ${label.toLowerCase()}</option>
           </select>` : '';
-        const dateInputStyle = `font-size:12px;padding:5px 8px;${isSkipped?'opacity:.45;pointer-events:none;':''}`;
+        const dateInputStyle = `font-size:12px;padding:5px 8px;${isSkipped?'opacity:.45;pointer-events:none;':''}${isClosingField && !isClosed && !isFell?'background:var(--bg);cursor:not-allowed;':''}`;
+        // Rescheduled-from badge + Reschedule button — only on the closing field, active deals.
+        let closingExtras = '';
+        if (isClosingField && !isClosed && !isFell) {
+          const origDate = d.original_closing_date;
+          const wasRescheduled = origDate && origDate !== dateVal;
+          const badge = wasRescheduled
+            ? `<div style="font-size:10px;color:var(--yellow);margin-top:3px;line-height:1.3;" title="Original closing date was ${origDate}">↻ Rescheduled from ${App.fmtDate(origDate)}</div>`
+            : '';
+          closingExtras = `${badge}
+            <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 6px;margin-top:4px;width:100%;border-color:var(--yellow);color:var(--yellow);"
+              onclick="Pipeline.rescheduleClosing('${d.id}')">↻ Reschedule</button>`;
+        }
         return `<div>
           <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:3px;">${icon} ${label}${isSkipped?' <span style="color:var(--text3);font-weight:500;">(skipped)</span>':''}</div>
           ${skipDD}
           <input class="form-input" type="date" id="${inputId}" value="${dateVal||''}" style="${dateInputStyle}" ${onChange} ${readonly||isSkipped?'readonly':''}>
+          ${closingExtras}
         </div>`;
       };
 
@@ -1541,7 +1560,7 @@ const Pipeline = {
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
           ${dateField('Inspection','🔍',`pl-ins-${d.id}`,d.inspection_date,'inspection')}
           ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date,'walkthrough')}
-          ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date)}
+          ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date,'closing')}
         </div>
         ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">Save Dates</button>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1786,6 +1805,198 @@ const Pipeline = {
     if (updEl) updEl.textContent = `🕐 Updated: ${new Date(now).toLocaleString()}`;
 
     App.toast('💾 Dates saved!');
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+  },
+
+  // ── CLOSING RESCHEDULE ────────────────────────────────────────────────────
+  // Opens a modal to record a reason + new closing date + optional notes when
+  // the lawyer / lender / other party says the deal can't close as scheduled.
+  // Writes an append-only row to pipeline_reschedules, freezes the original
+  // closing date on pipeline.original_closing_date (first reschedule only),
+  // updates pipeline.closing_date to the new value, shifts the 3 closing-
+  // relative checklist task due dates by the same delta, and optionally
+  // queues a buyer-facing email through the approval queue.
+  rescheduleClosing(id) {
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (!rec) { App.toast('⚠️ Deal not found'); return; }
+    const currentClose = rec.closing_date ? String(rec.closing_date).slice(0,10) : '';
+    if (!currentClose) {
+      App.toast('⚠️ Set an initial closing date first');
+      return;
+    }
+    // Default the new date 7 days out as a starting suggestion
+    const suggestion = (() => {
+      const d = new Date(currentClose + 'T00:00:00');
+      d.setDate(d.getDate() + 7);
+      return d.toISOString().slice(0,10);
+    })();
+
+    App.openModal(`
+      <h3 style="margin:0 0 6px;">↻ Reschedule Closing</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">${rec.client_name || ''} — ${rec.property_address || ''}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+        Current closing date: <strong style="color:var(--text1);">${App.fmtDate(currentClose)}</strong>
+      </div>
+
+      <label class="form-label">Reason</label>
+      <select id="rs-reason" class="form-input">
+        <option value="lender_delay">Lender / financing delay</option>
+        <option value="lawyer_title">Lawyer / title issue</option>
+        <option value="buyer_docs">Buyer documentation outstanding</option>
+        <option value="seller_delay">Seller-side delay</option>
+        <option value="property_condition">Property condition / inspection issue</option>
+        <option value="insurance">Insurance not finalized</option>
+        <option value="other">Other (specify below)</option>
+      </select>
+
+      <label class="form-label" style="margin-top:12px;">New expected closing date</label>
+      <input id="rs-new-date" type="date" class="form-input" value="${suggestion}" min="${currentClose}">
+
+      <label class="form-label" style="margin-top:12px;">Notes (optional — e.g. lawyer's email excerpt)</label>
+      <textarea id="rs-notes" class="form-input" rows="3" placeholder="e.g. 'Lender needs additional 5 business days to clear underwriting conditions...'"></textarea>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--text2);cursor:pointer;">
+        <input type="checkbox" id="rs-notify" checked>
+        <span>Email the buyer about this change (queued for your approval)</span>
+      </label>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;margin-left:24px;line-height:1.4;">
+        If "Other" is selected, you'll be able to review the message in the Approvals tab before it sends.
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitReschedule('${id}','${currentClose}')">↻ Reschedule Closing</button>
+      </div>
+    `);
+  },
+
+  // Internal — invoked from the reschedule modal's submit button.
+  async _submitReschedule(id, oldClose) {
+    const reasonCode = document.getElementById('rs-reason')?.value || 'other';
+    const newClose   = document.getElementById('rs-new-date')?.value || '';
+    const notes      = (document.getElementById('rs-notes')?.value || '').trim();
+    const notifyBuyer= !!document.getElementById('rs-notify')?.checked;
+
+    if (!newClose) { App.toast('⚠️ Pick a new closing date'); return; }
+    if (newClose === oldClose) { App.toast('⚠️ New date is the same as current'); return; }
+
+    const REASON_LABEL = {
+      lender_delay:        'Lender / financing delay',
+      lawyer_title:        'Lawyer / title issue',
+      buyer_docs:          'Buyer documentation outstanding',
+      seller_delay:        'Seller-side delay',
+      property_condition:  'Property condition / inspection issue',
+      insurance:           'Insurance not finalized',
+      other:               'Other'
+    };
+
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (!rec) { App.toast('⚠️ Deal not found'); return; }
+
+    const now = new Date().toISOString();
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    if (!agentId) { App.toast('⚠️ Auth required'); return; }
+
+    // 1) Append the reschedule log row
+    const { error: logErr } = await db.from('pipeline_reschedules').insert({
+      pipeline_id: id,
+      agent_id:    agentId,
+      date_from:   oldClose,
+      date_to:     newClose,
+      reason:      reasonCode,
+      notes:       notes || null,
+      notify_sent: notifyBuyer
+    });
+    if (logErr) {
+      console.error('reschedule log insert:', logErr);
+      App.toast(`⚠️ Could not save reschedule: ${logErr.message}`);
+      return;
+    }
+
+    // 2) Update pipeline — freeze original_closing_date the FIRST time only.
+    const updates = { closing_date: newClose, updated_at: now };
+    if (!rec.original_closing_date) updates.original_closing_date = oldClose;
+    const { error: pipeErr } = await db.from('pipeline').update(updates).eq('id', id);
+    if (pipeErr) {
+      console.error('pipeline update on reschedule:', pipeErr);
+      App.toast(`⚠️ ${pipeErr.message}`);
+      return;
+    }
+    Object.assign(rec, updates);
+
+    // 3) Shift the 3 closing-relative checklist task due dates by the delta.
+    // Matches the auto-generated 22-task closing checklist (see this file,
+    // around line 1261–1263). Best-effort — if the table doesn't have rows
+    // or the column isn't there yet, we silently move on.
+    try {
+      const deltaDays = Math.round(
+        (new Date(newClose + 'T00:00:00') - new Date(oldClose + 'T00:00:00')) / 86400000
+      );
+      if (deltaDays !== 0) {
+        const { data: tasks } = await db.from('deal_checklist')
+          .select('id, title, due_date')
+          .eq('pipeline_id', id);
+        if (Array.isArray(tasks)) {
+          const closingTaskTitles = [
+            'Confirm closing costs with lawyer (client must prepare bank draft)',
+            'Coordinate key handover with listing agent',
+            'Post-closing: send congratulations and request Google review',
+          ];
+          const shifts = tasks.filter(t => closingTaskTitles.includes(t.title) && t.due_date);
+          for (const t of shifts) {
+            const newDue = new Date(t.due_date + 'T00:00:00');
+            newDue.setDate(newDue.getDate() + deltaDays);
+            await db.from('deal_checklist')
+              .update({ due_date: newDue.toISOString().slice(0,10) })
+              .eq('id', t.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Checklist shift on reschedule (non-fatal):', e);
+    }
+
+    // 4) Optional: queue a buyer-facing email through the approval queue.
+    if (notifyBuyer && typeof Notify !== 'undefined' && Notify.templates?.closing_rescheduled) {
+      try {
+        let client = null;
+        if (rec.client_id) {
+          const { data } = await db.from('clients')
+            .select('id, full_name, email').eq('id', rec.client_id).maybeSingle();
+          client = data;
+        }
+        if (!client) {
+          client = { id: null, full_name: rec.client_name, email: rec.client_email };
+        }
+        if (client.email) {
+          const agent = currentAgent;
+          const dealForTmpl = Object.assign({}, rec, {
+            closing_date: newClose,
+            original_closing_date: rec.original_closing_date || oldClose,
+          });
+          const tmpl = Notify.templates.closing_rescheduled(
+            client, dealForTmpl, REASON_LABEL[reasonCode] || 'Other', notes, agent
+          );
+          await Notify.queue(
+            'Closing Rescheduled',
+            client.id, client.full_name, client.email,
+            tmpl.subject, tmpl.body, id
+          );
+        }
+      } catch (e) {
+        console.warn('Reschedule email queue (non-fatal):', e);
+      }
+    }
+
+    // 5) Push notification — best-effort, never blocks.
+    try { App.pushNotify?.(`Closing rescheduled to ${App.fmtDate(newClose)} (${REASON_LABEL[reasonCode]})`); } catch (e) {}
+
+    App.closeModal();
+    App.toast(`↻ Closing rescheduled to ${App.fmtDate(newClose)}`);
+
+    // 6) Re-render the pipeline so the new date + badge show immediately.
+    if (typeof Pipeline.render === 'function') Pipeline.render(Pipeline.all);
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 

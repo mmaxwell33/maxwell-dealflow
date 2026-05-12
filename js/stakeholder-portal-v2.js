@@ -228,6 +228,40 @@
       html += '</div>';
     }
 
+    // ============ Closing rescheduled banner ============
+    // Shows when the closing date has been changed at least once via the
+    // Reschedule Closing modal. Pulls original_closing_date +
+    // latest_reschedule_reason from stakeholder_resolve (migration 039).
+    // Sits ABOVE the countdown so the buyer immediately sees why their
+    // countdown changed since their last visit.
+    var REASON_LABEL_PORTAL = {
+      lender_delay:        'Lender / financing delay',
+      lawyer_title:        'Lawyer / title issue',
+      buyer_docs:          'Buyer documentation outstanding',
+      seller_delay:        'Seller-side delay',
+      property_condition:  'Property condition / inspection issue',
+      insurance:           'Insurance not finalized',
+      other:               'Other'
+    };
+    var origClose = d.original_closing_date && String(d.original_closing_date).slice(0,10);
+    var curClose  = d.closing_date && String(d.closing_date).slice(0,10);
+    if (origClose && curClose && origClose !== curClose) {
+      var reasonText = REASON_LABEL_PORTAL[d.latest_reschedule_reason] || 'Schedule adjustment';
+      html += '<div class="card" style="margin-bottom:14px;border:1.5px solid var(--yellow);background:rgba(234,179,8,0.06);">';
+      html += '<div style="font-size:11px;color:var(--yellow);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">\u21bb Closing rescheduled</div>';
+      html += '<div style="color:var(--text1);font-size:14px;line-height:1.5;margin-bottom:8px;">';
+      html += 'Closing has been moved to <strong>'+fmtDate(curClose)+'</strong> ';
+      html += '<span style="color:var(--text2);">(originally '+fmtDate(origClose)+').</span>';
+      html += '</div>';
+      html += '<div style="font-size:13px;color:var(--text2);"><strong style="color:var(--text1);">Reason:</strong> '+reasonText+'</div>';
+      if (d.latest_reschedule_notes) {
+        html += '<div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.45;">'+
+                String(d.latest_reschedule_notes).replace(/</g,'&lt;')+'</div>';
+      }
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;">Your countdown below reflects the new date.</div>';
+      html += '</div>';
+    }
+
     // ============ PHASE 1: Countdown to closing ============
     if(cd){
       html += '<div class="countdown" id="cd-wrap">';
