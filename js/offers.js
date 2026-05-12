@@ -1491,12 +1491,17 @@ const Pipeline = {
           </select>` : '';
         const dateInputStyle = `font-size:12px;padding:5px 8px;${isSkipped?'opacity:.45;pointer-events:none;':''}${isClosingField && !isClosed && !isFell?'background:var(--bg);cursor:not-allowed;':''}`;
         // Rescheduled-from badge + Reschedule button — only on the closing field, active deals.
+        // If a reschedule exists, badge gets a tiny ✏️ edit link so typos on the
+        // new date can be corrected in place (rather than stacking another row).
         let closingExtras = '';
         if (isClosingField && !isClosed && !isFell) {
           const origDate = d.original_closing_date;
           const wasRescheduled = origDate && origDate !== dateVal;
           const badge = wasRescheduled
-            ? `<div style="font-size:10px;color:var(--yellow);margin-top:3px;line-height:1.3;" title="Original closing date was ${origDate}">↻ Rescheduled from ${App.fmtDate(origDate)}</div>`
+            ? `<div style="font-size:10px;color:var(--yellow);margin-top:3px;line-height:1.3;display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                 <span title="Original closing date was ${origDate}">↻ Rescheduled from ${App.fmtDate(origDate)}</span>
+                 <a href="#" onclick="event.preventDefault();Pipeline.editLastReschedule('${d.id}')" style="color:var(--accent);text-decoration:underline;font-size:10px;">✏️ Edit</a>
+               </div>`
             : '';
           closingExtras = `${badge}
             <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 6px;margin-top:4px;width:100%;border-color:var(--yellow);color:var(--yellow);"
@@ -1996,6 +2001,134 @@ const Pipeline = {
     App.toast(`↻ Closing rescheduled to ${App.fmtDate(newClose)}`);
 
     // 6) Re-render the pipeline so the new date + badge show immediately.
+    if (typeof Pipeline.render === 'function') Pipeline.render(Pipeline.all);
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+  },
+
+  // ── EDIT LAST RESCHEDULE ──────────────────────────────────────────────────
+  // For correcting a typo on the most recent reschedule (e.g. picked May 19
+  // instead of May 15). UPDATES the existing pipeline_reschedules row rather
+  // than inserting a new one, so the audit log stays clean. Re-shifts the
+  // checklist tasks by the delta between the old corrected date and the new.
+  async editLastReschedule(id) {
+    const { data: latest, error } = await db.from('pipeline_reschedules')
+      .select('id, date_from, date_to, reason, notes')
+      .eq('pipeline_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !latest) {
+      App.toast('⚠️ No reschedule to edit');
+      return;
+    }
+    const rec = Pipeline.all?.find(x => x.id === id);
+    const REASON_OPTS = [
+      ['lender_delay',       'Lender / financing delay'],
+      ['lawyer_title',       'Lawyer / title issue'],
+      ['buyer_docs',         'Buyer documentation outstanding'],
+      ['seller_delay',       'Seller-side delay'],
+      ['property_condition', 'Property condition / inspection issue'],
+      ['insurance',          'Insurance not finalized'],
+      ['other',              'Other'],
+    ];
+    const reasonOptsHtml = REASON_OPTS.map(([v,l]) =>
+      `<option value="${v}" ${v===latest.reason?'selected':''}>${l}</option>`
+    ).join('');
+
+    App.openModal(`
+      <h3 style="margin:0 0 6px;">✏️ Edit Last Reschedule</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">${rec?.client_name || ''} — ${rec?.property_address || ''}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+        Original closing was <strong style="color:var(--text1);">${App.fmtDate(latest.date_from)}</strong>.
+        Current rescheduled date: <strong style="color:var(--yellow);">${App.fmtDate(latest.date_to)}</strong>.
+      </div>
+
+      <label class="form-label">Reason</label>
+      <select id="rs-edit-reason" class="form-input">${reasonOptsHtml}</select>
+
+      <label class="form-label" style="margin-top:12px;">New expected closing date</label>
+      <input id="rs-edit-date" type="date" class="form-input" value="${latest.date_to}" min="${latest.date_from}">
+
+      <label class="form-label" style="margin-top:12px;">Notes</label>
+      <textarea id="rs-edit-notes" class="form-input" rows="3">${(latest.notes || '').replace(/</g,'&lt;')}</textarea>
+
+      <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.4;">
+        This updates the existing reschedule entry in place — no new audit row is created. The buyer portal banner will reflect the corrected values.
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitEditReschedule('${id}','${latest.id}','${latest.date_to}')">💾 Save Correction</button>
+      </div>
+    `);
+  },
+
+  async _submitEditReschedule(pipelineId, reschId, prevDateTo) {
+    const reasonCode = document.getElementById('rs-edit-reason')?.value || 'other';
+    const newDate    = document.getElementById('rs-edit-date')?.value || '';
+    const notes      = (document.getElementById('rs-edit-notes')?.value || '').trim();
+
+    if (!newDate) { App.toast('⚠️ Pick a closing date'); return; }
+
+    const rec = Pipeline.all?.find(x => x.id === pipelineId);
+    if (!rec) { App.toast('⚠️ Deal not found'); return; }
+
+    const now = new Date().toISOString();
+
+    // 1) Update the pipeline_reschedules row in place
+    const { error: rErr } = await db.from('pipeline_reschedules').update({
+      date_to: newDate,
+      reason:  reasonCode,
+      notes:   notes || null,
+    }).eq('id', reschId);
+    if (rErr) {
+      console.error('edit reschedule update:', rErr);
+      App.toast(`⚠️ ${rErr.message}`);
+      return;
+    }
+
+    // 2) Update the pipeline closing_date (do NOT touch original_closing_date)
+    const { error: pErr } = await db.from('pipeline')
+      .update({ closing_date: newDate, updated_at: now }).eq('id', pipelineId);
+    if (pErr) {
+      console.error('pipeline closing_date update on edit:', pErr);
+      App.toast(`⚠️ ${pErr.message}`);
+      return;
+    }
+    rec.closing_date = newDate;
+
+    // 3) Shift checklist tasks by (newDate - prevDateTo) so they line up with
+    //    the corrected closing rather than the typo'd one.
+    try {
+      const deltaDays = Math.round(
+        (new Date(newDate + 'T00:00:00') - new Date(prevDateTo + 'T00:00:00')) / 86400000
+      );
+      if (deltaDays !== 0) {
+        const { data: tasks } = await db.from('deal_checklist')
+          .select('id, title, due_date')
+          .eq('pipeline_id', pipelineId);
+        if (Array.isArray(tasks)) {
+          const closingTaskTitles = [
+            'Confirm closing costs with lawyer (client must prepare bank draft)',
+            'Coordinate key handover with listing agent',
+            'Post-closing: send congratulations and request Google review',
+          ];
+          const shifts = tasks.filter(t => closingTaskTitles.includes(t.title) && t.due_date);
+          for (const t of shifts) {
+            const newDue = new Date(t.due_date + 'T00:00:00');
+            newDue.setDate(newDue.getDate() + deltaDays);
+            await db.from('deal_checklist')
+              .update({ due_date: newDue.toISOString().slice(0,10) })
+              .eq('id', t.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Checklist re-shift on edit (non-fatal):', e);
+    }
+
+    App.closeModal();
+    App.toast(`💾 Reschedule updated — closing now ${App.fmtDate(newDate)}`);
     if (typeof Pipeline.render === 'function') Pipeline.render(Pipeline.all);
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
