@@ -132,8 +132,9 @@ const Notify = {
         `DESCRIPTION:Viewing with ${agentName}\\n${agentPhone}\\n${agentEmail}${viewing.mls_number ? '\\nMLS#: ' + viewing.mls_number : ''}${viewing.agent_notes ? '\\nNotes: ' + viewing.agent_notes : ''}`,
         `LOCATION:${viewing.property_address}`,
         `ORGANIZER;CN=${agentName}:mailto:${agentEmail}`,
-        `ATTENDEE;CN=${client.full_name};ROLE=REQ-PARTICIPANT:mailto:${client.email || agentEmail}`,
+        `ATTENDEE;CN=${client.full_name};CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${client.email || agentEmail}`,
         'STATUS:CONFIRMED',
+        'SEQUENCE:0',
         'END:VEVENT',
         'END:VCALENDAR'
       ].join('\r\n');

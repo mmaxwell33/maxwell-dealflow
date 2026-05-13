@@ -282,6 +282,27 @@ serve(async (req) => {
       throw new Error('OAuth token failed: ' + JSON.stringify(tokenData));
     }
 
+    // Force ORGANIZER email in the .ics to match the From: address.
+    // Gmail/Apple Mail will only auto-add to the recipient's calendar
+    // when these match (anti-spoofing). Without this, the invite is
+    // downgraded to a plain attachment and the client has to click
+    // "Add to Calendar" manually.
+    let fixedIcs: string | null = ics || null;
+    if (fixedIcs) {
+      try {
+        const decoded = fixedIcs.startsWith('BEGIN:VCALENDAR')
+          ? fixedIcs
+          : decodeURIComponent(escape(atob(fixedIcs)));
+        fixedIcs = decoded.replace(
+          /ORGANIZER(;[^:\r\n]*)?:mailto:[^\r\n]+/i,
+          `ORGANIZER$1:mailto:${GMAIL_USER}`
+        );
+      } catch (_e) {
+        // If decode fails for any reason, fall back to original ics
+        fixedIcs = ics || null;
+      }
+    }
+
     // Step 2: MIME
     const rawBytes = buildRawMime({
       from: `${fromName} <${GMAIL_USER}>`,
@@ -291,7 +312,7 @@ serve(async (req) => {
       subject,
       text: body,
       html: html || null,
-      ics: ics || null,
+      ics: fixedIcs,
       attachments: attachments || null,
       inReplyTo: in_reply_to || null,
       references: references || null,
