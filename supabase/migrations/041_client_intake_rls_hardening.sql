@@ -92,16 +92,30 @@ ALTER TABLE public.client_intake
 CREATE INDEX IF NOT EXISTS client_intake_agent_idx ON public.client_intake (agent_id);
 
 -- ============================================================
--- 3. Replace the four broken policies
+-- 3. Drop every existing policy on client_intake, then recreate ours.
 -- ============================================================
-DROP POLICY IF EXISTS "intake_insert_public"      ON public.client_intake;
-DROP POLICY IF EXISTS "intake_read_own"           ON public.client_intake;
-DROP POLICY IF EXISTS "intake_update_own"         ON public.client_intake;
-DROP POLICY IF EXISTS "intake_delete_own"         ON public.client_intake;
-DROP POLICY IF EXISTS "intake_insert_anon"        ON public.client_intake;
-DROP POLICY IF EXISTS "intake_read_own_agent"     ON public.client_intake;
-DROP POLICY IF EXISTS "intake_update_own_agent"   ON public.client_intake;
-DROP POLICY IF EXISTS "intake_delete_own_agent"   ON public.client_intake;
+-- The original DROP-by-name approach only caught policies created in
+-- migration 007. The Supabase dashboard UI had since added three more
+-- with human-readable names ("Public can insert intake", "Agents can read
+-- intake", "Agents can update intake") that were dangerously permissive
+-- (WITH CHECK = true, USING = true). They silently neutralised the
+-- agent_id-scoped policies this migration installs.
+--
+-- Solution: dynamically drop ALL policies on client_intake before
+-- creating the canonical four. Safe because we own every legitimate
+-- policy on this table from this point forward.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT polname FROM pg_policy
+     WHERE polrelid = 'public.client_intake'::regclass
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.client_intake', r.polname);
+  END LOOP;
+END
+$$;
 
 -- anon INSERT — agent_id must match the canonical default. The DB DEFAULT
 -- fills it automatically when intake.html / seller-intake.html omit it; an
