@@ -59,4 +59,69 @@ Per the Phase 2 brief: every PR gets a row here. UI PRs include BEFORE/AFTER scr
 
 **Performance impact:** Every anon REST call now triggers one extra JSON parse to read the header. Sub-microsecond. Not measurable.
 
+**Status:** ✅ Shipped 2026-05-15.
+- Code merged to master via direct merge (escape-hatch path from GitHub 2FA lockout): commit `825fb0d`.
+- Migration 040 applied to production Supabase.
+- Smoke tests A and B both returned `[]` from anon callers without a valid token. Hole confirmed closed.
+
+---
+
+## PR #2 — `security/app-esc-hardening`
+
+**Type:** Security — escape-helper hardening. Two new replace pairs on `App.esc`, one new helper `App.escAttr`.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §1.4.1 — P0 — JS injection through `App.esc(name)` in `onclick` attributes. The audit's proposed fix (add `'` to `App.esc`) turned out to be insufficient for inline-handler contexts — HTML decodes `&#39;` back to `'` *before* the JS parser sees it, so the injection still fires. PR #2 ships the correct two-helper fix: `App.esc` for HTML-text contexts, `App.escAttr` for JS-string-in-HTML-attribute contexts.
+
+**Scope explicitly excluded from this PR:**
+- Call-site sweep (replacing `App.esc` with `App.escAttr` in the ~60 `onclick="X.fn('${...}')"` patterns across `clients.js`, `offers.js`, `extras.js`). Lands in PR #4 (`security/unescaped-templates`), which gets to use both helpers.
+- Vitest tests for the helpers. Land in PR #6 (`testing/ci-baseline`).
+- Escaping `/` — rejected as not load-bearing in this codebase. The only context where `</...>` is dangerous is inside `<script>` blocks, and the agent app does not generate inline scripts from user data.
+
+**Visual change:** None. Adding code that nothing yet calls. Screenshots N/A.
+
+**Files:**
+- `js/app.js` — extends `App.esc` (+2 replaces), adds `App.escAttr` helper (+11 lines), adds comments explaining when to pick which (+8 lines).
+
+**Functional verification — run in browser DevTools after deploy:**
+
+The two helpers were tested live in the dev server (`localhost:3333`) with the actual rendered DOM. Results:
+
+| Input | `App.esc` output (HTML text) | `App.escAttr` output (JS string in HTML attr) |
+|---|---|---|
+| `O'Brien` | `O&#39;Brien` | `O\'Brien` |
+| `');alert(1);//` | `&#39;);alert(1);//` | `\');alert(1);//` |
+| `</script>` | `&lt;/script&gt;` | `\x3c/script>` |
+| `` `xss` `` | `&#96;xss&#96;` | `` `xss` `` |
+| `O"Brien` | `O&quot;Brien` | `O\&quot;Brien` |
+| `\backslash` | `\backslash` | `\\backslash` |
+
+**End-to-end injection tests (live, in the running app):**
+
+Test 1 — `App.escAttr` against onclick injection:
+```js
+// Built a button with onclick="window.__handler('xyz','${App.escAttr(attack)}')"
+// where attack = "');window.__pwned=true;//", then programmatically clicked it.
+{
+  pwned: false,                                           // ✅ attack did NOT fire
+  receivedName: "');window.__pwned=true;//",              // ✅ full attack string arrived as literal data
+  nameMatchesInput: true,                                 // ✅ round-trip preserved
+  renderedOnclick: "window.__handler('xyz','\\');window.__pwned=true;//')"
+}
+```
+
+Test 2 — `App.esc` against HTML-text injection:
+```js
+// Built `<div>${App.esc(attack)}</div>` where attack = "<img src=x onerror=window.__pwned=true>"
+{
+  pwned: false,                                           // ✅ onerror did NOT fire
+  renderedHTML: "&lt;img src=x onerror=window.__pwned=true&gt;",
+  renderedText: "<img src=x onerror=window.__pwned=true>"
+}
+```
+
+**Risk if rolled back:** Zero. Adding methods that aren't yet called by anything. Reverting is a single Edit.
+
+**Performance impact:** None. Functions only run when called.
+
 ---

@@ -1046,9 +1046,30 @@ const App = {
     return `${Math.floor(h/24)}d ago`;
   },
 
+  // Safe for HTML text content: `<div>${App.esc(name)}</div>`.
+  // NOT safe inside an inline JS string like `onclick="fn('${...}')"` —
+  // the browser decodes &#39; back to ' before the JS parser sees it.
+  // For that case use App.escAttr() below.
   esc(str) {
     if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
+  },
+
+  // Safe inside a single-quoted JS string literal that sits inside an HTML
+  // attribute: `onclick="X.fn('${App.escAttr(name)}')"`. Two-pass —
+  // (1) JS-escape so the inner string can't be broken out of, then
+  // (2) HTML-escape `&` and `"` so the attribute container parses cleanly.
+  escAttr(str) {
+    if (!str) return '';
+    const js = String(str)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g,  "\\'")
+      .replace(/"/g,  '\\"')
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\t/g, '\\t')
+      .replace(/</g,  '\\x3c');
+    return js.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   },
 
   async logActivity(type, clientName, clientEmail, desc, clientId = null) {
