@@ -125,3 +125,46 @@ Test 2 — `App.esc` against HTML-text injection:
 **Performance impact:** None. Functions only run when called.
 
 ---
+
+## PR #3 — `security/client-intake-rls`
+
+**Type:** Security — Supabase RLS hardening on `client_intake`. Single migration. No client-side change.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §1.1.4 — P0 — `client_intake` SELECT/UPDATE/DELETE policies used `USING (auth.uid() IS NOT NULL)`. The moment a second agent ever signs up they see every other agent's leads. Dormant today because the project has one agent; would be a silent privacy breach the day it's not.
+
+**Approach:**
+
+1. Bake the single canonical agent's UUID into an `IMMUTABLE` helper `_dealflow_default_intake_agent()` at migration time. Helper exists so a future multi-tenant migration can swap the resolution strategy in one place rather than rewriting every policy.
+2. Add `agent_id` column to `client_intake`, backfill historical rows, set `DEFAULT` to the helper output, then `NOT NULL`. Anon submitters from `intake.html` / `seller-intake.html` don't send `agent_id` — the DB default fills it.
+3. Replace the four broken policies. Anon `INSERT` requires `agent_id = canonical agent` (no spoofing into a different agent's bucket). Authenticated `SELECT/UPDATE/DELETE` all bind to `agent_id = auth.uid()`.
+
+**Scope explicitly excluded:**
+- Frontend changes to `intake.html` / `seller-intake.html`. They submit no `agent_id` today and the DB default makes that continue to work transparently. The day multi-tenant lands, those forms will need to send `agent_id` (or an agent slug header) and the helper redefines — but that's a separate migration, not this PR's problem.
+- Anti-spam / CAPTCHA on the intake form. The audit (§1.1.4) flagged honeypot + 3-second timer as paper-thin. That's a P1 concern but lives outside the RLS-scope concern this PR closes. Deferred.
+
+**Visual change:** None. Screenshots N/A.
+
+**Files:**
+- `supabase/migrations/041_client_intake_rls_hardening.sql` — new (one file, ~110 lines incl. comments).
+
+**Smoke tests** (live in the migration file as runnable comments — run after applying):
+
+| # | What | Expected |
+|---|---|---|
+| a | `SELECT count(*) FROM client_intake WHERE agent_id IS NULL` | 0 — backfill landed |
+| b | anon POST `client_intake` (no agent_id) | 201; returned row has `agent_id = canonical agent` |
+| c | anon POST `client_intake` with spoofed `agent_id` | 403 / WITH CHECK violation |
+| d | authenticated SELECT (as Maxwell) | row count equals pre-migration total |
+| e | authenticated SELECT as a hypothetical second agent | 0 rows |
+
+**Deploy order:**
+1. Merge PR (Vercel auto-deploys; nothing client-side changes anyway, so no behaviour shift here).
+2. Apply migration 041 in Supabase SQL Editor.
+3. Run smoke tests b and c via curl. Tests a, d are SQL queries in the editor.
+
+**Risk if rolled back:** Low. The migration is mostly additive. To revert: drop the four new policies, restore the four original `USING (auth.uid() IS NOT NULL)` policies from migration 007, drop the column/default/function. Migration 041 is idempotent so re-running is safe.
+
+**Performance impact:** New index on `client_intake.agent_id`. RLS evaluation adds one column comparison per row. Sub-millisecond for tables under 100k rows.
+
+---
