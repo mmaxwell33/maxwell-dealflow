@@ -33,15 +33,28 @@
 -- drifts when rows are added or removed from public.agents. When multi-tenant
 -- lands, a future migration redefines this function (e.g. to pull from a
 -- request header) without having to touch every policy.
+--
+-- Resolution is pinned by email. public.agents currently has two rows for
+-- the same human (maxwelldelali22@gmail.com and Maxwell.Midodzi@exprealty.com)
+-- and only the @gmail account is the one Maxwell signs in with day-to-day.
+-- Picking by ORDER BY id would happen to land on the right UUID today, but
+-- that's a coincidence of lexicographic ordering — pin by email instead so
+-- the intent is explicit and future-proof.
 DO $$
 DECLARE
   v_agent_id uuid;
+  v_canonical_email constant text := 'maxwelldelali22@gmail.com';
 BEGIN
-  SELECT id INTO v_agent_id FROM public.agents ORDER BY id LIMIT 1;
+  SELECT id INTO v_agent_id
+    FROM public.agents
+   WHERE lower(email) = lower(v_canonical_email)
+   LIMIT 1;
+
   IF v_agent_id IS NULL THEN
     RAISE EXCEPTION
-      'public.agents has zero rows — cannot derive a default agent_id. '
-      'Seed an agent row first, then re-run this migration.';
+      'No row in public.agents with email %. Confirm the canonical agent '
+      'exists before re-running this migration.',
+      v_canonical_email;
   END IF;
 
   EXECUTE format($f$
