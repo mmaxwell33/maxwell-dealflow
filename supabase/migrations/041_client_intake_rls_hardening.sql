@@ -34,26 +34,29 @@
 -- lands, a future migration redefines this function (e.g. to pull from a
 -- request header) without having to touch every policy.
 --
--- Resolution is pinned by email. public.agents currently has two rows for
--- the same human (maxwelldelali22@gmail.com and Maxwell.Midodzi@exprealty.com)
--- and only the @gmail account is the one Maxwell signs in with day-to-day.
--- Picking by ORDER BY id would happen to land on the right UUID today, but
--- that's a coincidence of lexicographic ordering — pin by email instead so
--- the intent is explicit and future-proof.
+-- Resolution is pinned by email and reads from auth.users (NOT public.agents).
+-- Two reasons:
+--   1. public.agents has two rows for Maxwell. One is an orphan UUID that
+--      doesn't correspond to any auth.users row — its FK to auth.users would
+--      blow up the backfill.
+--   2. agent_id REFERENCES auth.users(id), so the source of truth is
+--      auth.users by definition. Reading from public.agents and hoping the
+--      ids match was the bug.
 DO $$
 DECLARE
   v_agent_id uuid;
   v_canonical_email constant text := 'maxwelldelali22@gmail.com';
 BEGIN
   SELECT id INTO v_agent_id
-    FROM public.agents
+    FROM auth.users
    WHERE lower(email) = lower(v_canonical_email)
    LIMIT 1;
 
   IF v_agent_id IS NULL THEN
     RAISE EXCEPTION
-      'No row in public.agents with email %. Confirm the canonical agent '
-      'exists before re-running this migration.',
+      'No row in auth.users with email %. Confirm the canonical agent has '
+      'logged in at least once (creating the auth.users row) before '
+      're-running this migration.',
       v_canonical_email;
   END IF;
 
