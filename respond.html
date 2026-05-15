@@ -195,11 +195,17 @@
 const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 
+// Response token from URL — sent on every Supabase REST call as X-Response-Token
+// so server-side RLS (migration 040) can bind every read/write to this exact
+// token. The JS no longer needs to enforce expiry; the policy does it.
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
 let rec = null;
 
 async function sb(path, opts={}) {
   const method=(opts.method||'GET').toUpperCase();
   const hdrs={ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', ...(opts.headers||{}) };
+  if (TOKEN) hdrs['X-Response-Token']=TOKEN;
   if(method!=='GET') hdrs['Prefer']=opts.prefer||'return=minimal';
   const r = await fetch(SB_URL+'/rest/v1/'+path, { ...opts, headers:hdrs });
   if(!r.ok){ const e=await r.json().catch(()=>{}); throw new Error(e?.message||r.statusText); }
@@ -212,10 +218,9 @@ function show(s){
 }
 
 async function init(){
-  const t=new URLSearchParams(location.search).get('t');
-  if(!t){show('expired');return;}
+  if(!TOKEN){show('expired');return;}
   try{
-    const rows=await sb(`viewing_responses?token=eq.${encodeURIComponent(t)}&select=*`);
+    const rows=await sb(`viewing_responses?token=eq.${encodeURIComponent(TOKEN)}&select=*`);
     if(!rows?.length){show('expired');return;}
     rec=rows[0];
     if(rec.expired||rec.responded_at||new Date(rec.expires_at)<new Date()){
