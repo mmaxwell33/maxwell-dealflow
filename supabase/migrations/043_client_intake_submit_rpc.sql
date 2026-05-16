@@ -71,11 +71,15 @@ BEGIN
   END IF;
 
   -- jsonb_populate_record over NULL::client_intake nulls every column, which
-  -- overrides the table's column DEFAULTs (including id's gen_random_uuid()).
-  -- Inject a generated id into the payload before populating so the row's
-  -- id column lands non-NULL. Strip any client-supplied id first so the
-  -- caller can't dictate primary keys.
+  -- overrides the table's column DEFAULTs. Inject defaults for the schema's
+  -- two NOT NULL columns:
+  --   id          → generated UUID (caller-supplied id is stripped)
+  --   intake_type → 'buyer' if caller didn't specify (seller-intake.html
+  --                 sets 'seller' in its payload)
   payload := (payload - 'id') || jsonb_build_object('id', new_id);
+  IF NOT (payload ? 'intake_type') OR NULLIF(payload->>'intake_type', '') IS NULL THEN
+    payload := payload || jsonb_build_object('intake_type', 'buyer');
+  END IF;
 
   INSERT INTO public.client_intake
   SELECT * FROM jsonb_populate_record(NULL::public.client_intake, payload);
