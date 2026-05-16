@@ -39,11 +39,40 @@ serve(async (req) => {
     }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const anonKey    = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: 'Not signed in' }, 401);
+
+    // ── Rate limit (PR #5b): 60 messages per agent per hour ─────────────
+    // Mirrors the email_rate_limit pattern from migration 017. The
+    // increment_claude_rate_limit() RPC atomically bumps the per-hour
+    // counter and returns the new count. Anything above the cap → 429.
+    const RATE_LIMIT_MAX = 60;
+    const windowStart = new Date();
+    windowStart.setMinutes(0, 0, 0);
+    const adminDb = createClient(supabaseUrl, serviceKey);
+    const { data: rateCount, error: rateErr } = await adminDb.rpc(
+      'increment_claude_rate_limit',
+      {
+        p_agent_id: user.id,
+        p_window_start: windowStart.toISOString(),
+      },
+    );
+    if (rateErr) {
+      // Fail open with a console warning — don't punish the user for an
+      // infra blip in the rate-limit layer. Matches email-rate-limit policy.
+      console.warn('claude-chat rate-limit RPC failed, allowing through:', rateErr.message);
+    } else if (typeof rateCount === 'number' && rateCount > RATE_LIMIT_MAX) {
+      return json(
+        {
+          error: `AI chat rate limit exceeded (${rateCount}/${RATE_LIMIT_MAX} messages this hour). Try again after the top of the next hour.`,
+        },
+        429,
+      );
+    }
 
     // ── Validate body ────────────────────────────────────────────────────
     const body = await req.json().catch(() => ({}));
