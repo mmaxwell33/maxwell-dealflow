@@ -55,7 +55,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  new_id uuid;
+  new_id uuid := gen_random_uuid();
 BEGIN
   IF payload IS NULL OR jsonb_typeof(payload) <> 'object' THEN
     RAISE EXCEPTION 'submit_intake: payload must be a jsonb object';
@@ -70,12 +70,15 @@ BEGIN
     RAISE EXCEPTION 'submit_intake: full_name or first_name is required';
   END IF;
 
-  -- jsonb_populate_record extracts keys that match column names; everything
-  -- else is dropped on the floor. Defaults (id = gen_random_uuid(), etc.)
-  -- fire automatically.
+  -- jsonb_populate_record over NULL::client_intake nulls every column, which
+  -- overrides the table's column DEFAULTs (including id's gen_random_uuid()).
+  -- Inject a generated id into the payload before populating so the row's
+  -- id column lands non-NULL. Strip any client-supplied id first so the
+  -- caller can't dictate primary keys.
+  payload := (payload - 'id') || jsonb_build_object('id', new_id);
+
   INSERT INTO public.client_intake
-  SELECT * FROM jsonb_populate_record(NULL::public.client_intake, payload)
-  RETURNING id INTO new_id;
+  SELECT * FROM jsonb_populate_record(NULL::public.client_intake, payload);
 
   RETURN jsonb_build_object('id', new_id);
 END;
