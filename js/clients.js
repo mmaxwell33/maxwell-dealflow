@@ -140,8 +140,8 @@ const Clients = {
             ${c.archived_at ? `<div style="font-size:11px;color:var(--text2);">Archived ${App.fmtDate(c.archived_at)}</div>` : ''}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
-            <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+            <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.escAttr(c.full_name)}')">♻️ Restore</button>
+            <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
           </div>
         </div>`).join('') + `</div>`;
   },
@@ -168,8 +168,8 @@ const Clients = {
               <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
-              <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.esc(c.full_name)}')">♻️ Restore</button>
-              <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+              <button class="btn2 btn2-ghost btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.restore('${c.id}','${App.escAttr(c.full_name)}')">♻️ Restore</button>
+              <button class="btn2 btn2-coral btn2-sm" style="font-size:11px;" onclick="event.stopPropagation();Clients.permanentDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
             </div>
           </div>`).join('') + `</div>`;
       return;
@@ -323,8 +323,8 @@ const Clients = {
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent);color:var(--accent);" onclick="App.closeModal();Reviews.requestSearch('${c.id}')">📨 Mid-search Check-in</button>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
-        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.esc(c.full_name)}')">🗑 Delete</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.escAttr(c.full_name)}')">🗂 Archive</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
       </div>
     `);
   },
@@ -396,7 +396,7 @@ const Clients = {
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
-        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.archive('${c.id}','${App.esc(c.full_name)}')">🗂 Archive</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.archive('${c.id}','${App.escAttr(c.full_name)}')">🗂 Archive</button>
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Clients.update('${c.id}')">💾 Save</button>
       </div>
       <div id="ce-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
@@ -512,7 +512,7 @@ const Clients = {
       <p style="color:var(--text2);margin-bottom:20px;">Permanently delete <strong>${App.esc(name)}</strong>? This cannot be undone. Their pipeline and offer history will remain in the database.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal()">Cancel</button>
-        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.esc(name)}')">🗑 Yes, Delete</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.escAttr(name)}')">🗑 Yes, Delete</button>
       </div>
     `);
   },

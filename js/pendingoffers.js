@@ -40,7 +40,7 @@ const PendingOffers = {
           </div>` : ''}
         <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Received: ${App.fmtDate(o.created_at)}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-          <button class="btn btn-sm" style="background:var(--green);color:#fff;" onclick="PendingOffers.prepareOffer('${o.id}','${o.client_id}','${App.esc(o.client_name)}')">📝 Prepare Offer</button>
+          <button class="btn btn-sm" style="background:var(--green);color:#fff;" onclick="PendingOffers.prepareOffer('${o.id}','${o.client_id}','${App.escAttr(o.client_name)}')">📝 Prepare Offer</button>
           <button class="btn btn-sm btn-outline" style="border-color:var(--red);color:var(--red);" onclick="PendingOffers.dismiss('${o.id}','rejected')">❌ Reject</button>
           <button class="btn btn-sm btn-outline" onclick="PendingOffers.dismiss('${o.id}','passed')">⏭️ Pass</button>
         </div>
