@@ -26,51 +26,70 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// ── Profile (hardcoded for v1; later move to a user_briefing_settings table)
-// NOT used by name in podcast — it's used as context for personal plan only.
-const PROFILE = {
-  name: 'Maxwell',                                    // referenced in email salutation only, NOT podcast
-  email: 'maxwelldelali22@gmail.com',
-  city: "St. John's, Newfoundland",
-  timezone: 'America/St_Johns',
-  closing_target: 'June 2027',
-  monthly_income: 4200,                               // base salary
-  monthly_fixed_costs: 3060,                          // car 840 + rent 1500 + insurance 320 + brokerage 400
-  monthly_savings_now: 1140,                          // until July when sister finishes school
-  monthly_savings_after_july: 2040,
-  // Real-estate commissions (taxable income, deposit straight to bank — NOT yet allocated):
-  upcoming_cash: [
-    { date: '2026-05-17', amount: 9000, source: 'real estate commission' },
-    { date: '2026-10-17', amount: 16000, source: 'real estate commission' },
-    // More cash coming "soon" — date unknown. Will be added when known.
-  ],
-  trading_platform: 'Webull',
-  // NL combined federal + provincial marginal rate at $50K-$93K total income ≈ 29.5%
-  // (Federal 20.5% + NL 14.5% past $44K). Use 28% as conservative blend for planning.
-  marginal_tax_rate_pct: 28,
-  // Accounts NOT YET OPENED — every briefing should remind to open these on Webull.
-  accounts_opened: { fhsa: false, tfsa: false, rrsp: false },
-  accounts: {
-    fhsa: { contributed_ytd: 0, annual_limit: 8000, lifetime_limit: 40000 },
-    tfsa: { contributed_ytd: 0, room_2026: 7000 },
-    rrsp: { contributed_ytd: 0, room_estimate: 7560 },  // 18% of $42K prior-year income
-    hisa_cash: 0,
-  },
-  // Real estate commission income YTD — used for tax planning (RRSP deduction value)
-  re_commissions_ytd: 0,
-  // Risk tolerance: open to taking risk for upside. Core/satellite split:
-  //   Core (boring ETFs):   75-80%
-  //   Satellite (risk-on):  20-25% — momentum / earnings-catalyst / swing trades
-  risk_appetite: 'moderate-high — wants growth + willing to swing-trade with a slice',
-  // Emergency fund target based on monthly_fixed_costs (3-6 months runway):
-  //   Floor: 3 × 3060 = $9,180
-  //   Target: 6 × 3060 = $18,360
-  // Currently: $0. Built from October $14K (since May $9K should max FHSA before Dec 31).
-  emergency_fund_target_cad: 9180,
-  watchlist: ['XEQT.TO', 'VFV.TO', 'VEQT.TO', 'ZSP.TO', 'XIC.TO', 'XGRO.TO', 'RY.TO', 'TD.TO', 'BMO.TO'],
-  // Risk-on satellite watchlist — for swing/momentum trades
-  satellite_watchlist: ['SHOP.TO', 'BAM.TO', 'CNR.TO', 'BN.TO', 'NVDA', 'AAPL', 'GOOGL'],
-};
+// ── Profile (PR #5c)
+//
+// Previously a hardcoded const here, which leaked Maxwell's monthly salary,
+// fixed costs, future commission dates + amounts, account contribution
+// status, and watchlists into source control (AUDIT_REPORT.md §1.6.3
+// and §1.6.4). Now loaded from the AGENT_FINANCE_PROFILE Supabase secret
+// as a single JSON object.
+//
+// To set/update the secret:
+//   Supabase Dashboard → Project Settings → Edge Functions → Secrets
+//   Name:  AGENT_FINANCE_PROFILE
+//   Value: <single-line JSON, see schema below>
+// Or via CLI:
+//   supabase secrets set AGENT_FINANCE_PROFILE='{...}'
+//
+// Expected schema (omit any field to read undefined back):
+//   {
+//     "name":                       string,
+//     "email":                      string  (briefing recipient),
+//     "city":                       string,
+//     "timezone":                   string  (IANA, e.g. "America/St_Johns"),
+//     "closing_target":             string  (free-text date target),
+//     "monthly_income":             number,
+//     "monthly_fixed_costs":        number,
+//     "monthly_savings_now":        number,
+//     "monthly_savings_after_july": number,
+//     "upcoming_cash":              [ { "date": "YYYY-MM-DD", "amount": number, "source": string }, ... ],
+//     "trading_platform":           string,
+//     "marginal_tax_rate_pct":      number,
+//     "accounts_opened":            { "fhsa": bool, "tfsa": bool, "rrsp": bool },
+//     "accounts":                   { "fhsa": { "contributed_ytd": n, "annual_limit": n, "lifetime_limit": n },
+//                                     "tfsa": { "contributed_ytd": n, "room_2026": n },
+//                                     "rrsp": { "contributed_ytd": n, "room_estimate": n },
+//                                     "hisa_cash": n },
+//     "re_commissions_ytd":         number,
+//     "risk_appetite":              string,
+//     "emergency_fund_target_cad":  number,
+//     "watchlist":                  [string, ...]   (core),
+//     "satellite_watchlist":        [string, ...]   (swing/momentum)
+//   }
+//
+// If the secret is missing or malformed, the function throws on startup so
+// the cron run errors visibly in Supabase logs rather than silently sending
+// a broken briefing with $undefined numbers.
+function loadProfile(): Record<string, any> {
+  const raw = Deno.env.get('AGENT_FINANCE_PROFILE');
+  if (!raw) {
+    throw new Error(
+      'AGENT_FINANCE_PROFILE secret not set. Configure via Supabase ' +
+      'Dashboard → Project Settings → Edge Functions → Secrets.',
+    );
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('AGENT_FINANCE_PROFILE must be a JSON object.');
+    }
+    return parsed;
+  } catch (e) {
+    throw new Error('AGENT_FINANCE_PROFILE is not valid JSON: ' + (e as Error).message);
+  }
+}
+
+const PROFILE = loadProfile();
 
 // CALL 1 — structured fields (gpt-4o-mini, fast + cheap)
 const STRUCTURED_PROMPT = `You are a Canadian personal-finance research desk + portfolio coach. You read Bank of Canada releases, StatsCan CPI, CMHC housing data, NLREA / CREA monthly reports, and TSX/ETF flows. You never invent numbers — when uncertain, use [NEEDS REVIEW].
