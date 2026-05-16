@@ -194,7 +194,7 @@ const Responses = {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
         ${r.response_type === 'make_offer' ? `
-        <button class="btn btn-green" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${r.client_id}','${App.esc(clientName)}'),300)">📄 Prepare Offer</button>
+        <button class="btn btn-green" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${r.client_id}','${App.escAttr(clientName)}'),300)">📄 Prepare Offer</button>
         ` : ''}
         ${r.status !== 'actioned' ? `
         <button class="btn btn-primary" onclick="Responses.markActioned('${r.id}')">Mark as Actioned</button>

@@ -3396,7 +3396,7 @@ const Cleanup = {
       list.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
         <input type="checkbox" id="dup-${c.id}">
         <div style="flex:1;font-size:13px;"><span class="fw-700">${App.esc(c.full_name)}</span> <span style="color:var(--text2);font-size:12px;">${App.esc(c.email||'no email')}</span></div>
-        <button class="btn btn-sm" style="background:var(--red);color:#fff;font-size:11px;" onclick="Cleanup.deleteClient('${c.id}','${App.esc(c.full_name)}')">Delete</button>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff;font-size:11px;" onclick="Cleanup.deleteClient('${c.id}','${App.escAttr(c.full_name)}')">Delete</button>
       </div>`).join('') +
       `<button class="btn btn-sm" style="background:var(--red);color:#fff;margin-top:8px;" onclick="Cleanup.deleteChecked('dup-')">Delete Checked</button>`;
   },

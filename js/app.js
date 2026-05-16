@@ -580,7 +580,7 @@ const App = {
         <div class="notif-icon" style="background:${item.bg};color:${item.color};">${item.icon}</div>
         <div class="notif-body">
           <div class="notif-item-title">${item.title}</div>
-          <div class="notif-item-text">${item.text}</div>
+          <div class="notif-item-text">${App.esc(item.text)}</div>
         </div>
         <div class="notif-time">${item.tag}</div>
       </div>`).join('');
@@ -797,8 +797,8 @@ const App = {
         <div class="followup-item">
           <div class="client-avatar" style="width:32px;height:32px;font-size:12px;background:${App.avatarColor(c.full_name)};">${App.initials(c.full_name)}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;">${c.full_name}</div>
-            <div style="font-size:11px;color:var(--text2);">${c.stage || 'No stage'} · Last update ${App.timeAgo(c.updated_at)}</div>
+            <div style="font-size:13px;font-weight:700;">${App.esc(c.full_name)}</div>
+            <div style="font-size:11px;color:var(--text2);">${App.esc(c.stage || 'No stage')} · Last update ${App.timeAgo(c.updated_at)}</div>
           </div>
         </div>`).join('');
     } else {
@@ -877,8 +877,8 @@ const App = {
         <div class="activity-row">
           <div class="activity-icon" style="background:var(--bg2);">${App.activityIcon(a.activity_type)}</div>
           <div>
-            <div class="activity-title">${a.description || a.activity_type}</div>
-            <div class="activity-meta">${a.client_name || ''} · ${App.timeAgo(a.created_at)}</div>
+            <div class="activity-title">${App.esc(a.description || a.activity_type)}</div>
+            <div class="activity-meta">${App.esc(a.client_name || '')} · ${App.timeAgo(a.created_at)}</div>
           </div>
         </div>`).join('');
     }
@@ -907,10 +907,10 @@ const App = {
         const fillPct  = isClosed ? 100 : isFell ? 0 : pct;
         return `<div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <div class="fw-700">${d.client_name || 'Unknown'}</div>
+            <div class="fw-700">${App.esc(d.client_name || 'Unknown')}</div>
             <span class="stage-badge ${isClosed ? 'badge-default' : isFell ? 'badge-default' : 'badge-accepted'}">${badgeLabel}</span>
           </div>
-          <div class="text-muted" style="font-size:12px;margin-bottom:8px;">📍 ${d.property_address || '—'} · ${App.fmtMoney(d.offer_amount)}</div>
+          <div class="text-muted" style="font-size:12px;margin-bottom:8px;">📍 ${App.esc(d.property_address || '—')} · ${App.fmtMoney(d.offer_amount)}</div>
           <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">
             <div style="height:100%;width:${fillPct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
           </div>
