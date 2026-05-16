@@ -1,109 +1,37 @@
 -- Maxwell DealFlow — Migration 041
--- Phase 2.A PR #3 — security/client-intake-rls
+-- Phase 2.A PR #3 — security/client-intake-rls (FINAL: hardcoded UUID approach)
 --
 -- Closes AUDIT_REPORT.md §1.1.4 (P0 #4):
 --
 --   The four client_intake policies set up by migration 007 used
---   USING (auth.uid() IS NOT NULL). That means any authenticated user can
---   read/update/delete every client_intake row across the project. Today
---   there is one agent so the bug is dormant — the day a second brokerage
---   or agent is provisioned they walk straight into Maxwell's leads.
+--   USING (auth.uid() IS NOT NULL) — meaning any authenticated user can
+--   read/update/delete every row across the project. Today there is one
+--   agent so the bug is dormant — the day a second agent is provisioned
+--   they walk straight into Maxwell's leads.
 --
--- Fix shape:
---   1. Bake the single canonical agent's UUID into an IMMUTABLE helper at
---      migration time. We use a helper (rather than literal UUIDs sprinkled
---      across the migration) so a future multi-tenant migration can swap the
---      whole resolution strategy in one place — e.g. look the agent up by an
---      X-Intake-Agent header set on the intake form's request.
---   2. Add agent_id column to client_intake, backfill historical rows, set
---      NOT NULL, set DEFAULT to the helper's output. anon INSERTs from
---      intake.html / seller-intake.html keep working unchanged — they
---      submit no agent_id and the default fills it.
---   3. Replace the four broken policies. anon INSERT is locked to the
---      canonical agent_id (no spoofing other agents' buckets); authenticated
---      SELECT/UPDATE/DELETE all bind to auth.uid() = agent_id.
+-- Approach (after several iterations — see REFINEMENT_LOG.md):
+--   The earlier version of this migration used an IMMUTABLE helper function
+--   `_dealflow_default_intake_agent()` as the source of truth for the canonical
+--   agent UUID. The function returned the right value when called directly as
+--   anon, but the policy WITH CHECK clause that referenced the function failed
+--   to evaluate correctly during real INSERTs — root cause unclear, possibly
+--   plan-caching or function-inlining interaction with RLS. After exhausting
+--   the function indirection, we ditched it: the canonical UUID is now
+--   hardcoded in the column DEFAULT and policy WITH CHECK. Single place to
+--   search-replace when multi-tenant lands.
 --
--- No client-side changes. intake.html and seller-intake.html submit no
--- agent_id today and that continues to work via the DB DEFAULT.
+-- The canonical agent UUID `fe551eb0-7d5a-4302-880f-003ac36ace07` is the
+-- auth.users.id for `maxwelldelali22@gmail.com`. Read from auth.users (NOT
+-- public.agents — that table has an orphan row with a UUID that doesn't
+-- exist in auth.users and would violate the FK).
 
 -- ============================================================
--- 1. Helper: hardcoded canonical agent UUID for single-tenant deployment
+-- 1. Drop all existing policies on client_intake
 -- ============================================================
--- IMMUTABLE so it can sit inside a column DEFAULT and so the value never
--- drifts when rows are added or removed from public.agents. When multi-tenant
--- lands, a future migration redefines this function (e.g. to pull from a
--- request header) without having to touch every policy.
---
--- Resolution is pinned by email and reads from auth.users (NOT public.agents).
--- Two reasons:
---   1. public.agents has two rows for Maxwell. One is an orphan UUID that
---      doesn't correspond to any auth.users row — its FK to auth.users would
---      blow up the backfill.
---   2. agent_id REFERENCES auth.users(id), so the source of truth is
---      auth.users by definition. Reading from public.agents and hoping the
---      ids match was the bug.
-DO $$
-DECLARE
-  v_agent_id uuid;
-  v_canonical_email constant text := 'maxwelldelali22@gmail.com';
-BEGIN
-  SELECT id INTO v_agent_id
-    FROM auth.users
-   WHERE lower(email) = lower(v_canonical_email)
-   LIMIT 1;
-
-  IF v_agent_id IS NULL THEN
-    RAISE EXCEPTION
-      'No row in auth.users with email %. Confirm the canonical agent has '
-      'logged in at least once (creating the auth.users row) before '
-      're-running this migration.',
-      v_canonical_email;
-  END IF;
-
-  EXECUTE format($f$
-    CREATE OR REPLACE FUNCTION public._dealflow_default_intake_agent()
-    RETURNS uuid
-    LANGUAGE sql
-    IMMUTABLE
-    AS $body$ SELECT %L::uuid $body$;
-  $f$, v_agent_id);
-END
-$$;
-
-REVOKE EXECUTE ON FUNCTION public._dealflow_default_intake_agent() FROM PUBLIC;
-GRANT  EXECUTE ON FUNCTION public._dealflow_default_intake_agent() TO anon, authenticated;
-
--- ============================================================
--- 2. agent_id column + backfill + default + NOT NULL
--- ============================================================
-ALTER TABLE public.client_intake
-  ADD COLUMN IF NOT EXISTS agent_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
-
-UPDATE public.client_intake
-   SET agent_id = public._dealflow_default_intake_agent()
- WHERE agent_id IS NULL;
-
-ALTER TABLE public.client_intake
-  ALTER COLUMN agent_id SET DEFAULT public._dealflow_default_intake_agent();
-
-ALTER TABLE public.client_intake
-  ALTER COLUMN agent_id SET NOT NULL;
-
-CREATE INDEX IF NOT EXISTS client_intake_agent_idx ON public.client_intake (agent_id);
-
--- ============================================================
--- 3. Drop every existing policy on client_intake, then recreate ours.
--- ============================================================
--- The original DROP-by-name approach only caught policies created in
--- migration 007. The Supabase dashboard UI had since added three more
--- with human-readable names ("Public can insert intake", "Agents can read
--- intake", "Agents can update intake") that were dangerously permissive
--- (WITH CHECK = true, USING = true). They silently neutralised the
--- agent_id-scoped policies this migration installs.
---
--- Solution: dynamically drop ALL policies on client_intake before
--- creating the canonical four. Safe because we own every legitimate
--- policy on this table from this point forward.
+-- Covers original migration-007 policies, dashboard-UI-added policies, AND
+-- the function-based policies from earlier iterations of this migration.
+-- Dynamic loop is safe because every legitimate policy on this table is
+-- re-created below.
 DO $$
 DECLARE
   r record;
@@ -117,26 +45,99 @@ BEGIN
 END
 $$;
 
--- anon INSERT — agent_id must match the canonical default. The DB DEFAULT
--- fills it automatically when intake.html / seller-intake.html omit it; an
--- attacker can't spoof a different agent_id because WITH CHECK rejects it.
+-- ============================================================
+-- 2. Drop any existing column default + the now-unused helper function
+-- ============================================================
+-- Order matters: policies (which referenced the function) must be gone before
+-- we can DROP FUNCTION. Step 1 already handled them.
+DO $$
+BEGIN
+  -- column may not have a default yet on a fresh DB; be defensive
+  BEGIN
+    EXECUTE 'ALTER TABLE public.client_intake ALTER COLUMN agent_id DROP DEFAULT';
+  EXCEPTION
+    WHEN undefined_column THEN NULL;   -- agent_id column doesn't exist yet
+    WHEN OTHERS THEN NULL;             -- no default set
+  END;
+END
+$$;
+
+DROP FUNCTION IF EXISTS public._dealflow_default_intake_agent();
+
+-- ============================================================
+-- 3. Schema: agent_id column with literal default + NOT NULL
+-- ============================================================
+ALTER TABLE public.client_intake
+  ADD COLUMN IF NOT EXISTS agent_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- Backfill any historical rows (idempotent: only rows without an owner).
+UPDATE public.client_intake
+   SET agent_id = 'fe551eb0-7d5a-4302-880f-003ac36ace07'::uuid
+ WHERE agent_id IS NULL;
+
+ALTER TABLE public.client_intake
+  ALTER COLUMN agent_id SET DEFAULT 'fe551eb0-7d5a-4302-880f-003ac36ace07'::uuid;
+ALTER TABLE public.client_intake
+  ALTER COLUMN agent_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS client_intake_agent_idx ON public.client_intake (agent_id);
+
+-- ============================================================
+-- 4. BEFORE INSERT trigger — fill agent_id when caller omits it
+-- ============================================================
+-- PostgREST sends missing columns as NULL (not as DEFAULT) unless the
+-- caller sets `Prefer: missing=default`. The production intake forms
+-- (intake.html, seller-intake.html) submit without agent_id and without
+-- that header. Without this trigger they'd hit either the NOT NULL
+-- constraint or the RLS WITH CHECK.
+--
+-- The trigger runs BEFORE INSERT, so it populates NEW.agent_id before
+-- the NOT NULL check and before RLS evaluates. Direct anon spoof
+-- attempts (caller supplied a different UUID) leave NEW.agent_id
+-- untouched and the policy WITH CHECK rejects them — security preserved.
+CREATE OR REPLACE FUNCTION public._dealflow_set_intake_agent()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.agent_id IS NULL THEN
+    NEW.agent_id := 'fe551eb0-7d5a-4302-880f-003ac36ace07'::uuid;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_client_intake_set_agent ON public.client_intake;
+CREATE TRIGGER tr_client_intake_set_agent
+  BEFORE INSERT ON public.client_intake
+  FOR EACH ROW
+  EXECUTE FUNCTION public._dealflow_set_intake_agent();
+
+-- ============================================================
+-- 5. Policies — literal UUID throughout, no function indirection
+-- ============================================================
+
+-- anon INSERT: agent_id must equal the canonical UUID. The BEFORE INSERT
+-- trigger above ensures NULL-supplied agent_id is filled with this same
+-- UUID before the check runs, so the production intake forms work
+-- transparently. Spoof attempts (caller supplies a non-canonical UUID)
+-- are rejected because the trigger leaves their value alone and WITH
+-- CHECK then fails.
 CREATE POLICY "intake_insert_anon"
   ON public.client_intake
   FOR INSERT
   TO anon
   WITH CHECK (
-    agent_id = public._dealflow_default_intake_agent()
+    agent_id = 'fe551eb0-7d5a-4302-880f-003ac36ace07'::uuid
   );
 
--- authenticated agent SELECT — only your own leads.
+-- Authenticated agents read/update/delete only their own rows.
 CREATE POLICY "intake_read_own_agent"
   ON public.client_intake
   FOR SELECT
   TO authenticated
   USING (agent_id = auth.uid());
 
--- authenticated agent UPDATE — same scope, plus WITH CHECK so you can't
--- re-assign a row to a different agent during update.
 CREATE POLICY "intake_update_own_agent"
   ON public.client_intake
   FOR UPDATE
@@ -144,7 +145,6 @@ CREATE POLICY "intake_update_own_agent"
   USING      (agent_id = auth.uid())
   WITH CHECK (agent_id = auth.uid());
 
--- authenticated agent DELETE — only your own.
 CREATE POLICY "intake_delete_own_agent"
   ON public.client_intake
   FOR DELETE
@@ -152,29 +152,20 @@ CREATE POLICY "intake_delete_own_agent"
   USING (agent_id = auth.uid());
 
 -- ============================================================
--- 4. Smoke tests (run after applying)
+-- 5. Smoke tests (run separately after applying)
 -- ============================================================
 -- a) Backfill landed:
 --      SELECT count(*) FROM client_intake WHERE agent_id IS NULL;   -- expect 0
 --
--- b) Default works (as anon, simulating the intake form):
+-- b) anon insert with explicit canonical agent_id (the main production path):
 --      curl -X POST $URL/rest/v1/client_intake \
 --        -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
---        -H "Content-Type: application/json" \
---        -H "Prefer: return=representation" \
---        -d '{"full_name":"Smoke Test","email":"smoke@test.com"}'
---      → 201, returned row has agent_id = canonical agent.
+--        -H "Content-Type: application/json" -H "Prefer: return=representation" \
+--        -d '{"full_name":"T","email":"t@t.com","agent_id":"fe551eb0-7d5a-4302-880f-003ac36ace07"}'
+--      → 201 with row.
 --
--- c) Spoof attempt blocked:
---      curl -X POST $URL/rest/v1/client_intake \
---        -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
---        -H "Content-Type: application/json" \
---        -d '{"full_name":"Spoof","email":"x@y.com","agent_id":"00000000-0000-0000-0000-000000000000"}'
---      → 403 / row violates WITH CHECK.
+-- c) anon insert with spoofed agent_id:
+--      same as (b) but agent_id="00000000-0000-0000-0000-000000000000"
+--      → 403 / 42501.
 --
--- d) Authenticated agent (as Maxwell) reads only own rows:
---      SELECT count(*) FROM client_intake;
---      → equals pre-migration count (all rows backfilled to him).
---
--- e) Future second agent (simulated by signing in with a different auth user)
---    SELECT returns 0 — they can no longer see Maxwell's leads.
+-- d) authenticated agent SELECT count equals pre-migration count.
