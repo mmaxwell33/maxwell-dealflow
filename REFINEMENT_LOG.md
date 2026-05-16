@@ -323,3 +323,34 @@ SELECT agent_id, window_start, count FROM claude_rate_limit ORDER BY window_star
 **Performance impact:** One additional RPC call per claude-chat invocation (~30ms). Atomic UPSERT, single index lookup.
 
 ---
+
+## PR #5c — `security/daily-briefing-pii`
+
+**Type:** Security — strip Maxwell's personal financial data out of source control.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §1.6.3 — P1 — `daily-briefing/index.ts` had a hardcoded `PROFILE` object containing monthly salary, fixed costs, savings rate, future real-estate commission dates and amounts, marginal tax rate, contribution status of every registered account, and watchlist tickers. All visible in any clone of the repo (and any deploy log).
+- §1.6.4 — P1 — Hardcoded recipient email `maxwelldelali22@gmail.com`. Blocks any future multi-agent deployment. (Same fix — email lives inside the PROFILE blob now.)
+
+**Approach:** replace the 43-line hardcoded `const PROFILE = { ... }` with a `loadProfile()` helper that reads from the `AGENT_FINANCE_PROFILE` Supabase secret as a JSON-encoded object. The function throws on startup if the secret is missing or malformed — fail-loud over silently-broken-briefing.
+
+**Files:**
+- `supabase/functions/daily-briefing/index.ts` — replaces the const + comments (~43 lines of personal data + comments) with a `loadProfile()` function and full schema documentation. Net +19 lines, all source-safe.
+
+**Required secret value** (set this in Supabase BEFORE redeploying the function — otherwise the next cron run will throw):
+
+```json
+{"name":"Maxwell","email":"maxwelldelali22@gmail.com","city":"St. John's, Newfoundland","timezone":"America/St_Johns","closing_target":"June 2027","monthly_income":4200,"monthly_fixed_costs":3060,"monthly_savings_now":1140,"monthly_savings_after_july":2040,"upcoming_cash":[{"date":"2026-05-17","amount":9000,"source":"real estate commission"},{"date":"2026-10-17","amount":16000,"source":"real estate commission"}],"trading_platform":"Webull","marginal_tax_rate_pct":28,"accounts_opened":{"fhsa":false,"tfsa":false,"rrsp":false},"accounts":{"fhsa":{"contributed_ytd":0,"annual_limit":8000,"lifetime_limit":40000},"tfsa":{"contributed_ytd":0,"room_2026":7000},"rrsp":{"contributed_ytd":0,"room_estimate":7560},"hisa_cash":0},"re_commissions_ytd":0,"risk_appetite":"moderate-high — wants growth + willing to swing-trade with a slice","emergency_fund_target_cad":9180,"watchlist":["XEQT.TO","VFV.TO","VEQT.TO","ZSP.TO","XIC.TO","XGRO.TO","RY.TO","TD.TO","BMO.TO"],"satellite_watchlist":["SHOP.TO","BAM.TO","CNR.TO","BN.TO","NVDA","AAPL","GOOGL"]}
+```
+
+**Deploy order (must follow this sequence):**
+1. Merge PR.
+2. **Set the secret first** via the Supabase Dashboard (Project Settings → Edge Functions → Secrets → Add new secret) OR via CLI: `supabase secrets set AGENT_FINANCE_PROFILE='<json above>'`.
+3. **Then** redeploy the function: `supabase functions deploy daily-briefing`.
+4. If the cron's next scheduled run looks healthy in the Supabase function logs (no exception, MP3 generated, email sent), the migration is done.
+
+**Risk if rolled back:** Reverts to having personal financial data in source. Briefing keeps working either way.
+
+**Operational note:** After this PR ships, the GitHub repo's history still contains the old hardcoded values — searchable via `git log -S "monthly_income"`. If the repo is or becomes public, consider a follow-up `git filter-repo` pass to scrub the history. For now (private repo), the current state is acceptable.
+
+---
