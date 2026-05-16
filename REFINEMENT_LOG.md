@@ -280,3 +280,46 @@ curl -i -X POST "$URL/functions/v1/send-push" \
 **Performance impact:** One additional `auth.getUser()` round-trip per call from the agent app (~50-100ms in-region). Internal/system calls skip the lookup entirely.
 
 ---
+
+## PR #5b — `security/claude-chat-rate-limit`
+
+**Type:** Security — per-agent hourly cap on `claude-chat` RPC calls.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §1.6.2 — P1 — `claude-chat` had no rate limit. One compromised agent session could exhaust Maxwell's Anthropic API budget in minutes by spamming `max_tokens=1500` calls.
+
+**Approach:** clone the `email_rate_limit` pattern from migration 017. One row per `(agent_id, hour bucket)`. Atomic `INSERT … ON CONFLICT DO UPDATE … RETURNING count` returns the new count to the edge function. Cap of **60 messages per agent per hour** — generous for human use (one chat per minute), tight enough to bound runaway costs.
+
+**Files:**
+- `supabase/migrations/044_claude_rate_limit.sql` — new table `claude_rate_limit`, RPC `increment_claude_rate_limit`, cleanup function + nightly cron at 03:15 UTC (15-min offset from the email cleanup at 03:10).
+- `supabase/functions/claude-chat/index.ts` — adds the rate-limit check right after `auth.getUser()`. Fails open on RPC errors (matches the email-rate-limit behaviour — better to send than to silently drop legitimate calls during infra blips).
+
+**Smoke tests:**
+
+```bash
+# Spam from a real agent session — 61st call within the hour should 429
+for i in $(seq 1 61); do
+  curl -s -X POST "$URL/functions/v1/claude-chat" \
+    -H "apikey: $SESSION_JWT" \
+    -H "Authorization: Bearer $SESSION_JWT" \
+    -H "Content-Type: application/json" \
+    -d '{"system":"x","messages":[{"role":"user","content":"hi"}]}' \
+    -o /dev/null -w "%{http_code}\n"
+done
+# Expect: 200 x 60, then 429.
+
+# Check the table populated:
+SELECT agent_id, window_start, count FROM claude_rate_limit ORDER BY window_start DESC LIMIT 3;
+```
+
+**Deploy order:**
+1. Merge PR.
+2. Apply migration 044 in Supabase SQL Editor.
+3. Redeploy claude-chat: `supabase functions deploy claude-chat`.
+4. Test via the agent app's Ask AI panel — single message should work normally.
+
+**Risk if rolled back:** Reverts to unlimited spending. Behaviour for normal use is unchanged either way; rollback only matters if there's an active attack in progress.
+
+**Performance impact:** One additional RPC call per claude-chat invocation (~30ms). Atomic UPSERT, single index lookup.
+
+---
