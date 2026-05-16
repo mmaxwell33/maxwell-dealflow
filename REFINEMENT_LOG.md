@@ -234,3 +234,49 @@ Two patterns the audit didn't list but should be addressed in a follow-up:
 These are real but lower-impact (require the agent to be logged in and viewing a client whose name was crafted by an attacker via the intake form). Recommend follow-up PR `security/privacy-mask-xss` to fix in one pass — convert the helpers to `textContent` + `appendChild` for the user-data portion, keeping the entity icons separate.
 
 ---
+
+## PR #5 — `security/edge-function-hardening` (send-push auth)
+
+**Type:** Security — require a Bearer JWT on every incoming call to `send-push`.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §1.6.1 — P1 — `send-push` was publicly callable. Anyone with the edge function URL could dispatch Web Push to any subscription endpoint list passed in the body. Two real risks: spoofed alerts to Maxwell's device (if an attacker scraped a subscription record), and free push-relay bandwidth abuse on the Supabase project.
+
+**Approach:** mirror the auth check pattern already used in `claude-chat` (PR-era code). Reject any request whose `Authorization` header isn't `Bearer <something>`. Recognise two valid bearer values:
+1. **A live user-session JWT** — verified via `userClient.auth.getUser()`. The agent app's `App.sendWebPush` ([js/app.js:329](js/app.js)) already sends `Authorization: Bearer ${session.access_token}`, so no client change is needed.
+2. **The service-role key** — used by internal edge functions like `check-followups` that fire pushes from cron jobs. Recognised via direct compare; skips the user lookup since there's no JWT to verify.
+
+**Scope explicitly excluded from this PR:**
+- Rate limiting on `claude-chat` — separate concern, lands in PR #5b.
+- PII move out of `daily-briefing` source — separate concern, lands in PR #5c.
+- Verifying that the supplied `subscriptions[]` actually belong to the calling user. Deferred — adds a DB lookup per call and the current `App.sendWebPush` always passes the caller's own subscriptions. A later PR can move the subscription lookup server-side.
+
+**File:**
+- `supabase/functions/send-push/index.ts` — adds `createClient` import, adds an auth gate at the top of the `serve()` handler (~25 lines including comments).
+
+**Smoke tests (after deploy):**
+
+```bash
+ANON=...; URL=...
+# 1. No bearer → 401 Missing bearer token
+curl -i -X POST "$URL/functions/v1/send-push" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"x","subscriptions":[{}]}'
+# 2. Anon key as bearer (not a session JWT) → 401 Not signed in (auth.getUser returns no user)
+curl -i -X POST "$URL/functions/v1/send-push" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"x","subscriptions":[{}]}'
+# 3. From the agent app while signed in → 200 (real session JWT, real subscriptions). Test by sending yourself a test push.
+```
+
+**Deploy order:**
+1. Merge PR (Vercel deploy is a no-op — no frontend change).
+2. Redeploy the `send-push` edge function in Supabase (via `supabase functions deploy send-push` or the dashboard's deploy button).
+3. Run smoke tests 1 and 2 from terminal. Verify a real push from the agent app still works.
+
+**Risk if rolled back:** Reverts to the prior unauth state. Pushes still work for legitimate callers (no behaviour change for them), but the spam vector reopens.
+
+**Performance impact:** One additional `auth.getUser()` round-trip per call from the agent app (~50-100ms in-region). Internal/system calls skip the lookup entirely.
+
+---

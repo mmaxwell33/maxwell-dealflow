@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 /**
  * Web Push edge function — VAPID via Web Crypto API (Deno-native)
@@ -8,6 +9,12 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
  *   VAPID_PUBLIC_KEY   – base64url P-256 uncompressed public key (87 chars)
  *   VAPID_PRIVATE_KEY  – base64url P-256 raw private key (43 chars)
  *   VAPID_SUBJECT      – mailto:Maxwell.Midodzi@exprealty.com
+ *   SUPABASE_URL       – auto-injected
+ *   SUPABASE_ANON_KEY  – auto-injected
+ *
+ * Auth (PR #5): requires a Bearer token from the calling Supabase session.
+ * Anonymous callers can no longer dispatch pushes. Internal cron / edge-fn
+ * callers pass the SERVICE_ROLE_KEY which is recognised as a system call.
  */
 
 const cors = {
@@ -206,6 +213,33 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
+    // ── Auth (PR #5): require a Bearer token. Either the calling user's
+    // session JWT (sent by App.sendWebPush in js/app.js) OR the Supabase
+    // service-role key (for internal callers like daily-automation crons).
+    const authHeader   = req.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Missing bearer token' }),
+        { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
+    }
+    const supabaseUrl  = Deno.env.get('SUPABASE_URL') ?? '';
+    const anonKey      = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const isSystemCall = !!serviceKey && authHeader === `Bearer ${serviceKey}`;
+    if (!isSystemCall) {
+      if (!supabaseUrl || !anonKey) {
+        return new Response(JSON.stringify({ error: 'Auth context not configured' }),
+          { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } });
+      }
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Not signed in' }),
+          { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
+      }
+    }
+
     const { title, body, tab = 'approvals', subscriptions } = await req.json();
     if (!title || !subscriptions?.length) {
       return new Response(JSON.stringify({ error: 'title + subscriptions required' }),
