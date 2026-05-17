@@ -1437,3 +1437,24 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   .pl-filter-row { gap: 4px; }
   .pl-filter-bar { padding-top: 8px; padding-bottom: 10px; }
 }
+
+/* ── Calendar sticky toolbar + filter chips (PR #30) ──────────────────── */
+.cal-toolbar {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--bg);
+  padding: 10px 0 12px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.cal-filter-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 10px;
+}
+.cal-filter-chips:empty { display: none; }
+
+@media (max-width: 480px) {
+  .cal-toolbar { padding-top: 8px; padding-bottom: 10px; }
+  .cal-filter-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .cal-filter-chips::-webkit-scrollbar { height: 4px; }
+  .cal-filter-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+}
