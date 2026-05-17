@@ -989,17 +989,20 @@ const App = {
     }
   },
 
-  // ── Command palette (Cmd+K / Ctrl+K) — PR #18 ──────────────────────────
+  // ── Command palette (Cmd+K / Ctrl+K) — PR #18 + PR #19 ──────────────────
   // Quick navigation: open with Cmd+K (Ctrl+K on Windows/Linux), type to
-  // filter visible nav items, Enter to jump. Reads items from the sidebar
-  // .nav-item[data-tab] elements so there's a single source of truth for
-  // the navigation graph — adding/removing a sidebar item automatically
-  // updates the palette.
+  // filter visible nav items AND search clients live. Reads tab items from
+  // the sidebar .nav-item[data-tab] elements (single source of truth for
+  // the navigation graph). Client search hits Supabase with a 200 ms
+  // debounce and is race-guarded by a monotonic token.
   Palette: {
-    _items: [],
-    _filtered: [],
+    _items: [],         // tab items collected from sidebar at open()
+    _clients: [],       // live Supabase client results for the current query
+    _filtered: [],      // merged + scored list rendered to the DOM
     _activeIdx: 0,
     _prevFocus: null,
+    _queryToken: 0,     // bump every keystroke; stale responses discarded
+    _debounceTimer: null,
 
     // Score a tab item against the query. Higher = better match.
     //  - exact substring of label   → strong score, weighted by earliness
@@ -1024,21 +1027,19 @@ const App = {
     _collectItems() {
       const out = [];
       document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
-        if (btn.offsetParent === null && btn.closest('.sb-group')) {
-          // skip items in collapsed groups? No — palette should still find them.
-        }
         const tab = btn.dataset.tab;
         const icon = btn.querySelector('.nav-icon')?.textContent?.trim() || '•';
         const label = btn.querySelector('.nav-label')?.textContent?.trim() || tab;
         const group = btn.closest('.sb-group')?.querySelector('.sb-section-label')
                         ?.firstChild?.textContent?.trim() || '';
-        out.push({ tab, icon, label, group });
+        out.push({ type: 'tab', tab, icon, label, group });
       });
       return out;
     },
 
     open() {
       App.Palette._items = App.Palette._collectItems();
+      App.Palette._clients = [];
       App.Palette._prevFocus = document.activeElement;
       const overlay = document.getElementById('cmdk-overlay');
       const input = document.getElementById('cmdk-input');
@@ -1052,6 +1053,11 @@ const App = {
     close() {
       const overlay = document.getElementById('cmdk-overlay');
       overlay.hidden = true;
+      if (App.Palette._debounceTimer) {
+        clearTimeout(App.Palette._debounceTimer);
+        App.Palette._debounceTimer = null;
+      }
+      App.Palette._clients = [];
       if (App.Palette._prevFocus && typeof App.Palette._prevFocus.focus === 'function') {
         try { App.Palette._prevFocus.focus(); } catch (_) {}
       }
@@ -1063,27 +1069,74 @@ const App = {
       return overlay && !overlay.hidden;
     },
 
-    _render(query) {
+    // PR #19: debounced live client search via Supabase.
+    // Only fires for queries ≥ 2 chars. Each call bumps _queryToken; the
+    // response only applies if its token still matches the latest one,
+    // so a slow earlier query can't overwrite a fast later one.
+    _scheduleClientSearch(query) {
+      if (App.Palette._debounceTimer) clearTimeout(App.Palette._debounceTimer);
+      const q = (query || '').trim();
+      if (q.length < 2) {
+        App.Palette._clients = [];
+        return;
+      }
+      const myToken = ++App.Palette._queryToken;
+      App.Palette._debounceTimer = setTimeout(async () => {
+        try {
+          // ilike with escaped wildcards in the pattern; Supabase encodes
+          // the value, so `%` / `_` from the user are treated literally
+          // only if escaped — here they'd just broaden the match, no XSS.
+          const safeQ = q.replace(/[%_]/g, '');
+          const { data, error } = await db.from('clients')
+            .select('id, full_name, stage')
+            .ilike('full_name', `%${safeQ}%`)
+            .order('full_name', { ascending: true })
+            .limit(5);
+          if (myToken !== App.Palette._queryToken) return; // stale
+          if (error) { App.logError && App.logError(error, 'Palette._scheduleClientSearch'); return; }
+          App.Palette._clients = (data || []).map(c => ({
+            type: 'client',
+            id: c.id,
+            icon: '👤',
+            label: c.full_name || '(no name)',
+            group: c.stage ? `CLIENT · ${c.stage}` : 'CLIENT',
+          }));
+          App.Palette._render(q, /*skipScheduling*/ true);
+        } catch (err) {
+          if (myToken !== App.Palette._queryToken) return;
+          App.logError && App.logError(err, 'Palette._scheduleClientSearch');
+        }
+      }, 200);
+    },
+
+    _render(query, skipScheduling) {
       const q = (query || '').toLowerCase().trim();
-      const scored = App.Palette._items
+      // Tabs (synchronous, scored).
+      const tabs = App.Palette._items
         .map(it => ({ ...it, score: App.Palette._score(it.label, q) }))
         .filter(it => it.score !== -Infinity)
         .sort((a, b) => b.score - a.score)
-        .slice(0, 12);
-      App.Palette._filtered = scored;
+        .slice(0, 8);
+      // Clients (already filtered server-side, just preserve DB order).
+      const clients = App.Palette._clients.slice(0, 5);
+      // Merge: tabs first, clients below (matches Linear/Notion convention).
+      const merged = tabs.concat(clients);
+      App.Palette._filtered = merged;
       App.Palette._activeIdx = 0;
       const list = document.getElementById('cmdk-list');
-      if (!scored.length) {
+      if (!merged.length) {
         list.innerHTML = `<li class="cmdk-empty" role="option" aria-selected="false">No matches for "${App.esc(query)}"</li>`;
-        return;
+      } else {
+        list.innerHTML = merged.map((it, i) => `
+          <li role="option" aria-selected="${i === 0}" data-idx="${i}" onclick="App.Palette._activate(${i})">
+            <span class="cmdk-icon">${App.esc(it.icon)}</span>
+            <span class="cmdk-text">${App.esc(it.label)}</span>
+            <span class="cmdk-group">${App.esc(it.group)}</span>
+          </li>
+        `).join('');
       }
-      list.innerHTML = scored.map((it, i) => `
-        <li role="option" aria-selected="${i === 0}" data-idx="${i}" onclick="App.Palette._activate(${i})">
-          <span class="cmdk-icon">${App.esc(it.icon)}</span>
-          <span class="cmdk-text">${App.esc(it.label)}</span>
-          <span class="cmdk-group">${App.esc(it.group)}</span>
-        </li>
-      `).join('');
+      // Kick off client search unless we're called from inside the search callback
+      if (!skipScheduling) App.Palette._scheduleClientSearch(query);
     },
 
     _move(delta) {
@@ -1102,7 +1155,29 @@ const App = {
       const item = App.Palette._filtered[idx ?? App.Palette._activeIdx];
       if (!item) return;
       App.Palette.close();
-      App.switchTab(item.tab);
+      if (item.type === 'client') {
+        // Land on the clients tab first so Clients.openDetail can find the
+        // record in its in-memory cache. Poll briefly in case the tab is
+        // freshly loaded and Clients.all is still arriving.
+        App.switchTab('clients');
+        let tries = 20;
+        const tryOpen = () => {
+          if (typeof Clients === 'undefined' || !Clients.all) {
+            if (tries-- > 0) setTimeout(tryOpen, 100);
+            return;
+          }
+          if (Clients.all.find(c => c.id === item.id)) {
+            Clients.openDetail(item.id);
+          } else if (tries-- > 0) {
+            setTimeout(tryOpen, 100);
+          }
+          // If we run out of retries, the user is at least on the clients
+          // tab and can find the client manually — no error toast needed.
+        };
+        tryOpen();
+      } else {
+        App.switchTab(item.tab);
+      }
     },
 
     _onKey(e) {

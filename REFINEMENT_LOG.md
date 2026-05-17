@@ -945,3 +945,49 @@ Press **Cmd+K** (Mac) or **Ctrl+K** (Windows/Linux) anywhere in the app to open 
 - Recent-tab history. Could add a "Recent" section above the filter results once we have usage data.
 
 ---
+
+## PR #19 — `ui/cmd-k-client-search`
+
+**Closes:** Follow-up to PR #18 — adds the searchable-database half of the command palette.
+
+**What it does:**
+Open the palette with Cmd+K. Start typing. As soon as you've typed 2+ characters, a Supabase query against `clients.full_name` fires (debounced 200 ms) and up to 5 client matches appear in the result list under the tab results. Each client row shows their name and current stage as a chip. Press Enter on a client row → the palette closes, the app jumps to the Clients tab, and that client's detail drawer opens automatically.
+
+Typical use: hit Cmd+K, type `jam`, press Enter — James Owusu's detail is open. Three keystrokes from anywhere in the app to anyone in the book.
+
+**Approach:**
+
+1. **Layered results.** The render loop now produces two lists and concatenates them: tabs first (synchronous, scored from PR #18), clients below (asynchronous, server-ranked). This matches the Linear/Notion convention: navigation hits first, data results below, so the most common case (Cmd+K → tab name → Enter) stays instant.
+
+2. **Debounce + race-condition guard.** A `_queryToken` counter increments on every keystroke. Each Supabase request remembers the token it was fired with; when the response comes back, it only applies if its token still matches the latest one. A slow earlier query can't overwrite a fast later one. The debounce timer (200 ms) is `clearTimeout`'d on every fresh keystroke and on `close()`, so closing the palette mid-fetch doesn't render stale data into the closed list or leak a callback.
+
+3. **Safe Supabase query.** Uses `.ilike('full_name', '%' + safe + '%')` with `%` and `_` characters stripped from the user's query (so they don't widen the wildcard). Supabase parameterizes the value, so this is injection-safe even before the strip. Limited to 5 results with `.limit(5)` and ordered by name for stable display.
+
+4. **Each item carries a `type` field.** Tabs are `type: 'tab'`, clients are `type: 'client'`. `_activate(idx)` branches on type — tabs call `App.switchTab(tab)`, clients call `App.switchTab('clients')` *then* poll briefly for `Clients.all` to be populated before calling `Clients.openDetail(id)`. The 20× 100 ms retry loop covers the case where the user opened the palette before the clients tab had ever been visited (so `Clients.load()` hadn't run yet).
+
+5. **Visual treatment.** No new CSS rules — the existing `.cmdk-group` chip already styles the trailing text on each row. Client rows show `👤 James Owusu  ·  CLIENT · Conditions`; tab rows show `💰 Commissions  ·  Finance`. The visual difference is implicit from the chip text and icon.
+
+**Files changed:**
+- `js/app.js` — `App.Palette` block extended. New state: `_clients`, `_queryToken`, `_debounceTimer`. New method: `_scheduleClientSearch(q)`. Modified: `_render` accepts a `skipScheduling` flag (used when re-rendering from inside the search callback to avoid an infinite kick-off loop), `_collectItems` now stamps `type: 'tab'` on each item, `close()` clears the debounce timer + client results, `_activate` dispatches on `item.type`. Net ~70 lines added across the namespace.
+
+**Verification:**
+- `node -c js/app.js` — syntax OK.
+- `npm test` — 34/34 vitest pass (scoring tests from PR #18 still green; the new async logic is integration-only and intentionally not unit-tested here).
+- Manual: opened palette, typed "jam" → "James Owusu  ·  CLIENT · Conditions" appeared in result list after ~200 ms. Enter jumped to clients tab and opened his detail. Repeated with 3 different clients, including one whose tab hadn't been visited yet — retry loop bridged the gap and detail opened within ~200 ms.
+- Race condition check: typed `jam` fast then `xyzdoesnotexist` immediately. Only the empty result for the latter rendered — no stale `jam` result flashed.
+- Edge case: typed `%` and `_` — query was sent with those stripped, so the wildcard didn't widen unintentionally. No injection, no errors.
+
+**Visual change:** Once 2+ characters are typed, client results appear below tab results, separated only by the group chip text on each row. Closed palette is identical to PR #18.
+
+**Risk if rolled back:** Loses the new client-search feature. Tabs-only palette from PR #18 remains. No data risk; only client *lookups* go through this code path, and they only call existing functions (`switchTab`, `openDetail`).
+
+**Performance impact:**
+- Idle (palette closed): zero — one global keydown listener that exits early on non-Cmd+K presses.
+- Active: one debounced Supabase query per ~200 ms of typing, capped at 5 rows. Modern Supabase + pg_trgm handles `ilike '%foo%'` on a few hundred clients in single-digit milliseconds. No noticeable typing lag.
+
+**What's NOT in this PR (deliberate scope cut, candidates for later):**
+- Search across offers, viewings, pipeline rows. Same pattern would apply; adding all three would triple the surface and the debug surface.
+- Search by email or phone instead of just full_name.
+- Recent-pick history (palette opens with the last 3 picks pinned at the top).
+
+---
