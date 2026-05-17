@@ -1023,21 +1023,23 @@ const App = {
   },
 
   // ── Privacy: mask client names, click to reveal ──
+  // SECURITY (PR #14): every visible-text fragment goes through App.esc.
+  // data-full attributes are escaped on write, but getAttribute() un-escapes
+  // entities on read — so revealName/hideName must re-escape before innerHTML.
   privateName(fullName) {
     if (!fullName) return '<span style="color:var(--text3);">—</span>';
     const parts = fullName.trim().split(/\s+/);
     const first = parts[0];
-    const lastInit = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() + '.' : '';
-    const masked = lastInit ? `${first} ${lastInit}` : first;
     const safe = App.esc(fullName);
-    return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to expand">${first}<span class="pname-eye">›</span></span>`;
+    return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to expand">${App.esc(first)}<span class="pname-eye">›</span></span>`;
   },
 
   revealName(el) {
     const full = el.getAttribute('data-full');
     if (!full) return;
     el.classList.add('pname-open');
-    el.innerHTML = `${full}<span class="pname-eye pname-lock" onclick="event.stopPropagation();App.hideName(this.parentElement)">🔒</span>`;
+    // getAttribute returns the entity-decoded string — re-escape before innerHTML
+    el.innerHTML = `${App.esc(full)}<span class="pname-eye pname-lock" onclick="event.stopPropagation();App.hideName(this.parentElement)">🔒</span>`;
   },
 
   hideName(el) {
@@ -1048,7 +1050,7 @@ const App = {
     const lastInit = parts.length > 1 ? parts[parts.length - 1][0].toUpperCase() + '.' : '';
     const masked = lastInit ? `${first} ${lastInit}` : first;
     el.classList.remove('pname-open');
-    el.innerHTML = `${masked}<span class="pname-eye">👁</span>`;
+    el.innerHTML = `${App.esc(masked)}<span class="pname-eye">👁</span>`;
   },
 
   // ── Privacy: mask email + phone, click to reveal ──
@@ -1056,17 +1058,17 @@ const App = {
     const maskEmail = (e) => {
       if (!e) return '';
       const at = e.indexOf('@');
-      if (at < 1) return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal">${e[0]}•••<span class="pname-eye">👁</span></span>`;
+      if (at < 1) return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal">${App.esc(e[0])}•••<span class="pname-eye">👁</span></span>`;
       const user = e.slice(0, at);
       const domain = e.slice(at + 1);
       const masked = user.length > 2 ? `${user[0]}${'•'.repeat(Math.min(user.length - 1, 4))}@${domain}` : `${user[0]}•@${domain}`;
-      return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal email">${masked}<span class="pname-eye">👁</span></span>`;
+      return `<span class="pname" data-full="${App.esc(e)}" onclick="App.revealName(this)" title="Click to reveal email">${App.esc(masked)}<span class="pname-eye">👁</span></span>`;
     };
     const maskPhone = (p) => {
       if (!p) return '';
       const digits = p.replace(/\D/g, '');
       const masked = digits.length >= 7 ? `${p.slice(0,3)} •••-${digits.slice(-4)}` : `${p.slice(0,3)}•••`;
-      return `<span class="pname" data-full="${App.esc(p)}" onclick="App.revealName(this)" title="Click to reveal phone">${masked}<span class="pname-eye">👁</span></span>`;
+      return `<span class="pname" data-full="${App.esc(p)}" onclick="App.revealName(this)" title="Click to reveal phone">${App.esc(masked)}<span class="pname-eye">👁</span></span>`;
     };
     const parts = [maskEmail(email), maskPhone(phone)].filter(Boolean);
     return parts.join(' · ');

@@ -726,3 +726,44 @@ Selector list is the WAI-ARIA recommendation: `a[href], button:not([disabled]), 
 **Performance impact:** None — keydown listener is attached only while a modal is open and removed on close. No measurable overhead.
 
 ---
+
+## PR #14 — `security/privacy-mask-xss`
+
+**Closes:** AUDIT_REPORT.md §1.4.2 — XSS in the privacy-mask helpers used across the clients screen, viewing list, and pipeline. Explicitly deferred from PR #4 (the `App.escAttr` PR that hardened inline-event-handler arguments); PR #14 finishes the privacy-mask half.
+
+**The bug:**
+`App.privateName`, `App.revealName`, `App.hideName`, and the two inner masks in `App.privateContact` all built HTML strings that interpolated untrusted client data into `innerHTML` without re-escaping. Two distinct holes:
+
+1. **Visible-text fragments unescaped.** `privateName` injected the raw first name (`${first}`) and `privateContact` injected the masked email/phone (`${masked}`, `${e[0]}`). A client named `<img src=x onerror=alert(1)>` would execute that payload the moment Maxwell loaded the clients screen.
+2. **`data-full` attribute round-trip un-escape.** `revealName` and `hideName` read `el.getAttribute('data-full')` — the browser entity-decodes attribute values on read, so even though we wrote `&lt;img...&gt;`, we got back the raw `<img...>` string, which was then re-injected via `innerHTML` without escape. Anyone clicking to reveal a malicious name would fire the payload.
+
+**Approach:**
+Surgical — every `${untrusted}` interpolation inside an `innerHTML` write is now wrapped in `App.esc`. Five interpolations changed across four functions:
+
+- `privateName` line 1033 — `${first}` → `${App.esc(first)}`
+- `revealName` line 1040 — `${full}` → `${App.esc(full)}`
+- `hideName` line 1051 — `${masked}` → `${App.esc(masked)}`
+- `privateContact.maskEmail` line 1059 — `${e[0]}` → `${App.esc(e[0])}`
+- `privateContact.maskEmail` line 1063 — `${masked}` → `${App.esc(masked)}`
+- `privateContact.maskPhone` line 1069 — `${masked}` → `${App.esc(masked)}`
+
+Also dropped a dead `masked` local in `privateName` (it was computed but never referenced, leftover from an earlier UX version).
+
+A two-line comment above the block now documents the `getAttribute()` un-escape trap so the next person editing these helpers doesn't reintroduce the bug.
+
+**Files changed:**
+- `js/app.js` — 6 escape calls added, 1 dead variable removed (`privateName`'s unused `masked`), 3-line comment block added explaining the `data-full` round-trip behavior
+- `tests/unit/helpers.test.js` — 9 new tests added (4 for `privateName`, 5 for `privateContact`); covers empty input, benign input, `<script>` injection, `"`-injection, `<svg onload>` payload, `<img onerror>` payload, and the canonical mask formats
+
+**Verification:**
+- `node -c js/app.js` — syntax OK
+- `npm test` — 28/28 pass (was 19/19; +9 new)
+- Manual: visited the clients screen with a test client named `<img src=x onerror=alert(1)>` — masked display renders as literal text, click-to-reveal renders as literal text, no alert fires.
+
+**Visual change:** None for any normal name/email/phone. Malicious payloads (which would previously execute) now render as their entity-escaped string — visible but inert.
+
+**Risk if rolled back:** Reintroduces the XSS in three commonly-rendered UI surfaces (clients list, pipeline cards, every viewing detail). High value to keep, near-zero risk to keep.
+
+**Performance impact:** None measurable — `App.esc` is a 6-replace regex chain over strings that average ~30 chars.
+
+---
