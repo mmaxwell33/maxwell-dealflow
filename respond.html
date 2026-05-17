@@ -146,14 +146,14 @@
       </button>
       <div id="offer-form">
         <div class="form-group">
-          <label class="form-label">Your Offer Amount *</label>
+          <label class="form-label" for="offer-amount">Your Offer Amount *</label>
           <div class="price-wrap">
             <span class="prefix">$</span>
             <input class="form-input" id="offer-amount" type="number" placeholder="450000" min="1">
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Note to Maxwell (optional)</label>
+          <label class="form-label" for="offer-note">Note to Maxwell (optional)</label>
           <textarea class="form-input" id="offer-note" placeholder="E.g. Please include the appliances, we'd like a 60-day closing..."></textarea>
         </div>
         <button class="submit-btn btn-green" onclick="submitDecision('offer')">Submit My Offer Interest →</button>
@@ -176,13 +176,15 @@
         <span class="choice-sub">This property isn't right for me</span>
       </button>
       <div id="notfit-form">
-        <label class="form-label" style="margin-bottom:10px;">What didn't work for you? (optional)</label>
+        <span id="notfit-legend" class="form-label" style="margin-bottom:10px;display:block;">What didn't work for you? (optional)</span>
+        <div role="radiogroup" aria-labelledby="notfit-legend">
         <div class="radio-opt"><input type="radio" name="notfit" id="r1" value="Price is too high"><label for="r1">Price is too high</label></div>
         <div class="radio-opt"><input type="radio" name="notfit" id="r2" value="Too small or not enough space"><label for="r2">Too small or not enough space</label></div>
         <div class="radio-opt"><input type="radio" name="notfit" id="r3" value="Wrong neighbourhood"><label for="r3">Wrong neighbourhood</label></div>
         <div class="radio-opt"><input type="radio" name="notfit" id="r4" value="Condition of the property"><label for="r4">Condition of the property</label></div>
         <div class="radio-opt"><input type="radio" name="notfit" id="r5" value="other"><label for="r5">Other</label></div>
-        <input class="form-input" id="notfit-other" placeholder="Please tell us more..." style="margin-top:8px;display:none;">
+        </div>
+        <input class="form-input" id="notfit-other" placeholder="Please tell us more..." style="margin-top:8px;display:none;" aria-label="Other reason">
         <button class="submit-btn btn-red" style="margin-top:14px;" onclick="submitDecision('notfit')">Submit Feedback →</button>
       </div>
     </div>

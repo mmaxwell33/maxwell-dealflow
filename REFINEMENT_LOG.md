@@ -1204,3 +1204,64 @@ A new **✏️ Edit** button appears between Mark Paid and Delete in every Commi
 - **Per-stage subtotals (e.g. "Conditions: $4.2M volume").** Useful but adds another row of UI. Save for an Analytics-tab follow-up.
 
 ---
+
+## PR #29 — `a11y/intake-form-violations`
+
+**Closes:** Audit a11y debt — the axe-core violations on the four public-facing surfaces (`index.html` lock screen, `intake.html` buyer intake, `seller-intake.html` seller intake, `respond.html` viewing response). All were `label` / `form-field` violations: inputs with visible label text in a `<span>` or `<div>`, but no programmatic `for=` / `aria-label` association. Screen reader users heard "edit text" with no context; voice-control users (Dragon, Voice Control on iOS) couldn't say "click the email field." These are the forms your clients fill out — the ones that matter most for "professional finish."
+
+**What it does:**
+
+Converts every visible label that sits above a real form input into a properly-associated `<label for="...">` element. For inputs whose visible label is a *parent container's* title (the price-mode tiles in seller-intake, the lock-screen placeholders), adds `aria-label`. For radio groups, wraps the options in `<div role="radiogroup" aria-labelledby="...">` so screen readers announce the group purpose before the first option.
+
+**Surfaces fixed:**
+
+| File | Inputs labeled | Method |
+|---|---|---|
+| `index.html` lock screen | 2 (email, password) | `aria-label` — there's no visible label text, the placeholder is the de facto label |
+| `intake.html` | 7 (firstname, lastname, email, phone, areas, budget-max, notes) | `<span class="field-label">` → `<label class="field-label" for="…">` |
+| `seller-intake.html` | 8 (firstname, lastname, email, phone, address, ptype, sqft, notes) + 2 (price range, price firm) via `aria-label` | Mix of `<label>` conversion and `aria-label` |
+| `respond.html` | 3 (offer-amount, offer-note, notfit-other) + radio group wrapped | Added `for=` to existing `<label>`; wrapped radio group in `role="radiogroup" aria-labelledby` |
+
+**Approach:**
+
+1. **Two distinct fix patterns, picked per situation.**
+   - **`<label for="…">`** when a visible text label sits in the DOM adjacent to the input. Best practice. Click on the label also focuses the input — bonus UX.
+   - **`aria-label="…"`** when the visible label is not a sibling but a parent's title or the placeholder text itself. Screen reader still announces the field correctly; no visual change.
+
+2. **Radio groups wrapped in `role="radiogroup" aria-labelledby="…"`.** The original `<label class="form-label">What didn't work for you?</label>` was a free-floating label without a `for=` target (there are 5 radio inputs, not 1). Proper pattern: convert that label to a `<span id="notfit-legend">`, then wrap the radios in `<div role="radiogroup" aria-labelledby="notfit-legend">`. Screen readers now announce "Radio group: What didn't work for you? — radio 1 of 5: Price is too high."
+
+3. **Pill groups (multi-select chip pickers) are NOT changed in this PR.** The visible-label `<span class="field-label">` elements that sit above pill groups (Living Situation, Bedrooms, Property Type, etc. in both intake forms) stay as `<span>` for now. The pill `<div>`s themselves aren't form controls (they're styled clickable divs that toggle state and submit a hidden field on form submit), so axe doesn't flag them as "input missing label." The proper long-term fix is to convert the pills to `<button role="radio" aria-checked="…">` inside a `<fieldset role="radiogroup">`, which is a 200+ line refactor across 12 pill groups. Out of scope for this PR; flagged for a future a11y-pills PR.
+
+4. **Honeypot inputs were already correct.** Both intake forms wrap their honeypot inputs in a parent `<div … aria-hidden="true">`, which already tells screen readers to skip them. No change needed.
+
+5. **No CSS changes.** `<label class="field-label">` renders identically to `<span class="field-label">` because the `field-label` rule already sets `display:block`. The visual result is unchanged across all four files.
+
+6. **No JS changes.** Form submission and pill-toggle logic is untouched.
+
+**Files changed:**
+- `index.html` — 2 lines (added `aria-label` to auth inputs).
+- `intake.html` — 7 `<span class="field-label">` → `<label … for="…">` conversions. Plus `role="group" aria-label="…"` on the two pill containers whose adjacent label converted (so the pill group is still semantically connected).
+- `seller-intake.html` — 6 conversions + 2 `aria-label` additions on price-range / price-firm inputs + 1 new `<label for="f-notes">` (was unlabeled entirely).
+- `respond.html` — 2 `for=` additions on existing `<label>` elements + radio group restructured to `role="radiogroup" aria-labelledby`. Plus an `aria-label="Other reason"` on the conditional `notfit-other` input.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS / no helper changes).
+- Manual:
+  - Open the lock screen, tab through email and password fields. Each gets its visible focus ring. macOS VoiceOver (Cmd+F5) announces "Email address, edit text" and "Password, secure edit text" — was just "edit text" before.
+  - Open `/intake.html` in a screen reader. Tab through First Name → Last Name → Email → Phone. Each is announced by its label text. Click on a label text (e.g. "Email Address") — focus jumps into the matching input (was previously a dead click on the span).
+  - Open `/respond.html?t=…`, click "Doesn't Fit". Screen reader announces "Radio group: What didn't work for you? — radio 1 of 5: Price is too high."
+
+**Visual change:** **None.** Every change is structural (label/span semantics, aria attributes). The page renders pixel-identical.
+
+**Risk if rolled back:** Reintroduces the axe violations. No data risk, no behavioral change, no UX regression.
+
+**Performance impact:** Zero. No bytes added that the parser processes meaningfully.
+
+**What's NOT in this PR (deliberate scope cut for future a11y PRs):**
+- **Pill groups → radiogroup pattern.** 12 pill groups across both intake forms, each needs `<fieldset role="radiogroup">` + button-style pill children with `aria-checked`. Big refactor, dedicated PR.
+- **Color contrast audit.** Some intake-form text (placeholder `color:#475569` on `background:#0a0f1e`) may fall below WCAG AA 4.5:1. Needs a contrast pass with axe color rules, separate PR.
+- **Skip links** for keyboard users on the agent app (`index.html`). The lock screen and dashboard would benefit. Small, separate PR.
+- **Heading hierarchy.** Some sections jump from `h2` to `h4`. Cosmetic but flagged by axe `heading-order`. Separate PR.
+
+---
