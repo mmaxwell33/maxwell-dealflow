@@ -1265,3 +1265,71 @@ Converts every visible label that sits above a real form input into a properly-a
 - **Heading hierarchy.** Some sections jump from `h2` to `h4`. Cosmetic but flagged by axe `heading-order`. Separate PR.
 
 ---
+
+## PR #30 — `ui/calendar-refinement`
+
+**Closes:** Phase 2 UI track — the Calendar screen polish, completing the chip + sticky-bar pattern across all three primary navigation surfaces (Clients PR #26, Pipeline PR #28, Calendar PR #30).
+
+**What it does:**
+
+1. **Event-type filter chips** above the calendar grid: `[All] [📅 Showings] [✅ Accepted] [🏦 Financing] [🔍 Inspection] [🚶 Walkthrough] [🔑 Closing] [🏗️ Builder Visit]` — each with a live count. Click one → only that type renders on both the month grid AND the upcoming-events strip below. Zero-count chips are hidden.
+
+2. **Sticky toolbar.** The whole top section (page title + prev/next navigation + view toggle + filter chips) is wrapped in `.cal-toolbar { position: sticky; top: 0; }` so it stays visible as you scroll the upcoming-events list below the grid. Same pattern as Pipeline's `.pl-filter-bar` from PR #28.
+
+3. **Persistence.** Filter type and view (month vs. list) save to `localStorage` under `mdf-calendar-view` and restore on next visit.
+
+**Approach:**
+
+1. **Filter applies in three render paths.** The Calendar renders three areas: the month grid (`_renderMonth`), the upcoming-events strip (`_renderUpcomingInline`), and the list view (`_renderList`). All three now call `Calendar._applyFilter(events)` before building their output. Pure function, easy to test mentally — narrows the array, no side effects.
+
+2. **Type taxonomy lives in `Calendar._TYPES`.** A single array of `{key, label, icon}` drives both the chip render and (by inference) the legend below the grid. Adding a new event type means one array entry + a `cal-dot-X` CSS rule.
+
+3. **`fetchEvents` is unchanged.** Always fetches everything. The filter is purely a render-time narrow, so switching filter doesn't re-hit Supabase.
+
+4. **`.cl-chip` reuse.** Calendar chips use the same `.cl-chip` / `.cl-chip-count` classes introduced in PR #26. Visually identical to the Clients and Pipeline filter chips. The "shared chip" comment in `css/app.css` makes it clear the class isn't Clients-specific.
+
+5. **Sticky bar offsets.** Same z-index (5) and background (`var(--bg)`) treatment as Pipeline's filter bar from PR #28, so cards scroll under it cleanly. The 1px bottom border gives it a subtle anchor.
+
+6. **Mobile breakpoint at 480 px** matches the Pipeline + Clients pattern: chips overflow horizontally with a thin scrollbar instead of wrapping awkwardly.
+
+**Files changed:**
+- `index.html` — wrapped the existing toolbar header in `.cal-toolbar`, added `<div id="cal-filter-chips">` below it.
+- `css/app.css` — `.cal-toolbar`, `.cal-filter-chips` + 480 px responsive variants. ~22 lines.
+- `js/calendar.js` — `_filter`, `_TYPES`, `_loadPrefs`, `_savePrefs`, `setFilter`, `_applyFilter`, `_renderFilterChips` added. `load()` calls `_loadPrefs()` first. `setView()` now saves. `_renderMonth`, `_renderUpcomingInline`, `_renderList` each call `_applyFilter` on the event list before their existing logic. Net ~65 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/calendar.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual test plan (post-deploy):
+  - Open Calendar. See the new chip row below the month nav + view toggle, above the calendar content.
+  - Click `🔑 Closing` → only closing-day cells light up in the month grid, only closings appear in the Upcoming strip.
+  - Click `All` → back to everything.
+  - Switch to List view → chip filter still applies; click `📅 Showings` → list narrows.
+  - Scroll the page down → the toolbar (title + nav + view toggle + chips) stays pinned at the top.
+  - Reload the page → your last filter + view restore.
+  - Switch month with `‹ Prev` / `Next ›` → filter persists across months.
+
+**Visual change:** New filter-chip row between the calendar nav and the calendar grid. Toolbar sticks on scroll. Everything else (the month grid cells, day-detail modal, legend, upcoming-events strip) is unchanged.
+
+**Risk if rolled back:** Loses the event-type filter, persistence, and sticky bar. The legend below the calendar still works as a static reference. No data risk.
+
+**Performance impact:** Negligible. One `array.filter()` pass per render over `Calendar._events` (already in memory). The chip-render iterates the same array once for counts. No new queries.
+
+**Three-screen consistency check (Clients, Pipeline, Calendar):**
+
+| Pattern | Clients (PR #26) | Pipeline (PR #28) | Calendar (PR #30) |
+|---|---|---|---|
+| Stage/type chips with counts | ✅ | ✅ | ✅ |
+| `.cl-chip` styling | ✅ | ✅ | ✅ |
+| Sticky filter bar | (toolbar header only) | ✅ `.pl-filter-bar` | ✅ `.cal-toolbar` |
+| localStorage persistence | ✅ `mdf-clients-view` | ✅ `mdf-pipeline-view` | ✅ `mdf-calendar-view` |
+| `aria-pressed` on active chip | ✅ | ✅ | ✅ |
+| Zero-count chips hidden | ✅ | ✅ | ✅ |
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Date range picker** (jump to a specific month from a calendar widget). Current Prev/Next is fine for ±12 months around today.
+- **Custom event types** (Maxwell creating his own colored event tags for personal use). Out of scope; system tags cover the workflow.
+- **Drag to reschedule** on the month grid. Useful but needs much deeper plumbing (writes to pipeline / viewings / builder_visit_requests tables).
+
+---

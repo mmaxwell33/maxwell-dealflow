@@ -4,6 +4,48 @@ const Calendar = {
   _month:  null,
   _events: [],
   _view:   'month', // 'month' | 'list'
+  // PR #30: event-type filter — 'all' | 'viewing' | 'accepted' | 'financing' |
+  // 'inspection' | 'walkthrough' | 'closing' | 'builder_visit'. Persisted in
+  // localStorage under mdf-calendar-view.
+  _filter: 'all',
+  _TYPES: [
+    { key: 'viewing',       label: 'Showings',     icon: '📅' },
+    { key: 'accepted',      label: 'Accepted',     icon: '✅' },
+    { key: 'financing',     label: 'Financing',    icon: '🏦' },
+    { key: 'inspection',    label: 'Inspection',   icon: '🔍' },
+    { key: 'walkthrough',   label: 'Walkthrough',  icon: '🚶' },
+    { key: 'closing',       label: 'Closing',      icon: '🔑' },
+    { key: 'builder_visit', label: 'Builder Visit',icon: '🏗️' },
+  ],
+
+  _loadPrefs() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('mdf-calendar-view') || 'null');
+      if (raw && typeof raw === 'object') {
+        if (typeof raw.type === 'string') Calendar._filter = raw.type;
+        if (typeof raw.view === 'string') Calendar._view   = raw.view;
+      }
+    } catch (_) {}
+  },
+  _savePrefs() {
+    try {
+      localStorage.setItem('mdf-calendar-view', JSON.stringify({
+        type: Calendar._filter, view: Calendar._view
+      }));
+    } catch (_) {}
+  },
+
+  setFilter(key) {
+    Calendar._filter = key || 'all';
+    Calendar._savePrefs();
+    Calendar.render();
+  },
+
+  // Apply the current event-type filter to a list. Returns a new array.
+  _applyFilter(events) {
+    if (!Calendar._filter || Calendar._filter === 'all') return events;
+    return events.filter(e => e.type === Calendar._filter);
+  },
 
   async load() {
     const now = new Date();
@@ -11,6 +53,7 @@ const Calendar = {
       Calendar._year  = now.getFullYear();
       Calendar._month = now.getMonth();
     }
+    Calendar._loadPrefs(); // PR #30: restore filter + view before first render
     await Calendar.fetchEvents();
     Calendar.render();
   },
@@ -90,8 +133,36 @@ const Calendar = {
     document.querySelectorAll('.cal-view-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === view);
     });
+    Calendar._renderFilterChips();
     if (view === 'month') Calendar._renderMonth();
     else                  Calendar._renderList();
+  },
+
+  // PR #30: render the event-type filter chips above the calendar content.
+  // Counts come from the UNFILTERED event list (facet count pattern).
+  // Zero-count types are hidden so the bar stays tidy.
+  _renderFilterChips() {
+    const el = document.getElementById('cal-filter-chips');
+    if (!el) return;
+    const counts = { all: Calendar._events.length };
+    Calendar._TYPES.forEach(t => counts[t.key] = 0);
+    Calendar._events.forEach(e => {
+      if (counts.hasOwnProperty(e.type)) counts[e.type]++;
+    });
+    const chip = (key, label, icon) => {
+      const pressed = (Calendar._filter === key) ? 'true' : 'false';
+      const lbl = icon ? `${icon} ${label}` : label;
+      return `<button class="cl-chip" aria-pressed="${pressed}"
+        onclick="Calendar.setFilter('${App.escAttr(key)}')">
+        ${App.esc(lbl)}<span class="cl-chip-count">${counts[key]}</span>
+      </button>`;
+    };
+    const chips = [chip('all', 'All')].concat(
+      Calendar._TYPES
+        .filter(t => counts[t.key] > 0)
+        .map(t => chip(t.key, t.label, t.icon))
+    ).join('');
+    el.innerHTML = chips;
   },
 
   // ── Month grid ───────────────────────────────────────────────────────────
@@ -109,9 +180,9 @@ const Calendar = {
     const firstDow   = new Date(year, month, 1).getDay();
     const daysInMon  = new Date(year, month + 1, 0).getDate();
 
-    // Build map of events for this month
+    // Build map of events for this month (PR #30: apply event-type filter)
     const evMap = {};
-    Calendar._events.forEach(e => {
+    Calendar._applyFilter(Calendar._events).forEach(e => {
       const [ey, em] = e.date.split('-').map(Number);
       if (ey !== year || em - 1 !== month) return;
       const d = parseInt(e.date.split('-')[2]);
@@ -164,7 +235,8 @@ const Calendar = {
     let el = document.getElementById('cal-upcoming');
     if (!el) return;
     const today = new Date().toISOString().slice(0,10);
-    const upcoming = Calendar._events
+    // PR #30: respect the event-type filter for the Upcoming strip too
+    const upcoming = Calendar._applyFilter(Calendar._events)
       .filter(e => e.date >= today)
       .slice(0,12);
 
@@ -207,8 +279,10 @@ const Calendar = {
 
     document.getElementById('cal-month-label').textContent = 'All Events';
 
-    const upcoming = Calendar._events.filter(e => e.date >= today);
-    const past     = Calendar._events.filter(e => e.date < today).reverse().slice(0,20);
+    // PR #30: apply event-type filter on the list view too
+    const filteredEvents = Calendar._applyFilter(Calendar._events);
+    const upcoming = filteredEvents.filter(e => e.date >= today);
+    const past     = filteredEvents.filter(e => e.date < today).reverse().slice(0,20);
 
     const section = (title, evs) => {
       if (!evs.length) return '';
@@ -270,6 +344,7 @@ const Calendar = {
 
   setView(v) {
     Calendar._view = v;
+    Calendar._savePrefs(); // PR #30: persist view choice
     Calendar.render();
   },
 

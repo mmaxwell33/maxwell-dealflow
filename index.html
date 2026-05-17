@@ -920,18 +920,22 @@
 
     <!-- CALENDAR SCREEN -->
     <div id="screen-calendar" class="screen" style="padding:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
-        <div style="font-size:18px;font-weight:800;">📆 Calendar</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <button class="btn btn-outline btn-sm" onclick="Calendar.prev()" id="cal-prev-btn">‹ Prev</button>
-          <span id="cal-month-label" style="font-size:14px;font-weight:700;min-width:140px;text-align:center;"></span>
-          <button class="btn btn-outline btn-sm" onclick="Calendar.next()" id="cal-next-btn">Next ›</button>
+      <div class="cal-toolbar">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="font-size:18px;font-weight:800;">📆 Calendar</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="btn btn-outline btn-sm" onclick="Calendar.prev()" id="cal-prev-btn">‹ Prev</button>
+            <span id="cal-month-label" style="font-size:14px;font-weight:700;min-width:140px;text-align:center;"></span>
+            <button class="btn btn-outline btn-sm" onclick="Calendar.next()" id="cal-next-btn">Next ›</button>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm cal-view-btn active" data-view="month" onclick="Calendar.setView('month')">📅 Month</button>
+            <button class="btn btn-outline btn-sm cal-view-btn" data-view="list" onclick="Calendar.setView('list')">📋 List</button>
+            <button class="btn btn-outline btn-sm" onclick="Calendar.goToday()">Today</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-outline btn-sm cal-view-btn active" data-view="month" onclick="Calendar.setView('month')">📅 Month</button>
-          <button class="btn btn-outline btn-sm cal-view-btn" data-view="list" onclick="Calendar.setView('list')">📋 List</button>
-          <button class="btn btn-outline btn-sm" onclick="Calendar.goToday()">Today</button>
-        </div>
+        <!-- PR #30: event-type filter chips -->
+        <div id="cal-filter-chips" class="cal-filter-chips" role="group" aria-label="Filter by event type"></div>
       </div>
       <!-- Calendar content (month grid or list) -->
       <div id="calendar-content" class="card" style="padding:12px;margin-bottom:14px;"></div>
