@@ -1085,3 +1085,61 @@ The active chip is filled with the accent color and shows `aria-pressed="true"`.
 - **"Most Recent Activity" sort** — would require an additional Supabase query for each client's latest viewing/offer/pipeline event. `Recently Added` (by `created_at`) is the cheap 80% solution. Real "Most Recent Activity" can land as a follow-up if you actually use the Recently Added sort enough to feel its limit.
 
 ---
+
+## PR #27 — `ui/edit-commission-modal`
+
+**Closes:** Phase 2 UX gap surfaced this morning when James Owusu's row was filed without a closing date and there was no in-app way to add one without deleting + re-adding the record. PR #22 added Delete + Mark Paid; this PR completes the editing loop with a full Edit modal.
+
+**What it does:**
+A new **✏️ Edit** button appears between Mark Paid and Delete in every Commission History row's action cell. Clicking it opens a modal pre-filled with the row's current values: property address, sale price, commission rate %, brokerage fee %, tax / HST %, closing date, and status. The modal shows a **live preview of the recalculated totals** as you type (same math as the "Record New Commission" form — including the gross + HST → brokerage fix from PR #12). Click **💾 Save Changes** → all derived fields (`gross_commission`, `hst_collected`, `brokerage_fees`, `agent_net`) are rewritten from the new inputs and the row updates. Click **Cancel** or press **Escape** → no changes.
+
+**Approach:**
+
+1. **Status select with explainer captions.** The dropdown shows:
+   - `Closed (auto-promotes to Paid)` — the system's default, auto-graduates 2 days after close_date.
+   - `Paid` — explicitly closed, no auto-logic.
+   - `Pending (manual hold)` — short-circuits the date-based promotion; useful when a closing is delayed.
+   - `Archived` — fell-through deals, excluded from earnings totals.
+   The labels make the "why does this status work this way" question answer itself — surfaces the rules from `Commission.statusFrom()` directly in the UI.
+
+2. **Recovers original % rates from stored values when the row is too old to have them.** Rows created before the `commission_rate` and `brokerage_fee_rate` columns started getting stored explicitly can still be edited — we back-compute the rates from `gross_commission / sale_price * 100` and similar inversions. Default fallbacks (2.5% / 20% / 15%) protect against zero-divides.
+
+3. **Live preview reuses the same math as the create form.** A new method `calcEditPreview()` mirrors `calcPreview()` but reads from `cme-*` inputs instead of `cm-*`. Both code paths compute `brokerFee = (gross + hst) * brokerPct / 100` (the PR #12 correction). Net Earnings recomputes on every keystroke.
+
+4. **Client name + agent_id intentionally NOT editable.** Changing a row's client mid-flight breaks reconciliation. If a commission was filed against the wrong client, delete and re-add (now both buttons are one click away — PR #22 + this PR).
+
+5. **Reuses `App.openModal/closeModal`.** Picks up PR #13's focus trap automatically — Tab cycles inside the modal, Escape closes, focus returns to the row's ✏️ button on close.
+
+6. **Validation.** Empty property address or zero sale price → inline error message in red, no save. Otherwise saves and toasts "✅ Commission updated".
+
+7. **All injected strings escaped.** Client name, property address, and id pass through `App.esc` / `App.escAttr` — a row whose `property_address` is `<img src=x>` won't break the modal markup.
+
+**Files changed:**
+- `js/extras.js` — three new methods on `Commission`: `openEdit(id)`, `calcEditPreview()`, `saveEdit(id)`. Render code extended to include the ✏️ button between Mark Paid and Delete. Net ~145 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/extras.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual test plan (post-deploy):
+  - On the Commissions screen, every row should have ✏️ between the ✅ and 🗑️ buttons. Paid rows show ✏️ + 🗑️ (no ✅).
+  - Click ✏️ on James Owusu's row → modal opens pre-filled with his current sale price, rate, fees, date, status.
+  - Type into Sale Price → preview at bottom of modal updates live (gross, HST, brokerage, net all reflow).
+  - Change Commission Rate from 2.5 to 3 → preview reflows, brokerage recalculates on the new gross+HST.
+  - Change Status to Pending → save → row in the table now shows Pending, status pill yellow.
+  - Change Status back to Closed → save → row promotes back to Paid (close_date in past, auto-graduates).
+  - Click ✏️ on a paid row → modal opens → press Escape → no change. Click again → click Cancel → no change.
+  - Tab around inside the modal → focus stays inside (PR #13 trap working).
+
+**Visual change:** One new ✏️ button per Commission History row, between ✅ Mark Paid and 🗑️ Delete. Click opens a modal modeled after the "Record New Commission" form with the same look-and-feel.
+
+**Risk if rolled back:** Loses the edit affordance; you'd be back to Delete + Re-add for any row correction. No data risk.
+
+**Performance impact:** Zero on render time (one extra `<button>` per row). Each save fires one targeted UPDATE.
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Reassign client** (change which client a commission is filed against). Recommended path: delete + create. The audit trail is cleaner that way.
+- **Bulk edit** (multi-select rows, change status on all). Not at his deal volume.
+- **Undo toast on save** — the current save is immediate. Mistaken edits can be re-edited with another click; no undo needed for a reversible action.
+
+---
