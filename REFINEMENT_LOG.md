@@ -845,3 +845,52 @@ Behavior is unchanged for Supabase / Google APIs / non-GET requests — those st
 **Performance impact:** Dramatic improvement on flaky / slow connections. First-paint time on a slow 3G page load drops from "30s or until the connection gives up" to "instant cache + 3s race with the network." On a healthy connection, no measurable difference — fetch wins the 3s race in tens of milliseconds.
 
 ---
+
+## PR #17 — `chore/onSignedIn-setTimeout-cleanup`
+
+**Closes:** AUDIT_REPORT.md §3.5 — fragile setTimeout cascade in `App.onSignedIn`.
+
+**The problem:**
+After login, `App.onSignedIn` kicked off background work (badges, deadline checks, push permission, realtime subscriptions, inactive-client scans) via 14 separate `setTimeout(fn, magicNumber)` calls. Magic numbers were 400, 1500, 1800, 2000, 2200, 2500, 3000, 4000, 4500, 5000, 6000, and 7000 ms. The values had no dependency relationship — they were just spaced apart so the work wouldn't pile up at once. Three real consequences:
+
+1. **Sluggish first impression.** The dashboard showed empty badges, no notifications, no pending offers, and no checked deadlines for up to 7 seconds after login. A fast user could click through three tabs and see stale empties on each.
+2. **Maintenance hazard.** Adding a new background job meant picking a "free" time slot and hoping it didn't collide with existing work. Reordering jobs required updating multiple unrelated numbers.
+3. **Push-permission prompt arrived too early.** `App.requestNotifyPermission()` ran 3000 ms after login — usually before the dashboard had finished rendering — so the user saw "Allow notifications?" before they knew where they were.
+
+**Approach:**
+Replaced the cascade with a single declarative queue. The new helper `App._scheduleStartupJobs(jobs)` accepts an array of zero-arg thunks and drains them one at a time via `requestIdleCallback` (with a `setTimeout(fn, 0)` fallback for Safari), wrapped in try/catch so a thrown error in one job doesn't kill the queue. Each job yields the main thread before the next runs.
+
+```js
+App._scheduleStartupJobs([
+  () => SystemTools.loadSavedTheme(),
+  () => Notify.updateBadge(),
+  () => Responses.updateBadge(),
+  // … 11 more …
+]);
+```
+
+Effect on timing:
+- Old behavior: 14 jobs spread across 400 ms – 7000 ms, intermixed with the browser's first-paint work.
+- New behavior: queue starts after first paint (when the browser reports idle), jobs run back-to-back at idle-frame intervals, all 14 typically finish within 100–300 ms after first paint.
+
+The 5 `setInterval` polls (Notify.checkCompletedViewings, PendingOffers.load, Inbox.syncGmail, Offers.checkFollowUps, Notify.checkInactiveClients) were extracted into their own clearly-labeled "Periodic background polls" block right below the startup queue. Functionally unchanged; just no longer interleaved with one-shot bootstraps.
+
+**Files changed:**
+- `js/app.js` — `App.onSignedIn()` bootstrap section rewritten (was 35 lines of cascading setTimeouts, now 25 lines: declarative queue + grouped intervals). New helper `App._scheduleStartupJobs()` (~15 lines) added below.
+
+**Verification:**
+- `node -c js/app.js` — syntax OK.
+- `npm test` — 28/28 vitest pass.
+- `grep "setTimeout|setInterval" js/app.js` confirmed no leftover one-shot setTimeouts in `onSignedIn`. Only the 5 `setInterval`s remain (intentional periodic polls) plus the `setTimeout(fn, 0)` fallback inside the helper.
+- Manual: signed in, watched DevTools Performance tab. First paint completes around 400 ms; the 14 startup jobs complete in a tight cluster between 400 ms and 700 ms instead of trickling in over 7 s.
+
+**Visual change:** Badges, deadline checks, and pending-offers tile populate within ~half a second of the dashboard appearing, instead of trickling in over 7 seconds. The "Allow notifications?" prompt now appears after the dashboard has fully rendered.
+
+**Risk if rolled back:** Reverts to the 7-second-trickle behavior; no data risk. The new pattern is purely a scheduling reorganization — every job function called is unchanged.
+
+**Performance impact:**
+- Time-to-fully-loaded-dashboard drops from ~7 s to <1 s.
+- Main thread blocked less during bootstrap (each idle-callback yields).
+- No new dependencies, no new APIs introduced beyond standard `requestIdleCallback` with a 2-line polyfill fallback.
+
+---
