@@ -1,0 +1,20 @@
+{
+  "name": "maxwell-dealflow",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Maxwell DealFlow CRM — vanilla JS PWA. This package.json exists only to host dev-only test tooling; the production app has no Node dependencies.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "serve": "npx --yes serve -l 3000 ."
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "^1.49.1",
+    "axe-core": "^4.10.2",
+    "vitest": "^2.1.9"
+  }
+}

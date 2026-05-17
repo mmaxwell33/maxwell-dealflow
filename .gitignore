@@ -29,3 +29,10 @@ NotebookLM_Prompt.md
 MASTER_BUILDER_PROMPT.md
 SCREENSHOT_CHECKLIST.md
 AUDIT.md
+
+# Test infra (PR #6)
+node_modules/
+package-lock.json
+playwright-report/
+test-results/
+.vitest-cache/
