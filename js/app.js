@@ -203,49 +203,66 @@ const App = {
     document.getElementById('app').style.display = 'flex';
     // Apply saved photo IMMEDIATELY after app becomes visible (no delay)
     if (window.Settings) Settings.loadSavedPhoto();
-    // Load initial data
+    // Load critical first-paint data in parallel.
+    // loadOverview is awaited so the dashboard tiles render before we hand off.
     await App.loadOverview();
     Clients.load();
     Viewings.load();
     Offers.load();
     Pipeline.load();
     App.restoreGroupStates();
-    setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
-    // Check for upcoming condition/closing deadlines and queue reminder emails
-    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
-    // Auto-complete past viewings and notify agent to record feedback
-    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 2500);
-    // Re-check every 5 minutes while app is open (so agent doesn't have to reload)
-    setInterval(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
-    // Load pending offers from clients on dashboard
-    setTimeout(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 3000);
-    // Re-check pending offers every 5 minutes
-    setInterval(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 5 * 60 * 1000);
-    // Update approvals badge
-    setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
-    // Load notification bell count
-    setTimeout(() => App.loadNotifications(), 2200);
-    // Update client responses badge
-    setTimeout(() => { if (typeof Responses !== "undefined") Responses.updateBadge(); }, 1800);
-    // Update inbox unread badge
-    setTimeout(() => { if (typeof Inbox !== "undefined") Inbox.updateBadge(); }, 2000);
-    // Auto-sync Gmail inbox every 5 minutes for new replies
-    setInterval(() => { if (typeof Inbox !== "undefined") Inbox.syncGmail(true); }, 5 * 60 * 1000);
-    // Request browser push notification permission
-    setTimeout(() => App.requestNotifyPermission(), 3000);
-    // Check for new intake form submissions and notify agent
-    setTimeout(() => App.checkNewIntakes(), 4000);
-    // Check for pending client offer requests and notify agent
-    setTimeout(() => App.checkNewRequests(), 4500);
-    // Subscribe to real-time offer requests (instant notification when client submits)
-    setTimeout(() => App.subscribeToRequests(), 5000);
-    // Check for overdue seller response follow-ups on login + every 5 minutes
-    setTimeout(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 6000);
+
+    // ── Background startup jobs (PR #17) ─────────────────────────────────
+    // Previously a cascade of setTimeout calls with magic delays (400 ms,
+    // 1500, 2000, 2500, 3000, 4000, 4500, 5000, 6000, 7000). They raced
+    // the network and the agent saw an empty UI for up to 7 s while jobs
+    // trickled in. Now we drain a single queue via requestIdleCallback,
+    // so jobs start ~tens of ms after first paint, in declared order,
+    // without blocking the main thread.
+    App._scheduleStartupJobs([
+      () => window.SystemTools && SystemTools.loadSavedTheme(),
+      () => typeof Notify !== 'undefined' && Notify.updateBadge(),
+      () => typeof Responses !== 'undefined' && Responses.updateBadge(),
+      () => typeof Inbox !== 'undefined' && Inbox.updateBadge(),
+      () => App.loadNotifications(),
+      () => typeof Notify !== 'undefined' && Notify.checkConditionDeadlines(),
+      () => typeof Notify !== 'undefined' && Notify.checkCompletedViewings(),
+      () => typeof PendingOffers !== 'undefined' && PendingOffers.load(),
+      () => App.requestNotifyPermission(),
+      () => App.checkNewIntakes(),
+      () => App.checkNewRequests(),
+      () => App.subscribeToRequests(),
+      () => typeof Offers !== 'undefined' && Offers.checkFollowUps(),
+      () => typeof Notify !== 'undefined' && Notify.checkInactiveClients(7),
+    ]);
+
+    // ── Periodic background polls ────────────────────────────────────────
+    // Intervals are kept separate from one-shot startup jobs above; they
+    // run forever once started. Page reloads reset them naturally.
+    setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
+    setInterval(() => { if (typeof PendingOffers !== 'undefined') PendingOffers.load(); }, 5 * 60 * 1000);
+    setInterval(() => { if (typeof Inbox !== 'undefined') Inbox.syncGmail(true); }, 5 * 60 * 1000);
     setInterval(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 5 * 60 * 1000);
-    // Scan for inactive clients (no activity in 7+ days) on login + every 6 hours.
-    // Queues a stage-appropriate re-engagement email through Approvals.
-    setTimeout(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 7000);
     setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 6 * 60 * 60 * 1000);
+  },
+
+  // Drain a queue of zero-arg job functions one at a time, yielding to the
+  // main thread between each so first paint and user input stay smooth.
+  // Uses requestIdleCallback where available (Chrome, Edge, Firefox) and
+  // a setTimeout(0) fallback on Safari. Each job is wrapped in try/catch
+  // so a thrown error doesn't stop subsequent jobs.
+  _scheduleStartupJobs(jobs) {
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 0));
+    let i = 0;
+    const next = () => {
+      if (i >= jobs.length) return;
+      const job = jobs[i++];
+      ric(() => {
+        try { job(); } catch (err) { App.logError && App.logError(err, '_scheduleStartupJobs'); }
+        next();
+      }, { timeout: 2000 });
+    };
+    next();
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
