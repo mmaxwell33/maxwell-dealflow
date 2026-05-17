@@ -723,6 +723,9 @@ const Commission = {
                    onclick="Commission.confirmMarkPaid('${idAttr}','${nameAttr}','${propAttr}')"
                    style="background:none;border:none;color:var(--green);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:6px;">✅</button>`
               : '';
+            const editBtn = `<button class="cm-row-act" title="Edit commission" aria-label="Edit commission"
+                onclick="Commission.openEdit('${idAttr}')"
+                style="background:none;border:none;color:var(--accent);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;">✏️</button>`;
             const deleteBtn = `<button class="cm-row-act" title="Delete commission" aria-label="Delete commission"
                 onclick="Commission.confirmDelete('${idAttr}','${nameAttr}','${propAttr}')"
                 style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;">🗑️</button>`;
@@ -739,7 +742,7 @@ const Commission = {
               <td style="padding:11px 14px;text-align:center;">
                 <span class="pill2 ${status==='Paid'?'pill2-green':status==='Closed'?'pill2-neutral':'pill2-amber'}">${status}</span>
               </td>
-              <td style="padding:11px 8px;text-align:center;white-space:nowrap;">${markPaidBtn}${deleteBtn}</td>
+              <td style="padding:11px 8px;text-align:center;white-space:nowrap;">${markPaidBtn}${editBtn}${deleteBtn}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>
@@ -805,6 +808,155 @@ const Commission = {
     App.closeModal();
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.toast('✅ Marked as Paid');
+    Commission.load();
+  },
+
+  // PR #27: Edit Commission modal. Pre-fills with current row values, lets
+  // Maxwell adjust property address / sale price / rate / brokerage % / tax % /
+  // close date / status, and rewrites all derived fields (gross, hst,
+  // brokerage_fees, agent_net) on save using the same gross+HST→brokerage
+  // math from PR #12. Client name + agent_id intentionally NOT editable —
+  // if a row was filed against the wrong client, delete and re-add.
+  openEdit(id) {
+    const c = Commission.all.find(x => x.id === id);
+    if (!c) { App.toast('⚠️ Commission not found', 'var(--red)'); return; }
+    const idAttr = App.escAttr(c.id);
+    const property = App.esc(c.property_address || '');
+    const sale = c.sale_price || 0;
+    // Recover the original % rates from the stored values; fall back to defaults if the
+    // row is too old to have them stored explicitly.
+    const rate = c.commission_rate || (sale ? (c.gross_commission || 0) * 100 / sale : 2.5);
+    const brokerPct = c.brokerage_fee_rate || 20;
+    const taxPct = sale && c.gross_commission ? (c.hst_collected || 0) * 100 / c.gross_commission : 15;
+    const closeDate = c.close_date || '';
+    const status = c.status || 'Closed';
+    App.openModal(`
+      <h3 style="margin:0 0 14px;font-size:18px;">✏️ Edit Commission</h3>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        <strong>${App.esc(c.client_name || '—')}</strong>
+        ${c.id ? `<span style="font-family:monospace;color:var(--text3);margin-left:6px;">#${(c.id||'').slice(-6).toUpperCase()}</span>` : ''}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Property Address</label>
+        <input class="form-input" id="cme-property" value="${property}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Sale Price</label>
+          <input class="form-input" id="cme-sale" type="number" step="0.01" value="${sale}" oninput="Commission.calcEditPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Commission Rate (%)</label>
+          <input class="form-input" id="cme-rate" type="number" step="0.01" value="${rate}" oninput="Commission.calcEditPreview()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Brokerage Fee (%)</label>
+          <input class="form-input" id="cme-broker" type="number" step="0.01" value="${brokerPct}" oninput="Commission.calcEditPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tax / HST (%)</label>
+          <input class="form-input" id="cme-tax" type="number" step="0.01" value="${taxPct}" oninput="Commission.calcEditPreview()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Closing Date</label>
+          <input class="form-input" id="cme-close-date" type="date" value="${closeDate}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-input form-select" id="cme-status">
+            <option value="Closed"   ${status==='Closed'   ? 'selected':''}>Closed (auto-promotes to Paid)</option>
+            <option value="Paid"     ${status==='Paid'     ? 'selected':''}>Paid</option>
+            <option value="Pending"  ${status==='Pending'  ? 'selected':''}>Pending (manual hold)</option>
+            <option value="Archived" ${status==='Archived' ? 'selected':''}>Archived</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="cme-preview" style="background:var(--bg);padding:12px;border-radius:8px;margin:14px 0 8px;"></div>
+      <div id="cme-msg" style="font-size:13px;min-height:18px;margin-bottom:8px;"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn2 btn2-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn2 btn2-primary" onclick="Commission.saveEdit('${idAttr}')">💾 Save Changes</button>
+      </div>
+    `);
+    // initial preview render
+    Commission.calcEditPreview();
+  },
+
+  // Same math as calcPreview() but reads from the cme-* (edit-modal) inputs.
+  calcEditPreview() {
+    const sale = parseFloat(document.getElementById('cme-sale')?.value) || 0;
+    const rate = parseFloat(document.getElementById('cme-rate')?.value) || 0;
+    const brokerPct = parseFloat(document.getElementById('cme-broker')?.value) || 0;
+    const taxPct = parseFloat(document.getElementById('cme-tax')?.value) || 0;
+    const prev = document.getElementById('cme-preview');
+    if (!prev) return;
+    if (!sale || !rate) {
+      prev.innerHTML = `<div style="color:var(--text3);font-size:12px;text-align:center;">Enter sale price + rate to see new totals.</div>`;
+      return;
+    }
+    const gross = sale * rate / 100;
+    const hst = gross * taxPct / 100;
+    const grossPlusTax = gross + hst;
+    const brokerFee = grossPlusTax * brokerPct / 100;
+    const net = grossPlusTax - brokerFee;
+    prev.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
+        <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
+        <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
+        <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
+        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross + HST):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
+      </div>`;
+  },
+
+  async saveEdit(id) {
+    const msg = document.getElementById('cme-msg');
+    const property = document.getElementById('cme-property')?.value.trim();
+    const sale = parseFloat(document.getElementById('cme-sale')?.value) || 0;
+    if (!property || !sale) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '⚠️ Property address and sale price are required.';
+      return;
+    }
+    const rate      = parseFloat(document.getElementById('cme-rate')?.value)   || 2.5;
+    const brokerPct = parseFloat(document.getElementById('cme-broker')?.value) || 20;
+    const taxPct    = parseFloat(document.getElementById('cme-tax')?.value)    || 15;
+    const closeDate = document.getElementById('cme-close-date')?.value || null;
+    const status    = document.getElementById('cme-status')?.value || 'Closed';
+    // Same gross+HST→brokerage math as saveNew() (PR #12 fix)
+    const gross = sale * rate / 100;
+    const hst = gross * taxPct / 100;
+    const grossPlusTax = gross + hst;
+    const brokerFee = grossPlusTax * brokerPct / 100;
+    const net = grossPlusTax - brokerFee;
+    msg.style.color = 'var(--text2)';
+    msg.textContent = 'Saving...';
+    const { error } = await db.from('commissions').update({
+      property_address: property,
+      sale_price: sale,
+      commission_rate: rate,
+      gross_commission: gross,
+      hst_collected: hst,
+      brokerage_fee_rate: brokerPct,
+      brokerage_fees: brokerFee,
+      agent_net: net,
+      close_date: closeDate,
+      status: status,
+    }).eq('id', id);
+    if (error) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '⚠️ ' + error.message;
+      return;
+    }
+    App.closeModal();
+    App.toast('✅ Commission updated');
     Commission.load();
   },
 
