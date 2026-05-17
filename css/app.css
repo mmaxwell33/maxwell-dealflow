@@ -1391,3 +1391,49 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   #clients-stage-chips::-webkit-scrollbar { height: 4px; }
   #clients-stage-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 }
+
+/* ── Pipeline filter bar + section headers (PR #28) ───────────────────── */
+/* Sticky filter bar pinned to top of #main-content so the chips stay
+   visible while scrolling a long deal list. The negative margin offsets
+   the screen's own padding so the bar can reach edge-to-edge. */
+.pl-filter-bar {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--bg);
+  padding: 10px 0 14px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+.pl-filter-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.pl-filter-row + .pl-filter-row { margin-top: 6px; }
+
+/* Section headers shared by Active / Closed / Fell Through. Unified look. */
+.pl-section-header {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.pl-section-icon { font-size: 16px; flex-shrink: 0; }
+.pl-section-label {
+  font-weight: 800; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text);
+}
+.pl-section-chevron {
+  margin-left: auto;
+  color: var(--text3);
+  font-size: 11px;
+  transition: transform 120ms;
+}
+.pl-section-header.pl-collapsed .pl-section-chevron {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 480px) {
+  .pl-filter-row { gap: 4px; }
+  .pl-filter-bar { padding-top: 8px; padding-bottom: 10px; }
+}

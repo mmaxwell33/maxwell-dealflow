@@ -1143,3 +1143,64 @@ A new **✏️ Edit** button appears between Mark Paid and Delete in every Commi
 - **Undo toast on save** — the current save is immediate. Mistaken edits can be re-edited with another click; no undo needed for a reversible action.
 
 ---
+
+## PR #28 — `ui/pipeline-kanban-polish`
+
+**Closes:** Phase 2 UI track — Pipeline screen polish. Originally scoped as "full kanban with drag-and-drop columns" but de-scoped after reading `js/offers.js` and realising the existing card layout is too information-dense to fit in column form. This PR does the realistic polish: better filtering, visual consistency with the rest of Phase 2.
+
+**What it does:**
+
+1. **Three-axis filtering with persistence.** The existing two filter rows (deal type, side) gain a new primary axis: **stage**. A row of chips at the top — `[All] [Accepted] [Conditions] [Closing] [Closed] [Fell Through]` — narrows the visible deals to a single stage. Combines additively with the existing deal_type and deal_side filters. All three filter values persist to `localStorage` under `mdf-pipeline-view`, so reloading the page restores your view exactly where you left it.
+
+2. **Visual unification with Clients list.** All three filter rows now use the same `.cl-chip` class introduced in PR #26 — same rounded pill shape, same count badge style, same accent-color active state with `aria-pressed`. Pipeline + Clients look like they were designed by one team because they were.
+
+3. **Sticky filter bar.** The chip rows are wrapped in `.pl-filter-bar { position: sticky; top: 0; }` so as you scroll a long deal list, the filters stay visible at the top of `#main-content`. Click a chip without scrolling back to the top.
+
+4. **Unified section headers.** The "Closed Deals (N)" and "Fell Through (N)" collapsible headers existed already, but Active deals just dumped into the list with no header — visually inconsistent. Now there's a matching **"Active Deals (N)"** header (🔵 icon, same `.pl-section-header` class) above the active section. Click any of the three headers to collapse/expand. The chevron flips on collapse via CSS class.
+
+5. **Empty filter state.** When a filter narrows to zero results, you now see "No deals match this filter." instead of the empty-state "🚀 No active deals" message that was reserved for the truly-empty case.
+
+**Approach:**
+
+1. **Stage filter is additive, not exclusive.** Picking "Conditions" doesn't reset deal_type or side. Each axis is its own independent slice. This matches how Maxwell mentally filters in conversation ("show me my Conditions deals on the buy side").
+
+2. **Counts use the un-narrowed universe.** Each chip's count badge reflects the *total* count of that facet across all deals, not the count after the other filters apply. This is the standard "facet count" pattern (Google Shopping, Airbnb) — counts stay stable, you can see what's available before narrowing further. Zero-count chips are hidden (except "All", always shown).
+
+3. **One generic chip helper.** `chipBtn(key, label, count, handler)` replaces the three inline-styled chip helpers (each of which built its own button via template-literal inline styles). Handler is `{fn: 'setStageFilter', current: stageFilter}` — generic across all three axes.
+
+4. **Sticky-bar offsets.** The bar uses the screen's own background color (`var(--bg)`) and a 1px bottom border so cards scrolling past look like they're sliding under it, not bumping into it. `z-index: 5` keeps it above cards but below modals (z-index 10000) and the topbar (z-index 200).
+
+5. **Section-header class consolidation.** Was three separate inline styles before (margin / display flex / gap / icon color / typography) — now one `.pl-section-header` class with `.pl-section-icon`, `.pl-section-label`, `.pl-section-chevron` children. Hover and collapsed states handled via the parent class.
+
+6. **No drag-and-drop, no column restructuring, no breaking changes to existing card rendering.** The detailed cards (progress bars, milestones, reschedule logic, stakeholder strips, new-build status tickers) are completely untouched.
+
+**Files changed:**
+- `js/offers.js` — `Pipeline` namespace gains `currentStageFilter`, `setStageFilter`, `_loadPrefs`, `_savePrefs`. `load()` calls `_loadPrefs()` first. `render()` filter-row block rewritten to use a single `chipBtn` helper + three filter rows. Active-section rendering gains a matching collapsible header. `toggleSection` toggles a CSS class for the chevron animation. Net ~95 lines changed (mostly replacing inline-styled chips with the new helper).
+- `css/app.css` — new `.pl-filter-bar`, `.pl-filter-row`, `.pl-section-header`, `.pl-section-icon`, `.pl-section-label`, `.pl-section-chevron`, `.pl-collapsed` rules. Plus 480 px breakpoint that tightens chip gaps. Net ~50 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/offers.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual test plan (post-deploy):
+  - Open Pipeline. See three rows of chips at the top: stage (top), deal type (middle), side (bottom).
+  - Click `Conditions` stage chip → only Conditions-stage deals show. Chip turns accent color.
+  - Click `🏠 Existing Home` → narrows further; the Conditions chip stays active. Counts on the chips remain showing the universe totals.
+  - Reload the page. Both filters restore. Sort selector unchanged.
+  - Scroll down a long pipeline → filter bar stays pinned at the top.
+  - Click the "Active Deals (N)" header → section collapses, chevron flips down. Click again → expands.
+  - Same for "Closed Deals (N)" and "Fell Through (N)".
+  - Narrow to a filter combo with zero deals → "No deals match this filter." shows.
+
+**Visual change:** Three filter chip rows at the top (was two, styled differently from elsewhere in the app). Sticky on scroll. Section headers match across Active / Closed / Fell Through. Everything else (the deal cards themselves) is unchanged.
+
+**Risk if rolled back:** Loses the stage filter, the persistence, the sticky bar, and the unified section header style. Filter chips revert to inline-styled buttons. No data risk.
+
+**Performance impact:** Negligible. Three independent filter passes over the deals array (already happening, just split out from one nested chain). Saving to localStorage is one tiny JSON write per click.
+
+**What's NOT in this PR (scoped out from the original "kanban polish" idea):**
+- **Kanban columns (Searching → Accepted → Conditions → Closing).** The cards are too tall and information-rich to lay out in vertical columns without a major card-shape redesign. Real kanban will be its own multi-hour PR with a card-summary alternative view.
+- **Drag-and-drop stage changes.** Same reason — needs the card view to support it. Currently stages change via the in-card date inputs and the dedicated stage transition logic.
+- **Per-stage subtotals (e.g. "Conditions: $4.2M volume").** Useful but adds another row of UI. Save for an Analytics-tab follow-up.
+
+---
