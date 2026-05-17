@@ -139,17 +139,17 @@ const App = {
     errEl.textContent = '';
     if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return; }
 
-    // Brute-force protection is enforced server-side by Supabase Auth's
-    // built-in rate limiter (30 sign-in attempts / hour / IP). A previous
-    // client-side localStorage counter was removed in PR #15 — it locked
-    // Maxwell out on his own typos and offered no real protection to an
-    // attacker, who would just clear localStorage or open a fresh tab.
-
-    // Clear any leftover lockout keys from older app versions
-    try {
-      localStorage.removeItem('mdf-login-lock');
-      localStorage.removeItem('mdf-login-attempts');
-    } catch (_) {}
+    // ── BRUTE-FORCE PROTECTION ────────────────────────────────────────────
+    // Track failed attempts in localStorage — lock out for 15 min after 5 fails
+    const lockKey = 'mdf-login-lock';
+    const attemptsKey = 'mdf-login-attempts';
+    const lockData = JSON.parse(localStorage.getItem(lockKey) || 'null');
+    if (lockData && Date.now() < lockData.until) {
+      const minsLeft = Math.ceil((lockData.until - Date.now()) / 60000);
+      errEl.textContent = `🔒 Too many failed attempts. Try again in ${minsLeft} minute${minsLeft > 1 ? 's' : ''}.`;
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     const btn = document.querySelector('.lock-btn') || document.querySelector('.auth-btn');
     if (btn) { btn.textContent = 'Unlocking...'; btn.disabled = true; }
@@ -157,9 +157,22 @@ const App = {
     if (btn) { btn.textContent = 'Unlock'; btn.disabled = false; }
 
     if (error) {
-      errEl.textContent = error.message;
+      // Increment failed attempt counter
+      const attempts = parseInt(localStorage.getItem(attemptsKey) || '0') + 1;
+      if (attempts >= 5) {
+        localStorage.setItem(lockKey, JSON.stringify({ until: Date.now() + 15 * 60 * 1000 }));
+        localStorage.removeItem(attemptsKey);
+        errEl.textContent = '🔒 Account locked for 15 minutes due to too many failed attempts.';
+      } else {
+        localStorage.setItem(attemptsKey, String(attempts));
+        const remaining = 5 - attempts;
+        errEl.textContent = `${error.message} (${remaining} attempt${remaining > 1 ? 's' : ''} remaining)`;
+      }
       return;
     }
+    // Clear failed attempts on successful login
+    localStorage.removeItem(attemptsKey);
+    localStorage.removeItem(lockKey);
   },
 
   showSignUp() {
@@ -203,66 +216,49 @@ const App = {
     document.getElementById('app').style.display = 'flex';
     // Apply saved photo IMMEDIATELY after app becomes visible (no delay)
     if (window.Settings) Settings.loadSavedPhoto();
-    // Load critical first-paint data in parallel.
-    // loadOverview is awaited so the dashboard tiles render before we hand off.
+    // Load initial data
     await App.loadOverview();
     Clients.load();
     Viewings.load();
     Offers.load();
     Pipeline.load();
     App.restoreGroupStates();
-
-    // ── Background startup jobs (PR #17) ─────────────────────────────────
-    // Previously a cascade of setTimeout calls with magic delays (400 ms,
-    // 1500, 2000, 2500, 3000, 4000, 4500, 5000, 6000, 7000). They raced
-    // the network and the agent saw an empty UI for up to 7 s while jobs
-    // trickled in. Now we drain a single queue via requestIdleCallback,
-    // so jobs start ~tens of ms after first paint, in declared order,
-    // without blocking the main thread.
-    App._scheduleStartupJobs([
-      () => window.SystemTools && SystemTools.loadSavedTheme(),
-      () => typeof Notify !== 'undefined' && Notify.updateBadge(),
-      () => typeof Responses !== 'undefined' && Responses.updateBadge(),
-      () => typeof Inbox !== 'undefined' && Inbox.updateBadge(),
-      () => App.loadNotifications(),
-      () => typeof Notify !== 'undefined' && Notify.checkConditionDeadlines(),
-      () => typeof Notify !== 'undefined' && Notify.checkCompletedViewings(),
-      () => typeof PendingOffers !== 'undefined' && PendingOffers.load(),
-      () => App.requestNotifyPermission(),
-      () => App.checkNewIntakes(),
-      () => App.checkNewRequests(),
-      () => App.subscribeToRequests(),
-      () => typeof Offers !== 'undefined' && Offers.checkFollowUps(),
-      () => typeof Notify !== 'undefined' && Notify.checkInactiveClients(7),
-    ]);
-
-    // ── Periodic background polls ────────────────────────────────────────
-    // Intervals are kept separate from one-shot startup jobs above; they
-    // run forever once started. Page reloads reset them naturally.
-    setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
-    setInterval(() => { if (typeof PendingOffers !== 'undefined') PendingOffers.load(); }, 5 * 60 * 1000);
-    setInterval(() => { if (typeof Inbox !== 'undefined') Inbox.syncGmail(true); }, 5 * 60 * 1000);
+    setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 400);
+    // Check for upcoming condition/closing deadlines and queue reminder emails
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkConditionDeadlines(); }, 2000);
+    // Auto-complete past viewings and notify agent to record feedback
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 2500);
+    // Re-check every 5 minutes while app is open (so agent doesn't have to reload)
+    setInterval(() => { if (typeof Notify !== "undefined") Notify.checkCompletedViewings(); }, 5 * 60 * 1000);
+    // Load pending offers from clients on dashboard
+    setTimeout(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 3000);
+    // Re-check pending offers every 5 minutes
+    setInterval(() => { if (typeof PendingOffers !== "undefined") PendingOffers.load(); }, 5 * 60 * 1000);
+    // Update approvals badge
+    setTimeout(() => { if (typeof Notify !== "undefined") Notify.updateBadge(); }, 1500);
+    // Load notification bell count
+    setTimeout(() => App.loadNotifications(), 2200);
+    // Update client responses badge
+    setTimeout(() => { if (typeof Responses !== "undefined") Responses.updateBadge(); }, 1800);
+    // Update inbox unread badge
+    setTimeout(() => { if (typeof Inbox !== "undefined") Inbox.updateBadge(); }, 2000);
+    // Auto-sync Gmail inbox every 5 minutes for new replies
+    setInterval(() => { if (typeof Inbox !== "undefined") Inbox.syncGmail(true); }, 5 * 60 * 1000);
+    // Request browser push notification permission
+    setTimeout(() => App.requestNotifyPermission(), 3000);
+    // Check for new intake form submissions and notify agent
+    setTimeout(() => App.checkNewIntakes(), 4000);
+    // Check for pending client offer requests and notify agent
+    setTimeout(() => App.checkNewRequests(), 4500);
+    // Subscribe to real-time offer requests (instant notification when client submits)
+    setTimeout(() => App.subscribeToRequests(), 5000);
+    // Check for overdue seller response follow-ups on login + every 5 minutes
+    setTimeout(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 6000);
     setInterval(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 5 * 60 * 1000);
+    // Scan for inactive clients (no activity in 7+ days) on login + every 6 hours.
+    // Queues a stage-appropriate re-engagement email through Approvals.
+    setTimeout(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 7000);
     setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 6 * 60 * 60 * 1000);
-  },
-
-  // Drain a queue of zero-arg job functions one at a time, yielding to the
-  // main thread between each so first paint and user input stay smooth.
-  // Uses requestIdleCallback where available (Chrome, Edge, Firefox) and
-  // a setTimeout(0) fallback on Safari. Each job is wrapped in try/catch
-  // so a thrown error doesn't stop subsequent jobs.
-  _scheduleStartupJobs(jobs) {
-    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 0));
-    let i = 0;
-    const next = () => {
-      if (i >= jobs.length) return;
-      const job = jobs[i++];
-      ric(() => {
-        try { job(); } catch (err) { App.logError && App.logError(err, '_scheduleStartupJobs'); }
-        next();
-      }, { timeout: 2000 });
-    };
-    next();
   },
 
   // ── BROWSER PUSH NOTIFICATIONS ────────────────────────────────────────────
@@ -989,222 +985,6 @@ const App = {
     }
   },
 
-  // ── Command palette (Cmd+K / Ctrl+K) — PR #18 + PR #19 ──────────────────
-  // Quick navigation: open with Cmd+K (Ctrl+K on Windows/Linux), type to
-  // filter visible nav items AND search clients live. Reads tab items from
-  // the sidebar .nav-item[data-tab] elements (single source of truth for
-  // the navigation graph). Client search hits Supabase with a 200 ms
-  // debounce and is race-guarded by a monotonic token.
-  Palette: {
-    _items: [],         // tab items collected from sidebar at open()
-    _clients: [],       // live Supabase client results for the current query
-    _filtered: [],      // merged + scored list rendered to the DOM
-    _activeIdx: 0,
-    _prevFocus: null,
-    _queryToken: 0,     // bump every keystroke; stale responses discarded
-    _debounceTimer: null,
-
-    // Score a tab item against the query. Higher = better match.
-    //  - exact substring of label   → strong score, weighted by earliness
-    //  - subsequence match (chars in order, not contiguous) → weak score
-    //  - no match → -Infinity (filtered out)
-    _score(label, q) {
-      if (!q) return 0;
-      const l = label.toLowerCase();
-      const qq = q.toLowerCase();   // case-insensitive on both sides
-      const i = l.indexOf(qq);
-      if (i !== -1) return 1000 - i;
-      // subsequence fallback: "cmm" matches "Commissions"
-      let li = 0, qi = 0;
-      while (li < l.length && qi < qq.length) {
-        if (l[li] === qq[qi]) qi++;
-        li++;
-      }
-      return qi === qq.length ? 100 : -Infinity;
-    },
-
-    // Build the searchable list from the live DOM (one source of truth).
-    _collectItems() {
-      const out = [];
-      document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
-        const tab = btn.dataset.tab;
-        const icon = btn.querySelector('.nav-icon')?.textContent?.trim() || '•';
-        const label = btn.querySelector('.nav-label')?.textContent?.trim() || tab;
-        const group = btn.closest('.sb-group')?.querySelector('.sb-section-label')
-                        ?.firstChild?.textContent?.trim() || '';
-        out.push({ type: 'tab', tab, icon, label, group });
-      });
-      return out;
-    },
-
-    open() {
-      App.Palette._items = App.Palette._collectItems();
-      App.Palette._clients = [];
-      App.Palette._prevFocus = document.activeElement;
-      const overlay = document.getElementById('cmdk-overlay');
-      const input = document.getElementById('cmdk-input');
-      overlay.hidden = false;
-      input.value = '';
-      App.Palette._render('');
-      // focus input on next frame so the slide-in animation has started
-      requestAnimationFrame(() => input.focus());
-    },
-
-    close() {
-      const overlay = document.getElementById('cmdk-overlay');
-      overlay.hidden = true;
-      if (App.Palette._debounceTimer) {
-        clearTimeout(App.Palette._debounceTimer);
-        App.Palette._debounceTimer = null;
-      }
-      App.Palette._clients = [];
-      if (App.Palette._prevFocus && typeof App.Palette._prevFocus.focus === 'function') {
-        try { App.Palette._prevFocus.focus(); } catch (_) {}
-      }
-      App.Palette._prevFocus = null;
-    },
-
-    isOpen() {
-      const overlay = document.getElementById('cmdk-overlay');
-      return overlay && !overlay.hidden;
-    },
-
-    // PR #19: debounced live client search via Supabase.
-    // Only fires for queries ≥ 2 chars. Each call bumps _queryToken; the
-    // response only applies if its token still matches the latest one,
-    // so a slow earlier query can't overwrite a fast later one.
-    _scheduleClientSearch(query) {
-      if (App.Palette._debounceTimer) clearTimeout(App.Palette._debounceTimer);
-      const q = (query || '').trim();
-      if (q.length < 2) {
-        App.Palette._clients = [];
-        return;
-      }
-      const myToken = ++App.Palette._queryToken;
-      App.Palette._debounceTimer = setTimeout(async () => {
-        try {
-          // ilike with escaped wildcards in the pattern; Supabase encodes
-          // the value, so `%` / `_` from the user are treated literally
-          // only if escaped — here they'd just broaden the match, no XSS.
-          const safeQ = q.replace(/[%_]/g, '');
-          const { data, error } = await db.from('clients')
-            .select('id, full_name, stage')
-            .ilike('full_name', `%${safeQ}%`)
-            .order('full_name', { ascending: true })
-            .limit(5);
-          if (myToken !== App.Palette._queryToken) return; // stale
-          if (error) { App.logError && App.logError(error, 'Palette._scheduleClientSearch'); return; }
-          App.Palette._clients = (data || []).map(c => ({
-            type: 'client',
-            id: c.id,
-            icon: '👤',
-            label: c.full_name || '(no name)',
-            group: c.stage ? `CLIENT · ${c.stage}` : 'CLIENT',
-          }));
-          App.Palette._render(q, /*skipScheduling*/ true);
-        } catch (err) {
-          if (myToken !== App.Palette._queryToken) return;
-          App.logError && App.logError(err, 'Palette._scheduleClientSearch');
-        }
-      }, 200);
-    },
-
-    _render(query, skipScheduling) {
-      const q = (query || '').toLowerCase().trim();
-      // Tabs (synchronous, scored).
-      const tabs = App.Palette._items
-        .map(it => ({ ...it, score: App.Palette._score(it.label, q) }))
-        .filter(it => it.score !== -Infinity)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 8);
-      // Clients (already filtered server-side, just preserve DB order).
-      const clients = App.Palette._clients.slice(0, 5);
-      // Merge: tabs first, clients below (matches Linear/Notion convention).
-      const merged = tabs.concat(clients);
-      App.Palette._filtered = merged;
-      App.Palette._activeIdx = 0;
-      const list = document.getElementById('cmdk-list');
-      if (!merged.length) {
-        list.innerHTML = `<li class="cmdk-empty" role="option" aria-selected="false">No matches for "${App.esc(query)}"</li>`;
-      } else {
-        list.innerHTML = merged.map((it, i) => `
-          <li role="option" aria-selected="${i === 0}" data-idx="${i}" onclick="App.Palette._activate(${i})">
-            <span class="cmdk-icon">${App.esc(it.icon)}</span>
-            <span class="cmdk-text">${App.esc(it.label)}</span>
-            <span class="cmdk-group">${App.esc(it.group)}</span>
-          </li>
-        `).join('');
-      }
-      // Kick off client search unless we're called from inside the search callback
-      if (!skipScheduling) App.Palette._scheduleClientSearch(query);
-    },
-
-    _move(delta) {
-      const n = App.Palette._filtered.length;
-      if (!n) return;
-      App.Palette._activeIdx = (App.Palette._activeIdx + delta + n) % n;
-      const items = document.querySelectorAll('#cmdk-list li');
-      items.forEach((li, i) => {
-        const sel = i === App.Palette._activeIdx;
-        li.setAttribute('aria-selected', sel ? 'true' : 'false');
-        if (sel) li.scrollIntoView({ block: 'nearest' });
-      });
-    },
-
-    _activate(idx) {
-      const item = App.Palette._filtered[idx ?? App.Palette._activeIdx];
-      if (!item) return;
-      App.Palette.close();
-      if (item.type === 'client') {
-        // Land on the clients tab first so Clients.openDetail can find the
-        // record in its in-memory cache. Poll briefly in case the tab is
-        // freshly loaded and Clients.all is still arriving.
-        App.switchTab('clients');
-        let tries = 20;
-        const tryOpen = () => {
-          if (typeof Clients === 'undefined' || !Clients.all) {
-            if (tries-- > 0) setTimeout(tryOpen, 100);
-            return;
-          }
-          if (Clients.all.find(c => c.id === item.id)) {
-            Clients.openDetail(item.id);
-          } else if (tries-- > 0) {
-            setTimeout(tryOpen, 100);
-          }
-          // If we run out of retries, the user is at least on the clients
-          // tab and can find the client manually — no error toast needed.
-        };
-        tryOpen();
-      } else {
-        App.switchTab(item.tab);
-      }
-    },
-
-    _onKey(e) {
-      // Global trigger: Cmd+K on Mac, Ctrl+K elsewhere
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        // Don't open if a modal is already open
-        const modal = document.getElementById('modal-overlay');
-        if (modal && modal.classList.contains('open')) return;
-        e.preventDefault();
-        if (App.Palette.isOpen()) App.Palette.close();
-        else App.Palette.open();
-        return;
-      }
-      if (!App.Palette.isOpen()) return;
-      if (e.key === 'Escape')      { e.preventDefault(); App.Palette.close(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); App.Palette._move(1); }
-      else if (e.key === 'ArrowUp')   { e.preventDefault(); App.Palette._move(-1); }
-      else if (e.key === 'Enter')     { e.preventDefault(); App.Palette._activate(); }
-    },
-
-    init() {
-      document.addEventListener('keydown', App.Palette._onKey);
-      const input = document.getElementById('cmdk-input');
-      if (input) input.addEventListener('input', (e) => App.Palette._render(e.target.value));
-    },
-  },
-
   toast(msg, color = 'var(--green)') {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -1424,7 +1204,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
   App.init();
-  App.Palette.init();
   App.startLockScreen();
   // Restore saved theme immediately on load
   setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 800);
