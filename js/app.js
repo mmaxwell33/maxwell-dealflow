@@ -56,6 +56,21 @@ const App = {
   },
 
   async init() {
+    // Wire global error handlers FIRST so even crashes during init() are
+    // captured. App.logError swallows failures internally — it can never
+    // surface its own exception to the user (PR #7 / observability).
+    window.addEventListener('error', (e) => {
+      App.logError(e.error || e.message, {
+        source:   'window.error',
+        filename: e.filename,
+        lineno:   e.lineno,
+        colno:    e.colno,
+      });
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      App.logError(e.reason, { source: 'unhandledrejection' });
+    });
+
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1079,6 +1094,41 @@ const App = {
       activity_type: type, description: desc,
       client_name: clientName, client_email: clientEmail
     });
+  },
+
+  // ── Error logging (PR #7) ────────────────────────────────────────────
+  // Posts a single client_errors row attributed to the signed-in agent.
+  // Wired globally by App.init() for window.error and unhandledrejection.
+  // Modules can also call this directly to record a caught exception
+  // with extra context, e.g.:
+  //   App.logError(err, { source: 'Notify.queue', client_id: c.id });
+  //
+  // Contract: NEVER throws. NEVER surfaces an error to the user. Drops
+  // silently if no session (we don't log anon errors — that surface
+  // belongs in a separate PR with its own rate-limit story).
+  async logError(err, context = {}) {
+    try {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
+
+      // err might be an Error, a string, a rejected-promise reason, or
+      // anything weird the runtime threw at us. Normalise carefully.
+      const message = (err && err.message) ? String(err.message) :
+                      (typeof err === 'string') ? err :
+                      (() => { try { return JSON.stringify(err); } catch { return String(err); } })();
+      const stack = (err && err.stack) ? String(err.stack) : null;
+
+      await db.from('client_errors').insert({
+        agent_id:   user.id,
+        url:        (typeof location !== 'undefined') ? location.href : null,
+        user_agent: (typeof navigator !== 'undefined') ? navigator.userAgent : null,
+        message:    (message || '').slice(0, 2000),
+        stack:      stack ? stack.slice(0, 8000) : null,
+        context:    context && typeof context === 'object' ? context : { value: String(context) },
+      });
+    } catch (_e) {
+      // Swallow. Never error in the error handler.
+    }
   }
 };
 
