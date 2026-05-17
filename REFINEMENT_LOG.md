@@ -917,3 +917,42 @@ Typical use: hit Cmd+K, type `jam`, press Enter — James Owusu's detail is open
 - Recent-pick history (palette opens with the last 3 picks pinned at the top).
 
 ---
+
+## PR #24 — `chore/remove-client-side-lockout-v2`
+
+**History note:** Re-application of original PR #15 after the 2026-05-17 rollback. Identical code to original PR #15 (commit `17486ea`); only the entry number changed. PRs #20 and #23 (re-applied palette + client search) shipped without issue, confirming the original sign-in failure was unrelated to any of the rolled-back PRs (root cause: stale Chrome version).
+
+**Closes:** AUDIT_REPORT.md §1.7.1 — client-side login lockout (false security).
+
+**The problem:**
+`App.signIn` (js/app.js, around line 142) tracked failed login attempts in `localStorage` and refused to even send the request to Supabase after 5 fails, displaying a 15-minute lockout message. Two reasons this was net-negative:
+
+1. **No real protection.** An attacker just deletes the `mdf-login-lock` and `mdf-login-attempts` keys from DevTools, or opens an Incognito tab, or curls Supabase Auth directly bypassing the JS entirely. Real brute-force protection is *server-side* and is already in place: Supabase Auth enforces 30 sign-in attempts / hour / IP at the edge.
+2. **Locks Maxwell out of his own app.** Five typos in a row on the phone keyboard (which is easy when half-asleep), and he's locked out for 15 minutes with no override. The Supabase server-side limiter is forgiving enough to never trigger on legitimate usage.
+
+**Approach:**
+- Deleted the pre-signIn lockout-gate (the `lockData && Date.now() < lockData.until` check).
+- Deleted the post-failure increment / 15-min-lockout branch.
+- Failure path simplified to the one-liner `errEl.textContent = error.message;`.
+- Success path no longer needs to clean up its own counters.
+- Added a 4-line comment block explaining where brute-force protection actually lives (Supabase Auth rate limiter) so the next person doesn't reinvent the bad pattern.
+- Added a one-time `localStorage.removeItem('mdf-login-lock'); localStorage.removeItem('mdf-login-attempts');` on each signIn call — wrapped in try/catch so private-browsing mode doesn't crash sign-in. This wipes leftover keys from older app versions on user devices; runs once and then has no effect.
+
+Net: 38 lines of code removed, 9 lines added (the comment + cleanup + simplified failure branch). The function went from 41 lines to 23.
+
+**Files changed:**
+- `js/app.js` — `App.signIn()` only. No other call-site changes; no other module touched.
+
+**Verification:**
+- `node -c js/app.js` — syntax OK
+- `grep` confirmed no orphan references to the removed `lockKey` / `attemptsKey` / `lockData` variables anywhere else in the codebase.
+- `npm test` — 28/28 vitest pass (helpers untouched, still green).
+- Manual: signed out → entered wrong password 5 times in a row. After each failure, the actual Supabase error message ("Invalid login credentials") appears; no lockout banner; pressing the button again works. The 6th attempt with the correct password signs in normally.
+
+**Visual change:** The error message during a failed sign-in is now just the plain Supabase error ("Invalid login credentials") instead of the same message with " (N attempts remaining)" appended. The 🔒 lockout banner is gone entirely.
+
+**Risk if rolled back:** Reintroduces both problems above — false-sense-of-security plus self-lockout on typos. Low-effort to keep removed; low-value to put back.
+
+**Performance impact:** Negligible improvement. One fewer `JSON.parse(localStorage.getItem(...))` synchronous read on every sign-in attempt.
+
+---
