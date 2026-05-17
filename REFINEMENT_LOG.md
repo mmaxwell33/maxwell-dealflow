@@ -630,3 +630,68 @@ Verified before the move that no script in `js/*.js` touches `document.body` / `
 **Performance impact:** Strictly positive (downloads start sooner). Same total JS size.
 
 ---
+
+## PR #12 — `fix/commission-brokerage-fee-base`
+
+**Type:** Bug fix — commission calculator was applying the brokerage-fee percentage to the pre-tax commission instead of the gross-with-HST total.
+
+**Found by:** Maxwell, during a real-deal review while smoke-testing tonight's PRs. Cross-checked James Owusu's row against a bank statement.
+
+**Bug:**
+
+The calculation in `js/extras.js` Commission module (both the live `cm-*` preview AND the save handler) computed:
+
+```
+brokerFee = gross * brokerPct / 100;
+```
+
+Where `gross` is the pre-tax commission. The correct industry-standard formula bills the brokerage off the gross-with-HST total — what the broker actually invoices:
+
+```
+brokerFee = (gross + hst) * brokerPct / 100;
+```
+
+For Maxwell's typical NL parameters (2.5% commission, 15% HST, 20% brokerage), the bug undercharged the fee by:
+
+```
+brokerPct × hst = 20% × (15% × commission) = 3% × commission
+```
+
+And overstated net earnings by the same amount. For an ~$11,875 commission (James's deal), that's roughly **$356.25 every single deal**.
+
+**Files:**
+- `js/extras.js` line 648 (preview) and line 744 (save handler) — both swap `gross` for `grossPlusTax` in the brokerFee calculation. Comment updated to explain the formula. Preview label changes from "(X% on gross)" to "(X% on gross + HST)" so the math is now self-documenting on screen.
+
+**Verification (James Owusu's deal — sale price $475k, 2.5% / 15% / 20%):**
+
+| Line item | Before (buggy) | After (correct) |
+|---|---|---|
+| Gross commission | $11,875.00 | $11,875.00 |
+| HST | +$1,781.25 | +$1,781.25 |
+| Gross + HST | $13,656.25 | $13,656.25 |
+| Brokerage fee | −$2,375.00 ❌ | −$2,731.25 ✓ |
+| **Net** | **$11,281.25** ❌ | **$10,925.00** ✓ |
+
+The "after" number matches what actually lands in Maxwell's bank account.
+
+**Historical data — optional cleanup SQL:**
+
+The 5 existing rows in `public.commissions` were saved with the wrong calculation. They still hold the OLD `brokerage_fees` and `agent_net` values. Whether to recalculate is Maxwell's call — bookkeeping may have been adjusted manually outside the app. If you want the table to match reality, run this in the Supabase SQL Editor:
+
+```sql
+UPDATE public.commissions
+   SET brokerage_fees = (gross_commission + hst_collected) * brokerage_fee_rate / 100,
+       agent_net      = (gross_commission + hst_collected)
+                        - ((gross_commission + hst_collected) * brokerage_fee_rate / 100)
+ WHERE agent_id = auth.uid();
+```
+
+Run as the signed-in agent (or via Dashboard service-role for all-agent recompute later). Returns the rowcount it updated.
+
+**Visual change:** preview row label updates from "Brokerage Fee (X% on gross)" to "Brokerage Fee (X% on gross + HST)". The numbers in new deal entries will now match expectations.
+
+**Risk if rolled back:** Reverts to the under-charged display. Real bank balances unaffected (brokerage always took the correct amount from Maxwell's split regardless of what the app showed).
+
+**Performance impact:** None — same math, different multiplicand.
+
+---
