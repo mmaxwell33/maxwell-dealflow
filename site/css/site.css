@@ -322,3 +322,86 @@ footer li { margin-bottom: 6px; }
   html { scroll-behavior: auto; }
   .card, .btn { transition: none; }
 }
+
+/* ── Sold-deals page specifics ───────────────────────────────────── */
+/* Big-stat hero: 4 marquee numbers above the deal grid */
+.big-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (min-width: 720px) {
+  .big-stats { grid-template-columns: repeat(4, 1fr); }
+}
+.big-stat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 22px 18px;
+  text-align: center;
+  box-shadow: var(--shadow-1);
+}
+.big-stat-num {
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 800;
+  color: var(--brand-dark);
+  line-height: 1;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+.big-stat-lbl {
+  font-size: 12px; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+/* Anonymized deal card — city + month + price bucket only. NO names, NO
+   street addresses. Each card is one row of /site/sold/. */
+.deal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.deal-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px;
+  position: relative;
+  transition: box-shadow 160ms, transform 160ms;
+}
+.deal-card:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
+.deal-card .type-badge {
+  display: inline-block;
+  background: var(--brand-soft); color: var(--brand-dark);
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.deal-card .deal-city {
+  font-size: 17px; font-weight: 800; color: var(--ink);
+  margin-bottom: 2px;
+}
+.deal-card .deal-when {
+  font-size: 12px; color: var(--ink-3);
+  margin-bottom: 12px;
+}
+.deal-card .deal-price {
+  font-size: 22px; font-weight: 800;
+  color: var(--brand-dark);
+  letter-spacing: -0.3px;
+}
+.deal-card .deal-meta {
+  margin-top: 6px;
+  font-size: 12px; color: var(--ink-2);
+}
+
+/* "Side" tag — buy or sell */
+.deal-side {
+  position: absolute; top: 14px; right: 14px;
+  font-size: 11px; font-weight: 800;
+  color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
