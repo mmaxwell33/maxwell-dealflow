@@ -695,3 +695,34 @@ Run as the signed-in agent (or via Dashboard service-role for all-agent recomput
 **Performance impact:** None — same math, different multiplicand.
 
 ---
+
+## PR #13 — `a11y/modal-focus-trap`
+
+**Closes:** AUDIT_REPORT.md §4.2.3 (modal traps keyboard focus + restore on close), follow-up explicitly deferred from PR #10.
+
+**Approach:**
+PR #10 added `role="dialog" aria-modal="true"` to `#modal-overlay`, but the keyboard contract was incomplete — Tab leaked out of the modal to the page underneath, Escape didn't close, and after dismissing a modal focus was lost to `<body>`. This PR completes the dialog contract:
+
+1. **Save focus on open** — `App._savedFocus = document.activeElement` before any DOM mutation, so we can restore to the button/row that opened the modal.
+2. **Move focus into the modal** — query `#modal-body` for focusables using a single shared selector (`App._focusableSel`); focus the first one. If the modal has no focusables (rare — read-only confirmation), give `#modal-body` `tabindex="-1"` and focus it directly so a screen reader still announces the dialog.
+3. **Trap Tab cycling** — `document.addEventListener('keydown', …)`: on `Tab`, if the active element is the last focusable, wrap to the first; on `Shift+Tab` at the first focusable, wrap to the last. Tab inside text inputs still works normally — we only intercept at the boundary.
+4. **Escape closes** — pressing Escape calls `App.closeModal()` (the no-arg path that always closes, matching the overlay-click path).
+5. **Restore focus on close** — detach the keydown listener, then `App._savedFocus.focus()` inside try/catch (the originating element might have been removed from DOM by the modal's own actions).
+
+Selector list is the WAI-ARIA recommendation: `a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])`.
+
+**Files changed:**
+- `js/app.js` — `openModal()` / `closeModal()` extended, ~50 lines added. New properties: `App._focusableSel`, `App._savedFocus`, `App._modalKeydownHandler`.
+
+**Verification:**
+- `node -c js/app.js` — syntax OK
+- Manual: open any modal (e.g. "New Client", "Book Viewing"). Tab cycles through inputs and stays inside. Shift+Tab from the first input wraps to the last button. Escape closes. After close, focus returns to the button that opened it (visible via the `:focus-visible` outline from PR #10).
+- Screen reader: VoiceOver announces "dialog" on open and the first focusable's label, instead of stranding the cursor in the page beneath.
+
+**Visual change:** None for mouse users. For keyboard users: a visible focus ring (PR #10) now stays inside the modal instead of leaking out, and reappears on the trigger element after the modal closes.
+
+**Risk if rolled back:** Returns to the pre-PR keyboard-leak state; no data risk. The trap is defensive — even if `_modalKeydownHandler` failed to detach for some reason, the listener checks the live `#modal-body` content each Tab so it can't desync.
+
+**Performance impact:** None — keydown listener is attached only while a modal is open and removed on close. No measurable overhead.
+
+---
