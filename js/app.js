@@ -924,14 +924,64 @@ const App = {
     }
   },
 
+  // a11y: focusable selector + state for modal focus trap (PR #13)
+  _focusableSel: 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  _savedFocus: null,
+  _modalKeydownHandler: null,
+
   openModal(html) {
-    document.getElementById('modal-body').innerHTML = html;
-    document.getElementById('modal-overlay').classList.add('open');
+    // Remember what was focused so we can restore on close
+    App._savedFocus = document.activeElement;
+
+    const body = document.getElementById('modal-body');
+    const overlay = document.getElementById('modal-overlay');
+    body.innerHTML = html;
+    overlay.classList.add('open');
+
+    // Move focus into the modal (first focusable, else the body itself)
+    const focusables = body.querySelectorAll(App._focusableSel);
+    if (focusables.length) {
+      focusables[0].focus();
+    } else {
+      body.setAttribute('tabindex', '-1');
+      body.focus();
+    }
+
+    // Trap Tab inside the modal + close on Escape
+    App._modalKeydownHandler = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        App.closeModal();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const f = body.querySelectorAll(App._focusableSel);
+      if (!f.length) { e.preventDefault(); return; }
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener('keydown', App._modalKeydownHandler);
   },
 
   closeModal(e) {
     if (!e || e.target === document.getElementById('modal-overlay')) {
       document.getElementById('modal-overlay').classList.remove('open');
+
+      // Detach Tab/Escape handler
+      if (App._modalKeydownHandler) {
+        document.removeEventListener('keydown', App._modalKeydownHandler);
+        App._modalKeydownHandler = null;
+      }
+
+      // Restore focus to the element that opened the modal
+      if (App._savedFocus && typeof App._savedFocus.focus === 'function') {
+        try { App._savedFocus.focus(); } catch (_) {}
+        App._savedFocus = null;
+      }
     }
   },
 
