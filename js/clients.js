@@ -4,6 +4,30 @@ const Clients = {
   archived: [],
   viewMode: 'active', // 'active' or 'archived'
 
+  // ── PR #26: stage filter + sort state, persisted in localStorage ──────
+  // localStorage key: mdf-clients-view  = {"filter":"All","sort":"name"}
+  // Read at load time, written on every chip click or sort change.
+  filter: 'All',
+  sort: 'name',
+  _STAGE_ORDER: ['Searching', 'Viewings', 'Offers', 'Accepted', 'Conditions', 'Closing'],
+
+  _loadPrefs() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('mdf-clients-view') || 'null');
+      if (raw && typeof raw === 'object') {
+        if (typeof raw.filter === 'string') Clients.filter = raw.filter;
+        if (typeof raw.sort === 'string') Clients.sort = raw.sort;
+      }
+    } catch (_) {}
+  },
+  _savePrefs() {
+    try {
+      localStorage.setItem('mdf-clients-view', JSON.stringify({
+        filter: Clients.filter, sort: Clients.sort
+      }));
+    } catch (_) {}
+  },
+
   async load() {
     if (!currentAgent?.id) return;
     // Pull clients + live activity in parallel so we can derive the TRUE stage.
@@ -26,12 +50,96 @@ const Clients = {
     Clients.all      = all.filter(c => c.status !== 'Archived');
     Clients.archived = all.filter(c => c.status === 'Archived');
 
+    // PR #26: load persisted filter + sort preferences before first render
+    Clients._loadPrefs();
+    const sortSel = document.getElementById('clients-sort');
+    if (sortSel) sortSel.value = Clients.sort;
+
     if (Clients.viewMode === 'archived') {
       Clients.renderArchived();
     } else {
+      Clients.renderStageChips();
       Clients.render(Clients.all);
     }
     Clients.updateArchiveBadge();
+  },
+
+  // ── PR #26: stage filter chips + sort handlers ──────────────────────────
+
+  renderStageChips() {
+    const wrap = document.getElementById('clients-stage-chips');
+    if (!wrap) return;
+    // Toolbar only makes sense on the Active view
+    const toolbar = document.getElementById('clients-toolbar');
+    if (toolbar) toolbar.style.display = (Clients.viewMode === 'archived') ? 'none' : 'flex';
+
+    // Count clients per derived stage
+    const counts = { All: Clients.all.length };
+    Clients._STAGE_ORDER.forEach(s => counts[s] = 0);
+    Clients.all.forEach(c => {
+      const stage = c._derivedStage || c.stage || 'Searching';
+      if (counts.hasOwnProperty(stage)) counts[stage]++;
+    });
+
+    const chip = (label, count) => {
+      const pressed = (Clients.filter === label) ? 'true' : 'false';
+      const labelAttr = App.escAttr(label);
+      return `<button class="cl-chip" aria-pressed="${pressed}"
+                onclick="Clients.setFilter('${labelAttr}')">
+                ${App.esc(label)}<span class="cl-chip-count">${count}</span>
+              </button>`;
+    };
+
+    const chips = ['All', ...Clients._STAGE_ORDER]
+      // Hide zero-count stage chips to reduce noise (always keep "All")
+      .filter(s => s === 'All' || counts[s] > 0)
+      .map(s => chip(s, counts[s]))
+      .join('');
+    wrap.innerHTML = chips;
+  },
+
+  setFilter(stage) {
+    Clients.filter = stage || 'All';
+    Clients._savePrefs();
+    Clients.renderStageChips();
+    Clients.render(Clients.all);
+  },
+
+  setSort(value) {
+    Clients.sort = value || 'name';
+    Clients._savePrefs();
+    Clients.render(Clients.all);
+  },
+
+  // Apply current filter + sort to a list. Pure function — no DOM writes.
+  _applyView(list) {
+    let out = list;
+    if (Clients.filter && Clients.filter !== 'All') {
+      out = out.filter(c => (c._derivedStage || c.stage || 'Searching') === Clients.filter);
+    }
+    if (Clients.sort === 'recent') {
+      // Newest created_at first; missing dates sink to the bottom
+      out = [...out].sort((a, b) => {
+        const ax = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bx = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bx - ax;
+      });
+    } else if (Clients.sort === 'stage') {
+      // Most advanced first (Closing → Searching). Use _STAGE_ORDER index inverted.
+      const rank = (s) => {
+        const i = Clients._STAGE_ORDER.indexOf(s);
+        return i === -1 ? 99 : (Clients._STAGE_ORDER.length - i);
+      };
+      out = [...out].sort((a, b) => {
+        const ar = rank(a._derivedStage || a.stage);
+        const br = rank(b._derivedStage || b.stage);
+        if (br !== ar) return br - ar;
+        // tie-break by name
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      });
+    }
+    // 'name' is the default — load() already sorted by full_name from Supabase
+    return out;
   },
 
   // Derive the TRUE stage of a client from the most advanced activity found
@@ -70,6 +178,7 @@ const Clients = {
     const btnArchive = document.getElementById('btn-view-archive');
     if (btnActive)  { btnActive.style.background  = 'var(--accent)';  btnActive.style.color  = '#fff'; }
     if (btnArchive) { btnArchive.style.background = 'var(--card)';    btnArchive.style.color = 'var(--text2)'; }
+    Clients.renderStageChips();
     Clients.render(Clients.all);
   },
 
@@ -79,19 +188,35 @@ const Clients = {
     const btnArchive = document.getElementById('btn-view-archive');
     if (btnActive)  { btnActive.style.background  = 'var(--card)';    btnActive.style.color  = 'var(--text2)'; }
     if (btnArchive) { btnArchive.style.background = 'var(--accent)';  btnArchive.style.color = '#fff'; }
+    // PR #26: hide chip+sort toolbar on archived view (different list shape)
+    const toolbar = document.getElementById('clients-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
     Clients.renderArchived();
   },
 
   render(list) {
     const el = document.getElementById('clients-list');
-    if (!list.length) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">👥</div>
-        <div class="empty-text">No clients yet</div>
-        <div class="empty-sub">Tap + Add to add your first client</div>
-      </div>`;
+    // PR #26: apply filter + sort BEFORE checking empty state, so we can
+    // distinguish "no clients at all" from "no clients matching this filter".
+    const baseCount = list.length;
+    const view = Clients._applyView(list);
+    if (!view.length) {
+      if (baseCount === 0) {
+        el.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">👥</div>
+          <div class="empty-text">No clients yet</div>
+          <div class="empty-sub">Tap + Add to add your first client</div>
+        </div>`;
+      } else {
+        el.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">🔎</div>
+          <div class="empty-text">No clients in “${App.esc(Clients.filter)}”</div>
+          <div class="empty-sub">Click <strong>All</strong> above to see everyone.</div>
+        </div>`;
+      }
       return;
     }
+    list = view;
     // Phase 2.B: .card2 wrapper + .pill2 stage indicator built from
     // _derivedStage (true live stage) instead of stale c.stage.
     const stagePill = (s) => {

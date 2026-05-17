@@ -461,6 +461,18 @@
         <button id="btn-view-active" class="btn btn-primary btn-sm" onclick="Clients.showActive()">Active</button>
         <button id="btn-view-archive" class="btn btn-outline btn-sm" onclick="Clients.showArchived()">Archive <span id="archive-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px;"></span></button>
       </div>
+      <!-- PR #26: stage filter chips + sort dropdown (only shown on Active view) -->
+      <div id="clients-toolbar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div id="clients-stage-chips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <label for="clients-sort" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Sort</label>
+          <select id="clients-sort" class="cl-sort" onchange="Clients.setSort(this.value)" aria-label="Sort clients">
+            <option value="name">Name (A–Z)</option>
+            <option value="recent">Recently Added</option>
+            <option value="stage">Stage progression</option>
+          </select>
+        </div>
+      </div>
       <div id="clients-list">
         <div class="loading"><div class="spinner"></div> Loading...</div>
       </div>

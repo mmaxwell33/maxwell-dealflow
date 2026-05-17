@@ -1007,3 +1007,81 @@ The 5 `setInterval` polls (Notify.checkCompletedViewings, PendingOffers.load, In
 - No new dependencies, no new APIs introduced beyond standard `requestIdleCallback` with a 2-line polyfill fallback.
 
 ---
+
+## PR #26 — `ui/clients-list-refinement`
+
+**Closes:** Phase 2 UI track item. Adds the three smallest, highest-value workflow improvements to the Clients screen (the surface Maxwell touches dozens of times a day):
+
+1. Stage filter chips at the top of the list — see your book sliced by stage in one click, with live counts.
+2. Sort dropdown (top-right) — three orderings: alphabetical, recently added, stage progression.
+3. Persistence — current filter chip + sort choice survive page reload via `localStorage`.
+
+**What it looks like (Active view, top of Clients screen):**
+
+```
+[ Search clients… 🔍 ]
+
+All Clients                                              [ + Add ]
+[ Active ] [ Archive 3 ]
+
+[ All 12 ] [ Searching 4 ] [ Viewings 3 ] [ Offers 2 ]   Sort: [ Name (A–Z) ▾ ]
+[ Conditions 2 ] [ Closing 1 ]
+
+[ … client rows … ]
+```
+
+The active chip is filled with the accent color and shows `aria-pressed="true"`. The non-active chips show count in a muted secondary pill. Zero-count stages are hidden from the chip row (so you don't see "Closing 0" when nothing's closing). "All" is always present.
+
+**Approach:**
+
+1. **One source of truth for filter / sort.** Two properties on `Clients`: `filter` (default `'All'`) and `sort` (default `'name'`). Three handlers — `setFilter(stage)`, `setSort(value)`, plus `_savePrefs()` and `_loadPrefs()` for the localStorage round-trip. Key: `mdf-clients-view`. Try/catch'd in case private-browsing blocks storage.
+
+2. **Filter + sort applied in `_applyView(list)`.** Pure function — no DOM writes. Takes a list (always `Clients.all` for now), returns the filtered + sorted view. Called from inside `render()` before the existing card-render path runs. The original alphabetical order from Supabase's `.order('full_name')` becomes the `'name'` sort, so that case is a no-op pass-through.
+
+3. **Sort options:**
+   - **`name`** — default; uses Supabase's already-sorted order, no JS-side resort.
+   - **`recent`** — newest `created_at` first; rows missing `created_at` sink to the bottom.
+   - **`stage`** — most advanced first (Closing → Conditions → Accepted → Offers → Viewings → Searching). Ties break alphabetically. Uses the existing `_STAGE_ORDER` array as the rank source.
+
+4. **Chip counts derived from `_derivedStage`,** not `c.stage`. This matches what the existing `Clients.render` pill already uses (single source of truth), so a client whose stored stage is `'Searching'` but who has an active offer is counted as `Offers` in the chip and rendered with the `Offers` pill — internally consistent.
+
+5. **Toolbar hidden on Archived view.** The `clients-toolbar` div gets `display:none` when `viewMode === 'archived'`. Archived clients have a different shape (restore/delete buttons, opacity 0.75 styling, no stage), so the chips don't apply.
+
+6. **Empty state split into two cases.**
+   - **No clients at all** → original "Tap + Add" empty state.
+   - **No clients matching filter** → new state with 🔎 icon, the active filter name, and "Click All above to see everyone."
+
+7. **Accessibility.** Chips are `<button>` elements with `aria-pressed` reflecting the active filter. Sort `<select>` has an `aria-label`. Both keyboard-focusable; the existing `:focus-visible` rule from PR #10 styles the focus ring.
+
+8. **Mobile.** Below 480 px, the toolbar stacks vertically (chips first, sort below); chips overflow horizontally with a thin scroll. Doesn't crowd small screens.
+
+**Files changed:**
+- `index.html` (lines 460–472) — added a new `#clients-toolbar` div between the Active/Archived buttons and the list. Contains `#clients-stage-chips` (left) + sort `<select>` (right).
+- `css/app.css` — `.cl-chip`, `.cl-chip-count`, `.cl-sort` styles using existing theme tokens (`--card`, `--accent`, `--border`, `--text2`). Plus a 480 px breakpoint that stacks the toolbar. Net ~55 lines.
+- `js/clients.js` — `filter` + `sort` properties, `_STAGE_ORDER`, `_loadPrefs`, `_savePrefs`, `renderStageChips`, `setFilter`, `setSort`, `_applyView`. `load()`, `showActive()`, `showArchived()` updated to call `renderStageChips()` and toggle the toolbar's visibility. `render()` calls `_applyView()` before deciding empty state. Net ~95 lines added, two existing functions slightly modified.
+
+**Verification:**
+- `node -c js/clients.js` — syntax OK.
+- `npm test` — 34/34 vitest pass (helpers untouched).
+- Manual test plan (post-deploy):
+  - Open Clients. The chip row shows up between the Active/Archived buttons and the list, with the live counts.
+  - Click `Conditions` chip → only Conditions clients show. Chip turns accent-color. Count badges stay correct.
+  - Click `All` → everyone back, no filter.
+  - Change Sort to `Recently Added` → list reorders (most recent client first).
+  - Change Sort to `Stage progression` → list reorders (Closing first, Searching last).
+  - Reload the page. Sort selector + active chip restore from where you left them.
+  - Click `Archive` button → toolbar disappears (chips don't apply to archived). Click `Active` → toolbar reappears with the same filter as before.
+  - Verify with a deliberately-malicious filter value in localStorage (open DevTools → `Application` → `Local Storage` → edit `mdf-clients-view` to `{"filter":"<img src=x>","sort":"name"}`) → no XSS, the unknown filter just shows the "No clients in this filter" empty state safely.
+
+**Visual change:** New chip row between the Active/Archived buttons and the list, plus a small "Sort" dropdown on the right. Active view only. Everything else (search bar, header, row layout, click behavior, archive view) is unchanged.
+
+**Risk if rolled back:** Loses the chip+sort+persistence features. List goes back to plain "all clients, name-sorted." No data risk; the only code path that changed is presentation.
+
+**Performance impact:** Negligible. Filtering is `array.filter()` over ~tens of items; sorting is `array.sort()` over the same. localStorage write happens once per chip click. No new queries.
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Stage filter on the Archived view** — archived clients don't have meaningful stages; restore/delete is the workflow there.
+- **Multi-stage filter** (Cmd-click to add more chips to the filter). Adds complexity; single-chip filter covers 95% of usage.
+- **"Most Recent Activity" sort** — would require an additional Supabase query for each client's latest viewing/offer/pipeline event. `Recently Added` (by `created_at`) is the cheap 80% solution. Real "Most Recent Activity" can land as a follow-up if you actually use the Recently Added sort enough to feel its limit.
+
+---

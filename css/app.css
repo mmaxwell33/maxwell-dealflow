@@ -1334,3 +1334,60 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 .cm-row-act:active {
   transform: scale(0.96);
 }
+
+/* ── Clients list filter chips + sort (PR #26) ──────────────────────────── */
+.cl-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms, transform 80ms;
+  white-space: nowrap;
+}
+.cl-chip:hover {
+  background: var(--surface-2, var(--bg2));
+  color: var(--text);
+}
+.cl-chip:active { transform: scale(0.96); }
+.cl-chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.cl-chip .cl-chip-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 9px;
+  font-size: 10px; font-weight: 800;
+  text-align: center;
+  line-height: 16px;
+}
+.cl-chip:not([aria-pressed="true"]) .cl-chip-count {
+  background: var(--bg);
+  color: var(--text2);
+}
+.cl-sort {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px; font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.cl-sort:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (max-width: 480px) {
+  #clients-toolbar { flex-direction: column; align-items: stretch; }
+  #clients-stage-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  #clients-stage-chips::-webkit-scrollbar { height: 4px; }
+  #clients-stage-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+}
