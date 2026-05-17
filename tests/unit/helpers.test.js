@@ -173,3 +173,104 @@ describe('App.fmtMoney', () => {
     expect(fmtMoney('450000')).toBe('$450,000');
   });
 });
+
+// ── Privacy mask helpers (PR #14) ─────────────────────────────────────────
+//
+// Inline copies of App.privateName / App.privateContact — see top-of-file
+// note. The contract: every fragment of untrusted input that lands in the
+// returned HTML string must be passed through esc(). data-full attributes
+// are written escaped and re-escaped on read in revealName/hideName
+// (the runtime DOM versions); these tests only cover the pure-HTML
+// formatters, which is where the original XSS hole was.
+
+function privateName(fullName) {
+  if (!fullName) return '<span style="color:var(--text3);">—</span>';
+  const parts = fullName.trim().split(/\s+/);
+  const first = parts[0];
+  const safe = esc(fullName);
+  return `<span class="pname" data-full="${safe}" onclick="App.revealName(this)" title="Click to expand">${esc(first)}<span class="pname-eye">›</span></span>`;
+}
+
+function privateContact(email, phone) {
+  const maskEmail = (e) => {
+    if (!e) return '';
+    const at = e.indexOf('@');
+    if (at < 1) return `<span class="pname" data-full="${esc(e)}" onclick="App.revealName(this)" title="Click to reveal">${esc(e[0])}•••<span class="pname-eye">👁</span></span>`;
+    const user = e.slice(0, at);
+    const domain = e.slice(at + 1);
+    const masked = user.length > 2 ? `${user[0]}${'•'.repeat(Math.min(user.length - 1, 4))}@${domain}` : `${user[0]}•@${domain}`;
+    return `<span class="pname" data-full="${esc(e)}" onclick="App.revealName(this)" title="Click to reveal email">${esc(masked)}<span class="pname-eye">👁</span></span>`;
+  };
+  const maskPhone = (p) => {
+    if (!p) return '';
+    const digits = p.replace(/\D/g, '');
+    const masked = digits.length >= 7 ? `${p.slice(0,3)} •••-${digits.slice(-4)}` : `${p.slice(0,3)}•••`;
+    return `<span class="pname" data-full="${esc(p)}" onclick="App.revealName(this)" title="Click to reveal phone">${esc(masked)}<span class="pname-eye">👁</span></span>`;
+  };
+  const parts = [maskEmail(email), maskPhone(phone)].filter(Boolean);
+  return parts.join(' · ');
+}
+
+describe('App.privateName XSS regression', () => {
+  test('renders em-dash placeholder when name is empty', () => {
+    expect(privateName('')).toContain('—');
+    expect(privateName(null)).toContain('—');
+  });
+
+  test('escapes the visible first-name fragment', () => {
+    const out = privateName('<script>alert(1)</script> Smith');
+    expect(out).not.toContain('<script>');
+    expect(out).toContain('&lt;script&gt;');
+  });
+
+  test('escapes the data-full attribute', () => {
+    const out = privateName('Alice "Wonder" <img onerror=alert(1)>');
+    // Raw < should never appear except inside our own tag markup
+    // (which only uses ASCII tag names).
+    const stripped = out.replace(/<span[^>]*>|<\/span>/g, '');
+    expect(stripped).not.toContain('<img');
+    expect(stripped).not.toContain('onerror=alert');
+    expect(out).toContain('&quot;Wonder&quot;');
+  });
+
+  test('handles a benign single-name input', () => {
+    const out = privateName('Maxwell');
+    expect(out).toContain('>Maxwell<');
+    expect(out).toContain('data-full="Maxwell"');
+  });
+});
+
+describe('App.privateContact XSS regression', () => {
+  test('returns empty string when both inputs are falsy', () => {
+    expect(privateContact('', '')).toBe('');
+    expect(privateContact(null, undefined)).toBe('');
+  });
+
+  test('escapes a malicious email payload in both data-full and visible mask', () => {
+    const out = privateContact('"><svg onload=alert(1)>@x.com', null);
+    // The dangerous bit is an injectable <svg> opening tag; the literal
+    // text "onload=alert" inside an escaped attribute is harmless.
+    expect(out).not.toContain('<svg');
+    expect(out).toContain('&lt;svg');
+    // The first-char visible fragment should be entity-escaped too
+    expect(out).toContain('&quot;');
+  });
+
+  test('escapes a malicious phone payload', () => {
+    const out = privateContact(null, '<img src=x onerror=alert(1)>');
+    expect(out).not.toContain('<img');
+    expect(out).toContain('&lt;img');
+  });
+
+  test('formats a benign email with the canonical mask', () => {
+    const out = privateContact('maxwell@example.com', null);
+    // m••••@example.com (4 dots, capped at user.length - 1)
+    expect(out).toContain('m••••@example.com');
+    expect(out).toContain('data-full="maxwell@example.com"');
+  });
+
+  test('formats a benign phone with the canonical mask', () => {
+    const out = privateContact(null, '709-555-1234');
+    expect(out).toContain('709 •••-1234');
+  });
+});
