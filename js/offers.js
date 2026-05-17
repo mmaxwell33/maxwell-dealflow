@@ -486,16 +486,48 @@ const Pipeline = {
   all: [],
   currentFilter: 'all',  // 'all' | 'existing_home' | 'new_build'
   currentSideFilter: 'all',  // seller-side feature: 'all' | 'buy' | 'sell'
+  currentStageFilter: 'all', // PR #28: 'all' | 'Accepted' | 'Conditions' | 'Closing' | 'Closed' | 'Fell Through'
 
   setFilter(key) {
     Pipeline.currentFilter = key;
+    Pipeline._savePrefs();
     Pipeline.render(Pipeline.all);
   },
 
   // seller-side feature: filter pipeline by deal_side (buy vs sell).
   setSideFilter(key) {
     Pipeline.currentSideFilter = key;
+    Pipeline._savePrefs();
     Pipeline.render(Pipeline.all);
+  },
+
+  // PR #28: stage filter (primary "where are my deals" axis)
+  setStageFilter(key) {
+    Pipeline.currentStageFilter = key;
+    Pipeline._savePrefs();
+    Pipeline.render(Pipeline.all);
+  },
+
+  // PR #28: persist all three filters in localStorage so the view survives reload.
+  // Key: mdf-pipeline-view = {"type":"all","side":"all","stage":"all"}
+  _loadPrefs() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('mdf-pipeline-view') || 'null');
+      if (raw && typeof raw === 'object') {
+        if (typeof raw.type  === 'string') Pipeline.currentFilter      = raw.type;
+        if (typeof raw.side  === 'string') Pipeline.currentSideFilter  = raw.side;
+        if (typeof raw.stage === 'string') Pipeline.currentStageFilter = raw.stage;
+      }
+    } catch (_) {}
+  },
+  _savePrefs() {
+    try {
+      localStorage.setItem('mdf-pipeline-view', JSON.stringify({
+        type:  Pipeline.currentFilter,
+        side:  Pipeline.currentSideFilter,
+        stage: Pipeline.currentStageFilter,
+      }));
+    } catch (_) {}
   },
 
   // ── Status-ticker cooldown state machine ─────────────────────────────
@@ -534,6 +566,7 @@ const Pipeline = {
 
   async load() {
     if (!currentAgent?.id) return;
+    Pipeline._loadPrefs(); // PR #28: restore saved filter state before first render
     const { data } = await db.from('pipeline')
       .select('*').eq('agent_id', currentAgent.id)
       .is('archived_at', null)
@@ -1401,47 +1434,70 @@ const Pipeline = {
     // advancing once per card rendered.
     Pipeline._tickerActive = Pipeline.shouldShowTicker();
 
-    // ── Apply deal_type filter (All / Existing Home / New Build) ──
-    const filter = Pipeline.currentFilter || 'all';
-    let filtered = filter === 'all' ? list : list.filter(d => (d.deal_type || 'existing_home') === filter);
+    // ── PR #28: three-axis filter — stage (primary), deal_type, deal_side ──
+    const filter      = Pipeline.currentFilter      || 'all';
+    const sideFilter  = Pipeline.currentSideFilter  || 'all';
+    const stageFilter = Pipeline.currentStageFilter || 'all';
 
-    // ── Apply deal_side filter (All / Buyer / Seller) — seller-side feature ──
-    const sideFilter = Pipeline.currentSideFilter || 'all';
-    if (sideFilter !== 'all') {
-      filtered = filtered.filter(d => (d.deal_side || 'buy') === sideFilter);
-    }
+    let filtered = list;
+    if (filter !== 'all')      filtered = filtered.filter(d => (d.deal_type || 'existing_home') === filter);
+    if (sideFilter !== 'all')  filtered = filtered.filter(d => (d.deal_side || 'buy') === sideFilter);
+    if (stageFilter !== 'all') filtered = filtered.filter(d => (d.stage || 'Accepted') === stageFilter);
 
-    // Counts for filter chip labels
+    // Counts for filter chip labels (based on the unfiltered universe so the
+    // counts don't shrink-to-zero as the user narrows; this is the standard
+    // "facet count" pattern and matches PR #26's clients-list chips).
     const counts = {
-      all: list.length,
+      all:           list.length,
       existing_home: list.filter(d => (d.deal_type || 'existing_home') === 'existing_home').length,
-      new_build: list.filter(d => d.deal_type === 'new_build').length
+      new_build:     list.filter(d => d.deal_type === 'new_build').length
     };
     const sideCounts = {
       all:  list.length,
       buy:  list.filter(d => (d.deal_side || 'buy')  === 'buy').length,
       sell: list.filter(d => (d.deal_side || 'buy')  === 'sell').length
     };
-    const chip = (key, label) => `
-      <button onclick="Pipeline.setFilter('${key}')"
-        style="padding:7px 14px;border:1px solid ${filter===key?'var(--accent)':'var(--border)'};background:${filter===key?'var(--accent)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-        ${label} <span style="opacity:.7;font-weight:400;">${counts[key]}</span>
+    const stageCounts = {
+      all:           list.length,
+      Accepted:      list.filter(d => d.stage === 'Accepted').length,
+      Conditions:    list.filter(d => d.stage === 'Conditions').length,
+      Closing:       list.filter(d => d.stage === 'Closing').length,
+      Closed:        list.filter(d => d.stage === 'Closed').length,
+      'Fell Through':list.filter(d => d.stage === 'Fell Through').length,
+    };
+
+    // Shared chip helper — uses the .cl-chip class introduced in PR #26 for
+    // visual consistency with the Clients list. aria-pressed reflects active.
+    const chipBtn = (key, label, count, handler) => {
+      const pressed = key === handler.current ? 'true' : 'false';
+      return `<button class="cl-chip" aria-pressed="${pressed}"
+        onclick="Pipeline.${handler.fn}('${App.escAttr(key)}')">
+        ${label}<span class="cl-chip-count">${count}</span>
       </button>`;
-    const sideChip = (key, label) => `
-      <button onclick="Pipeline.setSideFilter('${key}')"
-        style="padding:7px 14px;border:1px solid ${sideFilter===key?'var(--accent)':'var(--border)'};background:${sideFilter===key?'var(--accent)':'transparent'};color:${sideFilter===key?'#fff':'var(--text2)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-        ${label} <span style="opacity:.7;font-weight:400;">${sideCounts[key]}</span>
-      </button>`;
+    };
+    const stageH = { fn: 'setStageFilter', current: stageFilter };
+    const typeH  = { fn: 'setFilter',      current: filter };
+    const sideH  = { fn: 'setSideFilter',  current: sideFilter };
+
+    // Show only stage chips that have at least one deal (plus "All" always).
+    const stageChipRow = ['all','Accepted','Conditions','Closing','Closed','Fell Through']
+      .filter(s => s === 'all' || stageCounts[s] > 0)
+      .map(s => chipBtn(s, s === 'all' ? 'All' : s, stageCounts[s], stageH))
+      .join('');
+
     const filterRow = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-        ${chip('all','All')}
-        ${chip('existing_home','🏠 Existing Home')}
-        ${chip('new_build','🏗️ New Build')}
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-        ${sideChip('all','Both Sides')}
-        ${sideChip('buy','🏠 Buyers')}
-        ${sideChip('sell','🏷 Sellers')}
+      <div class="pl-filter-bar">
+        <div class="pl-filter-row" role="group" aria-label="Filter by stage">${stageChipRow}</div>
+        <div class="pl-filter-row" role="group" aria-label="Filter by deal type">
+          ${chipBtn('all',          'All',                 counts.all,           typeH)}
+          ${chipBtn('existing_home','🏠 Existing Home',    counts.existing_home, typeH)}
+          ${chipBtn('new_build',    '🏗️ New Build',        counts.new_build,     typeH)}
+        </div>
+        <div class="pl-filter-row" role="group" aria-label="Filter by side">
+          ${chipBtn('all',  'Both Sides',  sideCounts.all,  sideH)}
+          ${chipBtn('buy',  '🏠 Buyers',   sideCounts.buy,  sideH)}
+          ${chipBtn('sell', '🏷 Sellers',  sideCounts.sell, sideH)}
+        </div>
       </div>`;
 
     const active = filtered.filter(d => !['Closed','Fell Through'].includes(d.stage));
@@ -1590,26 +1646,33 @@ const Pipeline = {
       </div>`;
     };
 
+    // PR #28: helper for the collapsible section headers — used for all three
+    // groupings so they look identical (was inline-styled differently for each).
+    const sectionHeader = (icon, label, count) => `
+      <div class="pl-section-header" onclick="Pipeline.toggleSection(this)">
+        <span class="pl-section-icon">${icon}</span>
+        <span class="pl-section-label">${App.esc(label)} (${count})</span>
+        <span class="pl-section-chevron">▲</span>
+      </div>`;
+
     let html = filterRow;
     if (!filtered.length) {
-      html += `<div style="text-align:center;padding:30px 20px;color:var(--text2);font-size:14px;">No deals of this type yet.</div>`;
+      html += `<div style="text-align:center;padding:30px 20px;color:var(--text2);font-size:14px;">No deals match this filter.</div>`;
     } else {
-      html += active.map(d => card(d)).join('');
+      // PR #28: Active Deals now gets a header matching the Closed / Fell Through ones.
+      if (active.length) {
+        html += sectionHeader('🔵', 'Active Deals', active.length);
+        html += `<div>${active.map(d => card(d)).join('')}</div>`;
+      }
     }
 
     if (closed.length) {
-      html += `<div style="margin:16px 0 8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="Pipeline.toggleSection(this)">
-        <span style="color:var(--green);font-size:16px;">🟢</span>
-        <span class="fw-800" style="font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Closed Deals (${closed.length})</span>
-        <span style="margin-left:auto;color:var(--text3);">▲</span>
-      </div><div>${closed.map(d => card(d)).join('')}</div>`;
+      html += sectionHeader('🟢', 'Closed Deals', closed.length);
+      html += `<div>${closed.map(d => card(d)).join('')}</div>`;
     }
     if (fell.length) {
-      html += `<div style="margin:16px 0 8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="Pipeline.toggleSection(this)">
-        <span style="color:var(--red);font-size:16px;">🔴</span>
-        <span class="fw-800" style="font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Fell Through (${fell.length})</span>
-        <span style="margin-left:auto;color:var(--text3);">▲</span>
-      </div><div>${fell.map(d => card(d)).join('')}</div>`;
+      html += sectionHeader('🔴', 'Fell Through', fell.length);
+      html += `<div>${fell.map(d => card(d)).join('')}</div>`;
     }
 
     el.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div></div>`;
@@ -1617,7 +1680,11 @@ const Pipeline = {
 
   toggleSection(hdr) {
     const section = hdr.nextElementSibling;
-    if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    if (!section) return;
+    const willHide = section.style.display !== 'none';
+    section.style.display = willHide ? 'none' : 'block';
+    // PR #28: flip chevron via class (CSS handles the rotate)
+    hdr.classList.toggle('pl-collapsed', willHide);
   },
 
   // ── NEW BUILD CARD — distinct rendering for deal_type='new_build' deals ──
