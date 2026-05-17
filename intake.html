@@ -188,20 +188,20 @@
 
   <div class="row">
     <div class="field">
-      <span class="field-label">First Name <span class="req">*</span></span>
+      <label class="field-label" for="f-firstname">First Name <span class="req">*</span></label>
       <input type="text" id="f-firstname" placeholder="John" autocomplete="given-name">
     </div>
     <div class="field">
-      <span class="field-label">Last Name <span class="req">*</span></span>
+      <label class="field-label" for="f-lastname">Last Name <span class="req">*</span></label>
       <input type="text" id="f-lastname" placeholder="Smith" autocomplete="family-name">
     </div>
   </div>
   <div class="field">
-    <span class="field-label">Email Address <span class="req">*</span></span>
+    <label class="field-label" for="f-email">Email Address <span class="req">*</span></label>
     <input type="email" id="f-email" placeholder="john@email.com" autocomplete="email">
   </div>
   <div class="field">
-    <span class="field-label">Phone Number</span>
+    <label class="field-label" for="f-phone">Phone Number</label>
     <input type="tel" id="f-phone" placeholder="(709) 555-0100" autocomplete="tel">
   </div>
 
@@ -263,8 +263,8 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Preferred Areas / Neighbourhoods</span>
-    <div class="pills" id="pills-areas" style="margin-bottom:8px;">
+    <label class="field-label" for="f-areas">Preferred Areas / Neighbourhoods</label>
+    <div class="pills" id="pills-areas" style="margin-bottom:8px;" role="group" aria-label="Common areas — click to toggle">
       <div class="pill" data-val="St. John's" onclick="togglePill(this,'pills-areas')">St. John's</div>
       <div class="pill" data-val="Mount Pearl" onclick="togglePill(this,'pills-areas')">Mount Pearl</div>
       <div class="pill" data-val="Paradise" onclick="togglePill(this,'pills-areas')">Paradise</div>
@@ -312,8 +312,8 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Maximum Budget</span>
-    <div class="pills" id="pills-budget" style="margin-bottom:10px;">
+    <label class="field-label" for="f-budget-max">Maximum Budget</label>
+    <div class="pills" id="pills-budget" style="margin-bottom:10px;" role="group" aria-label="Budget brackets — click to pick">
       <div class="pill" data-val="300000" onclick="toggleBudgetPill(this,'pills-budget')">Under $300K</div>
       <div class="pill" data-val="350000" onclick="toggleBudgetPill(this,'pills-budget')">$300K – $350K</div>
       <div class="pill" data-val="400000" onclick="toggleBudgetPill(this,'pills-budget')">$350K – $400K</div>
@@ -383,7 +383,7 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Is there anything specific Maxwell should know? <br><span style="font-weight:400;text-transform:none;font-size:12px;color:#475569;">(special needs, flexibility on criteria, specific streets, anything at all)</span></span>
+    <label class="field-label" for="f-notes">Is there anything specific Maxwell should know? <br><span style="font-weight:400;text-transform:none;font-size:12px;color:#475569;">(special needs, flexibility on criteria, specific streets, anything at all)</span></label>
     <textarea id="f-notes" placeholder="e.g. We need to be near St. Paul's School. Open to older homes that need updating. Would love a double garage. Flexible on closing date..."></textarea>
   </div>
 

@@ -125,22 +125,22 @@
 
   <div class="row">
     <div class="field">
-      <span class="field-label">First Name <span class="req">*</span></span>
+      <label class="field-label" for="f-firstname">First Name <span class="req">*</span></label>
       <input type="text" id="f-firstname" placeholder="Sarah" autocomplete="given-name">
     </div>
     <div class="field">
-      <span class="field-label">Last Name <span class="req">*</span></span>
+      <label class="field-label" for="f-lastname">Last Name <span class="req">*</span></label>
       <input type="text" id="f-lastname" placeholder="Hynes" autocomplete="family-name">
     </div>
   </div>
 
   <div class="field">
-    <span class="field-label">Email <span class="req">*</span></span>
+    <label class="field-label" for="f-email">Email <span class="req">*</span></label>
     <input type="email" id="f-email" placeholder="you@example.com" autocomplete="email">
   </div>
 
   <div class="field">
-    <span class="field-label">Phone</span>
+    <label class="field-label" for="f-phone">Phone</label>
     <input type="tel" id="f-phone" placeholder="(709) 555-1234" autocomplete="tel">
   </div>
 
@@ -167,12 +167,12 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Property Address <span class="req">*</span></span>
+    <label class="field-label" for="f-address">Property Address <span class="req">*</span></label>
     <input type="text" id="f-address" placeholder="123 Main Street, St. John's, NL" autocomplete="street-address">
   </div>
 
   <div class="field">
-    <span class="field-label">Property Type <span class="req">*</span></span>
+    <label class="field-label" for="f-ptype">Property Type <span class="req">*</span></label>
     <select id="f-ptype">
       <option value="">— Choose a property type —</option>
       <option value="Single Family Home">🏠 Single Family Home</option>
@@ -215,7 +215,7 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Approximate Size (sq. ft.)</span>
+    <label class="field-label" for="f-sqft">Approximate Size (sq. ft.)</label>
     <input type="text" id="f-sqft" placeholder="e.g. 1,800 (optional)">
   </div>
 
@@ -287,7 +287,7 @@
       <div class="price-mode-desc">Drag the slider to your target.</div>
       <div class="price-mode-extra">
         <div class="price-display" id="price-display">$450,000</div>
-        <input type="range" id="f-price-range" min="100000" max="2000000" step="25000" value="450000" oninput="updatePriceDisplay(this.value)">
+        <input type="range" id="f-price-range" min="100000" max="2000000" step="25000" value="450000" oninput="updatePriceDisplay(this.value)" aria-label="Target sale price range slider">
       </div>
     </div>
 
@@ -295,7 +295,7 @@
       <div class="price-mode-title">💯 I have a firm number</div>
       <div class="price-mode-desc">Tell me what you're aiming for.</div>
       <div class="price-mode-extra">
-        <input type="text" id="f-price-firm" placeholder="$500,000">
+        <input type="text" id="f-price-firm" placeholder="$500,000" aria-label="Target firm sale price">
       </div>
     </div>
   </div>
@@ -314,6 +314,7 @@
   </div>
 
   <div class="field">
+    <label class="field-label" for="f-notes">Anything else Maxwell should know? <span style="font-weight:400;text-transform:none;font-size:12px;color:#475569;">(renovations, urgency, tenants, special features)</span></label>
     <textarea id="f-notes" placeholder="e.g. Renovated kitchen 2023. Tenant in basement suite. Need to be out by Sept. Open to multiple offers..."></textarea>
   </div>
 
