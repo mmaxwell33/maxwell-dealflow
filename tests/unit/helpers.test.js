@@ -274,3 +274,50 @@ describe('App.privateContact XSS regression', () => {
     expect(out).toContain('709 •••-1234');
   });
 });
+
+// ── Command palette scoring (PR #18) ──────────────────────────────────────
+// Inline copy of App.Palette._score — keep in sync with js/app.js.
+function paletteScore(label, q) {
+  if (!q) return 0;
+  const l = label.toLowerCase();
+  const qq = q.toLowerCase();
+  const i = l.indexOf(qq);
+  if (i !== -1) return 1000 - i;
+  let li = 0, qi = 0;
+  while (li < l.length && qi < qq.length) {
+    if (l[li] === qq[qi]) qi++;
+    li++;
+  }
+  return qi === qq.length ? 100 : -Infinity;
+}
+
+describe('App.Palette._score', () => {
+  test('empty query returns 0 (everything passes through)', () => {
+    expect(paletteScore('Clients', '')).toBe(0);
+  });
+
+  test('substring match outranks subsequence-only match', () => {
+    // "comm" appears as a substring in "Commissions" (substring tier)
+    // "csn" does NOT appear contiguously but IS a subsequence (sub tier)
+    expect(paletteScore('Commissions', 'comm')).toBeGreaterThan(paletteScore('Commissions', 'csn'));
+  });
+
+  test('earlier substring position scores higher', () => {
+    expect(paletteScore('Approvals', 'app')).toBeGreaterThan(paletteScore('Manage app', 'app'));
+  });
+
+  test('subsequence (chars in order, not contiguous) matches', () => {
+    expect(paletteScore('Commissions', 'cmn')).toBe(100); // c,m,n in order
+    expect(paletteScore('Clients', 'cls')).toBe(100);
+  });
+
+  test('returns -Infinity when no subsequence match', () => {
+    expect(paletteScore('Overview', 'xyz')).toBe(-Infinity);
+    expect(paletteScore('Clients', 'zzz')).toBe(-Infinity);
+  });
+
+  test('is case-insensitive', () => {
+    expect(paletteScore('Clients', 'CLI')).toBeGreaterThan(0);
+    expect(paletteScore('Clients', 'Cli')).toBeGreaterThan(0);
+  });
+});
