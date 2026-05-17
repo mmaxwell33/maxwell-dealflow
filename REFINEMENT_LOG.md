@@ -1333,3 +1333,76 @@ Converts every visible label that sits above a real form input into a properly-a
 - **Drag to reschedule** on the month grid. Useful but needs much deeper plumbing (writes to pipeline / viewings / builder_visit_requests tables).
 
 ---
+
+## PR #31 — `phase3/marketing-site-v1`
+
+**Closes:** First entry in **Phase 3** — the marketing website. The CRM (Phase 2) is the agent-facing tool. The marketing site is the public-facing landing page that converts visitors into intake-form submissions. Lives at `/site/` so the CRM root URL (`/`) is unaffected.
+
+**What it does:**
+
+A single-page marketing landing at `https://maxwell-dealflow.vercel.app/site/`. Standalone HTML (no shared CSS/JS dependency on the CRM) so it loads fast and ranks well in search.
+
+**Sections (top to bottom):**
+1. **Sticky nav** — Maxwell's "MD" avatar + name on the left; "Start with a free intake" CTA on the right. Backdrop-blur so it doesn't compete with content.
+2. **Hero** — eyebrow ("REALTOR® · eXp Realty · St. John's, NL"), big heading ("The home you want, on terms that work for you."), one-paragraph lead, two CTAs: 🏠 buyer intake / 🏷 seller intake.
+3. **How I help** — two side-by-side cards (Buying / Selling) with bullets + per-card CTAs. Honest sales copy ("no hard sell, no high-pressure tactics").
+4. **Process** — three numbered steps showing the working-together flow + a side card with a direct-email shortcut.
+5. **Why work with me** — three trust-strip cards (Local-first / Honest / Modern + responsive).
+6. **CTA band** — coral gradient strip with the two intake links one more time.
+7. **Footer** — three columns: identity, contact, brokerage. Bottom row with year + "Independently owned and operated" disclaimer.
+
+**Approach:**
+
+1. **One self-contained file.** Inline CSS, one tiny inline `<script>` to set the year. No external JS framework, no shared stylesheet with the CRM. Fast LCP (no waterfall fetches), easy to deploy, easy to audit. ~447 lines total including comments.
+
+2. **Visual continuity with the CRM without code reuse.** The CRM is dark-themed (navy `#0A0E14` + coral accents). The marketing site is light-themed (white + soft beige `#F8F7F4` + same coral). Both share the brand color (`#CC785C`) so they feel like the same brand without sharing a single CSS variable.
+
+3. **Real content grounded in Maxwell's brokerage facts.** Brokerage is **eXp Realty** (not Royal LePage — verified against `CLAUDE.md`). Display email is `Maxwell.Midodzi@exprealty.com` (not the Gmail sender). Service area is St. John's + Avalon (Mount Pearl, Paradise, CBS named explicitly).
+
+4. **SEO + social baked in.**
+   - `<title>` and `<meta name="description">` tuned for the "Maxwell Midodzi realtor St. John's" query.
+   - Open Graph + Twitter Card meta for nice link previews when the URL is shared.
+   - JSON-LD `RealEstateAgent` schema for Google's Knowledge Graph. Identifies Maxwell, his role, his brokerage, his service area, and his email.
+   - Reuses the CRM's `/icons/icon-512.png` for favicon + og:image, so social shares look polished without adding new assets.
+
+5. **Conversion path is the intake forms, not contact phone numbers.** Every primary CTA links to `/intake.html` (buyer) or `/seller-intake.html` (seller) — the forms that already feed Maxwell's CRM via the `submit_intake` RPC. So a visitor who lands on `/site/`, hits a CTA, fills out an intake, and lands directly in Maxwell's Approvals queue with no manual touch. The marketing site is wired into the existing pipeline by virtue of where its links point.
+
+6. **Accessibility carries over from PR #29.** All clickable elements are `<a>` or `<button>`. Decorative emojis use `aria-hidden="true"`. The nav is wrapped in `<nav aria-label="Primary">`. Color contrast ≥ 4.5:1 on body text and ≥ 3:1 on large headings. `:focus-visible` rule restores the keyboard focus ring globally.
+
+7. **Mobile-first.** Hero typography uses `clamp()` so it scales from phone to desktop. Two-column and three-column grids collapse to one column under 720 px. CTAs stack vertically on phones with `flex-wrap`. Tap targets are ≥ 44 px (the standard).
+
+8. **`prefers-reduced-motion: reduce` honored.** Smooth scroll and card-hover transitions turn off for users who've asked the OS to reduce motion.
+
+**Files changed:**
+- `site/index.html` — new directory + new file. 447 lines (including comments).
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS / no helpers changed).
+- Manual test plan (post-deploy):
+  - Visit `https://maxwell-dealflow.vercel.app/site/` — page loads instantly (all CSS inline, no external JS).
+  - Click "🏠 Looking to buy" → routes to `/intake.html`. Submit the form. It lands in the CRM's `client_intake` table and triggers a notification.
+  - Same for "🏷 Looking to sell" → `/seller-intake.html`.
+  - Open on an iPhone (or DevTools mobile view at 390 px) — hero text scales down cleanly, columns stack, CTAs stack.
+  - View source — see the JSON-LD block at the top. Test it in Google's Rich Results Test (`https://search.google.com/test/rich-results`) to verify Google sees Maxwell as a RealEstateAgent.
+  - Share the URL on iMessage/Slack — see the Open Graph preview render with title + description + icon image.
+
+**Visual change:** A brand new URL surface. The CRM at `/` is unchanged. Nothing visible to Maxwell unless he navigates to `/site/`.
+
+**Risk if rolled back:** Loses the marketing landing page. The intake forms (`/intake.html`, `/seller-intake.html`) still work directly, but there's no marketing front door to drive visitors there. No data risk.
+
+**Performance impact:**
+- Single HTML file, no waterfall fetches, no JS bundle.
+- LCP target: first meaningful paint within 200 ms on a fast connection, 1 s on slow 3G.
+- No service-worker dependency — fresh deploys propagate instantly to `/site/` (the SW from `sw.js` is scoped to the root and only intercepts the agent app's resources).
+
+**What's NOT in this PR (Phase 3 backlog for next sessions):**
+- **`/site/about/`** — long-form bio, photo, certifications, sales record.
+- **`/site/listings/`** — current MLS listings pulled in via an MLS feed integration.
+- **`/site/sold/`** — closed deals (with addresses redacted), sale-price-to-list-price ratios, days on market — social proof for sellers.
+- **`/site/testimonials/`** — client reviews. Already a `reviews` table in Supabase; just needs a public page that reads from it.
+- **`/site/blog/`** — local market reports, buyer/seller guides — content marketing for SEO.
+- **Sitemap + robots.txt + canonical tags** — proper search-engine plumbing once there's more than one page.
+- **Analytics** — Plausible or Fathom (privacy-respecting alternatives to GA) once we want to measure conversion.
+
+---
