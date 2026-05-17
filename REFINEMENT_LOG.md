@@ -1475,3 +1475,65 @@ A single-page marketing landing at `https://maxwell-dealflow.vercel.app/site/`. 
 - **`/site/testimonials/`** — pull from existing `reviews` table.
 
 ---
+
+## PR #33 — `phase3/site-seo-plumbing`
+
+**Closes:** The technical SEO foundation for the marketing site. Without this, Google might index the agent CRM and token-protected response pages, leaking metadata into search results and wasting crawl budget. With this, only the four public, indexable pages get crawled and ranked.
+
+**What it does:**
+
+1. **`/robots.txt`** at the site root — explicitly allows `/site/*`, `/intake.html`, `/seller-intake.html`; disallows the agent CRM and every token-protected surface (`/respond.html`, `/portal.html`, `/review.html`, `/builder*.html`, `/stakeholder*.html`, `/seller-portal.html`); points crawlers at the sitemap.
+2. **`/sitemap.xml`** — explicit list of the 4 public, indexable URLs with `<changefreq>` and `<priority>` hints so Google knows which pages matter most.
+3. **`<link rel="canonical">`** added to both `/site/` and `/site/about/` so any URL variation (trailing slashes, query strings, alternative hostnames) collapses to one canonical address in search results.
+4. **`<meta name="robots" content="noindex, nofollow">`** added to all 6 private surfaces: `index.html` (CRM root), `respond.html`, `portal.html`, `review.html`, `builder.html`, `seller-portal.html`. Belt-and-braces with robots.txt — even if a search engine somehow tries to crawl them, the meta tag stops indexing at the page level.
+
+**Approach:**
+
+1. **`robots.txt` is the broad signal, `<meta robots>` is the precise signal.** robots.txt tells well-behaved crawlers what to skip *before* they fetch. The `<meta>` tag tells them what to skip *after* fetching. Some crawlers ignore robots.txt (rare, but it happens — research bots, some AI scrapers); the meta tag catches those. Some pages get linked from elsewhere and crawlers fetch them anyway (curious crawlers will request `Disallow`d pages); the meta tag catches that case too.
+
+2. **The bare-domain Disallow.** `robots.txt` has `Disallow: /$` (the regex anchor on `/`). This tells crawlers not to index `https://maxwell-dealflow.vercel.app/` itself — currently the CRM entry point. When we eventually rewire the root to serve the marketing site (or add a top-level redirect), that line gets removed.
+
+3. **`Allow: /site/`** is explicit even though robots.txt is "allow-by-default" — being explicit makes the intent clear to any human reading the file later. Same for `/intake.html` and `/seller-intake.html`.
+
+4. **Canonical URLs use the full production hostname.** Google treats `https://maxwell-dealflow.vercel.app/site/` as the one true address. If you later add a custom domain (e.g. `maxwellrealtor.ca`), update the canonical tags in one pass — they're easy to grep.
+
+5. **Sitemap priorities reflect conversion value, not just page importance.** `/site/` is `priority 1.0` because it's the primary landing. `/site/about/` is `0.8` (high authority, lower conversion). The intake forms are `0.7` (direct conversion targets but only valuable if Google indexes them as separate landing pages).
+
+6. **No JS, no dependencies.** Both `robots.txt` and `sitemap.xml` are static — Vercel serves them as-is from the deploy. No build step, no CI processing.
+
+**Files changed:**
+- `robots.txt` — new at site root, 38 lines.
+- `sitemap.xml` — new at site root, 40 lines.
+- `site/index.html` — added `<link rel="canonical">` (2 lines).
+- `site/about/index.html` — added `<link rel="canonical">` (2 lines).
+- `index.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `respond.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `portal.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `review.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `builder.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `seller-portal.html` — added `<meta name="robots" content="noindex, nofollow">` (2 lines).
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS changes).
+- Manual test plan (post-deploy):
+  - Visit `https://maxwell-dealflow.vercel.app/robots.txt` — see the rules in plain text.
+  - Visit `https://maxwell-dealflow.vercel.app/sitemap.xml` — see the 4 URL entries.
+  - View source on `/site/` — see `<link rel="canonical" href="…/site/">` in the head.
+  - View source on `/index.html` (the CRM) — see `<meta name="robots" content="noindex, nofollow">`.
+  - Submit the site to Google Search Console: `https://search.google.com/search-console`. Add the property, verify ownership (Vercel can serve a meta-tag verification or DNS TXT), then submit the sitemap URL. Within a few days, Google's indexing report will show the 4 public URLs as indexed and zero private URLs as crawled.
+
+**Visual change:** **None.** All changes are search-engine-facing meta tags + two static files at the site root.
+
+**Risk if rolled back:** Without `noindex` tags, Google might accidentally index `/index.html` (the CRM root) or surface token-protected URLs in search. Reverting also drops the sitemap and robots.txt, which slows the indexing rate of the public marketing pages.
+
+**Performance impact:** Negligible. Two tiny static files served once per crawl; canonical / robots meta tags add ~80 bytes per page. LCP unchanged.
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Google Search Console verification token.** Maxwell needs to add the site to Search Console himself and pick the verification method (HTML file, meta tag, or DNS TXT). Each method has trade-offs and the chosen one needs his real account.
+- **`hreflang`** tags. Only relevant if we ship the site in multiple languages or for multiple regional Google indexes. Not now.
+- **Structured data testing.** The Schema.org JSON-LD was shipped in PR #31 and #32 — verify it parses cleanly in Google's Rich Results Test once deployed.
+- **OpenGraph image dimensions audit.** The current `og:image` uses `/icons/icon-512.png`. Facebook prefers 1200×630. Future PR: generate a real share image.
+- **`pagespeed` audit.** Mobile-friendly test + Core Web Vitals. The marketing site should pass easily (no JS bundle, inline CSS) but worth running through Lighthouse once deployed.
+
+---

@@ -1,0 +1,39 @@
+# Maxwell Midodzi — REALTOR® at eXp Realty
+# https://maxwell-dealflow.vercel.app/
+
+User-agent: *
+
+# Allow the public marketing site
+Allow: /site/
+
+# Allow the public intake/landing forms (these have schema markup and we want
+# them indexed so people searching "maxwell midodzi intake form" can find them).
+Allow: /intake.html
+Allow: /seller-intake.html
+
+# DISALLOW the agent CRM app and every private surface. These pages require
+# authentication or carry tokens — search engines should not crawl them, both
+# for privacy and to avoid wasting crawl budget on private routes.
+Disallow: /index.html
+Disallow: /respond.html
+Disallow: /portal.html
+Disallow: /review.html
+Disallow: /builder.html
+Disallow: /build.html
+Disallow: /stakeholder.html
+Disallow: /stakeholder-v2.html
+Disallow: /stakeholder-v2-A.html
+Disallow: /stakeholder-v2-B.html
+Disallow: /builder-v2-B.html
+Disallow: /builder-v2-B-preview.html
+Disallow: /seller-portal.html
+Disallow: /js/
+Disallow: /css/
+Disallow: /supabase/
+
+# Treating the bare domain as the CRM entry — keep crawlers off it for now.
+# When we eventually point the root to /site/ that disallow can go.
+Disallow: /$
+
+# Point crawlers at the sitemap
+Sitemap: https://maxwell-dealflow.vercel.app/sitemap.xml
