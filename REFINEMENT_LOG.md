@@ -894,3 +894,54 @@ The 5 `setInterval` polls (Notify.checkCompletedViewings, PendingOffers.load, In
 - No new dependencies, no new APIs introduced beyond standard `requestIdleCallback` with a 2-line polyfill fallback.
 
 ---
+
+## PR #18 — `ui/cmd-k-palette`
+
+**Closes:** First entry in the Phase 2 UI track. Adds the "jump anywhere in two keystrokes" command palette every modern app has.
+
+**What it does:**
+Press **Cmd+K** (Mac) or **Ctrl+K** (Windows/Linux) anywhere in the app to open a centered search palette. Type a few characters to filter the full list of sidebar destinations (Overview, Clients, Viewings, Offers, Pipeline, Commissions, Reports, Inbox, Settings, etc. — 27 tabs total). Arrow keys move the selection, Enter jumps to the highlighted tab, Escape closes. The palette is its own dialog with its own focus management, independent of the existing modal-overlay system.
+
+**Approach:**
+
+1. **Single source of truth for navigation.** `App.Palette._collectItems()` reads the live DOM — every `.nav-item[data-tab]` in the sidebar contributes an entry, with the icon, label, and group name pulled from the existing markup. There is no parallel list of tabs to keep in sync. Add a new tab to the sidebar and the palette finds it on next open.
+
+2. **Two-tier scoring (`App.Palette._score`).**
+   - Tier 1 (score `1000 - position`): query is a contiguous substring of the label. Earlier position wins.
+   - Tier 2 (score `100`): query characters appear in order but not contiguously (e.g. "cmm" matches "Commissions").
+   - No match: `-Infinity`, filtered out.
+   - Both label and query are lowercased — case-insensitive by design.
+
+3. **Keyboard contract.**
+   - Cmd+K / Ctrl+K: toggle the palette open/closed. Does nothing if a modal is already open (so the modal's Tab trap stays in charge).
+   - ↑ / ↓: move selection (wraps at boundaries).
+   - Enter: activate selected item, close palette, call `App.switchTab(tab)`.
+   - Escape: close without acting.
+   - Focus restoration: on close, focus returns to whichever element was focused before opening.
+
+4. **DOM/CSS.** A new `#cmdk-overlay` element sits next to `#modal-overlay` in `index.html`. The CSS uses existing theme variables (`--card`, `--accent`, `--text1`, `--text2`, `--border`) so light/dark themes work without extra rules. Backdrop blur, slide-in animation, mobile breakpoint at 480 px, `prefers-reduced-motion` honored.
+
+5. **Accessibility.** Proper ARIA: `role="dialog" aria-modal="true"` on the overlay; `role="combobox" aria-haspopup="listbox" aria-expanded="true"` on the panel; `role="listbox"` on the list; `role="option" aria-selected="true|false"` on each item. A visually-hidden `<label>` is associated with the input. The keyboard hint line is hidden on mobile (no kbd keys to press).
+
+**Files changed:**
+- `index.html` — added `<div id="cmdk-overlay">…</div>` block (10 lines) after the modal-overlay.
+- `css/app.css` — added ~100 lines of palette styles. Uses existing theme variables; no `:root` changes.
+- `js/app.js` — added `App.Palette` namespace (~120 lines) with `_score`, `_collectItems`, `_render`, `_move`, `_activate`, `_onKey`, `open`, `close`, `isOpen`, `init`. One-line wire-up: `App.Palette.init()` called from the existing `DOMContentLoaded` handler next to `App.init()`.
+- `tests/unit/helpers.test.js` — added 6 tests for `_score` covering empty query, substring vs. subsequence ranking, substring position weighting, no-match → -Infinity, case-insensitivity. Total tests now 34.
+
+**Verification:**
+- `node -c js/app.js` — syntax OK.
+- `npm test` — 34/34 pass.
+- Manual: Cmd+K opens the palette. Type "comm" → "Commissions" is the top result. Type "cli" → "All Clients" first. Type "xyz" → "No matches for 'xyz'". ↑↓ move selection visibly. Enter jumps to the tab and closes the palette. Escape closes without jumping. Cmd+K while a modal is open does nothing (modal's own Tab trap still in charge).
+
+**Visual change:** New keyboard surface only. No change to any existing screen when palette is closed. While open, a blurred dark overlay covers the page with a centered card containing the search field and result list.
+
+**Risk if rolled back:** Loses the new keyboard shortcut. No existing functionality changes; the navigation graph is unchanged (palette delegates to `App.switchTab`, which is the same function the sidebar buttons call).
+
+**Performance impact:** Negligible. One global `keydown` listener (single conditional that exits early on non-Cmd+K keys when the palette is closed). DOM scan for nav items only runs on each Palette.open() call.
+
+**What's NOT in this PR (scope discipline):**
+- Searching across clients, offers, viewings, or pipeline rows. That requires Supabase queries with debounce + result caching; will be PR #19 as `ui/cmd-k-client-search` once the framework is proven.
+- Recent-tab history. Could add a "Recent" section above the filter results once we have usage data.
+
+---
