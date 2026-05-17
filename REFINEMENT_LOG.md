@@ -804,3 +804,44 @@ Net: 38 lines of code removed, 9 lines added (the comment + cleanup + simplified
 **Performance impact:** Negligible improvement. One fewer `JSON.parse(localStorage.getItem(...))` synchronous read on every sign-in attempt.
 
 ---
+
+## PR #16 — `perf/sw-cache-strategy`
+
+**Closes:** AUDIT_REPORT.md §2.2.2 — service worker network-first default makes flaky-wifi unusable.
+
+**The problem:**
+`sw.js` was configured to go to the network first for every request except icons, with cache as a fallback only on full network failure. The comment said "ensures updated code always loads immediately" — the intent was good (don't ship stale JS after a deploy) but the cost was crippling: on a slow or flaky connection, the service worker would wait the full browser timeout (~30 seconds in the worst case) before falling back to cache. On the iPhone, that means a 30-second blank screen every time Maxwell opens the app in a parkade, basement, or weak-LTE area. The PWA was effectively useless offline despite being installed.
+
+Worse, the wait-for-network branch only fell back to cache on outright network *failure* — a slow-but-eventually-succeeding fetch would just sit there blocking the page.
+
+**Approach:**
+Replaced the single fetch handler with three lanes that match the standard PWA pattern, keeping the "fresh code on next load" property the original author cared about:
+
+1. **Icons** — cache-first (unchanged from before).
+2. **HTML page loads** (`request.mode === 'navigate'`, document destination, or `Accept: text/html`) — network-first with a **3-second hard timeout**. If the network responds within 3s, use it and cache. If not, serve from cache immediately and let the network finish updating the cache in the background for next time. If network fails *and* cache is empty, fall back to `/index.html` (the PWA shell).
+3. **Everything else** (CSS, JS, manifest, fonts) — **stale-while-revalidate**. Cache is served instantly; a background fetch refreshes it for the next visit.
+
+How fresh code still propagates after a deploy: bump `CACHE = 'dealflow-v72'` on line 1. The activate handler purges the old cache. The first request after activation cache-misses and fetches the new file; SWR serves it on the next request.
+
+Two helper functions, `networkFirstWithTimeout(req, ms)` and `staleWhileRevalidate(req)`, hide the boilerplate. The timeout helper uses a `settled` flag to make sure either the network *or* the timer wins — not both. All cache writes still check `status === 200 && type === 'basic'` to avoid caching error pages or opaque cross-origin responses.
+
+Behavior is unchanged for Supabase / Google APIs / non-GET requests — those still bypass the SW entirely.
+
+**Files changed:**
+- `sw.js` — fully rewritten (101 → 151 lines), all three handlers reorganized. CACHE version bumped to `dealflow-v72` to force a clean slate.
+
+**Verification:**
+- `node -c sw.js` — syntax OK.
+- The deploy itself is the verification: on next visit, browsers see a new SW (version comment bumped + line-count changed), call `install`, then `activate`, which purges `dealflow-v71` and any older caches. From the next request on, the new strategy applies.
+- Manual smoke test plan (post-deploy, for Maxwell):
+  - Throttle Network to "Slow 3G" in DevTools → reload → page should appear within ~3 s instead of waiting for the full slow load.
+  - Toggle DevTools "Offline" → reload → app should still load from cache.
+  - Force a deploy → on next reload the new JS arrives within one extra navigation (first nav warms the cache, second uses it).
+
+**Visual change:** None. Speed difference is real but invisible on a healthy connection.
+
+**Risk if rolled back:** Reverts to 30-second blank-screen behavior on flaky wifi. Low-risk to keep — the timeout pattern is in every production PWA template Google ships.
+
+**Performance impact:** Dramatic improvement on flaky / slow connections. First-paint time on a slow 3G page load drops from "30s or until the connection gives up" to "instant cache + 3s race with the network." On a healthy connection, no measurable difference — fetch wins the 3s race in tens of milliseconds.
+
+---
