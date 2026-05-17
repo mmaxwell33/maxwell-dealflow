@@ -642,10 +642,14 @@ const Commission = {
     const prev = document.getElementById('cm-preview');
     if (!prev) return;
     if (!sale || !rate) { prev.style.display = 'none'; return; }
+    // PR #12 fix: brokerage fee is taken on (commission + HST), not on commission
+    // alone. The brokerage bills you for their cut off the gross-with-tax invoice
+    // amount, not the pre-tax commission. The old code undercharged the fee by
+    // (brokerPct × HST), which inflated the net by the same amount.
     const gross = sale * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = gross * brokerPct / 100;
+    const brokerFee = grossPlusTax * brokerPct / 100;
     const net = grossPlusTax - brokerFee;
     prev.style.display = 'block';
     prev.innerHTML = `
@@ -653,7 +657,7 @@ const Commission = {
         <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
-        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross + HST):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
         <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
       </div>`;
   },
@@ -737,11 +741,15 @@ const Commission = {
     const rate = parseFloat(document.getElementById('cm-rate')?.value) || 2.5;
     const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 20;
     const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 15;
-    // Correct formula: HST adds to gross; brokerage is on gross only
+    // PR #12 fix: brokerage fee is taken on (commission + HST), not on commission
+    // alone — the brokerage bills off the gross-with-tax invoice amount. The old
+    // code was undercharging the fee by (brokerPct × HST), which inflated the
+    // net by the same amount. For Maxwell's typical 2.5% / 15% / 20% setup
+    // that's roughly $356 too much per ~$475k deal.
     const gross = salePrice * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = gross * brokerPct / 100;
+    const brokerFee = grossPlusTax * brokerPct / 100;
     const net = grossPlusTax - brokerFee;
     msg.textContent = 'Saving...'; msg.style.color = 'var(--text2)';
     const closeDate = document.getElementById('cm-close-date')?.value || null;
