@@ -820,3 +820,52 @@ Press **Cmd+K** (Mac) or **Ctrl+K** (Windows/Linux) anywhere in the app to open 
 - Recent-tab history. Could add a "Recent" section above the filter results once we have usage data.
 
 ---
+
+## PR #22 — `ui/commission-row-actions`
+
+**Closes:** Phase 2 UX gap surfaced live by Maxwell on 2026-05-17: there was no in-app way to delete a mistaken commission entry (the "Allen Smith / Testing Offer" row) or to flip a stuck `'Pending'` status to `'Paid'` (James Owusu's closed-but-pending deal). Both required dropping into Supabase SQL. After tonight, neither does.
+
+**What it does:**
+Adds an Actions column at the right of every row in the Commission History table with two icon buttons:
+
+- **🗑️ Delete** — opens a confirmation modal showing the client name + property. Confirm → row deleted from `commissions` via Supabase. Cancel → modal closes, nothing happens. Visible on every row.
+- **✅ Mark Paid** — opens a confirmation modal. Confirm → sets `status = 'Paid'`, and if `close_date IS NULL` also sets it to today (so the date-based auto-promote logic in `Commission.statusFrom` is consistent). Cancel → no change. Only visible when the row's current status is not already `Paid`.
+
+Both modals piggy-back on `App.openModal/closeModal`, which means PR #13's focus trap activates automatically — Tab cycles inside the modal, Escape closes, focus returns to the originating row button.
+
+**Approach:**
+
+1. **One new column, no schema changes.** The `commissions` table already has `status` and `close_date` columns. The actions just write to them.
+2. **Confirmation is mandatory for both.** Delete is permanent — accidental clicks would lose financial records. Mark Paid is reversible (you can mark unpaid later via Edit Commission, when that lands) but a wrong-row click still bothers reconciliation.
+3. **Mark-Paid logic mirrors the existing `statusFrom` rules.** The audit there: if `close_date` exists, set status='Paid' and the date stays; if `close_date IS NULL`, fill it with today's `YYYY-MM-DD`. That keeps the system's "Pending → Closed → Paid" invariants intact.
+4. **Mark Paid button only shows when not already Paid.** Avoids the "click Paid on a Paid row" trap; reduces visual noise on a finished deal.
+5. **All untrusted strings escaped.** Client names and property addresses pass through `App.esc` (for innerHTML text) and `App.escAttr` (for inline onclick parameters). A client named `<img src=x>` won't break the modal markup.
+6. **Hover affordance.** Buttons get a subtle background + 1.08× scale on hover, 0.96× on press. Tells you they're clickable without crowding the row.
+
+**Files changed:**
+- `js/extras.js` — Commission render() block extended with an Actions column. Four new methods on `Commission`: `confirmDelete`, `doDelete`, `confirmMarkPaid`, `doMarkPaid`. Existing client_name and property_address renders also got wrapped in `App.esc` (closes a pre-existing tiny XSS surface). Net ~80 lines.
+- `css/app.css` — `.cm-row-act` hover/active rule (~12 lines).
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/extras.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual test plan (post-deploy):
+  - On the Commissions screen, every row should have 🗑️ on the right; non-Paid rows should also have ✅ Mark Paid.
+  - Click 🗑️ on the Zinabu Yakubu row → modal appears with "Zinabu Yakubu — 16 Knightsbridge Place…" → Cancel → row still there. → Click again → Delete → row disappears, toast says "✅ Commission deleted", count drops by 1.
+  - Click ✅ Mark Paid on the Abraham Ayuba row (currently Pending) → modal explains it'll set close_date to today → Confirm → row now shows "Paid" with today's date, toast says "✅ Marked as Paid".
+  - Open a modal and press Escape → closes (focus trap from PR #13 is working).
+  - Open a modal and press Tab repeatedly → focus stays inside the modal (focus trap working).
+
+**Visual change:** New 10th column at the right of the Commission History table. Each row gains one or two icon buttons. Empty state (no rows) is unchanged. Mobile (≤480 px): table scrolls horizontally as before; the new column shows up at the right when you scroll over.
+
+**Risk if rolled back:** Loses the in-app delete/mark-paid affordance. You'd be back to running SQL by hand. No data risk — the rows themselves don't depend on the buttons existing.
+
+**Performance impact:** Zero on render time (two extra `<button>` per row, no new queries on load). Each click hits Supabase once with a small targeted UPDATE or DELETE.
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Edit Commission** — changing sale price, rate, brokerage %, etc. after creation. Useful but bigger surface (full form modal, validation). Candidate for PR #23 if Maxwell wants it.
+- **Bulk actions** — multi-select rows then delete/mark-paid in batch. Not needed at his current deal volume.
+- **Undo toast** — would be nice for accidental Delete; would need a 5-second window + Supabase soft-delete. Bigger plumbing, not worth tonight.
+
+---

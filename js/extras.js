@@ -709,26 +709,103 @@ const Commission = {
         <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
       </div>
       <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;min-width:720px;">
+        <table style="width:100%;border-collapse:collapse;min-width:780px;">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
-            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}
+            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}${th('','center')}
           </tr></thead>
-          <tbody>${list.map(c => `
+          <tbody>${list.map(c => {
+            const status = Commission.statusFrom(c);
+            const idAttr = App.escAttr(c.id || '');
+            const nameAttr = App.escAttr(c.client_name || '—');
+            const propAttr = App.escAttr(c.property_address || '—');
+            const markPaidBtn = status !== 'Paid'
+              ? `<button class="cm-row-act" title="Mark as Paid" aria-label="Mark commission as paid"
+                   onclick="Commission.confirmMarkPaid('${idAttr}','${nameAttr}','${propAttr}')"
+                   style="background:none;border:none;color:var(--green);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:6px;">✅</button>`
+              : '';
+            const deleteBtn = `<button class="cm-row-act" title="Delete commission" aria-label="Delete commission"
+                onclick="Commission.confirmDelete('${idAttr}','${nameAttr}','${propAttr}')"
+                style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;">🗑️</button>`;
+            return `
             <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
               <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
-              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${c.client_name||'—'}</td>
-              <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.property_address||'—'}</td>
+              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}</td>
+              <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(c.property_address||'—')}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fees||0)}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.agent_net||0)}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
-              <td style="padding:11px 14px;text-align:center;">${(s=>
-                `<span class="pill2 ${s==='Paid'?'pill2-green':s==='Closed'?'pill2-neutral':'pill2-amber'}">${s}</span>`
-              )(Commission.statusFrom(c))}</td>
-            </tr>`).join('')}</tbody>
+              <td style="padding:11px 14px;text-align:center;">
+                <span class="pill2 ${status==='Paid'?'pill2-green':status==='Closed'?'pill2-neutral':'pill2-amber'}">${status}</span>
+              </td>
+              <td style="padding:11px 8px;text-align:center;white-space:nowrap;">${markPaidBtn}${deleteBtn}</td>
+            </tr>`;
+          }).join('')}</tbody>
         </table>
       </div>`;
+  },
+
+  // PR #22: row-level actions (delete + mark paid) with confirmation modals.
+  // Uses App.openModal/closeModal so PR #13's focus trap activates automatically.
+
+  confirmDelete(id, clientName, propertyAddress) {
+    App.openModal(`
+      <h3 style="margin:0 0 12px;font-size:18px;">Delete commission?</h3>
+      <p style="color:var(--text2);font-size:14px;margin:0 0 8px;">
+        <strong>${App.esc(clientName)}</strong> — ${App.esc(propertyAddress)}
+      </p>
+      <p style="color:var(--red);font-size:13px;margin:0 0 18px;">
+        This permanently removes the row. There is no undo.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn2 btn2-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn2" style="background:var(--red);color:#fff;"
+          onclick="Commission.doDelete('${App.escAttr(id)}')">🗑️ Delete</button>
+      </div>
+    `);
+  },
+
+  async doDelete(id) {
+    if (!id) { App.closeModal(); return; }
+    const { error } = await db.from('commissions').delete().eq('id', id);
+    App.closeModal();
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('✅ Commission deleted');
+    Commission.load();
+  },
+
+  confirmMarkPaid(id, clientName, propertyAddress) {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    App.openModal(`
+      <h3 style="margin:0 0 12px;font-size:18px;">Mark as Paid?</h3>
+      <p style="color:var(--text2);font-size:14px;margin:0 0 8px;">
+        <strong>${App.esc(clientName)}</strong> — ${App.esc(propertyAddress)}
+      </p>
+      <p style="color:var(--text2);font-size:13px;margin:0 0 14px;">
+        Sets status to <strong style="color:var(--green);">Paid</strong>.
+        If no closing date is set, today (${today}) will be used.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn2 btn2-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn2" style="background:var(--green);color:#fff;"
+          onclick="Commission.doMarkPaid('${App.escAttr(id)}')">✅ Mark Paid</button>
+      </div>
+    `);
+  },
+
+  async doMarkPaid(id) {
+    if (!id) { App.closeModal(); return; }
+    // Fetch the row to see if close_date is already set; only override if missing.
+    const existing = Commission.all.find(c => c.id === id);
+    const today = new Date().toISOString().slice(0, 10);
+    const patch = { status: 'Paid' };
+    if (existing && !existing.close_date) patch.close_date = today;
+    const { error } = await db.from('commissions').update(patch).eq('id', id);
+    App.closeModal();
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('✅ Marked as Paid');
+    Commission.load();
   },
 
   async saveNew() {
