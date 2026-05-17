@@ -1537,3 +1537,62 @@ A single-page marketing landing at `https://maxwell-dealflow.vercel.app/site/`. 
 - **`pagespeed` audit.** Mobile-friendly test + Core Web Vitals. The marketing site should pass easily (no JS bundle, inline CSS) but worth running through Lighthouse once deployed.
 
 ---
+
+## PR #34 — `phase3/site-sold-deals`
+
+**Closes:** Phase 3 — adds `/site/sold/`, the public sales-record page. The single strongest social-proof surface for prospective sellers ("show me what you've actually closed"). Privacy-first: no client names, no street addresses, no exact dates — just aggregate stats + anonymized deal cards.
+
+**What it does:**
+
+A new page at `https://maxwell-dealflow.vercel.app/site/sold/` with four sections:
+
+1. **Big-number hero** — 4 marquee stats: total volume, deals closed, avg sale-to-list ratio, avg days on market. All currently placeholders with `TODO` comments pointing Maxwell at the Commissions / Reports screens to swap in his real numbers.
+2. **Recent closings grid** — 6 anonymized deal cards. Each shows: city, month + year of close, price bracket (rounded to $25K), property type, bedrooms, side (BUY / SELL), one extra context bullet. Zero PII: no names, no addresses, no MLS numbers, no exact dates.
+3. **How the numbers happen** — three trust cards (Price it right / Present it properly / Negotiate without ego) explaining the process behind the results.
+4. **CTA band + footer** — repeats the intake links one more time and links back to the rest of the site.
+
+**Approach:**
+
+1. **No live Supabase reads.** The `commissions` table is RLS-protected to the agent — the anon Supabase key on the public site couldn't read it even if I wanted to. Instead, placeholder cards with HTML `TODO:` comments tell Maxwell what to swap in. This is the same pattern as the About page stats (PR #32). Privacy-first by design — there's no code path that could accidentally leak real data.
+
+2. **Anonymization rules documented in the HTML.** Above the deal-grid, a 9-line comment block lists the privacy rules (city OK, type OK, month+year OK, $25K price bracket OK; no names, no street addresses, no exact dates, no MLS numbers). Future Maxwell-or-anyone editing the page has the rules right there.
+
+3. **Past-performance disclaimer.** The legally-meaningful "Past performance does not guarantee future results — real estate markets shift" appears under the section subtitle AND in the footer. Standard real-estate marketing compliance.
+
+4. **Side tag (BUY / SELL).** Each deal card shows which side Maxwell represented in the top-right corner. Sellers seeing a mix of buy + sell sides know he's not exclusively a buyer's-agent.
+
+5. **`og:type: website`** (vs `profile` on the About page). This is a site section, not a person's profile.
+
+6. **Site nav and footer updated everywhere.** Landing page and About page nav both gain the "Sold deals" link. Both footers reorganized into a "Site" column showing all three internal pages. Sitemap.xml gains the `/site/sold/` URL entry with `priority 0.8` (same as About — high-authority sub-page, not the primary landing).
+
+**Files changed:**
+- `site/sold/index.html` — new file, 239 lines.
+- `site/css/site.css` — added `.big-stats`, `.big-stat`, `.deal-grid`, `.deal-card`, `.type-badge`, `.deal-city`, `.deal-when`, `.deal-price`, `.deal-meta`, `.deal-side` styles. Net ~85 lines.
+- `site/index.html` — added "Sold deals" to nav, restructured footer.
+- `site/about/index.html` — added "Sold deals" to nav, restructured footer.
+- `sitemap.xml` — added `/site/sold/` URL entry.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS changes).
+- Manual test plan (post-deploy):
+  - Visit `/site/sold/` — renders with 4 big stats, 6 anonymized deal cards in a responsive grid, 3 trust cards, CTA, footer.
+  - All 3 site pages now show "Sold deals" in the top nav. On `/site/sold/` itself, that link is highlighted in coral.
+  - Mobile (390 px) — big stats become 2×2 grid; deal grid becomes single column; nav links hidden (keep brand + CTA).
+  - View source — see `og:type: website`, canonical URL, `<meta robots>` NOT present (this page IS indexable).
+  - Visit `/sitemap.xml` — now lists 5 URLs.
+
+**Visual change:** New page at `/site/sold/`. "Sold deals" link added to nav and footer on every existing marketing page. No CRM change.
+
+**Risk if rolled back:** Loses the sold-deals page + new nav link. Sitemap regresses to 4 URLs. No data risk.
+
+**Performance impact:** Zero. New page is a static HTML file. No new JS, no new queries, ~10 KB of HTML + already-cached CSS.
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Real career stats.** Placeholder `$X.XM`, `50+`, `99%`, `~21`. Maxwell swaps in real values from his Commissions screen Reports tab.
+- **Real recent closings.** 6 plausible placeholder cards with `TODO` instructions for how to anonymize the real data. Maxwell does the manual transcription respecting the documented privacy rules.
+- **Dynamic stats from Supabase.** Would require a public RPC like `get_sold_stats_public()` (security-definer, aggregates only) and one client-side fetch. Worthwhile if Maxwell wants the stats to auto-update — file as `phase3/site-sold-stats-rpc` for a future PR.
+- **Per-deal photos** (anonymized exteriors). Would require image hosting + alt text + careful redaction (license plates, house numbers, etc.). Future PR.
+- **Volume chart** showing trend over time. Could be a tiny SVG or a Chart.js block. Adds JS dependency, save for a follow-up.
+
+---
