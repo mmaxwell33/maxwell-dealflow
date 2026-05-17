@@ -472,3 +472,42 @@ $ npx vitest run
 3. axe-core may surface real WCAG violations on first CI run. Each one becomes its own small accessibility-fix PR — exactly the safety net working as designed.
 
 ---
+
+## PR #8 — `perf/defer-scripts`
+
+**Type:** Performance — add `defer` attribute to all 20 `<script src="…">` tags in `index.html`.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §2.1.1 — P1 — `index.html` ships 20 blocking script tags at end-of-body (~1.4 MB uncompressed JS before the lock screen renders). The audit's first-listed cheapest win: add `defer` so the preload scanner downloads them in parallel and execution waits for DOM parse to complete.
+
+**Approach:** single-line semantic change per `<script>` tag — `<script src="…">` becomes `<script defer src="…">`. One `replace_all` across 20 sites. Script tags stay at end-of-body for now; moving them to `<head>` to compound the gain is a separate follow-up.
+
+**Why it's safe:**
+
+`defer` preserves execution order (unlike `async`), so the existing dependency chain (`supabase-js → config.js → app.js → clients.js → …`) keeps working. The boot block (`document.addEventListener('DOMContentLoaded', () => App.init())`) fires AFTER all defer scripts complete, so every global (`App`, `Clients`, `Viewings`, …) is defined before `init()` runs. No script does meaningful work at top level beyond defining its module object — they all wait for runtime events (tab switch, button click, auth state change).
+
+**Expected impact:**
+
+- Lock screen LCP: predicted **30–40% improvement** on cold-load 4G mobile (per audit §2.1.1).
+- TTI: faster — parser no longer blocks on each script.
+- Execution order: identical.
+- Runtime behaviour: identical.
+
+**Visual change:** None observable — same UI, just faster on cold load. Screenshots N/A.
+
+**Files:**
+- `index.html` — 20 `<script src="…">` tags get `defer` added. Same line count.
+
+**Verification:**
+
+- `grep -c '<script defer src="' index.html` → `20` ✓
+- `grep -c '<script src="' index.html` (without defer) → `0` ✓
+- Browser smoke (after Vercel deploy): load `/`, sign in, click through Clients, Viewings, Pipeline, Approvals. Behaviour identical to before, page paints sooner.
+
+**Risk if rolled back:** Zero. Reverts to the prior end-of-body sync loads.
+
+**Performance impact:** Strictly positive (smaller LCP, smaller TTI). Same total JS download.
+
+**Follow-up (deferred):** moving the script tags from end-of-body to `<head>` would compound the gain — preload scanner kicks off downloads BEFORE the parser reaches the bottom of body. That refactor is a separate PR (`perf/scripts-to-head`) because it slightly raises regression risk (any script that touches `document.body` at top level would need careful handling).
+
+---
