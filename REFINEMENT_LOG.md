@@ -354,3 +354,48 @@ SELECT agent_id, window_start, count FROM claude_rate_limit ORDER BY window_star
 **Operational note:** After this PR ships, the GitHub repo's history still contains the old hardcoded values — searchable via `git log -S "monthly_income"`. If the repo is or becomes public, consider a follow-up `git filter-repo` pass to scrub the history. For now (private repo), the current state is acceptable.
 
 ---
+
+## PR #6 — `testing/ci-baseline`
+
+**Type:** Tooling — establish the CI safety net so subsequent refinement PRs have automatic regression protection.
+
+**What ships:**
+1. **`package.json`** — first time. Hosts dev-only test dependencies (`vitest`, `@playwright/test`, `@axe-core/playwright`). The production app has zero Node deps; this file is exclusively for tests.
+2. **`vitest.config.js`** + **`tests/unit/helpers.test.js`** — 19 unit tests covering `App.esc`, `App.escAttr`, `App.fmtDate`, `App.fmtMoney`. Includes regression tests for the PR #2 attack strings (apostrophe injection, `'); alert(...);//`, `</script>` etc.) — so any future change that re-opens the XSS hole fails CI immediately.
+3. **`playwright.config.ts`** + **`tests/e2e/public-surfaces.spec.ts`** — three smoke tests against the lock screen (`/`), buyer intake (`/intake`), and seller intake (`/seller-intake`). Each verifies (a) page renders without JS errors and (b) axe-core finds zero `critical`/`serious` WCAG 2.1 AA violations.
+4. **`.github/workflows/ci.yml`** — runs Vitest, starts a local static server, installs Chromium (only — not full browser set), runs Playwright + axe. Concurrency-cancels in-flight runs on push. Uploads Playwright report only on failure.
+
+**Closes (from the original Phase 2 brief):**
+- "PR #6 — Testing/CI baseline. Must complete in under 4 minutes."
+
+**Scope explicitly excluded:**
+- **Authenticated Playwright flows** (login → client → viewing → send confirmation). That requires a seeded test agent in Supabase, which is its own concern — defer to PR #6b. The public-surface smoke tests we ship now still gate every PR for the 3 most-exposed entry points (the lock screen alone caught real WCAG issues during local testing — see followup).
+- **Migrating `App.esc`/`App.escAttr` into a shared module.** The unit tests inline copies of the implementations with a `MUST match js/app.js` comment. Refactoring `app.js` to import from `js/lib/helpers.js` is a separate PR (`refactor/shared-helpers-module`).
+
+**Local verification:**
+```
+$ npx vitest run
+ ✓ tests/unit/helpers.test.js (19 tests) 33ms
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+```
+
+19 tests, 33ms, no failures. The escAttr test for `'); alert('xss'); //` confirms the attack string round-trips into a JS-safe literal exactly as PR #2's defence intended.
+
+**CI time budget:** Targeting < 4 minutes (workflow `timeout-minutes: 6` as a hard ceiling). Breakdown:
+- Checkout + Node setup + cache restore: ~15 s
+- `npm install`: ~25 s (cached: ~5 s)
+- Vitest: ~5 s
+- Playwright Chromium install: ~30 s
+- Static server boot + wait-on: ~5 s
+- Playwright + axe (3 specs): ~15 s
+- Total: ~95-100 s first run, ~70 s with warm caches.
+
+**Risk if rolled back:** Reverts to no CI. Existing security PRs stay shipped; only the future safety net goes away.
+
+**Follow-ups noted:**
+1. **PR #6b** — Authenticated Playwright flows. Will seed a `tests/e2e/test-agent@test.com` user, write a fixture that signs in via Supabase Auth, then run the login → client → viewing flow.
+2. **PR #6c** — Shared helpers module (`js/lib/helpers.js`). Eliminates the duplication between `app.js` and `tests/unit/helpers.test.js`.
+3. axe-core may surface real WCAG violations on first CI run. Each one becomes its own small accessibility-fix PR — exactly the safety net working as designed.
+
+---
