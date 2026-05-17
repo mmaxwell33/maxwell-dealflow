@@ -29,6 +29,31 @@
   <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
 
   <link rel="stylesheet" href="css/app.css?v=2">
+
+  <!-- SCRIPTS (PR #11) — moved to <head> with defer so the preload scanner
+       starts downloads in parallel with the HTML parse. Execution still
+       waits for DOM parse to complete (that's what defer does), and the
+       order matches the original end-of-body sequence. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script defer src="config.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/clients.js"></script>
+  <script defer src="js/viewings.js"></script>
+  <script defer src="js/offers.js"></script>
+  <script defer src="js/notifications.js"></script>
+  <script defer src="js/pendingoffers.js"></script>
+  <script defer src="js/responses.js"></script>
+  <script defer src="js/extras.js"></script>
+  <script defer src="js/disclosure.js"></script>
+  <script defer src="js/analytics.js"></script>
+  <script defer src="js/portal-traffic.js"></script>
+  <script defer src="js/tracker.js"></script>
+  <script defer src="js/ai.js"></script>
+  <script defer src="js/calendar.js"></script>
+  <script defer src="js/reviews.js"></script>
+  <script defer src="js/briefing.js"></script>
 </head>
 <body>
 
@@ -1771,27 +1796,7 @@
 <!-- TOAST -->
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-<!-- SCRIPTS -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script defer src="config.js"></script>
-<script defer src="js/app.js"></script>
-<script defer src="js/clients.js"></script>
-<script defer src="js/viewings.js"></script>
-<script defer src="js/offers.js"></script>
-<script defer src="js/notifications.js"></script>
-<script defer src="js/pendingoffers.js"></script>
-<script defer src="js/responses.js"></script>
-<script defer src="js/extras.js"></script>
-<script defer src="js/disclosure.js"></script>
-<script defer src="js/analytics.js"></script>
-    <script defer src="js/portal-traffic.js"></script>
-<script defer src="js/tracker.js"></script>
-<script defer src="js/ai.js"></script>
-<script defer src="js/calendar.js"></script>
-<script defer src="js/reviews.js"></script>
-<script defer src="js/briefing.js"></script>
+<!-- SCRIPTS moved to <head> in PR #11 — see above. -->
 
 <!-- Share-to-socials modal (post-close reviews only) -->
 <div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:20px;">

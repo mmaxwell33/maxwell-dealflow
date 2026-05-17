@@ -594,3 +594,39 @@ axe-core should now report fewer "color-contrast" / "interactive-element-afforda
 - Convert `<div onclick>` rows in clients.js / calendar.js to `<button>` for keyboard-accessibility (audit §4.2). Larger refactor.
 
 ---
+
+## PR #11 — `perf/scripts-to-head`
+
+**Type:** Performance — relocate the `defer`'d script tags from end-of-body to `<head>`.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §2.1.1 follow-up — PR #8 added `defer` to all 20 script tags while leaving them at end-of-body. This PR moves them up to `<head>` so the browser's preload scanner kicks off downloads at the very start of HTML parse instead of waiting until the parser reaches the bottom of body. Compounds PR #8's LCP win.
+
+**Approach:** delete the block from end-of-body, paste it back inside `<head>` right after the stylesheet link. Order preserved exactly. All scripts keep their `defer` attribute (PR #8) — that guarantees execution still waits for DOM parse, so the existing `document.getElementById('auth-screen')` / `document.body.classList` calls inside functions still find their targets when invoked (post-DOM).
+
+**Why it's safe:**
+
+Verified before the move that no script in `js/*.js` touches `document.body` / `document.getElementById` / `window.document` at module top level — all such accesses are inside function bodies that get called at runtime (auth state change, theme toggle, etc.), well after `defer` execution. The `app.js` boot block (`document.addEventListener('DOMContentLoaded', () => App.init())`) fires after defer scripts complete, so every global (`App`, `Clients`, …) is defined before `init()` runs.
+
+**Expected impact:**
+
+- Lock screen LCP: an additional incremental improvement on top of PR #8 — the browser's preload scanner sees the script tags within the first few KB of HTML and starts parallel downloads immediately, instead of waiting until the parser has consumed ~1770 lines of body to reach the scripts.
+- TTI: unchanged from PR #8 (scripts still execute after DOM parse).
+- Visual rendering: identical.
+
+**Files:**
+- `index.html` — moves 20 `<script defer src="…">` tags from end-of-body to `<head>` (between the stylesheet link and `</head>`). Leaves a single placeholder comment at the old position so anyone grepping for `<!-- SCRIPTS` finds a breadcrumb.
+
+**Visual change:** None observable. Screenshots N/A.
+
+**Verification:**
+
+- `grep -nE "<script defer src=" index.html` → 20 matches, all before `</head>` (line 57).
+- `awk '/<\/head>/{print NR; exit}' index.html` → confirms `</head>` position.
+- After Vercel deploy: open `/` in DevTools Network panel → Waterfall view should show JS files starting download in parallel with the HTML response, rather than waiting until after HTML parse completes.
+
+**Risk if rolled back:** Zero. Move scripts back to end-of-body (where PR #8 left them). The `defer` attribute keeps things working in either location.
+
+**Performance impact:** Strictly positive (downloads start sooner). Same total JS size.
+
+---
