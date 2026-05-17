@@ -985,6 +985,147 @@ const App = {
     }
   },
 
+  // ── Command palette (Cmd+K / Ctrl+K) — PR #18 ──────────────────────────
+  // Quick navigation: open with Cmd+K (Ctrl+K on Windows/Linux), type to
+  // filter visible nav items, Enter to jump. Reads items from the sidebar
+  // .nav-item[data-tab] elements so there's a single source of truth for
+  // the navigation graph — adding/removing a sidebar item automatically
+  // updates the palette.
+  Palette: {
+    _items: [],
+    _filtered: [],
+    _activeIdx: 0,
+    _prevFocus: null,
+
+    // Score a tab item against the query. Higher = better match.
+    //  - exact substring of label   → strong score, weighted by earliness
+    //  - subsequence match (chars in order, not contiguous) → weak score
+    //  - no match → -Infinity (filtered out)
+    _score(label, q) {
+      if (!q) return 0;
+      const l = label.toLowerCase();
+      const qq = q.toLowerCase();   // case-insensitive on both sides
+      const i = l.indexOf(qq);
+      if (i !== -1) return 1000 - i;
+      // subsequence fallback: "cmm" matches "Commissions"
+      let li = 0, qi = 0;
+      while (li < l.length && qi < qq.length) {
+        if (l[li] === qq[qi]) qi++;
+        li++;
+      }
+      return qi === qq.length ? 100 : -Infinity;
+    },
+
+    // Build the searchable list from the live DOM (one source of truth).
+    _collectItems() {
+      const out = [];
+      document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+        if (btn.offsetParent === null && btn.closest('.sb-group')) {
+          // skip items in collapsed groups? No — palette should still find them.
+        }
+        const tab = btn.dataset.tab;
+        const icon = btn.querySelector('.nav-icon')?.textContent?.trim() || '•';
+        const label = btn.querySelector('.nav-label')?.textContent?.trim() || tab;
+        const group = btn.closest('.sb-group')?.querySelector('.sb-section-label')
+                        ?.firstChild?.textContent?.trim() || '';
+        out.push({ tab, icon, label, group });
+      });
+      return out;
+    },
+
+    open() {
+      App.Palette._items = App.Palette._collectItems();
+      App.Palette._prevFocus = document.activeElement;
+      const overlay = document.getElementById('cmdk-overlay');
+      const input = document.getElementById('cmdk-input');
+      overlay.hidden = false;
+      input.value = '';
+      App.Palette._render('');
+      // focus input on next frame so the slide-in animation has started
+      requestAnimationFrame(() => input.focus());
+    },
+
+    close() {
+      const overlay = document.getElementById('cmdk-overlay');
+      overlay.hidden = true;
+      if (App.Palette._prevFocus && typeof App.Palette._prevFocus.focus === 'function') {
+        try { App.Palette._prevFocus.focus(); } catch (_) {}
+      }
+      App.Palette._prevFocus = null;
+    },
+
+    isOpen() {
+      const overlay = document.getElementById('cmdk-overlay');
+      return overlay && !overlay.hidden;
+    },
+
+    _render(query) {
+      const q = (query || '').toLowerCase().trim();
+      const scored = App.Palette._items
+        .map(it => ({ ...it, score: App.Palette._score(it.label, q) }))
+        .filter(it => it.score !== -Infinity)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 12);
+      App.Palette._filtered = scored;
+      App.Palette._activeIdx = 0;
+      const list = document.getElementById('cmdk-list');
+      if (!scored.length) {
+        list.innerHTML = `<li class="cmdk-empty" role="option" aria-selected="false">No matches for "${App.esc(query)}"</li>`;
+        return;
+      }
+      list.innerHTML = scored.map((it, i) => `
+        <li role="option" aria-selected="${i === 0}" data-idx="${i}" onclick="App.Palette._activate(${i})">
+          <span class="cmdk-icon">${App.esc(it.icon)}</span>
+          <span class="cmdk-text">${App.esc(it.label)}</span>
+          <span class="cmdk-group">${App.esc(it.group)}</span>
+        </li>
+      `).join('');
+    },
+
+    _move(delta) {
+      const n = App.Palette._filtered.length;
+      if (!n) return;
+      App.Palette._activeIdx = (App.Palette._activeIdx + delta + n) % n;
+      const items = document.querySelectorAll('#cmdk-list li');
+      items.forEach((li, i) => {
+        const sel = i === App.Palette._activeIdx;
+        li.setAttribute('aria-selected', sel ? 'true' : 'false');
+        if (sel) li.scrollIntoView({ block: 'nearest' });
+      });
+    },
+
+    _activate(idx) {
+      const item = App.Palette._filtered[idx ?? App.Palette._activeIdx];
+      if (!item) return;
+      App.Palette.close();
+      App.switchTab(item.tab);
+    },
+
+    _onKey(e) {
+      // Global trigger: Cmd+K on Mac, Ctrl+K elsewhere
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        // Don't open if a modal is already open
+        const modal = document.getElementById('modal-overlay');
+        if (modal && modal.classList.contains('open')) return;
+        e.preventDefault();
+        if (App.Palette.isOpen()) App.Palette.close();
+        else App.Palette.open();
+        return;
+      }
+      if (!App.Palette.isOpen()) return;
+      if (e.key === 'Escape')      { e.preventDefault(); App.Palette.close(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); App.Palette._move(1); }
+      else if (e.key === 'ArrowUp')   { e.preventDefault(); App.Palette._move(-1); }
+      else if (e.key === 'Enter')     { e.preventDefault(); App.Palette._activate(); }
+    },
+
+    init() {
+      document.addEventListener('keydown', App.Palette._onKey);
+      const input = document.getElementById('cmdk-input');
+      if (input) input.addEventListener('input', (e) => App.Palette._render(e.target.value));
+    },
+  },
+
   toast(msg, color = 'var(--green)') {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -1204,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
   App.init();
+  App.Palette.init();
   App.startLockScreen();
   // Restore saved theme immediately on load
   setTimeout(() => { if (window.SystemTools) SystemTools.loadSavedTheme(); }, 800);
