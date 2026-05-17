@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sitemap — Maxwell Midodzi marketing site
+  https://maxwell-dealflow.vercel.app/
+
+  Only public, indexable pages live here. The agent CRM and token-protected
+  pages (respond, portal, review, builder) are excluded — robots.txt
+  Disallows them and that's the right place for that signal.
+
+  When new /site/* pages ship (sold, testimonials, blog), add an entry
+  here so search engines pick them up promptly.
+-->
+<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+
+  <!-- Marketing landing — primary entry point for organic traffic -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/site/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- About page — high authority signal for "who is maxwell midodzi realtor" -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/site/about/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Buyer intake form — direct-entry conversion target -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/intake.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Seller intake form — direct-entry conversion target -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/seller-intake.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>
