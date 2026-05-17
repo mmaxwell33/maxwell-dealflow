@@ -1406,3 +1406,72 @@ A single-page marketing landing at `https://maxwell-dealflow.vercel.app/site/`. 
 - **Analytics** — Plausible or Fathom (privacy-respecting alternatives to GA) once we want to measure conversion.
 
 ---
+
+## PR #32 — `phase3/site-about-page`
+
+**Closes:** Phase 3 — adds the "About" page at `/site/about/` and refactors the marketing site to use a shared stylesheet (`/site/css/site.css`) so all current and future `/site/*` pages stay visually consistent without duplicating 200 lines of CSS each.
+
+**What it does:**
+
+1. **New page at `/site/about/`** — the "who is this guy" surface the landing page implicitly promises.
+2. **Shared stylesheet extracted** to `/site/css/site.css` (324 lines). Both the landing page and the new About page now reference it instead of carrying duplicate inline CSS.
+3. **Site-wide nav links added** — `[About] [Buyer intake] [Seller intake]` between the brand and the CTA. Hidden under 640 px (mobile keeps just the brand + CTA to stay clean).
+4. **Active-state styling** — the current page's nav link is highlighted in coral via the `.active` class.
+
+**About page sections:**
+
+1. **About hero** — left column: gradient placeholder (the "MD" initials block) with `TODO` comment for swapping in a real headshot. Right column: name, role, two intro paragraphs, plus a 3-stat strip (years in business, families served, avg. rating).
+2. **My approach** — 3 trust-strip cards (Do the homework first / Tell you what I see / Stay in touch). Sets the tone — anti-theatre, pro-honesty.
+3. **What I specialise in** — 4 cards: First-time buyers, New builds, Sellers, Move-up & relocation. Each with 4 sub-bullets.
+4. **Credentials** — pill row of certifications (Licensed REALTOR®, eXp Realty, CREA, NLAR, E&O Insurance).
+5. **CTA band** — repeats the two intake links with a slightly different copy than the landing page ("Ready when you are.").
+6. **Footer** — identical structure to the landing footer, plus a "← Back to home" link.
+
+**Approach:**
+
+1. **Placeholder real-person content marked with HTML `TODO` comments.** Stats (`5+ years`, `50+ families`, `5★ rating`) and credentials are reasonable defaults but every block has a comment telling Maxwell to swap in real numbers. No risk of fabricated claims accidentally going public if I'm wrong about a detail — they're flagged for him to verify and edit.
+
+2. **Shared CSS is the right move at PR #32 because we now have ≥2 pages.** At PR #31 (one page), inline CSS was the right tradeoff (one HTTP request, fast LCP). At PR #32 (two pages), shared CSS pays back the extra request after the first page load (browsers cache `/site/css/site.css` for the second page). The single-page LCP cost is one extra request, still under 50 KB.
+
+3. **About-specific styles bundled into the shared CSS.** The `.about-hero`, `.about-photo`, `.about-body`, `.stats`, `.stat`, `.creds`, `.cred-pill` classes all live in `/site/css/site.css` (about 50 lines). Future pages (testimonials, sold deals) will add their own page-specific blocks the same way.
+
+4. **Three nav links, hidden under 640 px.** Reasonable mobile UX — the CTA + brand fit on the smallest phones; secondary nav appears on tablets and up. The hamburger-menu pattern is not yet warranted (only 3 links).
+
+5. **Schema.org `Person` JSON-LD** instead of `RealEstateAgent` here — that's the correct typing for an About page bio. The landing page keeps `RealEstateAgent` (the business role).
+
+6. **`og:type: profile`** instead of `og:type: website` on the About page — same reason. Tells Facebook/LinkedIn this is a person's profile, not a generic site URL. Slightly nicer share previews.
+
+7. **Photo placeholder is intentionally striking.** Instead of an `<img src="placeholder.jpg">` 404, the photo column is a styled `<div class="about-photo">` showing "MD" in white-on-coral. Looks intentional, not broken, until Maxwell drops in a real headshot. The CSS rule (`.about-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-lg); }`) is ready for the swap — just replace the `<div>` contents with `<img src="/site/img/maxwell.jpg" alt="…">`.
+
+**Files changed:**
+- `site/css/site.css` — new, 324 lines. All shared styles consolidated.
+- `site/index.html` — landing page refactored: inline `<style>` block (229 lines) replaced with one `<link>` tag (1 line). Nav block extended with the new `.nav-links` block. Net: 447 → 224 lines.
+- `site/about/index.html` — new file, 248 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual test plan (post-deploy):
+  - Visit `/site/` — looks identical to before (CSS now external but same rules).
+  - Click "About" in the nav → `/site/about/` loads, "About" link is highlighted in coral.
+  - About page renders the hero with the gradient "MD" placeholder, 3 stats, 4 specialty cards, credentials pills, CTA band, footer.
+  - Click "← Back to home" in the footer → returns to landing page.
+  - Mobile (390 px): nav-links hidden, brand + CTA only. Hero grid stacks (photo on top, text below). 4-card grid becomes 1 column. 3-stat strip becomes 2 columns.
+  - View source on About page → see the `og:type:profile` and Schema.org `Person` JSON-LD.
+
+**Visual change:** Two new marketing-site pages now exist (landing was already shipped in PR #31; this PR adds About). The CRM is unchanged.
+
+**Risk if rolled back:** Loses the About page + shared stylesheet refactor. Landing page would need a quick re-inline of the CSS to keep working. No data risk.
+
+**Performance impact:**
+- Landing page: one extra HTTP request for `site.css` on first visit; cached forever after. LCP increases by ~30 ms on cold load, drops to zero on subsequent /site/* visits.
+- About page: same one-request cost as a fresh visit. Caches once.
+
+**What's NOT in this PR (deliberate scope cut for future PRs):**
+- **Real headshot photo.** The `<div class="about-photo">` placeholder is in place. Maxwell uploads a JPG to `/site/img/maxwell.jpg` (one-line swap) when ready.
+- **Verified credentials.** Pills are best-guess defaults; Maxwell edits them with his actual licenses, awards, memberships.
+- **Real career stats.** Placeholder numbers (5+, 50+, 5★); Maxwell swaps in real values from his records.
+- **`/site/sold/`** — closed-deal social proof from the existing `commissions` table.
+- **`/site/testimonials/`** — pull from existing `reviews` table.
+
+---
