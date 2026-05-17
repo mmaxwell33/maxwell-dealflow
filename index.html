@@ -1705,7 +1705,7 @@
 </div><!-- /app -->
 
 <!-- MODALS -->
-<div id="modal-overlay" class="modal-overlay" onclick="App.closeModal(event)">
+<div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-body" onclick="App.closeModal(event)">
   <div class="modal" id="modal-content">
     <div class="modal-handle"></div>
     <div id="modal-body"></div>
@@ -1769,7 +1769,7 @@
 </div>
 
 <!-- TOAST -->
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- SCRIPTS -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

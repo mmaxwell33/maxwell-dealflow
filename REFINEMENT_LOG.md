@@ -541,3 +541,56 @@ $ npx vitest run
 - Consider archiving the 25 MB of stale PDFs/PPTX/DOCX at repo root into `/archive/` per the audit's repo-hygiene recommendation. Deferred to the last-PR cleanup of Phase 2.
 
 ---
+
+## PR #10 — `a11y/focus-visible-and-aria-live`
+
+**Type:** Accessibility — three small targeted fixes.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §4.3 — P1 — Zero `aria-live` regions. The toast appears and disappears with no screen-reader announcement.
+- §4.3 — P1 — Modal overlay has no `role="dialog"` / `aria-modal="true"` / `aria-labelledby`.
+- §4.5 — P1 — Global `input,select,textarea{outline:none}` + `button{outline:none}` strips focus rings everywhere. There's no `:focus-visible` rule to bring them back, so keyboard users can't see what's focused.
+
+**Files:**
+- `css/app.css` — adds `:focus-visible` rules right after the existing `outline:none` declarations (~25 lines). Uses `var(--accent)` for the outline color so it inherits whichever theme is active.
+- `index.html` — toast gets `role="status" aria-live="polite" aria-atomic="true"`; modal-overlay gets `role="dialog" aria-modal="true" aria-labelledby="modal-body"`.
+
+**Why `:focus-visible` and not `:focus`:**
+
+The original `outline:none` was added because the browser's default outline-on-click looked sloppy in the dark UI. `:focus-visible` is the W3C-approved replacement — it ONLY shows the outline when the user is actually using a keyboard (Tab, arrow keys, screen reader) or assistive tech. Mouse clicks don't trigger it. So the visual cleanliness Maxwell wanted is preserved, but keyboard users get a clear indicator.
+
+**Why `aria-labelledby="modal-body"`:**
+
+The modal-overlay doesn't have a stable, dedicated heading element. `#modal-body` is the container that holds whatever content `App.openModal(html)` injects. A more correct long-term fix would be to wrap each modal's first heading in something like `<h2 id="modal-title">` and reference that — but that requires touching every `App.openModal(...)` call site (dozens). For now, pointing to `modal-body` is enough for screen readers to announce "dialog: [contents]" instead of silence.
+
+**Visual change:**
+- Keyboard users now see a 2-px accent outline when tabbing to any interactive element (button, link, input, etc.).
+- Mouse users see nothing different (clicks don't trigger `:focus-visible`).
+- Toast and modal still look identical visually; only the assistive-tech experience changed.
+
+Visual screenshots N/A — non-mouse interaction not capturable with current dev-server tooling. Manual verification: Tab through the lock screen and the client list; every interactive element should show a visible outline.
+
+**Verification:**
+
+```bash
+# Open the deployed site, press Tab repeatedly:
+# - "Sign In" button on lock screen → outline visible.
+# - Email + password fields → outline visible.
+# - Sidebar nav items → outline visible.
+# - "+ Add Client" button → outline visible.
+# - Inside any modal → outline visible.
+# Click the same elements with a mouse: no outline (correct).
+```
+
+axe-core should now report fewer "color-contrast" / "interactive-element-affordance" / "aria-required-children" violations on the lock screen public-surface test.
+
+**Risk if rolled back:** Zero. Removing focus-visible rules + the two ARIA attributes reverts to the prior (worse) a11y state. No visual or behavioural regression for sighted mouse users either way.
+
+**Performance impact:** None. Pure CSS + HTML-attribute additions, no JS.
+
+**Follow-up (deferred):**
+- Modal focus-trap (audit §4.2). `App.openModal` should move focus into the modal and trap Tab cycling until close. Separate PR — a small focus-trap helper (~30 lines).
+- Programmatic `<label for>` / `<input id>` pairing in form modals (audit §4.4). Bigger sweep; separate PR per surface.
+- Convert `<div onclick>` rows in clients.js / calendar.js to `<button>` for keyboard-accessibility (audit §4.2). Larger refactor.
+
+---

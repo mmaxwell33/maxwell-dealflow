@@ -46,6 +46,32 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 button{cursor:pointer;border:none;outline:none;font-family:inherit;}
 input,select,textarea{font-family:inherit;outline:none;}
 
+/* a11y (PR #10): restore visible focus rings for keyboard users.
+   :focus-visible is the W3C-approved way to show focus ONLY when the user
+   is navigating with a keyboard (or assistive tech), not when they click
+   with a mouse. Pairs with the existing :focus border/box-shadow rules on
+   individual form classes (.lock-input, .form-input, .input2, …) — those
+   stay as-is for visual polish; this rule adds a keyboard-focus indicator
+   to every other interactive element the app strips outlines from. */
+:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:2px;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+
 /* ── LOCK SCREEN ── */
 #auth-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:48px;overflow:hidden;z-index:1000;}
 .lock-slides{position:absolute;inset:0;}
