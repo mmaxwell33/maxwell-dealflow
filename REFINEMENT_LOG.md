@@ -511,3 +511,33 @@ $ npx vitest run
 **Follow-up (deferred):** moving the script tags from end-of-body to `<head>` would compound the gain — preload scanner kicks off downloads BEFORE the parser reaches the bottom of body. That refactor is a separate PR (`perf/scripts-to-head`) because it slightly raises regression risk (any script that touches `document.body` at top level would need careful handling).
 
 ---
+
+## PR #9 — `docs/readme-deploy-secrets`
+
+**Type:** Documentation — three new markdown files at repo root.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §6 — P1 — Missing `README.md`, `DEPLOY.md`, `SECRETS.md` at repo root. The audit specifically called these out: "there is none" / "how to deploy/rollback Vercel + Supabase secrets" / "full inventory of secrets and rotation runbook."
+
+**Files (all new):**
+- `README.md` (~110 lines) — Project intro, stack table, quick-start, key files, links to every other doc, brokerage facts, CI summary, status.
+- `DEPLOY.md` (~190 lines) — Operational runbook captured from the Phase 2 live-fire deploys: how to ship a refinement PR, when to apply a migration, when to redeploy an edge function, how to set secrets, how to roll back each component, manual cron triggers, and the GitHub Actions workflow-scope gotcha.
+- `SECRETS.md` (~110 lines) — Full inventory of every secret in the system: where it lives, what it does, blast radius, rotation steps. No actual values. Plus an annual rotation checklist and explicit notes on what's intentionally NOT secret.
+
+**Visual change:** None. Pure markdown. Screenshots N/A.
+
+**Verification:**
+
+- All three files render cleanly on GitHub (Markdown parses, internal links resolve).
+- Cross-references between files agree (README links to DEPLOY + SECRETS; DEPLOY references SECRETS rotation steps; SECRETS references the audit findings).
+- No actual secret VALUES leaked into any of the three files — only secret NAMES + descriptions.
+
+**Risk if rolled back:** Zero. Pure additions.
+
+**Performance impact:** None.
+
+**Follow-up (not in scope):**
+- The audit also flagged "TROUBLESHOOTING.md" and "SETUP.md" as missing. SETUP is partly covered in README's quick-start; TROUBLESHOOTING is best built up over time as real issues arise. Defer until there's content worth writing.
+- Consider archiving the 25 MB of stale PDFs/PPTX/DOCX at repo root into `/archive/` per the audit's repo-hygiene recommendation. Deferred to the last-PR cleanup of Phase 2.
+
+---
