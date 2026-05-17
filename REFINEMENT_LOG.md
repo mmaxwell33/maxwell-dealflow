@@ -126,6 +126,79 @@ Test 2 — `App.esc` against HTML-text injection:
 
 ---
 
+## PR #7 — `observability/client-errors`
+
+**Type:** Observability — first cut at error visibility. Supabase table + tiny logger + global capture hooks.
+
+**Closes (from [AUDIT_REPORT.md](AUDIT_REPORT.md)):**
+- §2.3 — P1 — App has zero error visibility today. No Sentry, no PostHog, no log table. When `window.onerror` or an unhandledrejection fires on Maxwell's phone, nobody sees it until he reports the symptom. The audit's recommendation was to start with a Supabase table + tiny in-app helper before reaching for a third-party.
+
+**Files:**
+- `supabase/migrations/045_client_errors.sql` — new (`client_errors` table + RLS + 30-day cleanup cron at 03:20 UTC).
+- `js/app.js` — adds `App.logError(err, context)` helper, a per-page-load `_errorSessionId`, and `window.addEventListener('error', …)` + `window.addEventListener('unhandledrejection', …)` bindings. Net +54 lines.
+
+**Approach decisions:**
+
+- **Append-only, write-from-anywhere.** RLS allows authenticated agents to insert rows with their own `agent_id` and anon callers to insert rows with `agent_id = NULL`. No SELECT/UPDATE/DELETE policy for either role — reads happen via the Supabase Dashboard (service role, bypasses RLS).
+- **`logError` never throws.** Wrapped in `try/catch`; the underlying `db.insert()` promise has both fulfilled and rejected paths swallowed. The whole point is that observability code can't itself create observability gaps via an infinite loop with the global handlers.
+- **Per-tab `session_id`** generated once at script-load from `crypto.getRandomValues`, with a deterministic fallback. Lets future queries group "errors that fired in the same browsing session" without a server round-trip.
+- **30-day TTL.** Nightly cleanup at 03:20 UTC (offset from the email-rate-limit cleanup at 03:10 and claude-rate-limit cleanup at 03:15). Errors older than 30 days are deleted — table stays small, postmortems still have a full month of context.
+- **Field-length caps.** `message` ≤ 4000, `stack` ≤ 8000, `user_agent` ≤ 500, `url` ≤ 2000, `context` is jsonb. Stops a single rogue error from filling the table.
+
+**Scope explicitly excluded:**
+- Logging from `respond.html`, `intake.html`, `seller-intake.html`, `portal.html`, `build.html`, `stakeholder.html`. Those public pages don't load `app.js`, so adding a logger there is a separate task. The audit table is anon-writable so the future addition is just a small JS snippet per page.
+- A dashboard UI for browsing errors. Maxwell reads via Supabase's table editor for now. If volume justifies, graduate to Sentry (free up to 5K events/mo) — but only after CSP is enforceable (Sentry's loader uses inline scripts).
+- Rate limiting on `client_errors` inserts. A buggy build could spam this table at hundreds of rows/sec from a single client. The 30-day cleanup handles long-term volume; if short-term spam becomes a problem, add a per-session cap inside `App.logError` (e.g., max 20 events per session).
+
+**Smoke tests:**
+
+After applying the migration:
+
+```bash
+# Anon insert (works — agent_id = NULL)
+ANON=…; URL=…
+curl -s -X POST "$URL/rest/v1/client_errors" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"smoke test from terminal"}'
+# Expect: 201 (empty body with default Prefer)
+
+# Anon trying to forge an agent_id — must fail
+curl -s -X POST "$URL/rest/v1/client_errors" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id":"fe551eb0-7d5a-4302-880f-003ac36ace07","message":"spoof"}'
+# Expect: 42501 / RLS violation
+
+# Read recent errors (Supabase SQL Editor)
+# SELECT id, agent_id, url, message, created_at
+#   FROM client_errors ORDER BY created_at DESC LIMIT 50;
+```
+
+In the agent app:
+
+```js
+// DevTools console after sign-in:
+App.logError(new Error('manual test'), { source: 'devtools' });
+// Then check the table — a row should appear within seconds.
+
+// Trigger the global handler via a deliberate broken call:
+setTimeout(() => { throw new Error('global handler test'); }, 0);
+// Should also land in client_errors.
+```
+
+**Risk if rolled back:** Zero behaviour change. `App.logError` and the two listeners are pure additions. Reverting drops them; nothing depends on them.
+
+**Performance impact:** One async DB insert per uncaught error or per explicit `logError` call. In normal operation, that's zero or one per session. Network failure on the insert is swallowed (no retry, no console error). The session id is computed once.
+
+**Deploy order:**
+1. Merge PR.
+2. Apply migration 045 in Supabase SQL Editor.
+3. Vercel auto-deploys the JS change.
+4. Open the app in DevTools, run `App.logError(new Error('hello'))`, then check the table in the Supabase Dashboard. A row should appear.
+
+---
+
 ## PR #3 — `security/client-intake-rls`
 
 **Type:** Security — Supabase RLS hardening on `client_intake`. Single migration. No client-side change.
