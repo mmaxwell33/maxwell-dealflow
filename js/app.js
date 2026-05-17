@@ -1079,8 +1079,61 @@ const App = {
       activity_type: type, description: desc,
       client_name: clientName, client_email: clientEmail
     });
-  }
+  },
+
+  // ── Error reporting (PR #7) ─────────────────────────────────────────────
+  // Fire-and-forget log to public.client_errors. NEVER throws — that would
+  // create an infinite loop with the window.error / unhandledrejection
+  // listeners below. Reads happen via the Supabase Dashboard table editor.
+  logError(err, context = {}) {
+    try {
+      const message = (err && err.message) ? String(err.message) : String(err);
+      const stack   = (err && err.stack)   ? String(err.stack)   : null;
+      const payload = {
+        agent_id:   currentAgent && currentAgent.id ? currentAgent.id : null,
+        url:        (typeof location !== 'undefined') ? String(location.href || '').slice(0, 2000) : null,
+        user_agent: (typeof navigator !== 'undefined') ? String(navigator.userAgent || '').slice(0, 500) : null,
+        message:    message.slice(0, 4000),
+        stack:      stack ? stack.slice(0, 8000) : null,
+        context:    context && typeof context === 'object' ? context : null,
+        session_id: App._errorSessionId,
+      };
+      // Swallow both sync throw and async rejection — logError must never
+      // surface failures back to the caller.
+      const p = db.from('client_errors').insert(payload);
+      if (p && typeof p.then === 'function') p.then(() => {}, () => {});
+    } catch (_) { /* swallow */ }
+  },
+
+  // Per-page-load id so we can group errors that fired in the same session.
+  _errorSessionId: (function () {
+    try {
+      const a = new Uint8Array(8);
+      (typeof crypto !== 'undefined' ? crypto : { getRandomValues: () => a }).getRandomValues(a);
+      return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) { return String(Date.now()) + Math.random().toString(16).slice(2, 8); }
+  })()
 };
+
+// ── Global error capture (PR #7) ──────────────────────────────────────────
+// Every uncaught JS error and unhandled promise rejection in the agent app
+// gets logged to public.client_errors. Read via Supabase Dashboard.
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', function (e) {
+    App.logError(e && e.error ? e.error : new Error(e && e.message ? String(e.message) : 'window.error'), {
+      type:     'window.error',
+      filename: e && e.filename ? String(e.filename).slice(0, 500) : null,
+      line:     e && typeof e.lineno === 'number' ? e.lineno : null,
+      column:   e && typeof e.colno  === 'number' ? e.colno  : null,
+    });
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    App.logError(
+      e && e.reason ? e.reason : new Error('unhandledrejection'),
+      { type: 'unhandledrejection' }
+    );
+  });
+}
 
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
