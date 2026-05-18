@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DealFlow — Visual Screen &amp; Email Spec · Developer Handoff</title>
+<style>
+  @page { size: Letter portrait; margin: 0.4in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1d2e; background: #fefdf9; margin: 0; }
+  .page { width: 8.5in; min-height: 11in; padding: 0.45in; margin: 0 auto; background: #fefdf9; page-break-after: always; position: relative; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 36px; line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 22px; line-height: 1.2; margin: 0 0 6px; }
+  h3 { font-size: 14px; font-weight: 700; margin: 12px 0 4px; }
+  p { font-size: 12px; margin: 0 0 6px; line-height: 1.55; color: #3d4254; }
+  .muted { color: #5b6079; }
+  .pgnum { position: absolute; bottom: 0.25in; right: 0.45in; font-size: 9px; color: #8a90a8; letter-spacing: 0.1em; }
+  .pgheader { position: absolute; top: 0.25in; right: 0.45in; font-size: 9px; color: #8a90a8; letter-spacing: 0.1em; text-transform: uppercase; }
+  .hero-band { background: #f5efdf; padding: 28px 32px; margin: -0.45in -0.45in 18px; border-bottom: 4px solid #1a1d2e; }
+  .hero-band .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #5b6079; margin-bottom: 10px; }
+  .tag { display: inline-block; background: #f5efdf; color: #5b6079; padding: 3px 10px; border-radius: 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  .tag-screen { background: #1a1d2e; color: #fefdf9; }
+  .tag-email { background: #5b5bd6; color: #fefdf9; }
+  .tag-public { background: #1a8a4f; color: #fefdf9; }
+  .mockup-row { display: flex; gap: 24px; align-items: flex-start; }
+  .mockup-info { flex: 1; padding-top: 10px; }
+  .mockup-info ul { padding-left: 18px; margin: 6px 0; }
+  .mockup-info li { font-size: 12px; color: #3d4254; margin-bottom: 3px; }
+  .mockup-info code { background: #f5efdf; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .toc-row { display: flex; padding: 5px 0; border-bottom: 1px dotted #d4d6e0; font-size: 12px; }
+  .toc-num { flex: 0 0 30px; color: #8a90a8; }
+  .toc-title { flex: 1; font-weight: 600; }
+  .toc-desc { flex: 0 0 55%; color: #5b6079; font-size: 11px; }
+  svg { display: block; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ COVER ═══════ -->
+<div class="page">
+  <div class="hero-band">
+    <div class="eyebrow">Developer Handoff · Visual Specification</div>
+    <h1>DealFlow CRM</h1>
+    <h1 style="font-style: italic; font-size: 24px; color: #5b6079;">Every screen. Every email. Drawn.</h1>
+  </div>
+  <p class="muted" style="font-size: 13px; margin-top: 24px;">Visual mockups of the agent's app, public stakeholder pages, and every transactional email — drawn as wireframes a developer can implement against. Generic role names throughout (Agent, Buyer, Seller, Lawyer, Lender, Inspector, Brokerage, Co-Buyer, Lead).</p>
+
+  <div style="margin-top: 60px; border-top: 2px solid #1a1d2e; padding-top: 18px;">
+    <h3>How to use this document</h3>
+    <ul style="font-size: 12px; padding-left: 18px; color: #3d4254;">
+      <li>Each screen is shown as a phone-frame mockup (DealFlow is a mobile-first PWA).</li>
+      <li>Each email is shown as a Gmail-style frame: subject line, sender, body layout, CTA button, footer.</li>
+      <li>Triggers and recipients are noted under each mockup.</li>
+      <li>Color coding: <span class="tag tag-screen">screen</span> agent app screen · <span class="tag tag-public">public page</span> token-gated public page · <span class="tag tag-email">email</span> outbound email.</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 32px;">
+    <h3>Sections</h3>
+    <div class="toc-row"><div class="toc-num">A</div><div class="toc-title">Agent app screens</div><div class="toc-desc">Login, Overview, Clients, Viewings, Offers, Pipeline, Approvals, Inbox, Settings, more</div></div>
+    <div class="toc-row"><div class="toc-num">B</div><div class="toc-title">Public token-gated pages</div><div class="toc-desc">intake.html, respond.html, portal.html, review.html</div></div>
+    <div class="toc-row"><div class="toc-num">C</div><div class="toc-title">Transactional emails</div><div class="toc-desc">Intake confirm, viewing emails, offer dispatch + accept (5 variants), closing, review request, re-engagement</div></div>
+  </div>
+  <div class="pgnum">01</div>
+</div>
+
+<!-- ═══════ A1 — Login ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Login</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <!-- phone mockup -->
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <!-- status bar -->
+      <text x="34" y="40" font-size="10" fill="#1a1d2e" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" fill="#1a1d2e" font-weight="700">100%</text>
+      <!-- logo -->
+      <circle cx="160" cy="170" r="36" fill="#1a1d2e"/>
+      <text x="160" y="178" text-anchor="middle" font-size="22" fill="#fefdf9" font-weight="700">D</text>
+      <text x="160" y="240" text-anchor="middle" font-family="Georgia,serif" font-size="22" font-weight="600">DealFlow</text>
+      <text x="160" y="260" text-anchor="middle" font-size="10" fill="#5b6079">Sign in to continue</text>
+      <!-- form fields -->
+      <rect x="40" y="290" width="240" height="36" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="50" y="312" font-size="11" fill="#8a90a8">Email address</text>
+      <rect x="40" y="336" width="240" height="36" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="50" y="358" font-size="11" fill="#8a90a8">Password</text>
+      <!-- primary button -->
+      <rect x="40" y="392" width="240" height="40" rx="8" fill="#1a1d2e"/>
+      <text x="160" y="416" text-anchor="middle" font-size="13" fill="#fefdf9" font-weight="700">Sign in</text>
+      <!-- forgot link -->
+      <text x="160" y="448" text-anchor="middle" font-size="11" fill="#5b5bd6">Forgot password?</text>
+      <!-- footer -->
+      <text x="160" y="540" text-anchor="middle" font-size="9" fill="#8a90a8">v1.0 · Maxwell DealFlow CRM</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Single agent (or team) authentication. Email + password via Supabase Auth.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Email + password fields</li>
+        <li>"Sign in" button (primary)</li>
+        <li>"Forgot password?" link → Supabase reset flow</li>
+        <li>App version in footer</li>
+      </ul>
+      <h3>Behavior</h3>
+      <ul>
+        <li>On success: redirects to <code>Overview</code> screen</li>
+        <li>JWT stored in <code>localStorage</code> via Supabase JS SDK</li>
+        <li>Service worker + Web Push registration prompted after first login</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">02</div>
+</div>
+
+<!-- ═══════ A2 — Overview ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Overview / Dashboard</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <!-- status bar -->
+      <text x="34" y="40" font-size="10" fill="#1a1d2e" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" fill="#1a1d2e" font-weight="700">100%</text>
+      <!-- header -->
+      <text x="30" y="72" font-size="9" fill="#8a90a8" letter-spacing="1.5">WEDNESDAY · MAY 7</text>
+      <text x="30" y="95" font-family="Georgia,serif" font-size="20" font-weight="600">Good morning, Agent</text>
+      <text x="30" y="113" font-size="11" fill="#5b6079">12 active · 2 viewings today · 1 closing this week</text>
+
+      <!-- 4 stat cards -->
+      <rect x="20" y="130" width="135" height="60" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="150" font-size="9" fill="#8a90a8" letter-spacing="1">ACTIVE CLIENTS</text>
+      <text x="30" y="178" font-family="Georgia,serif" font-size="22" font-weight="700">12</text>
+      <rect x="165" y="130" width="135" height="60" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="175" y="150" font-size="9" fill="#8a90a8" letter-spacing="1">PIPELINE</text>
+      <text x="175" y="178" font-family="Georgia,serif" font-size="22" font-weight="700">5</text>
+      <rect x="20" y="200" width="135" height="60" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="220" font-size="9" fill="#8a90a8" letter-spacing="1">CLOSED YTD</text>
+      <text x="30" y="248" font-family="Georgia,serif" font-size="22" font-weight="700">8</text>
+      <rect x="165" y="200" width="135" height="60" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="175" y="220" font-size="9" fill="#8a90a8" letter-spacing="1">NEW THIS WEEK</text>
+      <text x="175" y="248" font-family="Georgia,serif" font-size="22" font-weight="700">3</text>
+
+      <!-- pending notifications card -->
+      <rect x="20" y="280" width="280" height="92" rx="8" fill="#1a1d2e"/>
+      <text x="30" y="298" font-size="9" fill="#a8aebf" letter-spacing="1">PENDING NOTIFICATIONS</text>
+      <text x="30" y="318" font-size="11" fill="#fefdf9">▸ 2 approvals waiting</text>
+      <text x="30" y="336" font-size="11" fill="#fefdf9">▸ 1 viewing today @ 3pm</text>
+      <text x="30" y="354" font-size="11" fill="#fefdf9">▸ 2 viewings tomorrow</text>
+      <text x="30" y="368" font-size="9" fill="#a8aebf">tap any to jump</text>
+
+      <!-- recent activity -->
+      <text x="30" y="400" font-size="11" font-weight="700">Recent activity</text>
+      <text x="30" y="420" font-size="10" fill="#5b6079">• Buyer confirmed viewing 2h ago</text>
+      <text x="30" y="436" font-size="10" fill="#5b6079">• Offer accepted on 12 Maple — 4h ago</text>
+      <text x="30" y="452" font-size="10" fill="#5b6079">• New lead: Buyer · downtown · 1d</text>
+
+      <!-- bottom nav -->
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" font-weight="700" fill="#1a1d2e">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Daily landing screen — what needs attention right now.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Hero greeting (date, agent first name, one-line summary)</li>
+        <li>4 stat cards: Active clients, Pipeline, Closed YTD, New this week</li>
+        <li>Pending notifications card (dark) — approvals, today's viewings, tomorrow's viewings, new intakes</li>
+        <li>Recent activity log (last 6 events)</li>
+        <li>Mobile bottom nav: Home · Clients · [+] · Approvals · Inbox</li>
+      </ul>
+      <h3>Data sources</h3>
+      <ul>
+        <li><code>clients</code>, <code>pipeline</code>, <code>activity_log</code>, <code>approval_queue</code></li>
+        <li>Counts via Supabase head:true count queries</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">03</div>
+</div>
+
+<!-- ═══════ A3 — Clients list ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Clients (list)</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" fill="#1a1d2e" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" fill="#1a1d2e" font-weight="700">100%</text>
+
+      <!-- header -->
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Clients</text>
+      <text x="270" y="76" text-anchor="end" font-size="11" fill="#5b5bd6" font-weight="700">+ Add</text>
+      <text x="20" y="92" font-size="11" fill="#5b6079">12 active · 3 archived</text>
+
+      <!-- search/filter -->
+      <rect x="20" y="106" width="280" height="32" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="126" font-size="11" fill="#8a90a8">🔍 Search by name or address…</text>
+
+      <!-- filter pills -->
+      <rect x="20" y="146" width="50" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="45" y="161" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">All</text>
+      <rect x="76" y="146" width="60" height="22" rx="11" fill="#fff" stroke="#e8eaf2"/>
+      <text x="106" y="161" text-anchor="middle" font-size="10" fill="#5b6079">Buyers</text>
+      <rect x="142" y="146" width="60" height="22" rx="11" fill="#fff" stroke="#e8eaf2"/>
+      <text x="172" y="161" text-anchor="middle" font-size="10" fill="#5b6079">Sellers</text>
+      <rect x="208" y="146" width="50" height="22" rx="11" fill="#fff" stroke="#e8eaf2"/>
+      <text x="233" y="161" text-anchor="middle" font-size="10" fill="#5b6079">Hot</text>
+
+      <!-- client cards -->
+      <g font-family="Helvetica,sans-serif">
+        <rect x="20" y="184" width="280" height="62" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <circle cx="40" cy="215" r="14" fill="#5b5bd6"/>
+        <text x="40" y="219" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">B*</text>
+        <text x="65" y="206" font-size="12" font-weight="700">B***** S******* <tspan fill="#8a90a8" font-size="9">tap to reveal</tspan></text>
+        <text x="65" y="222" font-size="10" fill="#5b6079">BUYER · downtown · $400-500K</text>
+        <text x="65" y="238" font-size="10" fill="#5b6079">Last activity: 2h ago</text>
+        <rect x="270" y="200" width="22" height="14" rx="3" fill="#d8f0e1"/>
+        <text x="281" y="211" text-anchor="middle" font-size="8" fill="#1a8a4f" font-weight="700">HOT</text>
+
+        <rect x="20" y="256" width="280" height="62" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <circle cx="40" cy="287" r="14" fill="#b8870c"/>
+        <text x="40" y="291" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">S*</text>
+        <text x="65" y="278" font-size="12" font-weight="700">S***** R*** <tspan fill="#8a90a8" font-size="9">tap to reveal</tspan></text>
+        <text x="65" y="294" font-size="10" fill="#5b6079">SELLER · 12 Maple St · listed $625K</text>
+        <text x="65" y="310" font-size="10" fill="#5b6079">Last activity: 1d ago</text>
+
+        <rect x="20" y="328" width="280" height="62" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <circle cx="40" cy="359" r="14" fill="#5b5bd6"/>
+        <text x="40" y="363" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">B*</text>
+        <text x="65" y="350" font-size="12" font-weight="700">B****** L*** <tspan fill="#8a90a8" font-size="9">tap to reveal</tspan></text>
+        <text x="65" y="366" font-size="10" fill="#5b6079">BUYER · west end · $350-425K</text>
+        <text x="65" y="382" font-size="10" fill="#5b6079">Last activity: 3d ago</text>
+
+        <rect x="20" y="400" width="280" height="62" rx="8" fill="#fff" stroke="#e8eaf2" opacity="0.55"/>
+        <text x="65" y="430" font-size="12" font-weight="700">+ 9 more clients</text>
+      </g>
+
+      <!-- bottom nav -->
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" font-weight="700" fill="#1a1d2e">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Master list of every active and archived client.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Search bar (name or address)</li>
+        <li>Filter pills: All / Buyers / Sellers / Hot</li>
+        <li>Per-client card: avatar, masked name, type, area / price range, last activity, hot tag</li>
+        <li>"Tap to reveal" mask — privacy by default</li>
+        <li>"+ Add" button (top right) → new client modal</li>
+      </ul>
+      <h3>Privacy</h3>
+      <ul>
+        <li>Names show as <code>B***** S*******</code> by default</li>
+        <li>Tap row → reveals + logs to <code>activity_log</code> as <code>NAME_REVEALED</code></li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">04</div>
+</div>
+
+<!-- ═══════ A4 — Viewings ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Viewings</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Viewings</text>
+      <rect x="240" y="60" width="60" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="270" y="75" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">+ Book</text>
+
+      <!-- tabs -->
+      <text x="20" y="108" font-size="11" font-weight="700" fill="#1a1d2e">Today</text>
+      <text x="62" y="108" font-size="11" fill="#8a90a8">Tomorrow</text>
+      <text x="118" y="108" font-size="11" fill="#8a90a8">This week</text>
+      <text x="180" y="108" font-size="11" fill="#8a90a8">Past</text>
+      <line x1="20" y1="115" x2="46" y2="115" stroke="#1a1d2e" stroke-width="2"/>
+
+      <!-- 2 viewing cards for today -->
+      <rect x="20" y="128" width="280" height="100" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="148" font-size="9" letter-spacing="1" fill="#8a90a8">3:00 PM · TODAY</text>
+      <text x="32" y="166" font-size="13" font-weight="700">12 Maple St, Apt 5B</text>
+      <text x="32" y="183" font-size="11" fill="#5b6079">B***** S******* (Buyer)</text>
+      <rect x="32" y="194" width="76" height="20" rx="10" fill="#d8f0e1"/>
+      <text x="70" y="208" text-anchor="middle" font-size="9" fill="#1a8a4f" font-weight="700">CONFIRMED</text>
+      <rect x="116" y="194" width="68" height="20" rx="10" fill="#fff" stroke="#5b5bd6"/>
+      <text x="150" y="208" text-anchor="middle" font-size="9" fill="#5b5bd6" font-weight="700">Reschedule</text>
+      <rect x="192" y="194" width="50" height="20" rx="10" fill="#fff" stroke="#d04a3c"/>
+      <text x="217" y="208" text-anchor="middle" font-size="9" fill="#d04a3c" font-weight="700">Cancel</text>
+
+      <rect x="20" y="240" width="280" height="100" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="260" font-size="9" letter-spacing="1" fill="#8a90a8">5:30 PM · TODAY</text>
+      <text x="32" y="278" font-size="13" font-weight="700">88 Oak Ave</text>
+      <text x="32" y="295" font-size="11" fill="#5b6079">B****** L*** (Buyer)</text>
+      <rect x="32" y="306" width="86" height="20" rx="10" fill="#fff8e7"/>
+      <text x="75" y="320" text-anchor="middle" font-size="9" fill="#b8870c" font-weight="700">AWAITING REPLY</text>
+
+      <text x="20" y="360" font-size="11" font-weight="700">Calendar view</text>
+      <rect x="20" y="370" width="280" height="120" rx="8" fill="#f5efdf"/>
+      <line x1="60" y1="370" x2="60" y2="490" stroke="#e8eaf2" stroke-dasharray="2,2"/>
+      <line x1="120" y1="370" x2="120" y2="490" stroke="#e8eaf2" stroke-dasharray="2,2"/>
+      <line x1="180" y1="370" x2="180" y2="490" stroke="#e8eaf2" stroke-dasharray="2,2"/>
+      <line x1="240" y1="370" x2="240" y2="490" stroke="#e8eaf2" stroke-dasharray="2,2"/>
+      <text x="30" y="390" font-size="9" fill="#5b6079">Mon</text>
+      <text x="90" y="390" font-size="9" fill="#5b6079">Tue</text>
+      <text x="150" y="390" font-size="9" fill="#5b6079">Wed</text>
+      <text x="210" y="390" font-size="9" fill="#5b6079">Thu</text>
+      <text x="270" y="390" font-size="9" fill="#5b6079">Fri</text>
+      <rect x="142" y="412" width="35" height="14" rx="3" fill="#5b5bd6"/>
+      <text x="159" y="423" text-anchor="middle" font-size="8" fill="#fefdf9">3p Maple</text>
+      <rect x="142" y="430" width="35" height="14" rx="3" fill="#5b5bd6"/>
+      <text x="159" y="441" text-anchor="middle" font-size="8" fill="#fefdf9">5:30 Oak</text>
+      <rect x="62" y="446" width="35" height="14" rx="3" fill="#b8870c"/>
+      <text x="79" y="457" text-anchor="middle" font-size="8" fill="#fefdf9">2p Pine</text>
+
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Schedule and manage every property showing.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Tabs: Today · Tomorrow · This week · Past</li>
+        <li>Per-viewing card: time, address, client (masked), status pill (Confirmed / Awaiting / Declined / Completed), action buttons</li>
+        <li>Mini-calendar at bottom showing the week visually</li>
+        <li>"+ Book" button (top right) → modal: pick client, paste address, set date/time, optional notes</li>
+      </ul>
+      <h3>Behavior</h3>
+      <ul>
+        <li>Booking creates viewing row + token + auto-emails client with respond.html link</li>
+        <li>1h after viewing end time → status auto-flips to Completed</li>
+        <li>Tap completed viewing → opens feedback modal</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">05</div>
+</div>
+
+<!-- ═══════ A5 — Offers ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Offers</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Offers</text>
+      <rect x="232" y="60" width="68" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="266" y="75" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">+ Draft</text>
+
+      <text x="20" y="106" font-size="11" fill="#1a1d2e" font-weight="700">Active</text>
+      <text x="58" y="106" font-size="11" fill="#8a90a8">Pending</text>
+      <text x="108" y="106" font-size="11" fill="#8a90a8">History</text>
+      <line x1="20" y1="115" x2="50" y2="115" stroke="#1a1d2e" stroke-width="2"/>
+
+      <!-- offer card 1 — drafted -->
+      <rect x="20" y="128" width="280" height="120" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="148" font-size="9" letter-spacing="1" fill="#b8870c">DRAFT · NOT SENT</text>
+      <text x="32" y="168" font-size="13" font-weight="700">12 Maple St, Apt 5B</text>
+      <text x="32" y="184" font-size="11" fill="#5b6079">Buyer: B***** S*******</text>
+      <text x="200" y="168" font-family="Georgia,serif" font-size="18" font-weight="700">$485K</text>
+      <text x="200" y="184" font-size="10" fill="#5b6079">deposit $20K</text>
+      <text x="32" y="208" font-size="10" fill="#5b6079">Conditions: financing · inspection</text>
+      <text x="32" y="224" font-size="10" fill="#5b6079">Irrevocable: 48h · Close: Jul 18</text>
+      <rect x="32" y="234" width="80" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="72" y="248" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">Dispatch</text>
+      <rect x="120" y="234" width="80" height="22" rx="11" fill="#fff" stroke="#5b5bd6"/>
+      <text x="160" y="248" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="700">Edit · PDF</text>
+
+      <!-- offer card 2 — accepted (orphan) -->
+      <rect x="20" y="262" width="280" height="100" rx="8" fill="#fff8e7" stroke="#b8870c" stroke-width="2"/>
+      <text x="32" y="282" font-size="9" letter-spacing="1" fill="#b8870c">⚠ ACCEPTED · DISPATCH STUCK</text>
+      <text x="32" y="302" font-size="13" font-weight="700">88 Oak Ave</text>
+      <text x="32" y="318" font-size="11" fill="#5b6079">Buyer: B****** L***</text>
+      <text x="200" y="302" font-family="Georgia,serif" font-size="16" font-weight="700">$415K</text>
+      <rect x="32" y="332" width="120" height="22" rx="11" fill="#b8870c"/>
+      <text x="92" y="346" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">Resume Acceptance</text>
+
+      <!-- offer card 3 — counter received -->
+      <rect x="20" y="376" width="280" height="100" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="396" font-size="9" letter-spacing="1" fill="#5b5bd6">COUNTER RECEIVED</text>
+      <text x="32" y="416" font-size="13" font-weight="700">22 Pine Cres</text>
+      <text x="32" y="432" font-size="11" fill="#5b6079">Buyer: M****** R*****</text>
+      <text x="200" y="416" font-size="11" fill="#5b6079">offered $425K</text>
+      <text x="200" y="432" font-size="13" font-weight="700">→ counter $440K</text>
+      <rect x="32" y="446" width="80" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="72" y="460" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">Counter</text>
+      <rect x="120" y="446" width="64" height="22" rx="11" fill="#1a8a4f"/>
+      <text x="152" y="460" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">Accept</text>
+      <rect x="192" y="446" width="60" height="22" rx="11" fill="#fff" stroke="#d04a3c"/>
+      <text x="222" y="460" text-anchor="middle" font-size="10" fill="#d04a3c" font-weight="700">Decline</text>
+
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Draft, dispatch, counter, accept offers — single screen for the negotiation phase.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Tabs: Active · Pending · History</li>
+        <li>Per-offer card: status pill, address, buyer (masked), offer amount + deposit, conditions, irrevocable, close date, action buttons</li>
+        <li>Yellow "Resume Acceptance" banner appears for orphan accepted offers (status accepted but pipeline row missing)</li>
+        <li>Counter / Accept / Decline buttons on counter-received offers</li>
+      </ul>
+      <h3>Dispatch modal</h3>
+      <ul>
+        <li>Pick recipients: Listing Agent, Buyer (CC), Co-Buyer (CC)</li>
+        <li>Personal note text area</li>
+        <li>Auto-attaches generated PDF</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">06</div>
+</div>
+
+<!-- ═══════ A6 — Pipeline ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Pipeline</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Pipeline</text>
+      <text x="20" y="92" font-size="11" fill="#5b6079">5 active deals</text>
+
+      <!-- deal card 1 — under contract, full bar -->
+      <rect x="20" y="108" width="280" height="120" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="130" font-size="13" font-weight="700">12 Maple St</text>
+      <text x="32" y="146" font-size="10" fill="#5b6079">Buyer · B***** S******* · close Jul 18</text>
+      <text x="32" y="162" font-size="10" fill="#1a8a4f" font-weight="700">UNDER CONTRACT · ~30%</text>
+      <!-- segmented progress bar -->
+      <rect x="32" y="172" width="240" height="14" rx="3" fill="#e8eaf2"/>
+      <rect x="32" y="172" width="48" height="14" rx="3" fill="#1a8a4f"/>
+      <rect x="80" y="172" width="24" height="14" fill="#1a8a4f"/>
+      <text x="38" y="201" font-size="8" fill="#5b6079">Accepted</text>
+      <text x="86" y="201" font-size="8" fill="#5b6079">U/Contract</text>
+      <text x="148" y="201" font-size="8" fill="#5b6079">Conditions</text>
+      <text x="198" y="201" font-size="8" fill="#5b6079">Walkthru</text>
+      <text x="252" y="201" font-size="8" fill="#5b6079">Close</text>
+      <rect x="32" y="210" width="100" height="11" rx="2" fill="#e8eaf2"/>
+      <text x="32" y="220" font-size="9" fill="#5b6079">3 of 6 tasks done</text>
+
+      <!-- deal card 2 — closing soon -->
+      <rect x="20" y="240" width="280" height="120" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="262" font-size="13" font-weight="700">88 Oak Ave</text>
+      <text x="32" y="278" font-size="10" fill="#5b6079">Buyer · B****** L*** · close May 25 ⏰</text>
+      <text x="32" y="294" font-size="10" fill="#1a8a4f" font-weight="700">WALKTHROUGH · ~75%</text>
+      <rect x="32" y="304" width="240" height="14" rx="3" fill="#e8eaf2"/>
+      <rect x="32" y="304" width="180" height="14" rx="3" fill="#1a8a4f"/>
+      <text x="38" y="333" font-size="8" fill="#5b6079">Accepted</text>
+      <text x="86" y="333" font-size="8" fill="#5b6079">U/Contract</text>
+      <text x="148" y="333" font-size="8" fill="#5b6079">Conditions</text>
+      <text x="198" y="333" font-size="8" fill="#5b6079" font-weight="700">Walkthru</text>
+      <text x="252" y="333" font-size="8" fill="#5b6079">Close</text>
+      <text x="32" y="352" font-size="9" fill="#b8870c">⚠ No inspection (waived)</text>
+
+      <!-- deal card 3 — closed -->
+      <rect x="20" y="372" width="280" height="100" rx="8" fill="#f0f9f4" stroke="#1a8a4f" stroke-width="1.5"/>
+      <text x="32" y="394" font-size="13" font-weight="700">22 Pine Cres</text>
+      <text x="32" y="410" font-size="10" fill="#5b6079">Seller · S***** R*** · closed Apr 28</text>
+      <text x="32" y="426" font-size="10" fill="#1a8a4f" font-weight="700">✓ CLOSED · 100% · commission $14,250</text>
+      <rect x="32" y="436" width="240" height="14" rx="3" fill="#1a8a4f"/>
+      <rect x="32" y="454" width="100" height="22" rx="11" fill="#fff" stroke="#5b5bd6"/>
+      <text x="82" y="468" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="700">Request Review</text>
+
+      <text x="20" y="492" font-size="10" fill="#8a90a8">+ 2 more deals</text>
+
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Every deal in motion, from acceptance to close. Same renderer used for the client portal.</p>
+      <h3>Per-deal card shows</h3>
+      <ul>
+        <li>Property address + buyer/seller (masked) + close date</li>
+        <li>Current stage label + percentage</li>
+        <li>Single segmented progress bar (5 segments summing to 100%)</li>
+        <li>Skipped stages render as "No inspection" / "No walkthrough" — never hidden</li>
+        <li>Task count: "3 of 6 tasks done"</li>
+        <li>Closed deals: green border, commission shown, "Request Review" button</li>
+      </ul>
+      <h3>Auto-advance triggers</h3>
+      <ul>
+        <li>Inspection complete → Accepted → Under Contract</li>
+        <li>Financing approved → Under Contract → Conditions met</li>
+        <li>Walkthrough scheduled → Conditions → Walkthrough</li>
+        <li>Agent marks "keys delivered" → Walkthrough → Closing → Closed</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">07</div>
+</div>
+
+<!-- ═══════ A7 — Approvals ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Approvals</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Approvals</text>
+      <text x="20" y="92" font-size="11" fill="#5b6079">2 emails awaiting your sign-off</text>
+
+      <!-- pending email card 1 -->
+      <rect x="20" y="108" width="280" height="186" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <rect x="20" y="108" width="280" height="32" rx="8" fill="#fff8e7"/>
+      <text x="32" y="128" font-size="11" fill="#b8870c" font-weight="700">⚠ Awaiting approval · Re-engagement</text>
+      <text x="32" y="156" font-size="11" fill="#5b6079"><tspan font-weight="700" fill="#1a1d2e">To:</tspan> B****** L*** &lt;b****@gmail.com&gt;</text>
+      <text x="32" y="172" font-size="11" fill="#5b6079"><tspan font-weight="700" fill="#1a1d2e">Subject:</tspan> Quick check-in on your search</text>
+      <text x="32" y="194" font-size="10" fill="#3d4254">"Hey B,</text>
+      <text x="32" y="208" font-size="10" fill="#3d4254">Wanted to circle back — anything new on your end? I've</text>
+      <text x="32" y="222" font-size="10" fill="#3d4254">got a couple new listings in your range you might want…"</text>
+      <rect x="32" y="240" width="74" height="26" rx="13" fill="#1a8a4f"/>
+      <text x="69" y="257" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">Approve</text>
+      <rect x="112" y="240" width="60" height="26" rx="13" fill="#fff" stroke="#5b5bd6"/>
+      <text x="142" y="257" text-anchor="middle" font-size="11" fill="#5b5bd6" font-weight="700">Edit</text>
+      <rect x="178" y="240" width="60" height="26" rx="13" fill="#fff" stroke="#d04a3c"/>
+      <text x="208" y="257" text-anchor="middle" font-size="11" fill="#d04a3c" font-weight="700">Discard</text>
+      <text x="242" y="257" font-size="9" fill="#8a90a8">queued 5min ago</text>
+
+      <!-- pending email card 2 -->
+      <rect x="20" y="306" width="280" height="186" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <rect x="20" y="306" width="280" height="32" rx="8" fill="#fff8e7"/>
+      <text x="32" y="326" font-size="11" fill="#b8870c" font-weight="700">⚠ Awaiting approval · Viewing follow-up</text>
+      <text x="32" y="354" font-size="11" fill="#5b6079"><tspan font-weight="700" fill="#1a1d2e">To:</tspan> B***** S******* &lt;b*****@hotmail.com&gt;</text>
+      <text x="32" y="370" font-size="11" fill="#5b6079"><tspan font-weight="700" fill="#1a1d2e">Subject:</tspan> Following up on 12 Maple yesterday</text>
+      <text x="32" y="392" font-size="10" fill="#3d4254">"Hey B, thanks for coming out to 12 Maple. You</text>
+      <text x="32" y="406" font-size="10" fill="#3d4254">mentioned the kitchen needed work — I think the price</text>
+      <text x="32" y="420" font-size="10" fill="#3d4254">leaves room for that. Want to put together an offer?"</text>
+      <rect x="32" y="438" width="74" height="26" rx="13" fill="#1a8a4f"/>
+      <text x="69" y="455" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">Approve</text>
+      <rect x="112" y="438" width="60" height="26" rx="13" fill="#fff" stroke="#5b5bd6"/>
+      <text x="142" y="455" text-anchor="middle" font-size="11" fill="#5b5bd6" font-weight="700">Edit</text>
+      <rect x="178" y="438" width="60" height="26" rx="13" fill="#fff" stroke="#d04a3c"/>
+      <text x="208" y="455" text-anchor="middle" font-size="11" fill="#d04a3c" font-weight="700">Discard</text>
+      <text x="242" y="455" font-size="9" fill="#8a90a8">queued 1h ago</text>
+
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" font-weight="700" fill="#1a1d2e">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Every system-generated outbound email passes through here for the agent to review before sending.</p>
+      <h3>Per-pending email shows</h3>
+      <ul>
+        <li>Yellow "Awaiting approval" banner with template type</li>
+        <li>To, Subject, body preview (3 lines)</li>
+        <li>Approve · Edit · Discard buttons</li>
+        <li>Queued time</li>
+      </ul>
+      <h3>Auto-approve emails</h3>
+      <ul>
+        <li>Bypass this screen entirely (e.g. intake_confirmation, viewing_booked)</li>
+        <li>Triggered with <code>auto_approve: true</code> on Notify.queue()</li>
+        <li>Still log a row here (marked "Auto") for audit history</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">08</div>
+</div>
+
+<!-- ═══════ A8 — Inbox ═══════ -->
+<div class="page">
+  <div class="pgheader">A · Agent screens</div>
+  <h2>Inbox</h2>
+  <span class="tag tag-screen">screen</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <text x="20" y="76" font-family="Georgia,serif" font-size="20" font-weight="600">Inbox</text>
+      <rect x="232" y="60" width="70" height="22" rx="11" fill="#1a1d2e"/>
+      <text x="267" y="75" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="700">Sync 📥</text>
+      <text x="20" y="92" font-size="11" fill="#5b6079">12 conversations · last sync 2m ago</text>
+
+      <!-- search -->
+      <rect x="20" y="106" width="280" height="32" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="126" font-size="11" fill="#8a90a8">🔍 Search subject, sender, body…</text>
+
+      <!-- thread cards -->
+      <g font-family="Helvetica,sans-serif">
+        <rect x="20" y="148" width="280" height="58" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <circle cx="32" cy="167" r="4" fill="#5b5bd6"/>
+        <text x="44" y="170" font-size="12" font-weight="700">Listing Agent · 12 Maple</text>
+        <text x="44" y="186" font-size="10" fill="#3d4254">"Counter at $490K — they're firm. Closes…"</text>
+        <text x="44" y="200" font-size="9" fill="#8a90a8">10:32 AM · 2 messages</text>
+
+        <rect x="20" y="216" width="280" height="58" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <text x="32" y="234" font-size="12" font-weight="700">Lender · 88 Oak Ave</text>
+        <text x="32" y="250" font-size="10" fill="#3d4254">"Pre-approval at $425K confirmed. Sending…"</text>
+        <text x="32" y="266" font-size="9" fill="#8a90a8">Yesterday · 1 message</text>
+
+        <rect x="20" y="284" width="280" height="58" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <text x="32" y="302" font-size="12" font-weight="700">Inspector · 88 Oak Ave</text>
+        <text x="32" y="318" font-size="10" fill="#3d4254">"Inspection report attached. Roof needs…"</text>
+        <text x="32" y="334" font-size="9" fill="#8a90a8">2 days ago · 3 messages · 1 attachment</text>
+
+        <rect x="20" y="352" width="280" height="58" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <text x="32" y="370" font-size="12" font-weight="700">Buyer S — re: viewing</text>
+        <text x="32" y="386" font-size="10" fill="#3d4254">"Can we push the time to 4 instead? Stuck…"</text>
+        <text x="32" y="402" font-size="9" fill="#8a90a8">3 days ago · 1 message</text>
+
+        <rect x="20" y="420" width="280" height="58" rx="8" fill="#fff" stroke="#e8eaf2"/>
+        <text x="32" y="438" font-size="12" font-weight="700">Lawyer · closing docs</text>
+        <text x="32" y="454" font-size="10" fill="#3d4254">"Final closing statement attached. Please…"</text>
+        <text x="32" y="470" font-size="9" fill="#8a90a8">4 days ago · 5 messages · 2 attachments</text>
+      </g>
+
+      <rect x="14" y="520" width="292" height="46" fill="#fefdf9" stroke="#e8eaf2" stroke-width="0.5"/>
+      <text x="50" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Home</text>
+      <text x="100" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Clients</text>
+      <circle cx="160" cy="540" r="14" fill="#5b5bd6"/>
+      <text x="160" y="544" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">+</text>
+      <text x="220" y="548" text-anchor="middle" font-size="9" fill="#8a90a8">Approvals</text>
+      <text x="270" y="548" text-anchor="middle" font-size="9" font-weight="700" fill="#1a1d2e">Inbox</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Two-way Gmail conversations grouped by thread. Synced via Gmail API.</p>
+      <h3>Per-thread card</h3>
+      <ul>
+        <li>Sender (auto-tagged to client when matched)</li>
+        <li>Subject (or first line if no subject)</li>
+        <li>Latest message preview</li>
+        <li>Time, message count, attachment indicator</li>
+        <li>Blue dot = unread</li>
+      </ul>
+      <h3>Behavior</h3>
+      <ul>
+        <li>"Sync 📥" button pulls fresh threads from Gmail (manual)</li>
+        <li>Auto-syncs hourly</li>
+        <li>Tap thread → full conversation + reply</li>
+        <li>Tag thread to a client → links subsequent emails</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">09</div>
+</div>
+
+<!-- ═══════ B1 — intake.html ═══════ -->
+<div class="page">
+  <div class="pgheader">B · Public pages</div>
+  <h2>intake.html — Lead intake form</h2>
+  <span class="tag tag-public">public page</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <!-- header band -->
+      <rect x="14" y="50" width="292" height="76" fill="#f5efdf"/>
+      <circle cx="40" cy="88" r="14" fill="#1a1d2e"/>
+      <text x="40" y="93" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">D</text>
+      <text x="62" y="84" font-family="Georgia,serif" font-size="14" font-weight="700">Agent's name</text>
+      <text x="62" y="100" font-size="10" fill="#5b6079">REALTOR® · Brokerage name</text>
+      <text x="62" y="114" font-size="10" fill="#5b6079">Local market</text>
+
+      <text x="20" y="148" font-family="Georgia,serif" font-size="18" font-weight="600">Tell me about your home goals</text>
+      <text x="20" y="166" font-size="11" fill="#5b6079">A few quick questions — replies in 24h.</text>
+
+      <!-- form fields -->
+      <rect x="20" y="184" width="280" height="34" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="206" font-size="11" fill="#8a90a8">Your name</text>
+
+      <rect x="20" y="226" width="280" height="34" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="248" font-size="11" fill="#8a90a8">Email</text>
+
+      <rect x="20" y="268" width="280" height="34" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="290" font-size="11" fill="#8a90a8">Phone</text>
+
+      <text x="20" y="320" font-size="11" fill="#5b6079">I'm looking to:</text>
+      <rect x="20" y="328" width="86" height="28" rx="14" fill="#1a1d2e"/>
+      <text x="63" y="346" text-anchor="middle" font-size="11" fill="#fefdf9" font-weight="700">Buy</text>
+      <rect x="112" y="328" width="86" height="28" rx="14" fill="#fff" stroke="#e8eaf2"/>
+      <text x="155" y="346" text-anchor="middle" font-size="11" fill="#5b6079">Sell</text>
+      <rect x="204" y="328" width="86" height="28" rx="14" fill="#fff" stroke="#e8eaf2"/>
+      <text x="247" y="346" text-anchor="middle" font-size="11" fill="#5b6079">Both</text>
+
+      <rect x="20" y="368" width="280" height="34" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="390" font-size="11" fill="#8a90a8">Price range (CAD)</text>
+
+      <rect x="20" y="410" width="280" height="34" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="432" font-size="11" fill="#8a90a8">Timeline (e.g. 6 months)</text>
+
+      <rect x="20" y="452" width="280" height="48" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="476" font-size="11" fill="#8a90a8">Anything else? (optional)</text>
+
+      <rect x="20" y="510" width="280" height="40" rx="8" fill="#1a1d2e"/>
+      <text x="160" y="535" text-anchor="middle" font-size="13" fill="#fefdf9" font-weight="700">Submit</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Open public form. No login. Lead's first touch.</p>
+      <h3>Fields</h3>
+      <ul>
+        <li>Name, email, phone</li>
+        <li>Buy / Sell / Both segmented control</li>
+        <li>Price range, timeline</li>
+        <li>Free-text notes</li>
+      </ul>
+      <h3>On submit</h3>
+      <ul>
+        <li>Inserts row in <code>intake_responses</code> via anonymous public RPC</li>
+        <li>Fires Web Push to agent: "New lead"</li>
+        <li>Auto-sends confirmation email to lead from agent's Gmail</li>
+        <li>Shows thank-you page: "I'll be in touch within 24h."</li>
+      </ul>
+      <h3>URL</h3>
+      <p><code>https://&lt;app&gt;.vercel.app/intake.html?ref=qr</code> — optional <code>?ref</code> for source tracking</p>
+    </div>
+  </div>
+  <div class="pgnum">10</div>
+</div>
+
+<!-- ═══════ B2 — respond.html ═══════ -->
+<div class="page">
+  <div class="pgheader">B · Public pages</div>
+  <h2>respond.html — Viewing response</h2>
+  <span class="tag tag-public">public page</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <rect x="14" y="50" width="292" height="60" fill="#f5efdf"/>
+      <text x="20" y="78" font-family="Georgia,serif" font-size="14" font-weight="700">Hi B*****,</text>
+      <text x="20" y="96" font-size="11" fill="#5b6079">Confirm or change your viewing time.</text>
+
+      <!-- property card -->
+      <rect x="20" y="128" width="280" height="158" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <rect x="20" y="128" width="280" height="80" rx="8" fill="#5b6079"/>
+      <text x="160" y="172" text-anchor="middle" font-size="11" fill="#fefdf9">[ property hero photo ]</text>
+      <text x="32" y="226" font-family="Georgia,serif" font-size="14" font-weight="700">12 Maple St, Apt 5B</text>
+      <text x="32" y="244" font-size="11" fill="#5b6079">📅 Wednesday, May 7 · 3:00 PM</text>
+      <text x="32" y="260" font-size="11" fill="#5b6079">⏱ 30-minute showing</text>
+      <text x="32" y="276" font-size="11" fill="#5b6079">📍 Buzzer 5B · 30 min metered parking</text>
+
+      <text x="20" y="304" font-size="11" font-weight="700">Can you make it?</text>
+
+      <rect x="20" y="318" width="280" height="44" rx="8" fill="#1a8a4f"/>
+      <text x="160" y="345" text-anchor="middle" font-size="13" fill="#fefdf9" font-weight="700">✓  Confirm — I'll be there</text>
+
+      <rect x="20" y="370" width="280" height="44" rx="8" fill="#fff" stroke="#5b5bd6" stroke-width="2"/>
+      <text x="160" y="397" text-anchor="middle" font-size="13" fill="#5b5bd6" font-weight="700">⟳  Suggest a different time</text>
+
+      <rect x="20" y="422" width="280" height="44" rx="8" fill="#fff" stroke="#d04a3c" stroke-width="2"/>
+      <text x="160" y="449" text-anchor="middle" font-size="13" fill="#d04a3c" font-weight="700">✗  I can't make it</text>
+
+      <text x="160" y="498" text-anchor="middle" font-size="10" fill="#8a90a8">This link is private.</text>
+      <text x="160" y="514" text-anchor="middle" font-size="10" fill="#8a90a8">Don't share it — it expires when you respond.</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Token-gated viewing-response page. No login. Token in URL.</p>
+      <h3>Fields shown</h3>
+      <ul>
+        <li>Personal greeting (first name only — pulled from token's row)</li>
+        <li>Property hero image, address, time, duration, access notes</li>
+        <li>Three big tappable buttons</li>
+      </ul>
+      <h3>Behavior</h3>
+      <ul>
+        <li>"Confirm" → SECURITY DEFINER RPC writes to <code>viewing_responses</code>, fires push to agent</li>
+        <li>"Suggest different time" → opens date/time picker, agent reviews on Responses screen</li>
+        <li>"Can't make it" → marks declined, agent gets push, viewing row archived</li>
+        <li>Token is single-use after response — page becomes read-only confirmation</li>
+      </ul>
+      <h3>URL</h3>
+      <p><code>https://&lt;app&gt;/respond.html?t=&lt;token&gt;</code></p>
+    </div>
+  </div>
+  <div class="pgnum">11</div>
+</div>
+
+<!-- ═══════ B3 — portal.html ═══════ -->
+<div class="page">
+  <div class="pgheader">B · Public pages</div>
+  <h2>portal.html — Stakeholder deal portal</h2>
+  <span class="tag tag-public">public page</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <rect x="14" y="50" width="292" height="60" fill="#f5efdf"/>
+      <text x="20" y="78" font-size="9" letter-spacing="1.5" fill="#5b6079">YOUR DEAL · 12 MAPLE</text>
+      <text x="20" y="98" font-family="Georgia,serif" font-size="16" font-weight="700">Closing in 28 days</text>
+
+      <!-- segmented progress bar (full version) -->
+      <text x="20" y="130" font-size="10" fill="#5b6079">Progress</text>
+      <rect x="20" y="138" width="280" height="20" rx="4" fill="#e8eaf2"/>
+      <rect x="20" y="138" width="84" height="20" rx="4" fill="#1a8a4f"/>
+      <rect x="20" y="166" width="50" height="14" rx="2" fill="#fff" stroke="#1a8a4f"/>
+      <text x="45" y="176" text-anchor="middle" font-size="8" fill="#1a8a4f" font-weight="700">~30%</text>
+      <text x="40" y="194" text-anchor="middle" font-size="8" fill="#5b6079">Accepted</text>
+      <text x="92" y="194" text-anchor="middle" font-size="8" fill="#1a8a4f" font-weight="700">U/Contract</text>
+      <text x="148" y="194" text-anchor="middle" font-size="8" fill="#5b6079">Conditions</text>
+      <text x="200" y="194" text-anchor="middle" font-size="8" fill="#5b6079">Walkthru</text>
+      <text x="252" y="194" text-anchor="middle" font-size="8" fill="#5b6079">Close</text>
+
+      <!-- next steps -->
+      <text x="20" y="218" font-size="11" font-weight="700">What's next</text>
+      <rect x="20" y="226" width="280" height="60" rx="8" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="244" font-size="11" font-weight="700">Inspection — Friday May 10 · 10am</text>
+      <text x="32" y="260" font-size="10" fill="#5b6079">Inspector will email you a report by Monday.</text>
+      <text x="32" y="276" font-size="10" fill="#5b5bd6" font-weight="700">▸ Tap for inspector contact</text>
+
+      <!-- documents -->
+      <text x="20" y="304" font-size="11" font-weight="700">Your documents</text>
+      <rect x="20" y="312" width="280" height="36" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="334" font-size="11">📄 Signed offer — May 4</text>
+      <rect x="20" y="354" width="280" height="36" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="376" font-size="11">📄 Pre-approval letter — May 5</text>
+      <rect x="20" y="396" width="280" height="36" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="32" y="418" font-size="11">📄 Property disclosure — May 5</text>
+
+      <!-- contacts -->
+      <text x="20" y="446" font-size="11" font-weight="700">Your team</text>
+      <rect x="20" y="454" width="135" height="38" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="28" y="468" font-size="9" fill="#8a90a8" letter-spacing="1">AGENT</text>
+      <text x="28" y="484" font-size="11" font-weight="700">Agent's name</text>
+      <rect x="165" y="454" width="135" height="38" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="173" y="468" font-size="9" fill="#8a90a8" letter-spacing="1">LAWYER</text>
+      <text x="173" y="484" font-size="11" font-weight="700">Solicitor name</text>
+      <rect x="20" y="498" width="135" height="38" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="28" y="512" font-size="9" fill="#8a90a8" letter-spacing="1">LENDER</text>
+      <text x="28" y="528" font-size="11" font-weight="700">Mortgage broker</text>
+      <rect x="165" y="498" width="135" height="38" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="173" y="512" font-size="9" fill="#8a90a8" letter-spacing="1">INSPECTOR</text>
+      <text x="173" y="528" font-size="11" font-weight="700">Home inspector</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Live deal-progress page for Buyer / Seller / Stakeholder. Token-gated, no login.</p>
+      <h3>Sections</h3>
+      <ul>
+        <li>Header — property + days-to-close</li>
+        <li>Segmented 5-stage progress bar (sums to 100%, current stage highlighted)</li>
+        <li>"What's next" — current stage + the immediate next action with date</li>
+        <li>Your documents — role-filtered list (Lawyer sees agreement; Inspector sees property card; Buyer sees everything)</li>
+        <li>Your team — agent + lawyer + lender + inspector with tap-to-call/email</li>
+      </ul>
+      <h3>Role filtering</h3>
+      <ul>
+        <li>Token includes role: BUYER / SELLER / LAWYER / LENDER / INSPECTOR</li>
+        <li>SECURITY DEFINER RPC returns role-appropriate doc list</li>
+        <li>Same renderer as agent's Pipeline screen for consistency</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">12</div>
+</div>
+
+<!-- ═══════ B4 — review.html ═══════ -->
+<div class="page">
+  <div class="pgheader">B · Public pages</div>
+  <h2>review.html — Post-close review</h2>
+  <span class="tag tag-public">public page</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 320 580" width="280">
+      <rect x="0" y="0" width="320" height="580" rx="32" fill="#1a1d2e"/>
+      <rect x="14" y="14" width="292" height="552" rx="22" fill="#fefdf9"/>
+      <text x="34" y="40" font-size="10" font-weight="700">9:41</text>
+      <text x="270" y="40" font-size="10" font-weight="700">100%</text>
+
+      <rect x="14" y="50" width="292" height="64" fill="#f0f9f4"/>
+      <text x="20" y="80" font-family="Georgia,serif" font-size="16" font-weight="700">Congrats on closing! 🏡</text>
+      <text x="20" y="100" font-size="11" fill="#5b6079">5 quick questions — takes 60 seconds.</text>
+
+      <!-- question 1 -->
+      <text x="20" y="138" font-size="11" font-weight="700">1. Communication</text>
+      <text x="20" y="154" font-size="10" fill="#5b6079">How well did Agent keep you informed?</text>
+      <g>
+        <text x="40" y="178" font-size="20">⭐</text>
+        <text x="70" y="178" font-size="20">⭐</text>
+        <text x="100" y="178" font-size="20">⭐</text>
+        <text x="130" y="178" font-size="20">⭐</text>
+        <text x="160" y="178" font-size="20" opacity="0.3">⭐</text>
+      </g>
+
+      <!-- question 2 -->
+      <text x="20" y="216" font-size="11" font-weight="700">2. Negotiation</text>
+      <text x="20" y="232" font-size="10" fill="#5b6079">Did you feel well represented in negotiation?</text>
+      <g>
+        <text x="40" y="256" font-size="20">⭐</text>
+        <text x="70" y="256" font-size="20">⭐</text>
+        <text x="100" y="256" font-size="20">⭐</text>
+        <text x="130" y="256" font-size="20">⭐</text>
+        <text x="160" y="256" font-size="20">⭐</text>
+      </g>
+
+      <!-- question 3 -->
+      <text x="20" y="294" font-size="11" font-weight="700">3. Process &amp; transparency</text>
+      <text x="20" y="310" font-size="10" fill="#5b6079">Was the process clear and transparent?</text>
+      <g>
+        <text x="40" y="334" font-size="20">⭐</text>
+        <text x="70" y="334" font-size="20">⭐</text>
+        <text x="100" y="334" font-size="20">⭐</text>
+        <text x="130" y="334" font-size="20">⭐</text>
+        <text x="160" y="334" font-size="20">⭐</text>
+      </g>
+
+      <!-- comments -->
+      <text x="20" y="372" font-size="11" font-weight="700">Comments (optional)</text>
+      <rect x="20" y="380" width="280" height="80" rx="6" fill="#fff" stroke="#e8eaf2"/>
+      <text x="30" y="402" font-size="11" fill="#8a90a8">What stood out? Anything you'd change?</text>
+
+      <!-- preview + submit -->
+      <rect x="20" y="476" width="135" height="40" rx="8" fill="#fff" stroke="#5b5bd6" stroke-width="2"/>
+      <text x="87" y="500" text-anchor="middle" font-size="12" fill="#5b5bd6" font-weight="700">Preview</text>
+      <rect x="165" y="476" width="135" height="40" rx="8" fill="#1a8a4f"/>
+      <text x="232" y="500" text-anchor="middle" font-size="12" fill="#fefdf9" font-weight="700">Submit</text>
+
+      <text x="160" y="540" text-anchor="middle" font-size="9" fill="#8a90a8">Anonymous to other clients · Agent sees your name</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>Purpose</h3>
+      <p>Single-use review form sent post-close. Token-gated. Star ratings + free-text.</p>
+      <h3>Five questions</h3>
+      <ul>
+        <li>Communication (1–5 stars)</li>
+        <li>Negotiation (1–5 stars)</li>
+        <li>Process &amp; transparency (1–5 stars)</li>
+        <li>Recommend? (Yes / No / Maybe)</li>
+        <li>Best moment of the deal (free-text)</li>
+      </ul>
+      <h3>Behavior</h3>
+      <ul>
+        <li>Preview button → shows formatted submission before save</li>
+        <li>Submit → SECURITY DEFINER RPC writes to <code>client_reviews</code> via token</li>
+        <li>Push notification to agent: "Buyer left a review"</li>
+        <li>Token becomes read-only confirmation page after submit</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">13</div>
+</div>
+
+<!-- ═══════ C1 — Email: intake confirmation ═══════ -->
+<div class="page">
+  <div class="pgheader">C · Emails</div>
+  <h2>Email — Intake confirmation</h2>
+  <span class="tag tag-email">auto</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 360 540" width="320">
+      <rect x="0" y="0" width="360" height="540" rx="6" fill="#fff" stroke="#e8eaf2" stroke-width="1.5"/>
+      <!-- gmail header -->
+      <rect x="0" y="0" width="360" height="56" fill="#f8f7f3"/>
+      <text x="14" y="22" font-size="11" fill="#5b6079">From: Agent's name &lt;agent@gmail.com&gt;</text>
+      <text x="14" y="38" font-size="11" fill="#5b6079">To: Lead &lt;lead@email.com&gt;</text>
+      <text x="14" y="52" font-size="12" font-weight="700" fill="#1a1d2e">Subject: Got your message — I'll be in touch within 24 hours</text>
+
+      <!-- body -->
+      <text x="20" y="92" font-size="13" fill="#1a1d2e">Hi [first name],</text>
+      <text x="20" y="118" font-size="11" fill="#3d4254">Thanks for reaching out — I got your details. I work with first-</text>
+      <text x="20" y="134" font-size="11" fill="#3d4254">time buyers and sellers across [local market], and I'll get</text>
+      <text x="20" y="150" font-size="11" fill="#3d4254">back to you within 24 hours with a few next steps.</text>
+
+      <text x="20" y="180" font-size="11" fill="#3d4254">Quick recap of what you said:</text>
+      <text x="32" y="200" font-size="11" fill="#5b6079">• Looking to: [Buy / Sell / Both]</text>
+      <text x="32" y="216" font-size="11" fill="#5b6079">• Price range: [$XXX-$XXX]</text>
+      <text x="32" y="232" font-size="11" fill="#5b6079">• Timeline: [X months]</text>
+
+      <text x="20" y="262" font-size="11" fill="#3d4254">In the meantime, save my contact below — that's the</text>
+      <text x="20" y="278" font-size="11" fill="#3d4254">fastest way to reach me if anything urgent comes up.</text>
+
+      <text x="20" y="310" font-size="11" fill="#1a1d2e">Talk soon,</text>
+      <text x="20" y="326" font-size="11" font-weight="700" fill="#1a1d2e">Agent's name</text>
+
+      <!-- signature block -->
+      <rect x="20" y="346" width="320" height="92" rx="6" fill="#f8f7f3"/>
+      <text x="32" y="368" font-size="12" font-weight="700">Agent's name</text>
+      <text x="32" y="384" font-size="10" fill="#5b6079">REALTOR® · Brokerage</text>
+      <text x="32" y="400" font-size="10" fill="#5b6079">📞 (XXX) XXX-XXXX</text>
+      <text x="32" y="416" font-size="10" fill="#5b6079">✉ agent@email.com</text>
+      <text x="32" y="432" font-size="10" fill="#5b5bd6">🌐 agent-website.com</text>
+
+      <text x="20" y="468" font-size="9" fill="#8a90a8" font-style="italic">Sent from DealFlow CRM · auto-reply on submission</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>When it sends</h3>
+      <p>Auto-fired the moment a lead submits the intake form.</p>
+      <h3>Recipients</h3>
+      <ul>
+        <li>Lead (only)</li>
+      </ul>
+      <h3>Content</h3>
+      <ul>
+        <li>Personalized greeting (first name from form)</li>
+        <li>Recap of their answers (transaction type, price range, timeline)</li>
+        <li>Standard agent signature block (name, brokerage, phone, email, website)</li>
+      </ul>
+      <h3>Approval flow</h3>
+      <ul>
+        <li><code>auto_approve: true</code> — bypasses approval queue</li>
+        <li>Goes out instantly via send-email edge function</li>
+        <li>Logs activity entry</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">14</div>
+</div>
+
+<!-- ═══════ C2 — Email: viewing booked ═══════ -->
+<div class="page">
+  <div class="pgheader">C · Emails</div>
+  <h2>Email — Viewing booked</h2>
+  <span class="tag tag-email">auto</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 360 540" width="320">
+      <rect x="0" y="0" width="360" height="540" rx="6" fill="#fff" stroke="#e8eaf2" stroke-width="1.5"/>
+      <rect x="0" y="0" width="360" height="56" fill="#f8f7f3"/>
+      <text x="14" y="22" font-size="11" fill="#5b6079">From: Agent's name &lt;agent@gmail.com&gt;</text>
+      <text x="14" y="38" font-size="11" fill="#5b6079">To: Buyer &lt;buyer@email.com&gt;  Cc: Co-Buyer</text>
+      <text x="14" y="52" font-size="12" font-weight="700">Subject: Viewing booked — 12 Maple St on Wed May 7 at 3pm</text>
+
+      <text x="20" y="92" font-size="13" fill="#1a1d2e">Hi [Buyer first],</text>
+      <text x="20" y="118" font-size="11" fill="#3d4254">Got us in for 12 Maple St, Apt 5B — see the details below</text>
+      <text x="20" y="134" font-size="11" fill="#3d4254">and confirm using the button. Calendar invite is attached.</text>
+
+      <!-- property card -->
+      <rect x="20" y="154" width="320" height="96" rx="6" fill="#f5efdf"/>
+      <text x="32" y="176" font-size="9" letter-spacing="1.5" fill="#5b6079">VIEWING DETAILS</text>
+      <text x="32" y="196" font-size="13" font-weight="700">📅 Wednesday, May 7 · 3:00 PM</text>
+      <text x="32" y="214" font-size="12">📍 12 Maple St, Apt 5B</text>
+      <text x="32" y="230" font-size="11" fill="#5b6079">⏱ 30 minutes · buzzer 5B · 30 min metered parking</text>
+
+      <!-- big confirm button -->
+      <rect x="20" y="270" width="320" height="50" rx="8" fill="#1a1d2e"/>
+      <text x="180" y="300" text-anchor="middle" font-size="14" fill="#fefdf9" font-weight="700">Confirm or change time →</text>
+
+      <text x="20" y="346" font-size="11" fill="#3d4254">Three things to know before we go in:</text>
+      <text x="32" y="366" font-size="11" fill="#5b6079">1. Take photos freely — they're for your decision-making.</text>
+      <text x="32" y="382" font-size="11" fill="#5b6079">2. Don't comment on price/value where the seller can hear.</text>
+      <text x="32" y="398" font-size="11" fill="#5b6079">3. We'll regroup outside — bring questions.</text>
+
+      <text x="20" y="430" font-size="11">— Agent's name</text>
+
+      <text x="20" y="468" font-size="10" fill="#8a90a8" font-style="italic">📎 Attachment: viewing.ics (calendar invite)</text>
+      <text x="20" y="486" font-size="9" fill="#8a90a8">Confirm link is private and tied to you. Don't share it.</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>When it sends</h3>
+      <p>Auto-fired when agent books a viewing. CCs Co-Buyer if one is on the client record.</p>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Subject includes property + date/time</li>
+        <li>Cream-bg property card with all viewing details</li>
+        <li>Big black "Confirm or change time" CTA → respond.html with token</li>
+        <li>"Three things to know" practical tips</li>
+        <li>ICS calendar invite attached</li>
+      </ul>
+      <h3>Tracking</h3>
+      <ul>
+        <li>Token → respond.html → SECURITY DEFINER write</li>
+        <li>Single-use; rotates if rescheduled</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">15</div>
+</div>
+
+<!-- ═══════ C3 — Email: offer dispatched ═══════ -->
+<div class="page">
+  <div class="pgheader">C · Emails</div>
+  <h2>Email — Offer dispatched (to Listing Agent)</h2>
+  <span class="tag tag-email">auto</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 360 540" width="320">
+      <rect x="0" y="0" width="360" height="540" rx="6" fill="#fff" stroke="#e8eaf2" stroke-width="1.5"/>
+      <rect x="0" y="0" width="360" height="56" fill="#f8f7f3"/>
+      <text x="14" y="22" font-size="11" fill="#5b6079">From: Agent's name &lt;agent@gmail.com&gt;</text>
+      <text x="14" y="38" font-size="11" fill="#5b6079">To: Listing Agent  Cc: Buyer, Co-Buyer</text>
+      <text x="14" y="52" font-size="12" font-weight="700">Subject: Offer enclosed — 12 Maple St · $485,000</text>
+
+      <text x="20" y="92" font-size="13" fill="#1a1d2e">Hi [Listing Agent],</text>
+      <text x="20" y="118" font-size="11" fill="#3d4254">Please find attached an offer from my client on 12 Maple St,</text>
+      <text x="20" y="134" font-size="11" fill="#3d4254">Apt 5B. Quick highlights:</text>
+
+      <rect x="20" y="150" width="320" height="160" rx="6" fill="#f5efdf"/>
+      <text x="32" y="172" font-size="9" letter-spacing="1.5" fill="#5b6079">OFFER SUMMARY</text>
+      <text x="32" y="194" font-size="11" fill="#5b6079">Price</text>
+      <text x="320" y="194" text-anchor="end" font-size="13" font-weight="700">$485,000</text>
+      <text x="32" y="212" font-size="11" fill="#5b6079">Deposit</text>
+      <text x="320" y="212" text-anchor="end" font-size="12" font-weight="700">$20,000</text>
+      <text x="32" y="230" font-size="11" fill="#5b6079">Conditions</text>
+      <text x="320" y="230" text-anchor="end" font-size="11">Financing · Inspection</text>
+      <text x="32" y="248" font-size="11" fill="#5b6079">Closing date</text>
+      <text x="320" y="248" text-anchor="end" font-size="11">Friday, July 18</text>
+      <text x="32" y="266" font-size="11" fill="#5b6079">Irrevocable</text>
+      <text x="320" y="266" text-anchor="end" font-size="11">48 hours from delivery</text>
+      <text x="32" y="298" font-size="10" fill="#3d4254" font-style="italic">[ Optional personal note from agent ]</text>
+
+      <text x="20" y="332" font-size="11" fill="#3d4254">My buyer is pre-approved and ready to move quickly. Happy</text>
+      <text x="20" y="348" font-size="11" fill="#3d4254">to discuss any of the conditions if there's flexibility.</text>
+
+      <text x="20" y="380" font-size="11">Looking forward to hearing back.</text>
+      <text x="20" y="404" font-size="11">— Agent's name</text>
+
+      <rect x="20" y="426" width="320" height="60" rx="6" fill="#f8f7f3"/>
+      <text x="32" y="446" font-size="11" font-weight="700">📎 Attachments</text>
+      <text x="32" y="462" font-size="10" fill="#5b6079">offer-12maple-2026-05-07.pdf · 184 KB</text>
+      <text x="32" y="476" font-size="10" fill="#5b6079">deposit-cheque-image.pdf · 92 KB</text>
+
+      <text x="20" y="514" font-size="9" fill="#8a90a8" font-style="italic">Buyer + Co-Buyer CC'd · Sent from DealFlow CRM</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>When it sends</h3>
+      <p>Auto-fired when agent clicks "Dispatch" on a draft offer.</p>
+      <h3>Recipients</h3>
+      <ul>
+        <li>To: Listing Agent (other side's email)</li>
+        <li>Cc: Buyer, Co-Buyer (so they see what was sent)</li>
+      </ul>
+      <h3>Content</h3>
+      <ul>
+        <li>Cream summary card: price, deposit, conditions, closing, irrevocable</li>
+        <li>Optional personal note</li>
+        <li>Soft pitch (pre-approved, flexible)</li>
+        <li>Attached: generated offer PDF, optional deposit cheque image</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">16</div>
+</div>
+
+<!-- ═══════ C4 — Email: offer accepted (Buyer) ═══════ -->
+<div class="page">
+  <div class="pgheader">C · Emails</div>
+  <h2>Email — Offer accepted (to Buyer)</h2>
+  <span class="tag tag-email">auto</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 360 540" width="320">
+      <rect x="0" y="0" width="360" height="540" rx="6" fill="#fff" stroke="#e8eaf2" stroke-width="1.5"/>
+      <rect x="0" y="0" width="360" height="56" fill="#f8f7f3"/>
+      <text x="14" y="22" font-size="11" fill="#5b6079">From: Agent's name &lt;agent@gmail.com&gt;</text>
+      <text x="14" y="38" font-size="11" fill="#5b6079">To: Buyer &lt;buyer@email.com&gt;  Cc: Co-Buyer</text>
+      <text x="14" y="52" font-size="12" font-weight="700">Subject: 🎉 Offer accepted — 12 Maple is yours pending conditions</text>
+
+      <rect x="0" y="56" width="360" height="48" fill="#f0f9f4"/>
+      <text x="180" y="84" text-anchor="middle" font-family="Georgia,serif" font-size="20" font-weight="700" fill="#1a8a4f">Offer accepted!</text>
+
+      <text x="20" y="130" font-size="13" fill="#1a1d2e">Hi [Buyer first],</text>
+      <text x="20" y="156" font-size="11" fill="#3d4254">Big news — your offer on 12 Maple St, Apt 5B was accepted</text>
+      <text x="20" y="172" font-size="11" fill="#3d4254">at $485,000 with our conditions intact. Closing July 18.</text>
+
+      <text x="20" y="200" font-size="11" font-weight="700">What happens next (in order):</text>
+      <text x="32" y="220" font-size="11" fill="#3d4254">1. Wire your $20K deposit by end of Wednesday</text>
+      <text x="32" y="236" font-size="11" fill="#3d4254">2. Schedule home inspection within 5 business days</text>
+      <text x="32" y="252" font-size="11" fill="#3d4254">3. Send signed agreement to your lender for funding</text>
+      <text x="32" y="268" font-size="11" fill="#3d4254">4. Order home insurance (effective closing day)</text>
+      <text x="32" y="284" font-size="11" fill="#3d4254">5. Final walkthrough scheduled the day before close</text>
+
+      <!-- portal link button -->
+      <rect x="20" y="304" width="320" height="50" rx="8" fill="#1a1d2e"/>
+      <text x="180" y="334" text-anchor="middle" font-size="13" fill="#fefdf9" font-weight="700">Track your deal in real time →</text>
+
+      <text x="20" y="378" font-size="11" font-weight="700">Your team</text>
+      <text x="20" y="396" font-size="11" fill="#3d4254">• Lawyer: [Solicitor name] — [phone]</text>
+      <text x="20" y="412" font-size="11" fill="#3d4254">• Lender: [Mortgage broker] — [phone]</text>
+      <text x="20" y="428" font-size="11" fill="#3d4254">• Inspector: [Home inspector] — [phone]</text>
+
+      <text x="20" y="460" font-size="11">Congratulations — let's keep the momentum.</text>
+      <text x="20" y="478" font-size="11" font-weight="700">— Agent's name</text>
+
+      <text x="20" y="514" font-size="9" fill="#8a90a8" font-style="italic">📎 signed-agreement.pdf · 296 KB</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>When it sends</h3>
+      <p>Auto-fired when agent confirms acceptance after dispatch flow.</p>
+      <h3>Companion emails sent simultaneously</h3>
+      <ul>
+        <li>Lawyer (with signed agreement + lender contact)</li>
+        <li>Lender (with signed agreement + lawyer contact)</li>
+        <li>Inspector (with property card + buyer contact)</li>
+        <li>Brokerage (commission notice)</li>
+      </ul>
+      <h3>Key elements</h3>
+      <ul>
+        <li>Green celebration band: "Offer accepted!"</li>
+        <li>Numbered "what happens next" list — 5 immediate steps</li>
+        <li>Big black "Track your deal" CTA → portal.html with token</li>
+        <li>Team contact list (lawyer, lender, inspector)</li>
+        <li>Signed agreement PDF attached</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">17</div>
+</div>
+
+<!-- ═══════ C5 — Email: re-engagement ═══════ -->
+<div class="page">
+  <div class="pgheader">C · Emails</div>
+  <h2>Email — Re-engagement (stale buyer)</h2>
+  <span class="tag tag-email">approval</span>
+
+  <div class="mockup-row">
+    <svg viewBox="0 0 360 540" width="320">
+      <rect x="0" y="0" width="360" height="540" rx="6" fill="#fff" stroke="#e8eaf2" stroke-width="1.5"/>
+      <rect x="0" y="0" width="360" height="56" fill="#f8f7f3"/>
+      <text x="14" y="22" font-size="11" fill="#5b6079">From: Agent's name &lt;agent@gmail.com&gt;</text>
+      <text x="14" y="38" font-size="11" fill="#5b6079">To: Buyer &lt;buyer@email.com&gt;</text>
+      <text x="14" y="52" font-size="12" font-weight="700">Subject: Quick check-in on your search</text>
+
+      <text x="20" y="92" font-size="13" fill="#1a1d2e">Hi [Buyer first],</text>
+      <text x="20" y="118" font-size="11" fill="#3d4254">Wanted to circle back — anything new on your end since</text>
+      <text x="20" y="134" font-size="11" fill="#3d4254">we last spoke about the [downtown] search?</text>
+
+      <text x="20" y="166" font-size="11" fill="#3d4254">A few things to think about:</text>
+      <text x="32" y="186" font-size="11" fill="#5b6079">• Inventory is moving — 3 listings in your range hit MLS this week</text>
+      <text x="32" y="202" font-size="11" fill="#5b6079">• Mortgage rates dipped slightly — might be a good time to revisit</text>
+      <text x="32" y="218" font-size="11" fill="#5b6079">• Spring market means more competition — pre-approval matters</text>
+
+      <text x="20" y="248" font-size="11" fill="#3d4254">If you've got 10 minutes this week, I'd love to catch up</text>
+      <text x="20" y="264" font-size="11" fill="#3d4254">and figure out the next move. Want me to send a couple</text>
+      <text x="20" y="280" font-size="11" fill="#3d4254">listings that might fit?</text>
+
+      <rect x="20" y="306" width="320" height="44" rx="8" fill="#1a1d2e"/>
+      <text x="180" y="333" text-anchor="middle" font-size="12" fill="#fefdf9" font-weight="700">Yes, send me 3 listings →</text>
+
+      <rect x="20" y="358" width="320" height="44" rx="8" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="180" y="385" text-anchor="middle" font-size="12" fill="#5b5bd6" font-weight="700">Let's hop on a quick call</text>
+
+      <text x="20" y="430" font-size="11" fill="#3d4254">No pressure — happy to wait for the right one.</text>
+      <text x="20" y="450" font-size="11" font-weight="700">— Agent's name</text>
+
+      <text x="20" y="494" font-size="9" fill="#8a90a8" font-style="italic">⚠ This email was queued by the system after 7 days of no activity.</text>
+      <text x="20" y="508" font-size="9" fill="#8a90a8" font-style="italic">Agent reviewed and approved before send.</text>
+    </svg>
+    <div class="mockup-info">
+      <h3>When it sends</h3>
+      <p>Daily-automation cron (5:30 AM NDT) detects clients with no activity in 7+ days. Queues one of four template variants based on client state.</p>
+      <h3>Four variants</h3>
+      <ul>
+        <li><code>reengagement_brief</code> — generic check-in</li>
+        <li><code>reengagement_buyer_match</code> — buyer + matching listing exists</li>
+        <li><code>reengagement_pre_approval</code> — buyer w/o noted pre-approval</li>
+        <li><code>reengagement_seller</code> — seller-side, mentions market activity</li>
+      </ul>
+      <h3>Approval flow</h3>
+      <ul>
+        <li>Goes through approval_queue — agent reviews + edits before send</li>
+        <li>Idempotency: <code>REENGAGEMENT_QUEUED</code> activity entry prevents duplicates</li>
+        <li>Reset after agent sends or client replies</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pgnum">18</div>
+</div>
+
+<!-- ═══════ FINAL — Summary ═══════ -->
+<div class="page">
+  <div class="pgheader">Summary</div>
+  <h2>What this document covers</h2>
+  <p style="font-size: 12px; color: #3d4254;">A visual reference for developers building DealFlow CRM. Every screen mocked. Every transactional email shown. All names generic.</p>
+
+  <div class="grid-2" style="margin-top: 20px;">
+    <div>
+      <h3>Section A · Agent app screens</h3>
+      <ul style="font-size: 11px; padding-left: 18px; color: #3d4254;">
+        <li>Login</li>
+        <li>Overview / Dashboard</li>
+        <li>Clients (list + detail)</li>
+        <li>Viewings + calendar</li>
+        <li>Offers (draft, dispatch, accept)</li>
+        <li>Pipeline (deal stages)</li>
+        <li>Approvals (email queue)</li>
+        <li>Inbox (Gmail-synced)</li>
+      </ul>
+      <p class="muted" style="font-size: 10px; font-style: italic; margin-top: 6px;">Additional screens follow same patterns: Tracker, Form Responses, Calendar, Commissions, Reports, Analytics, Reviews, Settings, Agent Portal, System Tools, Email Send, Broadcast.</p>
+    </div>
+    <div>
+      <h3>Section B · Public token-gated pages</h3>
+      <ul style="font-size: 11px; padding-left: 18px; color: #3d4254;">
+        <li><code>intake.html</code> — lead enquiry form</li>
+        <li><code>respond.html</code> — viewing confirm/decline</li>
+        <li><code>portal.html</code> — stakeholder deal portal</li>
+        <li><code>review.html</code> — post-close review</li>
+      </ul>
+
+      <h3 style="margin-top: 14px;">Section C · Transactional emails</h3>
+      <ul style="font-size: 11px; padding-left: 18px; color: #3d4254;">
+        <li>Intake confirmation (auto)</li>
+        <li>Viewing booked (auto)</li>
+        <li>Viewing reminder 24h (cron)</li>
+        <li>Viewing follow-up (approval)</li>
+        <li>Offer dispatched (auto)</li>
+        <li>Offer accepted — Buyer / Lawyer / Lender / Inspector / Brokerage</li>
+        <li>Conditions cleared (auto)</li>
+        <li>Walkthrough booked (auto)</li>
+        <li>Closing day reminder 24h (cron)</li>
+        <li>Deal closed — Buyer / Seller / Brokerage</li>
+        <li>Review request (manual)</li>
+        <li>Re-engagement × 4 variants (approval)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 30px; padding: 18px 20px; background: #f5efdf; border-radius: 8px;">
+    <h3 style="margin-top: 0;">Notes for the implementation team</h3>
+    <ul style="font-size: 11px; padding-left: 18px; color: #3d4254;">
+      <li><strong>Color palette</strong> — primary #1a1d2e (navy), accent #5b5bd6 (indigo), success #1a8a4f, warning #b8870c, danger #d04a3c, cream bg #fefdf9, soft band #f5efdf</li>
+      <li><strong>Type</strong> — system sans-serif everywhere; Georgia / Times serif for headlines + key numbers</li>
+      <li><strong>Mobile-first</strong> — all screens designed for phone viewport. Bottom nav (Home, Clients, +, Approvals, Inbox) is primary navigation. Sidebar appears on tablet/desktop.</li>
+      <li><strong>Privacy</strong> — masking by default on all client lists. Click-to-reveal logs to <code>activity_log</code>.</li>
+      <li><strong>Token-gated pages</strong> — never query Supabase with the user's JWT. Use SECURITY DEFINER RPCs that take the token + check it server-side.</li>
+      <li><strong>Service worker</strong> — versioned cache (v70+). Bumps on every deploy. Network-first for HTML/JS/CSS, cache-first for icons.</li>
+    </ul>
+  </div>
+
+  <div class="pgnum">19</div>
+</div>
+
+</body>
+</html>

@@ -1596,3 +1596,75 @@ A new page at `https://maxwell-dealflow.vercel.app/site/sold/` with four section
 - **Volume chart** showing trend over time. Could be a tiny SVG or a Chart.js block. Adds JS dependency, save for a follow-up.
 
 ---
+
+## PR #35 — `chore/cleanup-stale-docs`
+
+**Closes:** Repo hygiene — clears 16 legacy planning artifacts out of the repository root so the working directory matches the production code surface. Also commits `AUDIT_REPORT.md` to git (it was referenced from README, CLAUDE.md, and every Phase-2 PR but had never been tracked, surfacing as an "untracked" item all session).
+
+**What it does:**
+
+1. **Moves 14 legacy docs into `docs/archive/`** so they stay in the repository for historical context but don't clutter the root or get crawled by search engines:
+   - `CRM_Upgrade_Recommendations.html`
+   - `DealFlow_Blueprint.html` (gitignored — filesystem only)
+   - `Maxwell_DealFlow_Visual_Guide.html` (gitignored — filesystem only)
+   - `Maxwell_DealFlow_Visual_Guide_v2.html`
+   - `Maxwell_DealFlow_Visual_Guide_v3.html`
+   - `Maxwell_DealFlow_Visual_Guide_v4.html`
+   - `Maxwell_DealFlow_Visual_Guide_v4.pdf`
+   - `Maxwell_DealFlow_Visual_Deck_v4.pptx`
+   - `MAXWELL_DEALFLOW_BUSINESS_ROADMAP.docx`
+   - `MAXWELL_DEALFLOW_COMPLETE_GUIDE.docx`
+   - `OPERATOR_GUIDE.html` (the `.md` version stays at root)
+   - `dealflow-system-overview.html` (was untracked all session)
+   - `dealflow-visual-spec.html` (was untracked all session)
+   - `CLAUDE_CODE_PROMPT.md` (the kickoff brief — was untracked)
+2. **Adds `AUDIT_REPORT.md` to git tracking.** Phase 1's canonical audit, referenced from README, CLAUDE.md, and every Phase-2 PR commit message. Should have been committed at the end of Phase 1; was sitting untracked.
+3. **Updates `robots.txt`** with `Disallow: /docs/` so search engines don't index archived planning decks.
+
+**Approach:**
+
+1. **Move, don't delete.** These docs are historical context — Maxwell may want to reference the visual guide or the system brain doc when planning future phases. Putting them in `/docs/archive/` makes them stay in the repo but not in his immediate working surface.
+
+2. **Two file types, two move tools.**
+   - For tracked files: `git mv` preserves rename history so `git log --follow` still works on any future investigation of these docs.
+   - For previously-untracked files: plain `mv` then `git add`, since `git mv` requires a tracked source.
+
+3. **Two files (`DealFlow_Blueprint.html` + `Maxwell_DealFlow_Visual_Guide.html`) are matched by pre-existing `.gitignore` rules.** They moved on the filesystem but git keeps ignoring them at the new location. That's the right outcome — the gitignore was deliberate (whoever added it didn't want these in the repo), and now they live where they belong (in archive) without polluting the working tree.
+
+4. **`AUDIT_REPORT.md` is the canonical source for every PR's "Closes: §X.Y" reference.** Tracking it in git means future devs can reproduce the audit findings without re-running the audit prompt. Should have been committed at the end of Phase 1; rectified here.
+
+5. **`/docs/archive/` is `Disallow`ed in robots.txt.** Same reason as `/js/` and `/css/` — these aren't public marketing pages, they shouldn't be in search results.
+
+6. **What's NOT moved (deliberate keep at root):**
+   - `AUDIT.md` — older audit shorthand, still referenced.
+   - `AUDIT_REPORT.md` — newly-tracked Phase-1 doc.
+   - `CLAUDE.md` — project instructions, read first by any AI tool.
+   - `DEPLOY.md` — deployment guide referenced from README.
+   - `MAXWELL_DEALFLOW_SYSTEM_GUIDE.md` — investor-readable doc referenced from README.
+   - `OPERATOR_GUIDE.md` — Maxwell's user-facing operator manual (the `.html` companion got archived).
+   - `README.md` — repo entry point.
+   - `REFINEMENT_LOG.md` — central PR log (this file).
+   - `SECRETS.md` — secret inventory referenced from README.
+
+**Files changed:**
+- 14 file moves (11 tracked renames + 3 untracked → archive).
+- 1 new file tracked at root: `AUDIT_REPORT.md`.
+- `robots.txt` — added 3-line `Disallow: /docs/` block.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no code changes).
+- `ls /` shows a much cleaner working directory: only canonical docs + tracked source files.
+- The agent CRM and marketing site work identically — only file *locations* changed; no live code path referenced these archived docs.
+
+**Visual change:** None. Production deploy is byte-identical except the moved files are now served from `/docs/archive/*` instead of `/` (and the robots.txt blocks crawlers from following).
+
+**Risk if rolled back:** Restores 14 files to the repo root. No functional impact.
+
+**Performance impact:** None on production. Tiny improvement to local dev: `git status`, `ls`, and tab-completion in the project root return faster now that the root has 16 fewer entries.
+
+**What's NOT in this PR (followups for a future cleanup):**
+- **Second wave of legacy docs.** Discovered during this PR but out of scope: `Maxwell_DealFlow_Compliance_Report.docx`, `Maxwell_DealFlow_Handover_Manual.docx`, `Maxwell_DealFlow_Master_Handover_Report.docx`, `Maxwell_DealFlow_System_Brain.docx`, `Maxwell_DealFlow_Operator_Guide.pptx`, `Maxwell_DealFlow_Infographic.pptx`, `Maxwell_DealFlow_Visual_Deck.pptx`, `Maxwell_DealFlow_Visual_Deck_v3.pptx`, `DealFlow_Blueprint.pdf`, `DealFlow_CTO_Audit.pdf`, `DealFlow_CTO_Audit_v2.pdf`, `DealFlow_FieldAtlas.pdf`, `DealFlow_Infographic.pdf`, `DealFlow_Infographic_Philosophy.md`, `MASTER_BUILDER_PROMPT.md`. All match existing `.gitignore` patterns, so they're already ignored — moving them would be filesystem-only. Save for a `chore/cleanup-stale-docs-pass-2` PR if the root clutter still bothers Maxwell.
+- **Dependency on archived docs.** Nothing in the production code path imports or links to these — verified by `grep -rE "Visual_Guide|Blueprint|CRM_Upgrade" src/ js/ css/ supabase/ site/` returning zero results.
+
+---
