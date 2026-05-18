@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DealFlow CRM — System Overview · Developer Handoff</title>
+<style>
+  @page { size: Letter; margin: 0.5in; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1a1d2e;
+    background: #fefdf9;
+    margin: 0;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 8.5in;
+    min-height: 11in;
+    padding: 0.55in;
+    margin: 0 auto;
+    background: #fefdf9;
+    page-break-after: always;
+    position: relative;
+  }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 38px; line-height: 1.1; margin: 0 0 12px; letter-spacing: -0.01em; }
+  h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 26px; line-height: 1.2; margin: 0 0 14px; }
+  h3 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; letter-spacing: 0.02em; }
+  h4 { font-size: 13px; font-weight: 700; margin: 10px 0 4px; letter-spacing: 0.04em; text-transform: uppercase; color: #5b6079; }
+  p { font-size: 13px; margin: 0 0 8px; }
+  .muted { color: #5b6079; }
+  .tag { display: inline-block; background: #f5efdf; color: #5b6079; padding: 2px 8px; border-radius: 4px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  .pgnum { position: absolute; bottom: 0.35in; right: 0.55in; font-size: 10px; color: #8a90a8; letter-spacing: 0.1em; }
+  .pgheader { position: absolute; top: 0.35in; right: 0.55in; font-size: 10px; color: #8a90a8; letter-spacing: 0.1em; text-transform: uppercase; }
+  .hero-band { background: #f5efdf; padding: 28px 32px; margin: -0.55in -0.55in 24px; border-bottom: 4px solid #1a1d2e; }
+  .hero-band .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #5b6079; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0; }
+  th { text-align: left; background: #1a1d2e; color: #fefdf9; padding: 8px 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e8eaf2; vertical-align: top; }
+  tr:nth-child(even) td { background: #faf8f3; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .card { background: #fff; border: 1px solid #e8eaf2; border-radius: 8px; padding: 14px 16px; }
+  .card h4 { margin-top: 0; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .pill-auto { background: #d8f0e1; color: #1a8a4f; }
+  .pill-manual { background: #fff8e7; color: #b8870c; }
+  .pill-system { background: #e8eaf2; color: #5b6079; }
+  ul.clean { list-style: none; padding-left: 0; margin: 6px 0; }
+  ul.clean li { padding: 4px 0; font-size: 12px; border-bottom: 1px dotted #e8eaf2; }
+  ul.clean li:last-child { border-bottom: none; }
+  ul.clean li::before { content: "▸ "; color: #5b5bd6; font-weight: 700; }
+  .step-row { display: flex; gap: 12px; margin: 10px 0; }
+  .step-num { flex: 0 0 28px; height: 28px; border-radius: 14px; background: #1a1d2e; color: #fefdf9; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .step-body { flex: 1; padding-top: 2px; }
+  .step-body strong { font-size: 13px; }
+  .step-body .step-meta { font-size: 11px; color: #5b6079; margin-top: 3px; }
+  .accent { color: #5b5bd6; font-weight: 600; }
+  .red { color: #d04a3c; }
+  .green { color: #1a8a4f; }
+  .small { font-size: 11px; }
+  .caption { font-size: 10px; color: #8a90a8; font-style: italic; margin-top: 4px; }
+  svg { display: block; max-width: 100%; height: auto; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; margin: 8px 0 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .toc-row { display: flex; padding: 6px 0; border-bottom: 1px dotted #d4d6e0; font-size: 12px; }
+  .toc-num { flex: 0 0 30px; color: #8a90a8; }
+  .toc-title { flex: 1; font-weight: 600; }
+  .toc-desc { flex: 0 0 60%; color: #5b6079; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ PAGE 1 — Cover ═══════ -->
+<div class="page">
+  <div class="hero-band">
+    <div class="eyebrow">Developer Handoff · Internal Documentation</div>
+    <h1>DealFlow CRM</h1>
+    <h1 style="font-style: italic; font-size: 28px; color: #5b6079;">System overview, end to end.</h1>
+  </div>
+  <p class="muted" style="font-size: 14px; margin-top: 32px;">A real-estate agent's full working tool: lead intake, viewings, offers, transaction pipeline, stakeholder portals, automated emails, push notifications, and a personal money brief — every screen, every email, every automation, mapped from first touch to keys-in-hand.</p>
+
+  <div style="margin-top: 80px; border-top: 2px solid #1a1d2e; padding-top: 24px;">
+    <h4>Stack at a glance</h4>
+    <div class="grid-2" style="margin-top: 8px;">
+      <div class="card">
+        <h4>Frontend</h4>
+        <p style="font-size: 12px;">Vanilla-JS Progressive Web App. Installs to the home screen. Works offline (cached shell). Web-Push subscribed device.</p>
+      </div>
+      <div class="card">
+        <h4>Backend</h4>
+        <p style="font-size: 12px;">Supabase — PostgreSQL with Row-Level Security, Edge Functions (Deno), Auth, public Storage buckets, pg_cron + pg_net for scheduled HTTP.</p>
+      </div>
+      <div class="card">
+        <h4>Hosting & CDN</h4>
+        <p style="font-size: 12px;">Vercel auto-deploys from the master branch. Global edge cache. Service worker handles offline + cache-busting.</p>
+      </div>
+      <div class="card">
+        <h4>External APIs</h4>
+        <p style="font-size: 12px;">Gmail (OAuth refresh token), VAPID Web Push, OpenAI (LLM + TTS), Bank of Canada Valet (rates), Tavily (live news).</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 60px; font-size: 10px; color: #8a90a8; letter-spacing: 0.1em; text-transform: uppercase;">Contents on the next page · 16 pages total</div>
+  <div class="pgnum">01</div>
+</div>
+
+<!-- ═══════ PAGE 2 — Table of Contents ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Contents</div>
+  <h2>What's inside</h2>
+
+  <div class="toc-row"><div class="toc-num">01</div><div class="toc-title">Cover</div><div class="toc-desc">Stack overview at a glance</div></div>
+  <div class="toc-row"><div class="toc-num">02</div><div class="toc-title">Contents</div><div class="toc-desc">This page</div></div>
+  <div class="toc-row"><div class="toc-num">03</div><div class="toc-title">Stakeholder map</div><div class="toc-desc">Every human who touches a deal</div></div>
+  <div class="toc-row"><div class="toc-num">04</div><div class="toc-title">System architecture</div><div class="toc-desc">Frontend, backend, integrations</div></div>
+  <div class="toc-row"><div class="toc-num">05</div><div class="toc-title">Database schema</div><div class="toc-desc">Tables, relationships, RLS approach</div></div>
+  <div class="toc-row"><div class="toc-num">06</div><div class="toc-title">Master workflow</div><div class="toc-desc">Lead → Closed: every stage</div></div>
+  <div class="toc-row"><div class="toc-num">07</div><div class="toc-title">Phase 1 · Lead intake</div><div class="toc-desc">Form to client record, with notifications</div></div>
+  <div class="toc-row"><div class="toc-num">08</div><div class="toc-title">Phase 2 · Viewings</div><div class="toc-desc">Booking, response portal, auto-completion</div></div>
+  <div class="toc-row"><div class="toc-num">09</div><div class="toc-title">Phase 3 · Offers</div><div class="toc-desc">Drafting, dispatching, accepting</div></div>
+  <div class="toc-row"><div class="toc-num">10</div><div class="toc-title">Phase 4 · Pipeline</div><div class="toc-desc">Accepted → Closed, stakeholder portal</div></div>
+  <div class="toc-row"><div class="toc-num">11</div><div class="toc-title">Phase 5 · Close & post-close</div><div class="toc-desc">Walkthrough, commission, review</div></div>
+  <div class="toc-row"><div class="toc-num">12</div><div class="toc-title">Automations</div><div class="toc-desc">Cron jobs, scheduled emails, stale-deal alerts</div></div>
+  <div class="toc-row"><div class="toc-num">13</div><div class="toc-title">Money Briefing</div><div class="toc-desc">Daily personal-finance brief generation</div></div>
+  <div class="toc-row"><div class="toc-num">14</div><div class="toc-title">Screen catalog</div><div class="toc-desc">Every screen in the app</div></div>
+  <div class="toc-row"><div class="toc-num">15</div><div class="toc-title">Email catalog</div><div class="toc-desc">Every template, recipient, trigger</div></div>
+  <div class="toc-row"><div class="toc-num">16</div><div class="toc-title">Push & re-engagement</div><div class="toc-desc">Web Push, stale-deal nudges, privacy</div></div>
+
+  <div class="pgnum">02</div>
+</div>
+
+<!-- ═══════ PAGE 3 — Stakeholder Map ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Stakeholders</div>
+  <h2>Who's involved in a deal</h2>
+  <p class="muted" style="font-size: 12px;">Generic role names. Each role gets different views, different emails, and different access tokens.</p>
+
+  <svg viewBox="0 0 720 460" style="margin: 14px 0;">
+    <!-- center: Agent -->
+    <circle cx="360" cy="230" r="60" fill="#1a1d2e" />
+    <text x="360" y="225" fill="#fefdf9" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-weight="600">Agent</text>
+    <text x="360" y="244" fill="#a8aebf" text-anchor="middle" font-size="10">(the realtor)</text>
+
+    <!-- 8 satellites -->
+    <g font-family="Helvetica, sans-serif" font-size="11" fill="#1a1d2e">
+      <!-- Buyer -->
+      <circle cx="120" cy="100" r="42" fill="#f5efdf" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="120" y="98" text-anchor="middle" font-weight="700">Buyer</text>
+      <text x="120" y="112" text-anchor="middle" font-size="9" fill="#5b6079">primary client</text>
+      <line x1="160" y1="125" x2="305" y2="200" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Co-buyer -->
+      <circle cx="120" cy="230" r="42" fill="#f5efdf" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="120" y="228" text-anchor="middle" font-weight="700">Co-Buyer</text>
+      <text x="120" y="242" text-anchor="middle" font-size="9" fill="#5b6079">spouse / CC</text>
+      <line x1="162" y1="230" x2="300" y2="230" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Seller -->
+      <circle cx="120" cy="360" r="42" fill="#f5efdf" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="120" y="358" text-anchor="middle" font-weight="700">Seller</text>
+      <text x="120" y="372" text-anchor="middle" font-size="9" fill="#5b6079">listing client</text>
+      <line x1="160" y1="335" x2="305" y2="260" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Listing Agent -->
+      <circle cx="600" cy="100" r="42" fill="#fff" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="600" y="98" text-anchor="middle" font-weight="700">Listing</text>
+      <text x="600" y="112" text-anchor="middle" font-weight="700">Agent</text>
+      <line x1="558" y1="125" x2="415" y2="200" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Lender -->
+      <circle cx="600" cy="230" r="42" fill="#fff" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="600" y="228" text-anchor="middle" font-weight="700">Lender</text>
+      <text x="600" y="242" text-anchor="middle" font-size="9" fill="#5b6079">mortgage broker</text>
+      <line x1="558" y1="230" x2="420" y2="230" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Lawyer -->
+      <circle cx="600" cy="360" r="42" fill="#fff" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="600" y="358" text-anchor="middle" font-weight="700">Lawyer</text>
+      <text x="600" y="372" text-anchor="middle" font-size="9" fill="#5b6079">solicitor</text>
+      <line x1="558" y1="335" x2="415" y2="260" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Inspector -->
+      <circle cx="280" cy="40" r="42" fill="#fff" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="280" y="38" text-anchor="middle" font-weight="700">Inspector</text>
+      <text x="280" y="52" text-anchor="middle" font-size="9" fill="#5b6079">home inspect.</text>
+      <line x1="305" y1="78" x2="345" y2="172" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Brokerage -->
+      <circle cx="440" cy="40" r="42" fill="#fff" stroke="#1a1d2e" stroke-width="1.5"/>
+      <text x="440" y="38" text-anchor="middle" font-weight="700">Brokerage</text>
+      <text x="440" y="52" text-anchor="middle" font-size="9" fill="#5b6079">accounting</text>
+      <line x1="415" y1="78" x2="375" y2="172" stroke="#1a1d2e" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Lead (pre-client) -->
+      <circle cx="280" cy="420" r="42" fill="#e8eaf2" stroke="#5b6079" stroke-width="1.5" stroke-dasharray="4,2"/>
+      <text x="280" y="418" text-anchor="middle" font-weight="700">Lead</text>
+      <text x="280" y="432" text-anchor="middle" font-size="9" fill="#5b6079">pre-client</text>
+      <line x1="305" y1="382" x2="345" y2="290" stroke="#5b6079" stroke-width="1" stroke-dasharray="3,3"/>
+    </g>
+  </svg>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:#1a1d2e;"></div>Agent (sole authenticated user)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#f5efdf;border:1px solid #1a1d2e;"></div>Clients (token-based portal access)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#fff;border:1px solid #1a1d2e;"></div>Third parties (email-only)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#e8eaf2;border:1px dashed #5b6079;"></div>Pre-client (no record yet)</div>
+  </div>
+
+  <h3>Access model</h3>
+  <ul class="clean">
+    <li><strong>Agent</strong> — authenticated via Supabase Auth (email + password). Sees everything for their own clients only (RLS by agent_id).</li>
+    <li><strong>Buyer / Seller / Co-Buyer</strong> — no login. Receive a unique token in each email. Token unlocks a private portal page (respond.html, portal.html) for one deal only.</li>
+    <li><strong>Listing Agent / Lender / Lawyer / Inspector</strong> — no app access. Receive emails only with attached PDFs and contact details. Cannot log in.</li>
+    <li><strong>Brokerage</strong> — no app access. Receives commission breakdown emails only.</li>
+    <li><strong>Lead</strong> — no client record yet. Submits an intake form via an open public URL. Becomes a Buyer or Seller record once Agent qualifies them.</li>
+  </ul>
+
+  <div class="pgnum">03</div>
+</div>
+
+<!-- ═══════ PAGE 4 — System Architecture ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Architecture</div>
+  <h2>How the pieces fit together</h2>
+
+  <svg viewBox="0 0 720 480" style="margin: 14px 0;">
+    <!-- User devices -->
+    <rect x="20" y="20" width="160" height="60" rx="6" fill="#1a1d2e"/>
+    <text x="100" y="46" fill="#fefdf9" text-anchor="middle" font-family="Helvetica" font-size="13" font-weight="700">Agent's iPhone</text>
+    <text x="100" y="64" fill="#a8aebf" text-anchor="middle" font-size="10">PWA (installed)</text>
+
+    <rect x="200" y="20" width="160" height="60" rx="6" fill="#5b6079"/>
+    <text x="280" y="46" fill="#fefdf9" text-anchor="middle" font-family="Helvetica" font-size="13" font-weight="700">Client browser</text>
+    <text x="280" y="64" fill="#d4d6e0" text-anchor="middle" font-size="10">respond.html / portal.html</text>
+
+    <rect x="380" y="20" width="160" height="60" rx="6" fill="#5b6079"/>
+    <text x="460" y="46" fill="#fefdf9" text-anchor="middle" font-family="Helvetica" font-size="13" font-weight="700">3rd party email</text>
+    <text x="460" y="64" fill="#d4d6e0" text-anchor="middle" font-size="10">Lawyer · Lender · Inspector</text>
+
+    <!-- Vercel CDN -->
+    <rect x="20" y="120" width="340" height="60" rx="6" fill="#fff" stroke="#1a1d2e" stroke-width="2"/>
+    <text x="190" y="146" text-anchor="middle" font-family="Helvetica" font-size="13" font-weight="700">Vercel CDN</text>
+    <text x="190" y="164" text-anchor="middle" font-size="10" fill="#5b6079">static HTML/JS/CSS · auto-deploy from master</text>
+    <line x1="100" y1="80" x2="100" y2="120" stroke="#1a1d2e" stroke-width="1.5"/>
+    <line x1="280" y1="80" x2="280" y2="120" stroke="#1a1d2e" stroke-width="1.5"/>
+
+    <!-- Supabase -->
+    <rect x="20" y="220" width="680" height="180" rx="8" fill="#f5efdf" stroke="#1a1d2e" stroke-width="2"/>
+    <text x="40" y="244" font-family="Georgia,serif" font-size="14" font-weight="700">Supabase backend</text>
+
+    <rect x="40" y="260" width="150" height="50" rx="4" fill="#fff"/>
+    <text x="115" y="278" text-anchor="middle" font-size="11" font-weight="700">PostgreSQL</text>
+    <text x="115" y="294" text-anchor="middle" font-size="9" fill="#5b6079">+ RLS policies</text>
+
+    <rect x="200" y="260" width="150" height="50" rx="4" fill="#fff"/>
+    <text x="275" y="278" text-anchor="middle" font-size="11" font-weight="700">Auth</text>
+    <text x="275" y="294" text-anchor="middle" font-size="9" fill="#5b6079">JWT · email/password</text>
+
+    <rect x="360" y="260" width="150" height="50" rx="4" fill="#fff"/>
+    <text x="435" y="278" text-anchor="middle" font-size="11" font-weight="700">Storage buckets</text>
+    <text x="435" y="294" text-anchor="middle" font-size="9" fill="#5b6079">PDFs · MP3s · public</text>
+
+    <rect x="520" y="260" width="150" height="50" rx="4" fill="#fff"/>
+    <text x="595" y="278" text-anchor="middle" font-size="11" font-weight="700">pg_cron + pg_net</text>
+    <text x="595" y="294" text-anchor="middle" font-size="9" fill="#5b6079">scheduled HTTP</text>
+
+    <text x="40" y="340" font-family="Georgia,serif" font-size="13" font-weight="700">Edge Functions (Deno)</text>
+    <rect x="40" y="350" width="100" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="90" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">send-email</text>
+    <rect x="150" y="350" width="100" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="200" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">send-push</text>
+    <rect x="260" y="350" width="120" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="320" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">daily-automation</text>
+    <rect x="390" y="350" width="110" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="445" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">daily-briefing</text>
+    <rect x="510" y="350" width="100" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="560" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">fetch-inbox</text>
+    <rect x="620" y="350" width="80" height="30" rx="4" fill="#1a1d2e"/>
+    <text x="660" y="370" text-anchor="middle" font-size="10" fill="#fefdf9" font-weight="600">backup</text>
+
+    <line x1="190" y1="180" x2="190" y2="220" stroke="#1a1d2e" stroke-width="1.5"/>
+
+    <!-- External APIs -->
+    <text x="40" y="430" font-family="Georgia,serif" font-size="13" font-weight="700">External APIs</text>
+    <rect x="40" y="440" width="100" height="28" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+    <text x="90" y="458" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="600">Gmail OAuth</text>
+    <rect x="150" y="440" width="100" height="28" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+    <text x="200" y="458" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="600">Web Push</text>
+    <rect x="260" y="440" width="100" height="28" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+    <text x="310" y="458" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="600">OpenAI</text>
+    <rect x="370" y="440" width="100" height="28" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+    <text x="420" y="458" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="600">BoC Valet</text>
+    <rect x="480" y="440" width="100" height="28" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+    <text x="530" y="458" text-anchor="middle" font-size="10" fill="#5b5bd6" font-weight="600">Tavily</text>
+  </svg>
+
+  <h3>Key architectural choices</h3>
+  <ul class="clean">
+    <li><strong>Single-agent app, multi-agent capable.</strong> RLS by agent_id everywhere. The "Agent Portal" screen lets the primary user provision additional agents — each gets their own siloed view of clients, deals, and data.</li>
+    <li><strong>No client login.</strong> Clients receive single-use VAPID-signed tokens in every email. Tokens are stored on the row and rotated when the deal advances.</li>
+    <li><strong>Edge Functions for anything sensitive.</strong> Service-role keys never touch the browser. The frontend calls anonymous endpoints with the user's JWT; functions do the privileged work.</li>
+    <li><strong>pg_cron for scheduled work.</strong> Cron jobs in PostgreSQL fire HTTP POSTs to the function URLs every morning, on a fixed UTC schedule. No external scheduler.</li>
+  </ul>
+
+  <div class="pgnum">04</div>
+</div>
+
+<!-- ═══════ PAGE 5 — Database Schema ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Schema</div>
+  <h2>Database tables</h2>
+  <p class="muted" style="font-size: 12px;">Approximately 20 tables. Every row that belongs to a particular agent has an <code>agent_id uuid</code> column with an RLS policy <code>USING (agent_id = auth.uid())</code>. Public-facing portals query through SECURITY DEFINER RPCs that take a token instead of a JWT.</p>
+
+  <table>
+    <thead>
+      <tr><th>Table</th><th>Purpose</th><th>Key columns</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>agents</strong></td><td>The agent's own profile, brokerage, contact info</td><td>id, full_name, email, brokerage</td></tr>
+      <tr><td><strong>clients</strong></td><td>Buyers and sellers (a Lead becomes a row here)</td><td>id, agent_id, full_name, contact, type, stage, status</td></tr>
+      <tr><td><strong>intake_responses</strong></td><td>Raw form submissions before they're qualified</td><td>id, agent_id, payload, status</td></tr>
+      <tr><td><strong>form_responses</strong></td><td>Per-deal form submissions (questionnaires)</td><td>id, client_id, form_type, answers</td></tr>
+      <tr><td><strong>viewings</strong></td><td>One row per scheduled property showing</td><td>id, client_id, property_address, viewing_at, status</td></tr>
+      <tr><td><strong>viewing_responses</strong></td><td>Client confirms / declines / suggests new time</td><td>id, viewing_id, token, response, agent_feedback</td></tr>
+      <tr><td><strong>offers</strong></td><td>Drafted, dispatched, accepted offers</td><td>id, client_id, offer_amount, status, dispatched_at</td></tr>
+      <tr><td><strong>pending_offers</strong></td><td>Offers waiting for a deal-side response</td><td>id, agent_id, status, expires_at</td></tr>
+      <tr><td><strong>pipeline</strong></td><td>Active deals — one row from acceptance to close</td><td>id, agent_id, client_id, stage, stage_updated_at</td></tr>
+      <tr><td><strong>pipeline_tasks</strong></td><td>Per-stage task list (inspection, conditions, etc.)</td><td>id, pipeline_id, task, due_at, completed_at</td></tr>
+      <tr><td><strong>checklist_items</strong></td><td>Free-form task list per deal</td><td>id, pipeline_id, label, done</td></tr>
+      <tr><td><strong>commissions</strong></td><td>Commission split, brokerage cut, taxes</td><td>id, pipeline_id, gross, net, paid_at</td></tr>
+      <tr><td><strong>activity_log</strong></td><td>Append-only event stream (for audit + dashboard)</td><td>id, agent_id, type, related_id, payload, created_at</td></tr>
+      <tr><td><strong>approval_queue</strong></td><td>Outbound emails awaiting agent approval</td><td>id, template, payload, status</td></tr>
+      <tr><td><strong>push_subscriptions</strong></td><td>VAPID device subscriptions for Web Push</td><td>id, agent_id, endpoint, keys, expired_at</td></tr>
+      <tr><td><strong>client_responses</strong></td><td>Generic token-gated client form responses</td><td>id, token, payload, submitted_at</td></tr>
+      <tr><td><strong>new_builds</strong></td><td>Pre-construction inventory tracking</td><td>id, builder, project, expected_close</td></tr>
+      <tr><td><strong>reports</strong></td><td>Saved analytics / export snapshots</td><td>id, type, params, generated_at</td></tr>
+      <tr><td><strong>client_reviews</strong></td><td>Post-close review tokens + submissions</td><td>id, pipeline_id, token, ratings, comments</td></tr>
+      <tr><td><strong>briefings</strong></td><td>Daily personal money brief archive</td><td>date, snapshot, stories, mp3_url</td></tr>
+    </tbody>
+  </table>
+
+  <h3>RLS pattern</h3>
+  <p style="font-size: 12px;">Every "owned" table has the same pair of policies:</p>
+  <ul class="clean">
+    <li><code>SELECT</code> using <code>(agent_id = auth.uid())</code> — agent can read only their own data</li>
+    <li><code>INSERT/UPDATE/DELETE</code> with check <code>(agent_id = auth.uid())</code> — agent can only mutate their own rows</li>
+    <li>Token-gated tables (<code>viewing_responses</code>, <code>client_reviews</code>) use SECURITY DEFINER functions that match the supplied token against the row's stored token before returning data.</li>
+  </ul>
+
+  <div class="pgnum">05</div>
+</div>
+
+<!-- ═══════ PAGE 6 — Master Workflow ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Master workflow</div>
+  <h2>Lead to keys-in-hand</h2>
+
+  <svg viewBox="0 0 720 580" style="margin: 14px 0;">
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1a1d2e"/>
+      </marker>
+    </defs>
+
+    <!-- 6 stages as columns -->
+    <g font-family="Helvetica" font-size="11" fill="#1a1d2e">
+      <rect x="10" y="10" width="110" height="50" rx="4" fill="#e8eaf2"/>
+      <text x="65" y="32" text-anchor="middle" font-weight="700">Lead</text>
+      <text x="65" y="48" text-anchor="middle" font-size="9" fill="#5b6079">intake form</text>
+
+      <rect x="130" y="10" width="110" height="50" rx="4" fill="#f5efdf"/>
+      <text x="185" y="32" text-anchor="middle" font-weight="700">Client</text>
+      <text x="185" y="48" text-anchor="middle" font-size="9" fill="#5b6079">qualified</text>
+
+      <rect x="250" y="10" width="110" height="50" rx="4" fill="#f5efdf"/>
+      <text x="305" y="32" text-anchor="middle" font-weight="700">Viewing</text>
+      <text x="305" y="48" text-anchor="middle" font-size="9" fill="#5b6079">booked → done</text>
+
+      <rect x="370" y="10" width="110" height="50" rx="4" fill="#f5efdf"/>
+      <text x="425" y="32" text-anchor="middle" font-weight="700">Offer</text>
+      <text x="425" y="48" text-anchor="middle" font-size="9" fill="#5b6079">drafted → accepted</text>
+
+      <rect x="490" y="10" width="110" height="50" rx="4" fill="#1a1d2e"/>
+      <text x="545" y="32" text-anchor="middle" font-weight="700" fill="#fefdf9">Pipeline</text>
+      <text x="545" y="48" text-anchor="middle" font-size="9" fill="#a8aebf">5 stages</text>
+
+      <rect x="610" y="10" width="100" height="50" rx="4" fill="#1a8a4f"/>
+      <text x="660" y="32" text-anchor="middle" font-weight="700" fill="#fefdf9">Closed</text>
+      <text x="660" y="48" text-anchor="middle" font-size="9" fill="#d8f0e1">+ review</text>
+
+      <line x1="120" y1="35" x2="130" y2="35" stroke="#1a1d2e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="240" y1="35" x2="250" y2="35" stroke="#1a1d2e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="360" y1="35" x2="370" y2="35" stroke="#1a1d2e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="480" y1="35" x2="490" y2="35" stroke="#1a1d2e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="600" y1="35" x2="610" y2="35" stroke="#1a1d2e" stroke-width="1.5" marker-end="url(#arr)"/>
+    </g>
+
+    <!-- swimlanes -->
+    <g font-family="Helvetica" font-size="10" fill="#1a1d2e">
+      <text x="10" y="100" font-weight="700" fill="#5b6079" font-size="9" letter-spacing="0.1em">SYSTEM</text>
+      <line x1="10" y1="106" x2="710" y2="106" stroke="#e8eaf2" stroke-width="1"/>
+
+      <text x="10" y="220" font-weight="700" fill="#5b6079" font-size="9" letter-spacing="0.1em">AGENT</text>
+      <line x1="10" y1="226" x2="710" y2="226" stroke="#e8eaf2" stroke-width="1"/>
+
+      <text x="10" y="340" font-weight="700" fill="#5b6079" font-size="9" letter-spacing="0.1em">CLIENT</text>
+      <line x1="10" y1="346" x2="710" y2="346" stroke="#e8eaf2" stroke-width="1"/>
+
+      <text x="10" y="460" font-weight="700" fill="#5b6079" font-size="9" letter-spacing="0.1em">3RD PARTIES</text>
+      <line x1="10" y1="466" x2="710" y2="466" stroke="#e8eaf2" stroke-width="1"/>
+
+      <!-- system row (auto actions) -->
+      <rect x="20" y="120" width="100" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="70" y="138" text-anchor="middle" font-size="9" font-weight="700">Create record</text>
+      <text x="70" y="150" text-anchor="middle" font-size="8" fill="#5b6079">+ push</text>
+
+      <rect x="140" y="120" width="100" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="190" y="138" text-anchor="middle" font-size="9" font-weight="700">Auto-confirm</text>
+      <text x="190" y="150" text-anchor="middle" font-size="8" fill="#5b6079">email + ICS</text>
+
+      <rect x="260" y="120" width="100" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="310" y="138" text-anchor="middle" font-size="9" font-weight="700">Auto-complete</text>
+      <text x="310" y="150" text-anchor="middle" font-size="8" fill="#5b6079">after time</text>
+
+      <rect x="380" y="120" width="100" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="430" y="138" text-anchor="middle" font-size="9" font-weight="700">PDF + dispatch</text>
+      <text x="430" y="150" text-anchor="middle" font-size="8" fill="#5b6079">to all parties</text>
+
+      <rect x="500" y="120" width="100" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="550" y="138" text-anchor="middle" font-size="9" font-weight="700">Auto-advance</text>
+      <text x="550" y="150" text-anchor="middle" font-size="8" fill="#5b6079">stage triggers</text>
+
+      <rect x="615" y="120" width="90" height="40" rx="3" fill="#d8f0e1" stroke="#1a8a4f"/>
+      <text x="660" y="138" text-anchor="middle" font-size="9" font-weight="700">Review email</text>
+      <text x="660" y="150" text-anchor="middle" font-size="8" fill="#5b6079">+ archive</text>
+
+      <!-- agent row -->
+      <rect x="20" y="240" width="100" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="70" y="258" text-anchor="middle" font-size="9" font-weight="700">Share intake</text>
+      <text x="70" y="270" text-anchor="middle" font-size="8" fill="#5b6079">link / QR</text>
+
+      <rect x="140" y="240" width="100" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="190" y="258" text-anchor="middle" font-size="9" font-weight="700">Qualify + tag</text>
+      <text x="190" y="270" text-anchor="middle" font-size="8" fill="#5b6079">+ notes</text>
+
+      <rect x="260" y="240" width="100" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="310" y="258" text-anchor="middle" font-size="9" font-weight="700">Book + feedback</text>
+      <text x="310" y="270" text-anchor="middle" font-size="8" fill="#5b6079">post-viewing</text>
+
+      <rect x="380" y="240" width="100" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="430" y="258" text-anchor="middle" font-size="9" font-weight="700">Draft + price</text>
+      <text x="430" y="270" text-anchor="middle" font-size="8" fill="#5b6079">+ conditions</text>
+
+      <rect x="500" y="240" width="100" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="550" y="258" text-anchor="middle" font-size="9" font-weight="700">Track tasks</text>
+      <text x="550" y="270" text-anchor="middle" font-size="8" fill="#5b6079">+ documents</text>
+
+      <rect x="615" y="240" width="90" height="40" rx="3" fill="#fff8e7" stroke="#b8870c"/>
+      <text x="660" y="258" text-anchor="middle" font-size="9" font-weight="700">Hand off keys</text>
+      <text x="660" y="270" text-anchor="middle" font-size="8" fill="#5b6079">log close</text>
+
+      <!-- client row -->
+      <rect x="20" y="360" width="100" height="40" rx="3" fill="#e8e7ff" stroke="#5b5bd6"/>
+      <text x="70" y="378" text-anchor="middle" font-size="9" font-weight="700">Submit form</text>
+      <text x="70" y="390" text-anchor="middle" font-size="8" fill="#5b6079">on intake.html</text>
+
+      <rect x="260" y="360" width="100" height="40" rx="3" fill="#e8e7ff" stroke="#5b5bd6"/>
+      <text x="310" y="378" text-anchor="middle" font-size="9" font-weight="700">Confirm time</text>
+      <text x="310" y="390" text-anchor="middle" font-size="8" fill="#5b6079">on respond.html</text>
+
+      <rect x="380" y="360" width="100" height="40" rx="3" fill="#e8e7ff" stroke="#5b5bd6"/>
+      <text x="430" y="378" text-anchor="middle" font-size="9" font-weight="700">Accept offer</text>
+      <text x="430" y="390" text-anchor="middle" font-size="8" fill="#5b6079">via email link</text>
+
+      <rect x="500" y="360" width="100" height="40" rx="3" fill="#e8e7ff" stroke="#5b5bd6"/>
+      <text x="550" y="378" text-anchor="middle" font-size="9" font-weight="700">Track progress</text>
+      <text x="550" y="390" text-anchor="middle" font-size="8" fill="#5b6079">on portal.html</text>
+
+      <rect x="615" y="360" width="90" height="40" rx="3" fill="#e8e7ff" stroke="#5b5bd6"/>
+      <text x="660" y="378" text-anchor="middle" font-size="9" font-weight="700">Submit review</text>
+      <text x="660" y="390" text-anchor="middle" font-size="8" fill="#5b6079">on review.html</text>
+
+      <!-- 3rd parties row -->
+      <rect x="380" y="480" width="100" height="40" rx="3" fill="#f5f0eb" stroke="#5b6079"/>
+      <text x="430" y="498" text-anchor="middle" font-size="9" font-weight="700">Email recv'd</text>
+      <text x="430" y="510" text-anchor="middle" font-size="8" fill="#5b6079">PDF + contacts</text>
+
+      <rect x="500" y="480" width="100" height="40" rx="3" fill="#f5f0eb" stroke="#5b6079"/>
+      <text x="550" y="498" text-anchor="middle" font-size="9" font-weight="700">Inspector report</text>
+      <text x="550" y="510" text-anchor="middle" font-size="8" fill="#5b6079">+ lawyer docs</text>
+
+      <rect x="615" y="480" width="90" height="40" rx="3" fill="#f5f0eb" stroke="#5b6079"/>
+      <text x="660" y="498" text-anchor="middle" font-size="9" font-weight="700">Brokerage cut</text>
+      <text x="660" y="510" text-anchor="middle" font-size="8" fill="#5b6079">commission</text>
+    </g>
+  </svg>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:#d8f0e1;border:1px solid #1a8a4f;"></div>System (automatic)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#fff8e7;border:1px solid #b8870c;"></div>Agent action</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#e8e7ff;border:1px solid #5b5bd6;"></div>Client action</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#f5f0eb;border:1px solid #5b6079;"></div>Third-party touch</div>
+  </div>
+
+  <p class="caption">Each phase is detailed on the following pages — emails sent, screens involved, automations triggered, stakeholders touched.</p>
+
+  <div class="pgnum">06</div>
+</div>
+
+<!-- ═══════ PAGE 7 — Phase 1 Lead Intake ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Phase 1</div>
+  <h2>Lead intake</h2>
+  <span class="tag">First touch</span>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Agent shares the intake link.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Generates a public URL or QR code from the Tracker screen. Same link used at open houses, on business cards, in marketing.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Lead opens <code>intake.html</code> and submits the form.</strong>
+      <div class="step-meta"><span class="pill pill-system">Public page</span> No login required. Captures name, email, phone, transaction type (buy/sell), price band, timeline, mortgage pre-approval status, areas of interest.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>System creates an <code>intake_responses</code> row.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Insert via anonymous public RPC. Includes referer for source tracking. Privacy fields stored but masked in the agent UI until clicked.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>System sends a Web Push notification to the agent.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> "New lead — [first name only] · [transaction type]". Tap → opens the app at the Form Responses screen.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>System sends a confirmation email to the lead.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto-approve email</span> "Got your message — I'll be in touch within 24 hours." Sent from agent's Gmail. Includes agent contact + brokerage signature.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Agent reviews on the Form Responses screen.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Sees masked name and phone (click to reveal). Reads notes. Decides: qualify (becomes a Client) or archive.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Agent qualifies — Lead becomes a Client.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Promotes the row into the <code>clients</code> table with type (Buyer/Seller), stage (Active), and the agent's tags. Sends an opening email through the Email Send screen.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>System logs activity + adds to dashboard counter.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Activity-log entry: "client_created". Overview screen "New this week" counter increments.</div>
+    </div>
+  </div>
+
+  <h3>Emails sent in this phase</h3>
+  <table>
+    <thead><tr><th>Email</th><th>Recipient</th><th>Trigger</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>Intake confirmation</td><td>Lead</td><td>Form submitted</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>Welcome / opening note</td><td>Client (newly qualified)</td><td>Agent qualifies</td><td><span class="pill pill-manual">Agent</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">07</div>
+</div>
+
+<!-- ═══════ PAGE 8 — Phase 2 Viewings ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Phase 2</div>
+  <h2>Property viewings</h2>
+  <span class="tag">Pre-offer</span>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Agent books a viewing.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> On the Viewings screen: pick the client, paste property address, set date/time, optional notes. System inserts the row and generates a unique VAPID-signed token.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>System emails the client with a private response link.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto-approve</span> Email contains property details + an ICS calendar attachment + a link <code>respond.html?t=&lt;token&gt;</code>. Subject: "Viewing booked — [property address] on [date]".</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Client opens <code>respond.html</code> — no login needed.</strong>
+      <div class="step-meta"><span class="pill pill-system">Token-gated</span> Page loads via the token. Shows the property card, time, and three buttons: Confirm · Decline · Suggest a different time.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Client responds.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Client</span> Decision is recorded in <code>viewing_responses</code> via SECURITY DEFINER RPC (token-checked). Triggers a Web Push to the agent: "[Client name] confirmed [property]".</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Reminder email (24h before).</strong>
+      <div class="step-meta"><span class="pill pill-auto">Daily cron</span> The daily-automation function sweeps tomorrow's viewings and emails a reminder to confirmed clients.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>System auto-completes the viewing one hour after end time.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Viewings whose <code>viewing_at</code> + duration is in the past flip from "Scheduled" to "Completed". Triggers an agent feedback modal next time the agent opens the app.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Agent fills the feedback modal.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Star rating, what the client liked / didn't, follow-up needed yes/no. Stored on the viewing row.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Follow-up email (auto-suggested).</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent triggers, system drafts</span> Notify pipeline drafts a follow-up using the feedback. Goes through Approval Queue first — agent edits + sends.</div>
+    </div>
+  </div>
+
+  <h3>Emails sent in this phase</h3>
+  <table>
+    <thead><tr><th>Email</th><th>Recipient</th><th>Trigger</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>Viewing booked</td><td>Client</td><td>Agent books</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>Viewing reminder</td><td>Client</td><td>24h before</td><td><span class="pill pill-auto">Cron</span></td></tr>
+      <tr><td>Post-viewing follow-up</td><td>Client</td><td>Agent + feedback</td><td><span class="pill pill-manual">Approval queue</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">08</div>
+</div>
+
+<!-- ═══════ PAGE 9 — Phase 3 Offers ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Phase 3</div>
+  <h2>Offers</h2>
+  <span class="tag">Negotiation</span>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Agent drafts the offer on the Offers screen.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Property address, offer amount, deposit, conditions (financing, inspection, appraisal), closing date, irrevocable expiry. Optional document uploads.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>System generates a PDF preview.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Browser-side <code>html2pdf.js</code> renders the offer card to PDF using the agent's brokerage letterhead.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Agent reviews + dispatches.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> The dispatch modal asks: who gets this? — Listing Agent, Buyer (CC), Co-Buyer (CC). Each recipient can be on/off. Free-text personal note.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>System emails the offer + PDF to all selected parties.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> One email per recipient, PDF as attachment. CCs see the same content. Listing Agent gets contact details for the Buyer's mortgage broker + lawyer.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Counter-offer or acceptance — handled in Pending Offers.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> When a counter comes back, agent updates the row. Multiple rounds can chain. Each round logs an entry in <code>activity_log</code>.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Acceptance — agent marks the offer accepted.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent confirms</span> Triggers the dispatch flow: collect Lender, Lawyer, Inspector contact details. Optional document uploads (purchase agreement, status certificate).</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>System creates the pipeline row + dispatches acceptance emails.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> A new row appears in <code>pipeline</code> at stage "Accepted". Five emails fire: Buyer (acceptance + portal link), Lawyer, Lender, Inspector (each with PDFs + counter-party contacts), Brokerage (commission notice).</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Stakeholder portal token issued.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Buyer receives <code>portal.html?t=&lt;token&gt;</code> link to track the deal in real-time. Token rotates each stage.</div>
+    </div>
+  </div>
+
+  <h3>Emails sent in this phase</h3>
+  <table>
+    <thead><tr><th>Email</th><th>Recipient</th><th>Trigger</th><th>Attachments</th></tr></thead>
+    <tbody>
+      <tr><td>Offer delivered</td><td>Listing Agent</td><td>Agent dispatches</td><td>Offer PDF</td></tr>
+      <tr><td>Offer copy</td><td>Buyer + Co-Buyer (CC)</td><td>Same dispatch</td><td>Offer PDF</td></tr>
+      <tr><td>Acceptance &mdash; buyer</td><td>Buyer</td><td>Acceptance confirmed</td><td>Signed agreement + portal link</td></tr>
+      <tr><td>Acceptance &mdash; lawyer</td><td>Lawyer</td><td>Acceptance confirmed</td><td>Signed agreement + lender contact</td></tr>
+      <tr><td>Acceptance &mdash; lender</td><td>Lender</td><td>Acceptance confirmed</td><td>Signed agreement + lawyer contact</td></tr>
+      <tr><td>Acceptance &mdash; inspector</td><td>Inspector</td><td>Acceptance confirmed</td><td>Property details + buyer contact</td></tr>
+      <tr><td>Brokerage commission notice</td><td>Brokerage</td><td>Acceptance confirmed</td><td>Commission summary</td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">09</div>
+</div>
+
+<!-- ═══════ PAGE 10 — Phase 4 Pipeline ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Phase 4</div>
+  <h2>The pipeline — accepted to closed</h2>
+  <span class="tag">Active deal</span>
+
+  <svg viewBox="0 0 720 120" style="margin: 8px 0 14px;">
+    <g font-family="Helvetica" font-size="11" fill="#1a1d2e">
+      <rect x="10" y="20" width="125" height="80" rx="6" fill="#fff8e7" stroke="#b8870c" stroke-width="1.5"/>
+      <text x="72" y="46" text-anchor="middle" font-weight="700">Accepted</text>
+      <text x="72" y="64" text-anchor="middle" font-size="9" fill="#5b6079">offer accepted</text>
+      <text x="72" y="78" text-anchor="middle" font-size="9" fill="#5b6079">+ deposit due</text>
+      <text x="72" y="92" text-anchor="middle" font-size="9" fill="#1a8a4f" font-weight="700">~5%</text>
+
+      <rect x="155" y="20" width="125" height="80" rx="6" fill="#fff8e7" stroke="#b8870c" stroke-width="1.5"/>
+      <text x="217" y="46" text-anchor="middle" font-weight="700">Under Contract</text>
+      <text x="217" y="64" text-anchor="middle" font-size="9" fill="#5b6079">conditions period</text>
+      <text x="217" y="78" text-anchor="middle" font-size="9" fill="#5b6079">+ inspection</text>
+      <text x="217" y="92" text-anchor="middle" font-size="9" fill="#1a8a4f" font-weight="700">~30%</text>
+
+      <rect x="300" y="20" width="125" height="80" rx="6" fill="#fff8e7" stroke="#b8870c" stroke-width="1.5"/>
+      <text x="362" y="46" text-anchor="middle" font-weight="700">Conditions met</text>
+      <text x="362" y="64" text-anchor="middle" font-size="9" fill="#5b6079">financing approved</text>
+      <text x="362" y="78" text-anchor="middle" font-size="9" fill="#5b6079">+ inspection clear</text>
+      <text x="362" y="92" text-anchor="middle" font-size="9" fill="#1a8a4f" font-weight="700">~50%</text>
+
+      <rect x="445" y="20" width="125" height="80" rx="6" fill="#fff8e7" stroke="#b8870c" stroke-width="1.5"/>
+      <text x="507" y="46" text-anchor="middle" font-weight="700">Walkthrough</text>
+      <text x="507" y="64" text-anchor="middle" font-size="9" fill="#5b6079">final inspection</text>
+      <text x="507" y="78" text-anchor="middle" font-size="9" fill="#5b6079">day before close</text>
+      <text x="507" y="92" text-anchor="middle" font-size="9" fill="#1a8a4f" font-weight="700">~75%</text>
+
+      <rect x="590" y="20" width="120" height="80" rx="6" fill="#1a8a4f"/>
+      <text x="650" y="46" text-anchor="middle" font-weight="700" fill="#fefdf9">Closing / Done</text>
+      <text x="650" y="64" text-anchor="middle" font-size="9" fill="#d8f0e1">keys handed</text>
+      <text x="650" y="78" text-anchor="middle" font-size="9" fill="#d8f0e1">commission paid</text>
+      <text x="650" y="92" text-anchor="middle" font-size="9" fill="#fefdf9" font-weight="700">100%</text>
+
+      <line x1="135" y1="60" x2="155" y2="60" stroke="#1a1d2e" stroke-width="1.5"/>
+      <line x1="280" y1="60" x2="300" y2="60" stroke="#1a1d2e" stroke-width="1.5"/>
+      <line x1="425" y1="60" x2="445" y2="60" stroke="#1a1d2e" stroke-width="1.5"/>
+      <line x1="570" y1="60" x2="590" y2="60" stroke="#1a1d2e" stroke-width="1.5"/>
+    </g>
+  </svg>
+
+  <h3>Auto-advance triggers</h3>
+  <ul class="clean">
+    <li>Inspection complete + condition checked off → <strong>Accepted → Under Contract</strong>. (Skipped if "no inspection" flagged.)</li>
+    <li>Financing approval email logged + checklist closed → <strong>Under Contract → Conditions met</strong>.</li>
+    <li>Walkthrough scheduled within 48h of close date → <strong>Conditions → Walkthrough</strong>. (Skipped if "no walkthrough" flagged.)</li>
+    <li>Close date reached + walkthrough confirmed → <strong>Walkthrough → Closing</strong>.</li>
+    <li>Agent marks "keys delivered" → <strong>Closing → Closed</strong>. Commission row finalized. Review request queued.</li>
+  </ul>
+
+  <h3>Stakeholder portal (<code>portal.html</code>)</h3>
+  <p style="font-size: 12px;">Each non-agent stakeholder gets a private portal link. Token-gated, no login. Shows the segmented progress bar (sums to 100%), per-stage tasks, role-filtered documents. Skipped stages render as "No inspection" / "No walkthrough" instead of being hidden. The same renderer is used inside the agent app for consistency.</p>
+
+  <h3>Per-stage tasks (<code>pipeline_tasks</code>)</h3>
+  <div class="grid-2">
+    <div class="card">
+      <h4>Buyer-side checklist</h4>
+      <ul class="clean">
+        <li>Wire deposit (5 days)</li>
+        <li>Schedule home inspection</li>
+        <li>Submit mortgage docs</li>
+        <li>Order home insurance</li>
+        <li>Final walkthrough</li>
+        <li>Pay closing costs</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Seller-side checklist</h4>
+      <ul class="clean">
+        <li>Confirm closing date with lawyer</li>
+        <li>Cancel utilities (effective close)</li>
+        <li>Schedule moving</li>
+        <li>Final walkthrough access</li>
+        <li>Sign closing documents</li>
+        <li>Hand over keys</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pgnum">10</div>
+</div>
+
+<!-- ═══════ PAGE 11 — Phase 5 Close ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Phase 5</div>
+  <h2>Close & post-close</h2>
+  <span class="tag">Final mile</span>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Final walkthrough scheduled.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Books a slot 24-48h before close. System emails Buyer + Seller, ICS attached.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Closing day reminders fire.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Cron</span> 24h before: "Tomorrow is closing day" → Buyer + Seller. Includes lawyer contact + parking/access info.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Agent confirms keys handed over.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent</span> Pipeline stage flips to "Closed". Activity log: "deal_closed". Push notification: "🎉 [property address] closed".</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>System finalizes the commission row.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Computes gross, brokerage cut (% configurable), HST, net to agent. Row visible on Commissions screen. Brokerage receives final breakdown email.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>System emails the close confirmation to all stakeholders.</strong>
+      <div class="step-meta"><span class="pill pill-auto">Auto</span> Buyer + Seller + Lawyer + Lender + Brokerage. "Deal closed [date]." With keys, congratulations, and the review request seeded inside.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Review request — agent triggers.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Agent on Pipeline closed-card</span> "Request Review" button creates a <code>client_reviews</code> row with a single-use token. Sends an email with link <code>review.html?t=&lt;token&gt;</code>. Agent can also CC additional people (spouse, etc.) — each gets their own token + form.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Client submits the review.</strong>
+      <div class="step-meta"><span class="pill pill-manual">Client</span> Five multi-choice questions + optional comments + preview before submit. Anonymous update via token. Triggers Web Push to agent: "[Client] left a review".</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Reviews show up on the Reviews screen.</strong>
+      <div class="step-meta"><span class="pill pill-system">App</span> Agent reads, can copy/paste to public review platforms.</div>
+    </div>
+  </div>
+
+  <h3>Emails sent in this phase</h3>
+  <table>
+    <thead><tr><th>Email</th><th>Recipient</th><th>Trigger</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>Walkthrough booked</td><td>Buyer + Seller</td><td>Agent books</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>Closing day reminder</td><td>Buyer + Seller</td><td>24h cron</td><td><span class="pill pill-auto">Cron</span></td></tr>
+      <tr><td>Closing confirmation</td><td>All parties + brokerage</td><td>Agent marks closed</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>Review request</td><td>Buyer / Seller (and CCs)</td><td>Agent triggers</td><td><span class="pill pill-manual">Manual</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">11</div>
+</div>
+
+<!-- ═══════ PAGE 12 — Automations ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Automations</div>
+  <h2>Cron schedules &amp; background workers</h2>
+
+  <table>
+    <thead><tr><th>Job</th><th>Schedule (UTC)</th><th>Equivalent NDT</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>maxwell-daily-automation</strong></td><td>0 8 * * *</td><td>5:30 AM</td><td>Sweeps tomorrow's viewings, fires reminder emails. Detects stale deals (no activity 7+ days) and queues re-engagement emails. Auto-completes past-time viewings. Fires push notifications for the day's important items.</td></tr>
+      <tr><td><strong>daily-money-briefing</strong></td><td>0 9 * * *</td><td>6:30 AM</td><td>Generates the personal money brief — see next page.</td></tr>
+      <tr><td><strong>auto-complete-viewings</strong></td><td>every hour</td><td>—</td><td>Flips Scheduled → Completed for any viewing whose time + duration is in the past.</td></tr>
+      <tr><td><strong>token-rotation</strong></td><td>on stage change</td><td>—</td><td>Issues a fresh portal token whenever a pipeline row advances. Old tokens invalidated.</td></tr>
+      <tr><td><strong>backup</strong></td><td>0 5 * * 0</td><td>Sundays 2:30 AM</td><td>Full data export to a private storage bucket. 90-day retention.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Re-engagement (stale deal nudges)</h3>
+  <p style="font-size: 12px;">When a client has had no activity (no viewing booked, no email sent, no offer touched) for 7+ days, daily-automation queues one of four template emails through the Approval Queue (so the agent reviews before send):</p>
+  <ul class="clean">
+    <li><strong>reengagement_brief</strong> — generic re-touch ("Just checking in — anything new on your search?")</li>
+    <li><strong>reengagement_buyer_match</strong> — for buyers, mentions a recent matching listing</li>
+    <li><strong>reengagement_pre_approval</strong> — for buyers without a noted pre-approval, suggests connecting with a lender</li>
+    <li><strong>reengagement_seller</strong> — for sellers, mentions market activity in their neighbourhood</li>
+  </ul>
+  <p class="caption">Each candidate logs a <code>REENGAGEMENT_QUEUED</code> activity entry to prevent duplicate queueing.</p>
+
+  <h3>Approval Queue</h3>
+  <p style="font-size: 12px;">All system-generated emails flow through <code>approval_queue</code>. The agent sees them on the Approvals screen, can edit / send / discard. Some emails are flagged "auto-approve" (intake confirmations, viewing reminders) — those skip the queue and call <code>Approvals.approve()</code> immediately on insert.</p>
+
+  <div class="pgnum">12</div>
+</div>
+
+<!-- ═══════ PAGE 13 — Money Briefing ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Money Briefing</div>
+  <h2>Daily personal-finance brief</h2>
+  <span class="tag">New feature</span>
+
+  <p class="muted" style="font-size: 12px;">A separate workflow that generates a daily Canadian personal-finance briefing for the agent personally — not for clients. Audio + written newsletter, delivered to the agent's Gmail and the in-app Money Brief tab every morning at ~6:30 AM.</p>
+
+  <svg viewBox="0 0 720 240" style="margin: 14px 0;">
+    <defs>
+      <marker id="arr2" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1a1d2e"/>
+      </marker>
+    </defs>
+    <g font-family="Helvetica" font-size="10" fill="#1a1d2e">
+      <rect x="10" y="20" width="100" height="50" rx="4" fill="#1a1d2e"/>
+      <text x="60" y="42" text-anchor="middle" font-weight="700" fill="#fefdf9">pg_cron</text>
+      <text x="60" y="58" text-anchor="middle" font-size="9" fill="#a8aebf">9:00 UTC</text>
+
+      <rect x="130" y="20" width="100" height="50" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="180" y="42" text-anchor="middle" font-weight="700">Bank of Canada</text>
+      <text x="180" y="58" text-anchor="middle" font-size="9" fill="#5b6079">Valet API · live rate</text>
+
+      <rect x="250" y="20" width="100" height="50" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="300" y="42" text-anchor="middle" font-weight="700">Tavily</text>
+      <text x="300" y="58" text-anchor="middle" font-size="9" fill="#5b6079">live news ×4</text>
+
+      <rect x="380" y="20" width="100" height="50" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="430" y="42" text-anchor="middle" font-weight="700">OpenAI #1</text>
+      <text x="430" y="58" text-anchor="middle" font-size="9" fill="#5b6079">structured fields</text>
+
+      <rect x="500" y="20" width="100" height="50" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="550" y="42" text-anchor="middle" font-weight="700">OpenAI #2</text>
+      <text x="550" y="58" text-anchor="middle" font-size="9" fill="#5b6079">2-host podcast</text>
+
+      <rect x="620" y="20" width="90" height="50" rx="4" fill="#fff" stroke="#5b5bd6" stroke-width="1.5"/>
+      <text x="665" y="42" text-anchor="middle" font-weight="700">OpenAI TTS</text>
+      <text x="665" y="58" text-anchor="middle" font-size="9" fill="#5b6079">×20 turns</text>
+
+      <line x1="110" y1="45" x2="125" y2="45" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="230" y1="45" x2="245" y2="45" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="350" y1="45" x2="375" y2="45" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="480" y1="45" x2="495" y2="45" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="600" y1="45" x2="615" y2="45" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+
+      <rect x="60" y="120" width="100" height="50" rx="4" fill="#f5efdf" stroke="#1a1d2e"/>
+      <text x="110" y="142" text-anchor="middle" font-weight="700">Stitch MP3</text>
+      <text x="110" y="158" text-anchor="middle" font-size="9" fill="#5b6079">strip ID3 · concat</text>
+
+      <rect x="180" y="120" width="100" height="50" rx="4" fill="#f5efdf" stroke="#1a1d2e"/>
+      <text x="230" y="142" text-anchor="middle" font-weight="700">Storage upload</text>
+      <text x="230" y="158" text-anchor="middle" font-size="9" fill="#5b6079">briefings-audio bucket</text>
+
+      <rect x="300" y="120" width="100" height="50" rx="4" fill="#f5efdf" stroke="#1a1d2e"/>
+      <text x="350" y="142" text-anchor="middle" font-weight="700">DB save</text>
+      <text x="350" y="158" text-anchor="middle" font-size="9" fill="#5b6079">briefings table</text>
+
+      <rect x="420" y="120" width="100" height="50" rx="4" fill="#f5efdf" stroke="#1a1d2e"/>
+      <text x="470" y="142" text-anchor="middle" font-weight="700">Render HTML</text>
+      <text x="470" y="158" text-anchor="middle" font-size="9" fill="#5b6079">newsletter</text>
+
+      <rect x="540" y="120" width="100" height="50" rx="4" fill="#1a8a4f"/>
+      <text x="590" y="142" text-anchor="middle" font-weight="700" fill="#fefdf9">Email + ▶ link</text>
+      <text x="590" y="158" text-anchor="middle" font-size="9" fill="#d8f0e1">Gmail</text>
+
+      <line x1="160" y1="145" x2="175" y2="145" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="280" y1="145" x2="295" y2="145" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="400" y1="145" x2="415" y2="145" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+      <line x1="520" y1="145" x2="535" y2="145" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+
+      <rect x="540" y="190" width="100" height="40" rx="4" fill="#5b5bd6"/>
+      <text x="590" y="208" text-anchor="middle" font-weight="700" fill="#fefdf9">In-app tab</text>
+      <text x="590" y="222" text-anchor="middle" font-size="9" fill="#d8d4ff">Money Brief</text>
+
+      <line x1="590" y1="170" x2="590" y2="190" stroke="#1a1d2e" marker-end="url(#arr2)"/>
+    </g>
+  </svg>
+
+  <h3>What's in the briefing</h3>
+  <ul class="clean">
+    <li><strong>Snapshot</strong>: live BoC rate, XEQT close, NL avg home price, CPI</li>
+    <li><strong>Mortgage rates</strong>: 5-yr fixed, variable, sample $400K monthly payment</li>
+    <li><strong>Three stories</strong>: today's top Canadian finance + St. John's local news (sourced from Tavily) with "Plain English" callouts</li>
+    <li><strong>Personal plan</strong>: emergency fund target, trading platform comparison, $9K-on-May-17 + $16K-in-October distribution tables, core picks (XEQT, VFV) + satellite risk-on picks, monthly savings deployment based on agent's income vs expenses, tax-strategy estimates, and a daily wealth-wisdom quote</li>
+    <li><strong>Watch list</strong>: dates coming up that matter</li>
+    <li><strong>Audio</strong>: 9-10 minute 2-host podcast (Avery + Sam) reading the brief in conversational style</li>
+  </ul>
+
+  <p class="caption">In-app tab supports collapsible sections + a sticky audio player at the top. 30-day archive of past briefings is browsable.</p>
+
+  <div class="pgnum">13</div>
+</div>
+
+<!-- ═══════ PAGE 14 — Screen Catalog ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Screens</div>
+  <h2>Every screen in the app</h2>
+
+  <table>
+    <thead><tr><th>Screen</th><th>Purpose</th><th>Key actions</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Login</strong></td><td>Email + password auth via Supabase</td><td>Sign in, request password reset</td></tr>
+      <tr><td><strong>Overview / Dashboard</strong></td><td>Hero greeting, stats cards, pending notifications, quick actions</td><td>Jump to any pending item</td></tr>
+      <tr><td><strong>Approvals</strong></td><td>Outbound emails awaiting agent approval</td><td>Edit · Approve · Discard</td></tr>
+      <tr><td><strong>Activity log</strong></td><td>Append-only event stream</td><td>Filter by type, date</td></tr>
+      <tr><td><strong>Clients</strong></td><td>List of all clients with privacy masking</td><td>Add · View detail · Archive · Tag</td></tr>
+      <tr><td><strong>Tracker</strong></td><td>Pre-client / lead tracking, intake link generator</td><td>Generate share link · Promote to client</td></tr>
+      <tr><td><strong>Form Responses</strong></td><td>Raw intake submissions awaiting qualification</td><td>Read · Qualify · Archive</td></tr>
+      <tr><td><strong>Viewings</strong></td><td>Schedule property showings, see calendar</td><td>Book · Cancel · Reschedule · Add feedback</td></tr>
+      <tr><td><strong>Responses</strong></td><td>Client confirm/decline replies to viewings</td><td>Read · React</td></tr>
+      <tr><td><strong>Offers</strong></td><td>Draft, dispatch, manage offer rounds</td><td>Create · Generate PDF · Dispatch · Accept</td></tr>
+      <tr><td><strong>Pipeline</strong></td><td>Active deals from acceptance to close</td><td>Advance stage · Add tasks · Upload docs · Resume orphan acceptance</td></tr>
+      <tr><td><strong>New Builds</strong></td><td>Pre-construction inventory tracking</td><td>Track milestones · Notify clients on availability</td></tr>
+      <tr><td><strong>Checklist</strong></td><td>Free-form per-deal task list</td><td>Add · Tick off · Reorder</td></tr>
+      <tr><td><strong>Calendar</strong></td><td>All viewings + closings + meetings</td><td>Day / week / month view</td></tr>
+      <tr><td><strong>Commissions</strong></td><td>Commission tracking per closed deal</td><td>View breakdown · Mark paid · Export</td></tr>
+      <tr><td><strong>Reports</strong></td><td>Saved snapshots and exports</td><td>Generate · Download · Share</td></tr>
+      <tr><td><strong>Analytics</strong></td><td>Charts of pipeline, conversion, revenue</td><td>Filter · Compare periods</td></tr>
+      <tr><td><strong>Portal Traffic</strong></td><td>Stakeholder-portal visits log</td><td>See who opened what, when</td></tr>
+      <tr><td><strong>Email Send</strong></td><td>Compose &amp; send a one-off email</td><td>Templates · Attachments · Threading</td></tr>
+      <tr><td><strong>Broadcast</strong></td><td>Mass-email to filtered client segments</td><td>Filter · Compose · Schedule</td></tr>
+      <tr><td><strong>Reviews</strong></td><td>Post-close client reviews</td><td>Read · Copy · Request more</td></tr>
+      <tr><td><strong>Inbox</strong></td><td>Gmail-synced incoming threads</td><td>Read · Reply · Tag to client</td></tr>
+      <tr><td><strong>AI Assistant</strong></td><td>In-app Claude-powered assistant</td><td>Ask anything · Draft emails · Summarize</td></tr>
+      <tr><td><strong>Money Brief</strong></td><td>Daily personal-finance brief + audio + 30-day archive</td><td>Listen · Read · Browse archive</td></tr>
+      <tr><td><strong>Agent Portal</strong></td><td>Provision additional agent accounts</td><td>Invite · Set role · Revoke</td></tr>
+      <tr><td><strong>Cleanup</strong></td><td>Bulk archive / delete maintenance</td><td>Sweep stale rows · Compact archives</td></tr>
+      <tr><td><strong>System Tools</strong></td><td>Diagnostics, push test, refresh service worker</td><td>Resubscribe push · Force cache reset</td></tr>
+      <tr><td><strong>Settings</strong></td><td>Profile · Appearance · Notifications · Data · Security · Diagnostics</td><td>Configure everything</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Public token-gated pages (no app)</h3>
+  <table>
+    <thead><tr><th>Page</th><th>Audience</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><strong>intake.html</strong></td><td>Lead</td><td>Initial enquiry form, pre-client</td></tr>
+      <tr><td><strong>respond.html</strong></td><td>Client</td><td>Confirm / decline / suggest a viewing time</td></tr>
+      <tr><td><strong>portal.html</strong></td><td>Buyer / Seller / Stakeholder</td><td>Live deal-progress portal with role-filtered docs</td></tr>
+      <tr><td><strong>review.html</strong></td><td>Client (post-close)</td><td>Submit a review with 5 questions + comments</td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">14</div>
+</div>
+
+<!-- ═══════ PAGE 15 — Email Catalog ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Emails</div>
+  <h2>Every email template</h2>
+  <p class="muted" style="font-size: 12px;">All emails are sent from the agent's own Gmail address via OAuth refresh-token. Templates live in <code>js/notifications.js</code>. Most templates pass through <code>approval_queue</code>; "auto-approve" templates bypass it for instant delivery.</p>
+
+  <table>
+    <thead><tr><th>Template</th><th>Recipient</th><th>Trigger</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>intake_confirmation</td><td>Lead</td><td>Form submitted</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>welcome_buyer</td><td>Buyer</td><td>Agent qualifies lead as buyer</td><td><span class="pill pill-manual">Manual</span></td></tr>
+      <tr><td>welcome_seller</td><td>Seller</td><td>Agent qualifies lead as seller</td><td><span class="pill pill-manual">Manual</span></td></tr>
+      <tr><td>viewing_booked</td><td>Buyer (+ Co-Buyer CC)</td><td>Agent books viewing</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>viewing_reminder</td><td>Buyer</td><td>24h cron before viewing</td><td><span class="pill pill-auto">Cron</span></td></tr>
+      <tr><td>viewing_followup</td><td>Buyer</td><td>Agent fills feedback after viewing</td><td><span class="pill pill-manual">Approval</span></td></tr>
+      <tr><td>offer_dispatched</td><td>Listing Agent</td><td>Agent dispatches offer</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_dispatched_cc</td><td>Buyer + Co-Buyer (CC)</td><td>Same dispatch</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_accepted_buyer</td><td>Buyer</td><td>Agent confirms acceptance</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_accepted_lawyer</td><td>Lawyer</td><td>Same acceptance</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_accepted_lender</td><td>Lender</td><td>Same acceptance</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_accepted_inspector</td><td>Inspector</td><td>Same acceptance</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>offer_accepted_brokerage</td><td>Brokerage</td><td>Same acceptance</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>conditions_cleared</td><td>Buyer + Lawyer + Lender</td><td>Stage advance to "Conditions met"</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>walkthrough_booked</td><td>Buyer + Seller</td><td>Agent books final walkthrough</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>closing_day_reminder</td><td>Buyer + Seller</td><td>24h cron before close</td><td><span class="pill pill-auto">Cron</span></td></tr>
+      <tr><td>deal_closed_buyer</td><td>Buyer</td><td>Agent marks closed</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>deal_closed_seller</td><td>Seller</td><td>Agent marks closed</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>deal_closed_brokerage</td><td>Brokerage</td><td>Agent marks closed</td><td><span class="pill pill-auto">Auto</span></td></tr>
+      <tr><td>review_request</td><td>Buyer / Seller (+ CCs)</td><td>Agent triggers post-close</td><td><span class="pill pill-manual">Manual</span></td></tr>
+      <tr><td>reengagement_brief</td><td>Inactive client</td><td>7+ days no activity (cron)</td><td><span class="pill pill-manual">Approval</span></td></tr>
+      <tr><td>reengagement_buyer_match</td><td>Inactive buyer</td><td>Cron + matching listing</td><td><span class="pill pill-manual">Approval</span></td></tr>
+      <tr><td>reengagement_pre_approval</td><td>Buyer w/o pre-approval</td><td>Cron + flag</td><td><span class="pill pill-manual">Approval</span></td></tr>
+      <tr><td>reengagement_seller</td><td>Inactive seller</td><td>Cron + market activity</td><td><span class="pill pill-manual">Approval</span></td></tr>
+      <tr><td>broadcast</td><td>Filtered client list</td><td>Agent sends</td><td><span class="pill pill-manual">Manual</span></td></tr>
+      <tr><td>email_send</td><td>Any address</td><td>Agent composes one-off</td><td><span class="pill pill-manual">Manual</span></td></tr>
+      <tr><td>money_briefing</td><td>Agent</td><td>Daily 6:30 AM cron</td><td><span class="pill pill-auto">Cron</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="pgnum">15</div>
+</div>
+
+<!-- ═══════ PAGE 16 — Push & Privacy ═══════ -->
+<div class="page">
+  <div class="pgheader">DealFlow · Push &amp; Privacy</div>
+  <h2>Notifications, push, privacy</h2>
+
+  <h3>Web Push (VAPID)</h3>
+  <p style="font-size: 12px;">Each device subscribes during onboarding using VAPID P-256 / JWK keys. Subscription stored in <code>push_subscriptions</code>. Sending is done by the <code>send-push</code> edge function — fan-out to every active device of the recipient agent.</p>
+
+  <table>
+    <thead><tr><th>Push event</th><th>Trigger</th><th>Tap target</th></tr></thead>
+    <tbody>
+      <tr><td>New lead</td><td>Intake form submitted</td><td>Form Responses screen</td></tr>
+      <tr><td>Client confirmed viewing</td><td>respond.html submission</td><td>Responses screen</td></tr>
+      <tr><td>Counter-offer received</td><td>Manual flag by agent on incoming reply</td><td>Pending Offers</td></tr>
+      <tr><td>Acceptance confirmed</td><td>Pipeline row created</td><td>Pipeline screen</td></tr>
+      <tr><td>Stage advanced</td><td>Auto-advance trigger fires</td><td>Pipeline detail</td></tr>
+      <tr><td>Approval needed</td><td>New row in approval_queue</td><td>Approvals screen</td></tr>
+      <tr><td>Review submitted</td><td>review.html submission</td><td>Reviews screen</td></tr>
+      <tr><td>Stale deal alert</td><td>Daily-automation 7-day check</td><td>Specific client detail</td></tr>
+      <tr><td>Deal closed</td><td>Agent marks closed</td><td>Pipeline archive</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Privacy &amp; data masking</h3>
+  <ul class="clean">
+    <li><strong>Click-to-reveal</strong> — Names, phones, emails appear masked in lists. One tap reveals (logs to <code>activity_log</code> for audit).</li>
+    <li><strong>Token-gated portals</strong> — Buyers, Sellers, and stakeholders never log in. Each receives a single-use VAPID-signed token in their email. Tokens are stored as hashes server-side; raw tokens never logged.</li>
+    <li><strong>Token rotation</strong> — Portal tokens rotate when a pipeline row advances stages. Old tokens are invalidated.</li>
+    <li><strong>Role-filtered documents</strong> — The portal renders different document subsets per stakeholder role. Lawyer sees the agreement + addenda; Inspector sees the property card + access notes only; Buyer sees everything.</li>
+    <li><strong>RLS by agent_id</strong> — Every owned table has the same policy: <code>USING (agent_id = auth.uid())</code>. Cross-agent leakage impossible.</li>
+    <li><strong>No client-side service-role keys</strong> — All sensitive operations (commission writes, agent provisioning, push fan-out) run inside Edge Functions with the service-role key. The browser only ever holds the user's own JWT.</li>
+    <li><strong>Auto-prune expired push subscriptions</strong> — App pulls 410/404 subscriptions on send to prevent push spam to dead devices.</li>
+  </ul>
+
+  <h3>Open items / future work</h3>
+  <ul class="clean">
+    <li>Cash-plan feature: agent-input expected income → personal_plan auto-recomputes</li>
+    <li>Holdings tracking + sell-trigger evaluation across days (Money Brief memory)</li>
+    <li>Memory-optimized email attachment so audio plays inline in Gmail</li>
+    <li>Custom topics input for Money Brief (agent types a topic; brief includes a section)</li>
+    <li>News-presenter format with rotating expert "guests" per day of the week</li>
+  </ul>
+
+  <div class="pgnum">16</div>
+</div>
+
+</body>
+</html>

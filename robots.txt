@@ -31,6 +31,10 @@ Disallow: /js/
 Disallow: /css/
 Disallow: /supabase/
 
+# Archived legacy planning docs (moved from repo root in PR #35).
+# These are historical artifacts kept for context, not for public discovery.
+Disallow: /docs/
+
 # Treating the bare domain as the CRM entry — keep crawlers off it for now.
 # When we eventually point the root to /site/ that disallow can go.
 Disallow: /$
