@@ -1,6 +1,155 @@
 // Maxwell DealFlow CRM — Client Notification System v2
 // Every email goes to Approvals first — Maxwell approves before it sends
 
+// ── EmailFormat ──────────────────────────────────────────────────────────────
+// Single source of truth for email styling, signature, disclaimer, and body
+// wrapping. Used by both Notify templates (in this file) and EmailSend
+// (in extras.js). Designed for maximum compatibility across Gmail, Outlook
+// for Mac/Windows/Web, Apple Mail, Thunderbird, mobile clients.
+//
+// Why tables for the signature instead of <div>s: Outlook for Windows
+// renders <div> spacing inconsistently. Tables with explicit cellpadding +
+// inline styles render correctly everywhere.
+//
+// Why Unicode emojis for icons (📞 ✉️ 🌐) instead of SVG/PNG: ~95% client
+// support out of the box, no asset hosting, no CSP issues. The 5% of clients
+// that strip emojis (some corporate Outlook variants) still see the label
+// text after the icon, so signature stays readable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EmailFormat = {
+
+  // Pull agent contact fields with sensible defaults
+  _agent(agent) {
+    const a = agent || {};
+    return {
+      name:    a.full_name || a.name || 'Maxwell Delali Midodzi',
+      role:    a.role || 'REALTOR® | eXp Realty',
+      phone:   a.phone || '709.325.0545',
+      email:   a.email || 'maxwell.midodzi@exprealty.com',
+      website: a.website_url || 'maxwellmidodzi.exprealty.com',
+    };
+  },
+
+  // Strip non-digit chars from phone for tel: links
+  _phoneTel(phone) {
+    return String(phone || '').replace(/[^0-9+]/g, '');
+  },
+
+  // ── Shared <style> block used in the <head> of every wrapped HTML email ──
+  styles() {
+    return `
+      body{margin:0;padding:0;background:#f4f4f0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#1a1917;line-height:1.6;-webkit-font-smoothing:antialiased;}
+      .wrap{max-width:600px;margin:0 auto;padding:32px 24px;background:#ffffff;}
+      /* Body paragraphs — generous spacing so the email actually breathes */
+      .body p{margin:0 0 16px;line-height:1.65;}
+      .body p:last-child{margin-bottom:0;}
+      .body strong{color:#0f172a;}
+      /* Data tables (used by Notify templates for viewing/offer details) */
+      table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
+      table.dt tr{border-bottom:1px solid #e6e6e6;}
+      table.dt tr:last-child{border-bottom:none;}
+      table.dt td.lb,table.dt td.label{padding:10px 12px;color:#6b7280;font-size:13px;width:38%;vertical-align:top;}
+      table.dt td.vl,table.dt td.value{padding:10px 12px;color:#1a1917;font-size:14px;font-weight:500;}
+      /* Calendar / CTA button */
+      .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:600;padding:14px 28px;border-radius:6px;margin:20px 0 8px;}
+      .cal-note{font-size:12px;color:#9ca3af;margin:0 0 24px;}
+      /* Signature block */
+      hr.sig-divider{border:none;border-top:1px solid #e6e6e6;margin:28px 0 20px;}
+      table.sig{border-collapse:collapse;margin:0;}
+      table.sig td{font-family:'Helvetica Neue',Arial,sans-serif;padding:0;}
+      .sig-name{font-size:16px;font-weight:600;color:#0f172a;letter-spacing:-0.005em;padding-bottom:2px;}
+      .sig-role{font-size:13px;color:#6b7280;padding-bottom:14px;}
+      .sig-row{font-size:14px;color:#374151;padding:3px 0;}
+      .sig-row a{color:#374151;text-decoration:none;border-bottom:1px solid transparent;}
+      .sig-row a:hover{border-bottom-color:#1a6ef5;}
+      .sig-icon{display:inline-block;width:22px;}
+      /* Disclaimer */
+      hr.dis-divider{border:none;border-top:1px solid #e6e6e6;margin:20px 0 12px;}
+      .disclaimer{font-size:10.5px;color:#9ca3af;line-height:1.55;margin:0;}
+      .disclaimer strong{color:#6b7280;font-weight:600;}
+    `;
+  },
+
+  // ── HTML signature block — tables for Outlook compatibility, icons via Unicode ──
+  signatureHTML(agent) {
+    const a = EmailFormat._agent(agent);
+    const tel = EmailFormat._phoneTel(a.phone);
+    return `
+      <hr class="sig-divider">
+      <table class="sig" cellpadding="0" cellspacing="0" border="0">
+        <tr><td class="sig-name">${a.name}</td></tr>
+        <tr><td class="sig-role">${a.role}</td></tr>
+        <tr><td class="sig-row"><span class="sig-icon">📞</span><a href="tel:${tel}">${a.phone}</a></td></tr>
+        <tr><td class="sig-row"><span class="sig-icon">✉️</span><a href="mailto:${a.email}">${a.email}</a></td></tr>
+        <tr><td class="sig-row"><span class="sig-icon">🌐</span><a href="https://${a.website}">${a.website}</a></td></tr>
+      </table>`;
+  },
+
+  // ── HTML disclaimer block — separator + confidentiality notice ──
+  disclaimerHTML() {
+    return `
+      <hr class="dis-divider">
+      <p class="disclaimer"><strong>CONFIDENTIALITY NOTICE:</strong> This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>`;
+  },
+
+  // ── Plain-text signature (for Gmail's plain-text fallback) ──
+  signaturePlain(agent) {
+    const a = EmailFormat._agent(agent);
+    return `${a.name}\n${a.role}\n\n📞   ${a.phone}\n✉️   ${a.email}\n🌐   ${a.website}`;
+  },
+
+  // ── Plain-text disclaimer ──
+  disclaimerPlain() {
+    return `\n---\n\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+  },
+
+  // ── Convert user-typed body to HTML with proper paragraph spacing ──
+  // Input may be plain text with \n\n paragraph breaks, OR already-rich HTML
+  // (from a contenteditable editor). Detects which and produces a body
+  // wrapped in <div class="body"> with real <p> tags between paragraphs.
+  bodyHTML(bodyText) {
+    if (!bodyText) return '<div class="body"></div>';
+    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(bodyText);
+    if (looksLikeHtml) {
+      // Already HTML — trust it but wrap in .body so paragraph CSS applies.
+      // Convert any stray double newlines to paragraph breaks too.
+      return `<div class="body">${bodyText}</div>`;
+    }
+    // Plain text: escape HTML, then split into paragraphs on blank lines.
+    const escaped = bodyText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const paragraphs = escaped
+      .split(/\n\s*\n/)              // blank-line separators
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)  // single \n inside paragraphs becomes <br>
+      .join('\n      ');
+    return `<div class="body">\n      ${paragraphs}\n    </div>`;
+  },
+
+  // ── Full HTML email wrapper — body + signature + disclaimer ──
+  // Used by EmailSend (manual compose). Notify templates assemble their
+  // own body content but reuse styles() + signatureHTML() + disclaimerHTML().
+  htmlEmail(bodyContent, agent, opts = {}) {
+    const attachmentLine = opts.attachment
+      ? `<p style="font-size:13px;color:#6b7280;margin:8px 0 0;">📎 Attachment: ${opts.attachment}</p>`
+      : '';
+    return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>${EmailFormat.styles()}</style>
+</head><body><div class="wrap">
+${bodyContent}
+${attachmentLine}
+${EmailFormat.signatureHTML(agent)}
+${EmailFormat.disclaimerHTML()}
+</div></body></html>`;
+  },
+};
+
 const Notify = {
 
   // ── EMAIL TEMPLATES ────────────────────────────────────────────────────────
@@ -66,22 +215,7 @@ const Notify = {
       }
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Property Viewing - ' + viewing.property_address)}&dates=${gcalStart}/${gcalEnd}&location=${encodeURIComponent(viewing.property_address)}&details=${encodeURIComponent('Viewing with ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail + (viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''))}`;
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
-        table.dt tr{border-bottom:1px solid #eee;}
-        table.dt tr:last-child{border-bottom:none;}
-        table.dt td.lb{padding:9px 12px;color:#888;font-size:13px;width:38%;vertical-align:top;}
-        table.dt td.vl{padding:9px 12px;color:#222;font-size:14px;font-weight:500;}
-        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
-        .cal-note{font-size:12px;color:#999;margin:0 0 24px;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>${isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
         <table class="dt">${tableRows.join('')}</table>
@@ -89,14 +223,9 @@ const Notify = {
         <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
         <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to seeing you!</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       // ── .ICS CALENDAR INVITE ───────────────────────────────────────────────
@@ -278,23 +407,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         `Update your address with Canada Post, CRA, and your bank after closing`,
       ];
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
-        table.dt tr{border-bottom:1px solid #eee;}
-        table.dt tr:last-child{border-bottom:none;}
-        table.dt td.lb{padding:9px 12px;color:#888;font-size:13px;width:38%;vertical-align:top;}
-        table.dt td.vl{padding:9px 12px;color:#222;font-size:14px;font-weight:500;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-        .checklist-item{padding:10px 0;border-bottom:1px solid #eee;font-size:14px;color:#333;}
-        .checklist-item:last-child{border-bottom:none;}
-        .prep-item{padding:5px 0;font-size:13px;color:#555;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>🎉 <strong>Congratulations — your offer has been accepted!</strong> This is a huge milestone and I'm so excited for you. Here is a summary of your deal and a step-by-step checklist for everything that happens between now and closing day.</p>
         <table class="dt">${tableRows.join('')}</table>
@@ -303,14 +416,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p style="margin-top:20px;"><strong>Start Planning Now</strong></p>
         <div>${prepItems.map(item => `<div class="prep-item">• ${item}</div>`).join('')}</div>
         <p style="margin-top:20px;">I'll be with you every step of the way. Please don't hesitate to call or message me anytime.</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       const body = `Hi ${firstName},
@@ -457,16 +565,7 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
         : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
       const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>Based on your strong interest in <strong>${viewing.property_address}</strong>, I wanted to reach out about the next step.</p>
         ${listPrice ? `<p><strong>List Price:</strong> ${listPrice}</p>` : ''}
@@ -474,14 +573,9 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
         <p>• <strong>Make an Offer</strong> — enter your preferred price and any notes<br>• <strong>Continue Searching</strong> — keep looking at other options<br>• <strong>Pass</strong> — this one isn't the right fit</p>
         <a class="cal-btn" href="${responseLink}">Let Me Know Your Decision</a>
         <p style="font-size:12px;color:#999;margin:0 0 24px;">No pressure — take your time. I'm here whenever you're ready.</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p class="sig-line"><a href="https://${agentWebsite || 'maxwellmidodzi.exprealty.com'}">${agentWebsite || 'maxwellmidodzi.exprealty.com'}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       return {
@@ -903,18 +997,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        .cal-btn{display:block;text-align:center;background:#1a6ef5;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;margin:0 0 8px;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-        .stage-row{padding:8px 0;border-bottom:1px solid #eee;font-size:14px;}
-        .stage-row:last-child{border-bottom:none;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>🏗️ Exciting news — your new home at <strong>${build.lot_address}</strong> has reached a new milestone!</p>
         <p><strong>Current Stage: ▶️ ${newStage}</strong></p>
@@ -932,14 +1015,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <a class="cal-btn" href="${trackerLink}">View Full Build Progress →</a>
         <p style="font-size:12px;color:#999;margin:0 0 16px;">Click above to view your complete build tracker.</p>
         <p>If you have any questions about this stage or the construction timeline, please don't hesitate to reach out.</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       const body = `Hi ${firstName},
@@ -1120,17 +1198,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
           </td>
         </tr>`).join('');
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-        .step-row{padding:12px 0;border-bottom:1px solid #eee;font-size:14px;}
-        .step-row:last-child{border-bottom:none;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>🎉 <strong>Welcome!</strong> Thank you for choosing me as your real estate agent. I'm excited to help you find your perfect home.</p>
         <p><strong>Here's what happens next:</strong></p>
@@ -1141,14 +1209,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p style="margin-top:20px;"><strong>Your Search Criteria on File</strong></p>
         <div>${criteriaHTML}</div>` : ''}
         <p style="margin-top:20px;">Feel free to reach out anytime — I'm here to help!</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, ${agentAddress}</p>
-        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       const plainText = `Hi ${firstName},
@@ -1213,18 +1276,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         { n:5, color:'#0891b2', title:'Sold',                       desc:'I guide you from listing through offers, conditions, and closing' }
       ];
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-        body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-        .wrap{max-width:560px;margin:0 auto;}
-        hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-        .sig-name{font-weight:700;font-size:15px;}
-        .sig-line{font-size:13px;color:#555;margin:2px 0;}
-        .sig-line a{color:#1a6ef5;text-decoration:none;}
-        .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-        .step-row{padding:12px 0;border-bottom:1px solid #eee;font-size:14px;}
-        .step-row:last-child{border-bottom:none;}
-        .prop-box{background:#fff7f3;border:1px solid #f3d8c9;border-radius:8px;padding:14px 16px;margin:14px 0;}
-      </style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
         <p>Hi ${firstName},</p>
         <p>Thanks for reaching out about selling your home. I'm <strong>${agentName}</strong> with eXp Realty, and I'm looking forward to helping you through this.</p>
         <p>I'll <strong>personally call you within 24 hours</strong> to introduce myself and book your free consultation at a time that works for you.</p>
@@ -1235,14 +1287,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         </div>
         <p style="margin-top:20px;">Selling a home is a big decision and I take that seriously. Whether you're ready to list this month or just exploring, the consultation is free and there's no obligation. My job is to give you the information you need to make the right call for you and your family.</p>
         <p>Talk soon!</p>
-        <hr>
         <p>Best regards,</p>
-        <p class="sig-name">${agentName}</p>
-        <p class="sig-line">REALTOR® | eXp Realty</p>
-        <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-        <p class="sig-line">eXp Realty, ${agentAddress}</p>
-        <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-        <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </div></body></html>`;
 
       const plainText = `Hi ${firstName},
