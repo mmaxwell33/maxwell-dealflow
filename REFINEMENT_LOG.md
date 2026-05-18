@@ -1938,6 +1938,60 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #44 — `phase4/site-trust-cards-specific`
+
+**Closes:** `SITE_AUDIT.md` §P1.3 — generic adjective trust cards ("Local-first / Honest / Modern + responsive") replaced with three specific behaviors prospective clients can verify on a first call.
+
+**The audit's complaint:**
+The previous "Why work with me" section claimed: *Local-first / Honest, even when it's awkward / Modern + responsive*. Every realtor everywhere claims these three things. Without proof, the cards don't differentiate Maxwell from anyone else.
+
+**The fix:**
+Rewrote all three cards as specific behaviour promises. Each is something Maxwell can do on the first conversation with a new client — and something a client can hold him to. Same coral-accented card layout, completely different content.
+
+| Was | Now |
+|---|---|
+| **Local-first** — "I know St. John's, Mount Pearl, Paradise…" | **I'll match you to neighbourhoods, not listings.** — Names three Avalon neighbourhoods that fit, three that don't, before viewing a single listing. |
+| **Honest, even when it's awkward** — "If a house has a problem, I'll tell you…" | **You'll know the comps before you walk in.** — Recent comparable sales sent the morning of every viewing. Client walks in informed, not guessing. |
+| **Modern + responsive** — "You'll get text, email, and phone updates…" | **You'll have a private deal-progress link.** — 24/7 deal-portal access to every milestone, document, deadline. No "any updates?" calls. |
+
+Each new card describes a *behaviour* Maxwell has actually built into his practice (the deal portal at `/portal.html` is real CRM infrastructure; the comp-sending and neighbourhood-matching are real first-call behaviours). The cards no longer sound aspirational — they sound like a checklist.
+
+Eyebrow + section heading also rewritten:
+- Eyebrow: *"Why work with me"* → *"What you can expect"*
+- Heading: *"Built around trust, not transactions."* → *"Specific promises, not slogans."*
+
+Both shifts move the section from "generic real-estate pitch" → "credibility through specifics."
+
+**Files changed:**
+- `site/index.html` — single section, ~16 lines of HTML rewritten. No CSS changes.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy): visit `/site/`. Scroll to the "What you can expect" section. Three new cards with specific behavior promises. No layout breakage.
+
+**Visual change:** Same card grid; new copy. Replaces three adjective claims with three verifiable behaviors.
+
+**Risk if rolled back:** Reverts to generic "Local-first / Honest / Modern" adjectives.
+
+**Performance impact:** None — content swap only.
+
+**What's still on the SITE_AUDIT.md backlog:**
+- §P0.1 real photo (needs Maxwell to upload a headshot)
+- §P0.2 verifiable identity links (needs Maxwell's NLAR + eXp profile + Realtor.ca + LinkedIn URLs)
+- §P0.3 SLA promises (most closed in PR #41 by removing the auto-Best-regards / one-business-day footer; still need to soften the "follow up within one business day" line in the landing-page "How I help" section if Maxwell can't sustain that promise)
+- §P0.4 brokerage compliance footer (needs eXp's marketing-guide disclosure requirements)
+- §P1.4 about-page narrative (needs Maxwell's personal story)
+- §P1.5 about-page specialty-card layout differentiation (cosmetic)
+- §P1.6 social proof — first testimonial quote (needs a real consented review)
+- §P1.7 mobile typography polish (CSS pass)
+- §P1.8 + §P2.6 separate marketing favicon + OG image (needs design work)
+- §P2.4 404 page (15 min, self-contained — easy follow-up)
+- §P2.5 Plausible analytics (30 min — needs Plausible signup)
+- §P2.7 Pipeline filter chip rearrange bug (needs Maxwell's screenshot)
+
+---
+
 ## PR #43 — `fix/email-body-full-width`
 
 **Closes:** Maxwell's fourth iteration. After PRs #39-#42 fixed the body spacing, double sign-off, duplicate signatures, and attachment redundancy, the email STILL didn't look right. Looking at his screenshot vs. a typical "personal" email, the body was rendering as a **narrow centered column with empty space on both sides** — like a marketing newsletter, not an email someone actually typed and sent.
