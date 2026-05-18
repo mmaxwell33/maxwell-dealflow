@@ -1938,6 +1938,36 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #43 — `fix/email-body-full-width`
+
+**Closes:** Maxwell's fourth iteration. After PRs #39-#42 fixed the body spacing, double sign-off, duplicate signatures, and attachment redundancy, the email STILL didn't look right. Looking at his screenshot vs. a typical "personal" email, the body was rendering as a **narrow centered column with empty space on both sides** — like a marketing newsletter, not an email someone actually typed and sent.
+
+**Root cause:** the `.wrap` container had `max-width: 600px; margin: 0 auto; padding: 32px 24px; background: #ffffff;` — classic "centered newsletter" pattern. Email clients give the message its natural reading-pane width; constraining inside a 600px column makes the email look like a Mailchimp/Constant Contact template instead of a real conversation.
+
+**Fix:**
+- Dropped the `.wrap` div container entirely from `EmailFormat.htmlEmail()` and from every Notify template
+- Reduced the `body` CSS to typical Gmail-composed defaults: `Arial 14px / line-height 1.5 / black-on-white`, no padding, no max-width
+- Body content flows to whatever width the recipient's email reading pane is
+- Signature styling untouched — that's where icons + brand still belong
+
+**Also fixed two NewBuilds.* templates in `js/extras.js`** (lines ~2275 and ~2418) that were duplicating the same .wrap+inline-CSS pattern. Both now route through `EmailFormat.styles() / signatureHTML() / disclaimerHTML()` like every other email.
+
+**Files changed:**
+- `js/notifications.js` — `EmailFormat.styles()` reduced; `EmailFormat.htmlEmail()` no longer wraps in `<div class="wrap">`. All 6 Notify templates' inline `<body><div class="wrap">` collapsed to `<body>`.
+- `js/extras.js` — two NewBuilds templates refactored to use EmailFormat helpers.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c` clean.
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy): send a test email from the Email Send screen. Open in Gmail. The body text should fill the natural width of the reading pane, not appear as a centered column with white margins on either side.
+
+**Visual change:** Body looks like a normal email, not a constrained newsletter. Signature still styled and branded.
+
+**Risk if rolled back:** Reintroduces the "centered newsletter column" feel.
+
+---
+
 ## PR #42 — `fix/email-template-signatures`
 
 **Closes:** Maxwell's 2026-05-18 third email-fix iteration. After PR #41 deployed, he loaded the "Follow-up Check-In" template in the Email Send screen and noticed the rendered body ended with a hardcoded signature line (`Maxwell Delali Midodzi / eXp Realty | (709) 325-0545`) *before* my auto-appended full signature. So recipients were seeing the name + contact info **twice**: once from the template body, once from the auto-signature.

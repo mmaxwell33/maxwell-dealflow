@@ -37,14 +37,20 @@ const EmailFormat = {
   },
 
   // ── Shared <style> block used in the <head> of every wrapped HTML email ──
+  // PR #43: stripped the "newsletter" container (max-width 600px, centered,
+  // cream background, heavy padding) per Maxwell's 2026-05-18 feedback —
+  // emails were rendering as a narrow column with empty space on both
+  // sides, looking like a marketing template rather than a real personal
+  // email. Now the body fills the natural width of the email client's
+  // reading pane, just like a Gmail-composed email. Signature styling
+  // stays — that's where icons + brand still belong.
   styles() {
     return `
-      body{margin:0;padding:0;background:#f4f4f0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#1a1917;line-height:1.6;-webkit-font-smoothing:antialiased;}
-      .wrap{max-width:600px;margin:0 auto;padding:32px 24px;background:#ffffff;}
+      body{margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;}
       /* Body paragraphs — generous spacing so the email actually breathes */
-      .body p{margin:0 0 16px;line-height:1.65;}
+      .body p{margin:0 0 12px;}
       .body p:last-child{margin-bottom:0;}
-      .body strong{color:#0f172a;}
+      .body strong{color:#000000;}
       /* Data tables (used by Notify templates for viewing/offer details) */
       table.dt{width:100%;border-collapse:collapse;margin:20px 0 24px;}
       table.dt tr{border-bottom:1px solid #e6e6e6;}
@@ -138,15 +144,18 @@ const EmailFormat = {
   // clients already display attachments as native chips below the body;
   // a text line in the body is redundant and looks amateurish.
   htmlEmail(bodyContent, agent) {
+    // PR #43: no .wrap container — body flows naturally to the width of
+    // the recipient's email reading pane, matching how a Gmail-composed
+    // email looks. Removes the "centered newsletter column" feel.
     return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${EmailFormat.styles()}</style>
-</head><body><div class="wrap">
+</head><body>
 ${bodyContent}
 ${EmailFormat.signatureHTML(agent)}
 ${EmailFormat.disclaimerHTML()}
-</div></body></html>`;
+</body></html>`;
   },
 };
 
@@ -215,7 +224,7 @@ const Notify = {
       }
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Property Viewing - ' + viewing.property_address)}&dates=${gcalStart}/${gcalEnd}&location=${encodeURIComponent(viewing.property_address)}&details=${encodeURIComponent('Viewing with ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail + (viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''))}`;
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>${isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
         <table class="dt">${tableRows.join('')}</table>
@@ -226,7 +235,7 @@ const Notify = {
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       // ── .ICS CALENDAR INVITE ───────────────────────────────────────────────
       const uid = `viewing-${viewing.id || Date.now()}@maxwell-dealflow`;
@@ -407,7 +416,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         `Update your address with Canada Post, CRA, and your bank after closing`,
       ];
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>🎉 <strong>Congratulations — your offer has been accepted!</strong> This is a huge milestone and I'm so excited for you. Here is a summary of your deal and a step-by-step checklist for everything that happens between now and closing day.</p>
         <table class="dt">${tableRows.join('')}</table>
@@ -419,7 +428,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       const body = `Hi ${firstName},
 
@@ -565,7 +574,7 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
         : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
       const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>Based on your strong interest in <strong>${viewing.property_address}</strong>, I wanted to reach out about the next step.</p>
         ${listPrice ? `<p><strong>List Price:</strong> ${listPrice}</p>` : ''}
@@ -576,7 +585,7 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       return {
         subject: `Ready to Make an Offer? - ${viewing.property_address}`,
@@ -997,7 +1006,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>🏗️ Exciting news — your new home at <strong>${build.lot_address}</strong> has reached a new milestone!</p>
         <p><strong>Current Stage: ▶️ ${newStage}</strong></p>
@@ -1018,7 +1027,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       const body = `Hi ${firstName},
 
@@ -1198,7 +1207,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
           </td>
         </tr>`).join('');
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>🎉 <strong>Welcome!</strong> Thank you for choosing me as your real estate agent. I'm excited to help you find your perfect home.</p>
         <p><strong>Here's what happens next:</strong></p>
@@ -1212,7 +1221,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       const plainText = `Hi ${firstName},
 
@@ -1276,7 +1285,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         { n:5, color:'#0891b2', title:'Sold',                       desc:'I guide you from listing through offers, conditions, and closing' }
       ];
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body><div class="wrap">
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>Thanks for reaching out about selling your home. I'm <strong>${agentName}</strong> with eXp Realty, and I'm looking forward to helping you through this.</p>
         <p>I'll <strong>personally call you within 24 hours</strong> to introduce myself and book your free consultation at a time that works for you.</p>
@@ -1290,7 +1299,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
-      </div></body></html>`;
+      </body></html>`;
 
       const plainText = `Hi ${firstName},
 
