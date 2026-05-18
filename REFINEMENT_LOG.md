@@ -1668,3 +1668,56 @@ A new page at `https://maxwell-dealflow.vercel.app/site/sold/` with four section
 - **Dependency on archived docs.** Nothing in the production code path imports or links to these — verified by `grep -rE "Visual_Guide|Blueprint|CRM_Upgrade" src/ js/ css/ supabase/ site/` returning zero results.
 
 ---
+
+## PR #36 — `phase3/site-honesty-pass`
+
+**Closes:** A live credibility risk that I shipped in PRs #31 / #32 / #34 and Maxwell caught the moment he actually viewed the deployed marketing site. The pages contained placeholder stats (`50+ deals`, `$X.XM volume`, `99% sale-to-list`, `~21 days on market`, fabricated deal cards) that misrepresent a 2-year-into-the-industry agent as a 5+ year veteran with a substantial sales record. The previous PRs treated these as "Maxwell will swap with real numbers" — but the right move is **not to claim numbers in the first place** until they exist.
+
+**What it does:**
+
+1. **Deletes the entire `/site/sold/` page** (PR #34). Sold-deals pages without sold deals are anti-credibility. The whole surface is gone — not just the numbers. When Maxwell has a meaningful track record to share, we'll build a new page from scratch with real anonymized data.
+2. **Strips the 3-stat strip from the About page** ("5+ Years", "50+ Families", "5★ Avg") and rewrites the headline + bio to lead with "Early in my career. Serious about every deal." — confident-newer-agent framing instead of fabricated authority.
+3. **Reduces intake-form CTA clutter** on the landing page from 7 button instances to 5: removes per-card "Start the buyer/seller intake →" buttons from the "How I help" cards (the hero and the final CTA band still have them — that's enough).
+4. **Removes intake-form links from both page footers.** Replaced with a calmer "Response within one business day" line so the footer stops shouting.
+5. **Removes "Sold deals" from every nav** on landing + about pages.
+6. **Removes `/site/sold/` from sitemap.xml** so search engines stop being told to crawl a now-deleted URL.
+7. **Replaces the second nav link** on landing + about with a `mailto:` "Contact" link — gives visitors a non-form way to reach Maxwell that doesn't push them into the funnel.
+
+**Approach:**
+
+1. **Be honest now, not later.** The previous "TODO: Maxwell, swap with real numbers" pattern assumed someone would catch it before deploy. Maxwell didn't (because he was merging on trust). The site went live with placeholders that read as real claims. Lesson: for any number, name, photo, or testimonial — leave it OUT, not as a default.
+
+2. **"Newer to the industry" is a feature, not a bug.** Stripe Atlas, Notion, Linear all built their early credibility on "we're a small focused team that gives a damn" rather than fake authority. Same playbook applies for a 2-year realtor.
+
+3. **One intake CTA in the hero + one in the closing band is enough.** Anything more reads as desperate. The trust-strip and process sections don't need their own buttons — visitors who finish reading the page hit the closer.
+
+4. **Mailto: as a soft second option.** Some visitors aren't ready to fill out a form on first visit. Giving them an email address (already on the page in footer) but elevating it to nav-level reduces bounce.
+
+5. **Page removed, not noindexed.** I considered keeping `/site/sold/` with a `noindex` and "coming soon" placeholder, but: that's clutter. Clean delete + sitemap removal is honest and shippable. A future "/site/sold/" can be designed properly when there are sold deals to feature.
+
+**Files changed:**
+- `site/sold/index.html` — **deleted entirely.**
+- `site/about/index.html` — removed `.stats` block; rewrote h1 + bio paragraphs; trimmed nav and footer.
+- `site/index.html` — trimmed 2 per-card CTA buttons; trimmed nav from 4 links to 2; trimmed footer intake links.
+- `sitemap.xml` — removed the `/site/sold/` URL entry.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `git rm -r site/sold/` confirmed the directory is gone.
+- `grep -c intake site/index.html` returns 5 (was 9). Each remaining mention is meaningful: 1 nav CTA, 2 hero buttons, 2 closing band buttons.
+- `grep -c intake site/about/index.html` returns 3. Each remaining: 2 closing band buttons + 1 in the body about the intake flow.
+- 34/34 vitest pass (no code changes).
+
+**Visual change:** Sold-deals page disappears from production. About-page hero replaces the stat strip with a more honest headline. Landing page reads less like a funnel and more like a real human introducing themselves.
+
+**Risk if rolled back:** Restores the misleading numbers. Real reputation risk for Maxwell when prospective clients land on his actual marketing site.
+
+**Performance impact:** Slightly smaller deploy (one fewer page, less HTML on the two remaining pages). Negligible.
+
+**Still to address (separate PRs, larger scope):**
+- **Design quality.** Maxwell's actual complaint was "doesn't look professional, basic colors". This PR keeps the existing design tokens; the redesign needs its own session with reference research (Compass, Engel & Völkers, individual top-tier realtor sites).
+- **Pipeline filter chip UX bug** (PR #28). Maxwell reported a rearrange-on-click issue when filtering by new-build. Needs a screenshot + manual repro session.
+- **Marketing-site audit document.** Mirror of Phase 1's AUDIT_REPORT.md format but for the `/site/` surface. P0/P1/P2 findings with file:line. Useful as the input to the redesign PR.
+- **Real photo of Maxwell.** The about-page "MD" gradient placeholder still needs a real headshot.
+
+---
