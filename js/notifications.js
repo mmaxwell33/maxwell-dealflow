@@ -133,17 +133,17 @@ const EmailFormat = {
   // ── Full HTML email wrapper — body + signature + disclaimer ──
   // Used by EmailSend (manual compose). Notify templates assemble their
   // own body content but reuse styles() + signatureHTML() + disclaimerHTML().
-  htmlEmail(bodyContent, agent, opts = {}) {
-    const attachmentLine = opts.attachment
-      ? `<p style="font-size:13px;color:#6b7280;margin:8px 0 0;">📎 Attachment: ${opts.attachment}</p>`
-      : '';
+  //
+  // PR #41: removed the inline "📎 Attachment: filename" line. Email
+  // clients already display attachments as native chips below the body;
+  // a text line in the body is redundant and looks amateurish.
+  htmlEmail(bodyContent, agent) {
     return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${EmailFormat.styles()}</style>
 </head><body><div class="wrap">
 ${bodyContent}
-${attachmentLine}
 ${EmailFormat.signatureHTML(agent)}
 ${EmailFormat.disclaimerHTML()}
 </div></body></html>`;
