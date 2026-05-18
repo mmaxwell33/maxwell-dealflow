@@ -1938,6 +1938,37 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #42 — `fix/email-template-signatures`
+
+**Closes:** Maxwell's 2026-05-18 third email-fix iteration. After PR #41 deployed, he loaded the "Follow-up Check-In" template in the Email Send screen and noticed the rendered body ended with a hardcoded signature line (`Maxwell Delali Midodzi / eXp Realty | (709) 325-0545`) *before* my auto-appended full signature. So recipients were seeing the name + contact info **twice**: once from the template body, once from the auto-signature.
+
+**Fix:**
+Stripped the trailing signature lines from all 9 templates in `EmailSend.templates`:
+- `viewing_scheduled`, `offer_submitted`, `offer_accepted`, `conditions_met`, `property_report`, `follow_up`, `new_listing_match`, `referral_request`, `post_closing_checkin`
+
+Each template's body now ends with the natural closing sentence the template was building toward (e.g. "Looking forward to hearing from you!" or "Enjoy your new home!") and nothing more. The full branded signature (name, role, 📞/✉️/🌐, disclaimer) gets appended automatically at send time by `EmailFormat.htmlEmail()` — single source of truth.
+
+The hardcoded "Best regards," lines that some templates carried were also dropped — same logic as PR #41's removal of the auto sign-off.
+
+**Files changed:**
+- `js/extras.js` — 9 template body strings trimmed.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/extras.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy):
+  - Open the CRM Email Send screen.
+  - Pick the "Follow-up Check-In" template (or any template).
+  - The pre-filled body should end with "Looking forward to hearing from you!" — no signature lines below it.
+  - Send to yourself. Received email should show one signature block (the auto one), not two.
+
+**Visual change in client inboxes:** No more duplicate name + contact info. One signature at the bottom, sourced from the agent profile.
+
+**Risk if rolled back:** Reintroduces the duplicate signature problem.
+
+---
+
 ## PR #41 — `fix/email-body-cleanup`
 
 **Closes:** Maxwell's follow-up on PR #39's deployed output: he does NOT want a branded logo (the law-firm email was a reference for body professionalism, not a request for branding), and the BODY needs two visible cleanups.
