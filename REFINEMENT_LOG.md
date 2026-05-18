@@ -1765,3 +1765,79 @@ Read `SITE_AUDIT.md`. Push back on anything you disagree with. Then either:
 3. Say "fix [specific item]" and I'll ship just that one.
 
 ---
+
+## PR #38 — `phase4/site-redesign-modern-canadian`
+
+**Closes:** Multiple findings from `SITE_AUDIT.md` — primarily §P1.1 (generic design template feel), §P1.2 (generic hero headline), §P2.1 (over-rounded corners). This is the first of the redesign PRs.
+
+**Type:** Visual redesign of the marketing site. CSS rewrite + targeted markup updates. No structural changes to information architecture.
+
+**What it does:**
+
+A complete visual overhaul of `/site/*` to move from "Webflow real-estate template 2022" to "Stripe / Linear / contemporary professional." Same content surface, dramatically different aesthetic.
+
+**Design direction chosen: Modern Canadian** (per SITE_AUDIT.md §P1.1 option 2):
+- **Palette:** Warm-white background (`#FAFAF7`, not pure white) + deep navy ink (`#0F172A`) + coral kept as a *single sparing accent*, not as a brand-everywhere color.
+- **Typography:** System sans (already on Inter via OS fallback) + dramatically wider type scale. Hero `h1` now `clamp(40px, 7vw, 72px)` with `-0.035em` letter-spacing. Body bumps from 15px to 17px. Eyebrow labels use 0.16em uppercase tracking — small-caps editorial.
+- **Geometry:** All corner radii reduced. `--r-md` from 12px → 8px. `--r-lg` from 20px → 14px. Buttons now 5px radii instead of 8px. Adds confidence; reduces "consumer-app" feel.
+- **Spacing:** Section padding bumps from 56px → 96px on desktop, more generous breathing room throughout. `.card` padding from 28px → 32px.
+- **Shadows:** Almost imperceptible (alpha 0.04–0.08 instead of 0.06–0.12). Separation comes from borders + spacing, not drop shadows.
+- **Buttons:** Now ink-on-warm-white as the default (was coral-on-white). Coral appears only on hover, on accent-text inside headlines, and on the eyebrow-divider hairline. Reads as confident-professional rather than aggressive-sales.
+- **Links:** Underlined by default with subtle text-decoration-color, color shifts toward coral on hover. Editorial / NYT-style rather than naked-blue.
+
+**Copy refinements (also closes audit findings):**
+- Hero headline rewritten from generic *"The home you want, on terms that work for you"* (§P1.2) to *"St. John's real estate, handled with the patience it deserves."* — roots in place, owns the newer-agent positioning.
+- Hero eyebrow now reads *"— Maxwell Midodzi · REALTOR® at eXp Realty"* with a hairline-rule prefix. Editorial pattern.
+- CTA band copy on both pages tightened: *"Take the first step"* / *"Get in touch"* with *"I'll be in touch with a real plan — not a sales pitch"* (specific behaviour, replaces SLA promise per §P0.3 partial close).
+- Emojis removed from all button labels. Reduces "consumer app" feel.
+
+**Approach:**
+
+1. **CSS rewrite, not CSS patch.** The previous `/site/css/site.css` was structured for "coral everywhere" aesthetic; partial edits would have left visual inconsistencies. Cleaner to rewrite the whole file in the new design language (~360 lines).
+
+2. **One token system, propagated cleanly.** Every color decision lives in `:root` (ink, ink-2, ink-3, ink-4, bg, bg-2, brand, brand-soft, etc.). Geometry tokens (`--r-xs` through `--r-lg`) cascade through cards, buttons, nav, footer. Future tweaks are single-variable swaps.
+
+3. **`text-wrap: balance` on every heading.** Modern browser feature that balances multi-line headlines so they don't end with a single dangling word. Supported in Chrome / Edge / Safari 17+ / Firefox 121+. Gracefully ignored in older browsers (falls back to normal wrapping). Improves visual rhythm on every headline.
+
+4. **`text-wrap: pretty` on body paragraphs.** Same idea but for body copy — avoids orphan words at paragraph ends. Smaller effect than `balance`, but consistent.
+
+5. **Inter stylistic sets via `font-feature-settings`.** When the OS or browser ships Inter (most do), the page picks up Inter's single-storey *a*, tabular digits, more open digits, etc. (`cv02 cv03 cv04 cv11 ss01`). Gracefully ignored where Inter isn't available — falls back to system sans. Zero loading cost.
+
+6. **Eyebrow component standardized.** Was `.section-eyebrow` and `.hero-eyebrow` (two near-duplicate rules). Now one `.eyebrow` class with an `.eyebrow.accent` modifier and an `.eyebrow-divider` hairline subcomponent. DRY.
+
+7. **About-page hero photo placeholder upgraded.** Was a coral gradient with bold "MD". Now a navy gradient with editorial-weight "MD" + 4:5 portrait aspect ratio (standard headshot ratio). When Maxwell drops in a real photo, the `<img>` lands directly into the slot with the same dimensions.
+
+8. **Mobile-first preserved.** Breakpoints at 720px and 520px. Section padding scales down. Nav collapses to brand + CTA only under 720px. Hero typography scales fluidly via clamp(). No new mobile-specific bugs introduced.
+
+**Files changed:**
+- `site/css/site.css` — rewritten end-to-end (407 → ~360 lines).
+- `site/index.html` — hero copy + eyebrow markup + CTA-band copy + button emoji removal.
+- `site/about/index.html` — eyebrow markup + CTA-band copy + button emoji removal.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS changes).
+- Markup parses cleanly; no orphan class references (`.section-eyebrow` / `.hero-eyebrow` migrated to `.eyebrow`).
+- Manual review plan once deployed:
+  - Visit `/site/` — should look like a different site than yesterday. Bigger headline. Warm-white background. Single dark accent. Less coral-everywhere.
+  - Visit `/site/about/` — same redesign. Navy-gradient photo placeholder. Tighter editorial type.
+  - Phone view (390px) — section padding tighter, headlines still confident, nav collapses to brand + CTA.
+  - Hover any card — subtle border darken + 2px lift instead of dramatic shadow growth.
+  - Hover any button — coral fill on the dark primary button.
+  - Cmd+F to inspect rendered text on each page — verify no broken layouts from `text-wrap: balance`.
+
+**Visual change:** Substantial. The marketing site is no longer the same aesthetic surface that shipped in PRs #31/#32/#34. The CRM is unchanged — different surface, different design language.
+
+**Risk if rolled back:** Reverts to the generic coral-template aesthetic. Functional behavior unchanged either way.
+
+**Performance impact:** Net-neutral. Slightly fewer CSS rules in total (consolidated eyebrow). No new fonts loaded (still system sans). No new JS.
+
+**What's NOT in this PR (deliberate scope cut, queued for future):**
+- **Real headshot photo (§P0.1).** Still a gradient placeholder. The new placeholder is more editorial but it's still a placeholder. Maxwell uploads a JPG to `/site/img/maxwell.jpg` and I do a 5-min swap PR.
+- **Brokerage compliance footer block (§P0.4).** Will be its own PR once Maxwell pulls eXp's marketing-guide compliance requirements.
+- **Verifiable identity links (§P0.2).** Same — needs Maxwell to supply NLAR registration number, eXp profile URL, Realtor.ca URL, LinkedIn URL.
+- **"Why work with me" specific behaviours (§P1.3).** Adjective-card content still reads as generic. Copy iteration PR.
+- **About-page narrative rewrite (§P1.4).** Bio still reads template-y. Needs Maxwell to provide the personal beat.
+- **404 page (§P2.4), analytics (§P2.5), proper OG image (§P2.6), schema.org expansion (§P2.3).** All filed as separate PRs.
+
+---
