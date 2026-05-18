@@ -1937,3 +1937,28 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 - **HTML signature in Gmail's compose** (the agent's own outgoing emails, not from the CRM). Maxwell would need to copy a snippet into Gmail's signature settings manually — separate guide if desired.
 
 ---
+
+## PR #41 — `fix/email-body-cleanup`
+
+**Closes:** Maxwell's follow-up on PR #39's deployed output: he does NOT want a branded logo (the law-firm email was a reference for body professionalism, not a request for branding), and the BODY needs two visible cleanups.
+
+**Two surgical fixes:**
+
+1. **Removed the auto-prepended "Best regards,"** in both `EmailSend.wrapHtml()` and `EmailSend.buildSignedBody()`. Users write their own sign-off; auto-tacking one on top creates a double sign-off that reads as unedited.
+2. **Removed the redundant "📎 Attachment: filename" line** from the body. Email clients show attachments as native chips below the body — a text line in the body is duplicate noise.
+
+**PR #40 (logo + compact contact line) is abandoned** per Maxwell's "I don't want the branded logo" direction. None of its work ships. Signature stays as PR #39 specified.
+
+**Files changed:**
+- `js/extras.js` — `wrapHtml()` and `buildSignedBody()` no longer add the auto sign-off or the attachment text line.
+- `js/notifications.js` — `EmailFormat.htmlEmail()` simplified, no attachment-line render path.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c` clean on both files.
+- `npm test` — 34/34 vitest pass.
+- Manual: send a test email with an attachment. Body ends with whatever Maxwell typed (no auto "Best regards,") and contains no "📎 Attachment:" text. The PDF still appears as a native attachment chip in Gmail's UI.
+
+**Visual change:** Cleaner. Body ends with the user's own closing → divider → signature → disclaimer. No double sign-off, no redundant attachment caption.
+
+---

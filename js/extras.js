@@ -2698,22 +2698,30 @@ const EmailSend = {
   buildSignedBody(bodyText, attachment, cc) {
     const agent = currentAgent || {};
     const plainSig = EmailFormat.signaturePlain(agent);
-    let fullBody = bodyText + '\n\nBest regards,\n\n' + plainSig;
-    if (attachment) fullBody += `\n\nAttachment: ${attachment}`;
+    // PR #41: no auto "Best regards," — user writes their own sign-off in body.
+    // PR #41: no inline "Attachment: filename" line — email client shows the chip natively.
+    let fullBody = bodyText + '\n\n' + plainSig;
     if (cc) fullBody += `\n\nCC: ${cc}`;
     fullBody += EmailFormat.disclaimerPlain();
     return { plainSig, fullBody };
   },
 
   // Wrap email body in branded HTML — accepts plain text or HTML (auto-detects).
-  // Plain text with \n\n paragraph breaks is properly converted to real <p>
-  // tags with breathing room, so the rendered email no longer feels cramped.
+  // Plain text with \n\n paragraph breaks is converted to real <p> tags
+  // with breathing room, so the rendered email doesn't feel cramped.
+  //
+  // PR #41: removed two annoyances Maxwell flagged on the rendered email:
+  //   - The auto-prepended "Best regards," (users write their own sign-off;
+  //     getting an automatic one stacked on top creates a double sign-off)
+  //   - The "📎 Attachment: filename" line in the body — Gmail and other
+  //     clients already show attachments as native chips below the body.
+  //     A text line is redundant and looks amateurish.
+  // The function signature is unchanged so existing callers keep working;
+  // `sig` and `attachment` arguments are now ignored.
   wrapHtml(bodyText, sig, attachment) {
     const agent = currentAgent || {};
     const bodyHtml = EmailFormat.bodyHTML(bodyText || '');
-    // Add a "Best regards," line before the signature — natural sign-off.
-    const closing = `<p style="margin:24px 0 8px;color:#374151;">Best regards,</p>`;
-    return EmailFormat.htmlEmail(bodyHtml + closing, agent, { attachment });
+    return EmailFormat.htmlEmail(bodyHtml, agent);
   },
 
   async send() {
