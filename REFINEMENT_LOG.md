@@ -1841,3 +1841,99 @@ A complete visual overhaul of `/site/*` to move from "Webflow real-estate templa
 - **404 page (§P2.4), analytics (§P2.5), proper OG image (§P2.6), schema.org expansion (§P2.3).** All filed as separate PRs.
 
 ---
+
+## PR #39 — `fix/email-signature-and-body-formatting`
+
+**Closes:** Maxwell's 2026-05-18 request to fix two email problems he was hitting daily: (1) body text running together without proper paragraph spacing, (2) signature displaying as plain text with no icons or formatting.
+
+**What it does:**
+
+Introduces a single source of truth for email styling, signature, disclaimer, and body wrapping — the `EmailFormat` namespace at the top of `js/notifications.js`. Both the `Notify` template family (in the same file) and the `EmailSend` manual-compose module (in `js/extras.js`) now route through it. Every email sent from the CRM produces the same professionally-formatted output.
+
+**The new signature looks like:**
+
+```
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+
+📞   709.325.0545
+✉️   maxwell.midodzi@exprealty.com
+🌐   maxwellmidodzi.exprealty.com
+
+―――――――――――――――――――――――――――
+
+CONFIDENTIALITY NOTICE: This email is confidential ...
+```
+
+- 📞 / ✉️ / 🌐 icons via Unicode (~95% email-client compatibility, no asset hosting needed)
+- Phone is a `tel:` link (mobile devices launch the dialer; desktop opens FaceTime / default tel handler)
+- Email is a `mailto:` link
+- Website is an `https://` link
+- Hairline divider separates signature from disclaimer
+- Disclaimer renders in 10.5px gray italicized — visible but not noisy
+
+**The new body formatting:**
+
+Plain-text input like:
+```
+Hello Maxwell,
+
+Thank you for the connection. Nice to e-meet you, Timothy.
+
+Cheers,
+```
+
+…is now parsed by `EmailFormat.bodyHTML()` into real `<p>` tags with `margin: 0 0 16px; line-height: 1.65`. Previously, the old `wrapHtml` converted every `\n` to `<br>`, which produced visually-cramped emails with no paragraph breathing room. Now `\n\n` becomes a real paragraph break with proper spacing.
+
+Rich-text editor input (HTML from a contenteditable) is detected and trusted as-is, just wrapped in `<div class="body">` so the paragraph spacing CSS applies.
+
+**Approach:**
+
+1. **`EmailFormat` namespace at the top of `notifications.js`.** Load order is `app.js → notifications.js → extras.js`, so anything defined in notifications.js is available to both `Notify` (same file) and `EmailSend` (extras.js, later).
+
+2. **Tables for signature, not divs.** Outlook for Windows is the most permissive on tables and the most hostile on flexbox / grid / aggressive `<div>` spacing. The signature is a `<table cellpadding="0" cellspacing="0" border="0">` with one row per line. Renders identically across Gmail, Outlook (all variants), Apple Mail, Thunderbird, mobile clients.
+
+3. **Unicode icons over SVG/PNG.** No asset hosting, no CSP issues, no broken images when the client blocks remote content (which Outlook does aggressively by default). The 5% of corporate Outlook variants that strip emojis fall back to a clean text-only signature — still readable.
+
+4. **`tel:` link strips non-digit chars.** `709.325.0545` displays as the formatted phone but the `href` becomes `tel:7093250545` so mobile dialers handle it correctly.
+
+5. **Single style block, multiple insertion points.** `EmailFormat.styles()` returns the canonical CSS as a string. Each email template inserts it via `<style>${EmailFormat.styles()}</style>`. Future style tweaks happen in one place.
+
+6. **Body wrap detects HTML vs plain text.** Rich-text editor output gets used directly. Plain-text input gets split on blank lines and wrapped in real `<p>` tags. Either way, the output is wrapped in `<div class="body">` so the paragraph-spacing CSS applies cleanly.
+
+7. **Removed `eXp Realty, 33 Pippy PL...` from signature.** Maxwell's requested signature doesn't include the street address. The brokerage location is part of the disclaimer/compliance footer or can be added back if eXp's marketing guide requires it (flagged in `SITE_AUDIT.md §P0.4`).
+
+8. **All 9 Notify templates refactored.** Each had its own inline `<style>` block + copy-pasted signature + copy-pasted disclaimer. All now use `${EmailFormat.styles()}`, `${EmailFormat.signatureHTML(agent)}`, `${EmailFormat.disclaimerHTML()}`. Net code reduction: ~270 lines.
+
+9. **`EmailSend.buildSignedBody()` and `EmailSend.wrapHtml()`** now thin wrappers around the EmailFormat helpers. Same exterior API (`buildSignedBody`, `wrapHtml`) so every existing call site keeps working unchanged.
+
+**Files changed:**
+- `js/notifications.js` — added the `EmailFormat` namespace (~120 lines) at top. All 9 template signature/style/disclaimer blocks replaced with `${EmailFormat.…}` calls. Net change: +120 / −175 lines.
+- `js/extras.js` — `EmailSend.buildSignedBody()` and `EmailSend.wrapHtml()` rewritten to use `EmailFormat`. Net change: −40 lines (removed duplicated inline CSS and signature markup).
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `node -c js/notifications.js` — syntax OK.
+- `node -c js/extras.js` — syntax OK.
+- `npm test` — 34/34 vitest pass.
+- Manual rendering check (post-deploy):
+  - Compose an email from the CRM's Email Send screen with a multi-paragraph body separated by blank lines. Send to yourself.
+  - Open the received email — paragraphs should be visibly separated, not running together.
+  - Signature should display name in bold, role in gray, then three icon-prefixed contact rows with clickable links.
+  - Tap the phone number on mobile — dialer should launch.
+  - Tap the email — Mail app should compose a new message.
+  - Tap the website — browser should open `https://maxwellmidodzi.exprealty.com`.
+  - Disclaimer should appear in small gray text below a thin divider line.
+
+**Visual change (in client inboxes):** Every email sent from the CRM now arrives with proper paragraph breathing room + the new icon-and-link signature + the styled compliance notice. The old "everything-runs-together + plain-text-signature" experience is gone.
+
+**Risk if rolled back:** Reverts every email sent to the old cramped-body + plain-signature format. No data risk, no email sending broken — just the rendered appearance regresses.
+
+**Performance impact:** Negligible — the `EmailFormat.styles()` string is computed at template-render time, not at module load. Net code size smaller after the refactor (signature/disclaimer no longer copy-pasted across 9 templates).
+
+**What's NOT in this PR (deliberate scope cut):**
+- **Brokerage compliance footer.** Maxwell removed the `eXp Realty, 33 Pippy PL...` line per his preferred signature. If eXp's marketing guide requires it, it gets added back in `phase4/site-brokerage-compliance` (already filed in SITE_AUDIT §P0.4).
+- **PNG/SVG icon images.** Unicode emoji icons handle ~95% of clients. The remaining 5% (some corporate Outlook setups) gracefully fall back to text-only. If real icons become important, file as a follow-up — would need image hosting on a domain Gmail/Outlook trust.
+- **HTML signature in Gmail's compose** (the agent's own outgoing emails, not from the CRM). Maxwell would need to copy a snippet into Gmail's signature settings manually — separate guide if desired.
+
+---

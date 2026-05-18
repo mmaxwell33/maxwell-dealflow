@@ -2692,52 +2692,28 @@ const EmailSend = {
     `);
   },
 
-  // Build plain-text body with professional signature + disclaimer
+  // Build plain-text body with professional signature + disclaimer.
+  // Plain-text version is the email client's fallback when it can't render HTML.
+  // Uses the EmailFormat shared helpers (notifications.js) — single source of truth.
   buildSignedBody(bodyText, attachment, cc) {
     const agent = currentAgent || {};
-    const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
-    const agentPhone = agent.phone || '(709) 325-0545';
-    const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
-    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
-    const plainSig = `Best regards,\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2\n${agentWebsite}`;
-    const disclaimer = '\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.';
-    let fullBody = bodyText + '\n\n' + plainSig;
+    const plainSig = EmailFormat.signaturePlain(agent);
+    let fullBody = bodyText + '\n\nBest regards,\n\n' + plainSig;
     if (attachment) fullBody += `\n\nAttachment: ${attachment}`;
     if (cc) fullBody += `\n\nCC: ${cc}`;
-    fullBody += disclaimer;
+    fullBody += EmailFormat.disclaimerPlain();
     return { plainSig, fullBody };
   },
 
-  // Wrap email body in branded HTML — accepts plain text or HTML (auto-detects)
+  // Wrap email body in branded HTML — accepts plain text or HTML (auto-detects).
+  // Plain text with \n\n paragraph breaks is properly converted to real <p>
+  // tags with breathing room, so the rendered email no longer feels cramped.
   wrapHtml(bodyText, sig, attachment) {
     const agent = currentAgent || {};
-    const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
-    const agentPhone = agent.phone || '(709) 325-0545';
-    const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
-    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
-    // If content is already HTML (from rich editor) use as-is; otherwise escape and convert newlines
-    const looksLikeHtml = /<[a-z][\s\S]*>/i.test(bodyText);
-    const bodyHtml = looksLikeHtml ? bodyText : bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
-    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-      body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-      .wrap{max-width:560px;margin:0 auto;}
-      hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-      .sig-name{font-weight:700;font-size:15px;}
-      .sig-line{font-size:13px;color:#555;margin:2px 0;}
-      .sig-line a{color:#1a6ef5;text-decoration:none;}
-      .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
-    </style></head><body><div class="wrap">
-      ${bodyHtml}
-      ${attachment ? `<p style="font-size:13px;color:#555;margin-top:16px;">📎 Attachment: ${attachment}</p>` : ''}
-      <hr>
-      <p>Best regards,</p>
-      <p class="sig-name">${agentName}</p>
-      <p class="sig-line">REALTOR® | eXp Realty</p>
-      <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-      <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-      <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-      <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
-    </div></body></html>`;
+    const bodyHtml = EmailFormat.bodyHTML(bodyText || '');
+    // Add a "Best regards," line before the signature — natural sign-off.
+    const closing = `<p style="margin:24px 0 8px;color:#374151;">Best regards,</p>`;
+    return EmailFormat.htmlEmail(bodyHtml + closing, agent, { attachment });
   },
 
   async send() {
