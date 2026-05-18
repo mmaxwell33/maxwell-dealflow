@@ -2276,17 +2276,12 @@ const NewBuilds = {
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  body{margin:0;padding:20px;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;}
-  .wrap{max-width:560px;margin:0 auto;}
-  hr{border:none;border-top:1px solid #eee;margin:24px 0;}
-  .sig-name{font-weight:700;font-size:15px;margin:0 0 2px;}
-  .sig-line{font-size:13px;color:#555;margin:2px 0;}
-  .sig-line a{color:#1a6ef5;text-decoration:none;}
-  .confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5;}
+  ${EmailFormat.styles()}
+  /* New-build specific: section label between progress sections */
   .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0ea5e9;margin:20px 0 8px;}
 </style>
 </head>
-<body><div class="wrap">
+<body>
 
   <p>Hi ${firstName},</p>
   <p>Here is your latest new build progress update for <strong>${property}</strong>.</p>
@@ -2316,16 +2311,10 @@ const NewBuilds = {
   <p>Please don't hesitate to reach out if you have any questions.</p>
   <p>Looking forward to seeing this build through to possession!</p>
 
-  <hr>
-  <p>Best regards,</p>
-  <p class="sig-name">${agentName}</p>
-  <p class="sig-line">REALTOR® | eXp Realty</p>
-  <p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p>
-  <p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p>
-  <p class="sig-line"><a href="https://${agentWebsite}">${agentWebsite}</a></p>
-  <p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>
+  ${EmailFormat.signatureHTML(agent)}
+  ${EmailFormat.disclaimerHTML()}
 
-</div></body></html>`;
+</body></html>`;
   },
 
   async syncPipeline(build, pipelineStage) {
@@ -2437,7 +2426,8 @@ const NewBuilds = {
     }).join('');
     const possessionRow = b.est_completion_date ? `<tr><td class="lb">Est. Possession</td><td class="vl">${b.est_completion_date}</td></tr>` : '';
     const noteHtml = customNote ? `<p style="font-size:14px;background:#fffbeb;padding:12px;border-left:3px solid #f59e0b;border-radius:4px;margin:0 0 16px;">${customNote.replace(/[^\x20-\x7E]/g,'')}</p>` : '';
-    const htmlEmail = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6}.wrap{max-width:560px;margin:0 auto}table.dt{width:100%;border-collapse:collapse;margin:0 0 20px}table.dt td{padding:8px 10px;border-bottom:1px solid #eee;font-size:14px}.lb{color:#888;width:45%}.vl{font-weight:700;color:#222}hr{border:none;border-top:1px solid #eee;margin:24px 0}.sig-name{font-weight:700;font-size:15px;margin:0 0 2px}.sig-line{font-size:13px;color:#555;margin:2px 0}.sig-line a{color:#1a6ef5;text-decoration:none}.confidential{font-size:10px;color:#bbb;margin-top:20px;line-height:1.5}</style></head><body><div class="wrap"><p>Hi ${firstName},</p><p>Here is your latest new build progress update for <strong>${property}</strong>.</p>${noteHtml}<table class="dt">${stageRowsHtml}${possessionRow}<tr><td class="lb">Overall Progress</td><td class="vl" style="color:#1a6ef5">${pct}% (${done}/${total} steps)</td></tr></table><hr><p>Best regards,</p><p class="sig-name">${agentName}</p><p class="sig-line">REALTOR&reg; | eXp Realty</p><p class="sig-line"><a href="tel:${agentPhone}">${agentPhone}</a> &nbsp;|&nbsp; <a href="mailto:${agentEmail}">${agentEmail}</a></p><p class="sig-line">eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2</p><p class="sig-line"><a href="https://${agentWeb}">${agentWeb}</a></p><p class="confidential">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.</p></div></body></html>`;
+    const bodyContent = `<p>Hi ${firstName},</p><p>Here is your latest new build progress update for <strong>${property}</strong>.</p>${noteHtml}<table class="dt">${stageRowsHtml}${possessionRow}<tr><td class="lb">Overall Progress</td><td class="vl" style="color:#1a6ef5">${pct}% (${done}/${total} steps)</td></tr></table>`;
+    const htmlEmail = EmailFormat.htmlEmail(bodyContent, agent);
     const htmlB64 = btoa(unescape(encodeURIComponent(htmlEmail)));
 
     App.closeModal();
