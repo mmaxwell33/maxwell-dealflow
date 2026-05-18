@@ -1721,3 +1721,47 @@ A new page at `https://maxwell-dealflow.vercel.app/site/sold/` with four section
 - **Real photo of Maxwell.** The about-page "MD" gradient placeholder still needs a real headshot.
 
 ---
+
+## PR #37 — `phase4/site-audit`
+
+**Type:** Phase 4 — read-only audit document. Zero code changes. Foundation for the marketing-site redesign.
+
+**Closes:** Maxwell's 2026-05-18 request to "audit the site, query, fix problems, be professional." Mirror of Phase 1's `AUDIT_REPORT.md` format applied to `/site/*`.
+
+**What it does:**
+Ships `SITE_AUDIT.md` — a 298-line, 20-finding audit of the marketing site as of post-PR-#36 (after the honesty pass). Reviews the site as a hostile reviewer ("would I send a friend here?") and produces P0 / P1 / P2 findings with file:line, fix, and effort.
+
+**Findings summary:**
+- **4 P0 findings** (block any public promotion): missing real photo (P0.1), no verifiable identity links (P0.2), unverified SLA promises (P0.3), incomplete brokerage compliance disclosure (P0.4).
+- **8 P1 findings** (visible quality gaps): generic design template feel (P1.1), generic hero headline (P1.2), generic "why work with me" cards (P1.3), corporate-flat about-page narrative (P1.4), duplicate visual rhythm between landing and about (P1.5), zero social proof (P1.6), mobile typography polish (P1.7), CRM-icon being used as marketing favicon (P1.8).
+- **8 P2 findings** (longer-term polish): over-rounded corners (P2.1), boilerplate footer line (P2.2), minimal schema.org (P2.3), no 404 page (P2.4), no analytics (P2.5), CRM-icon OG image (P2.6), Pipeline filter chip rearrange bug from Maxwell's 2026-05-18 feedback (P2.7), nav-link affordance (P2.8).
+
+**Also ships:**
+- Three proposed design directions for the redesign (Editorial Newfoundland / Modern Canadian / Local + warm) — Maxwell picks one before any redesign code lands.
+- Recommended PR sequence (12 PRs) to take the site from current state to "I'd put this on my LinkedIn" quality. Estimated 10 hours of focused work.
+- "What is solid" section that fairly credits the foundations that DO work (architecture, SEO, a11y baseline, performance, mobile responsive).
+
+**Files changed:**
+- `SITE_AUDIT.md` — new, 298 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- Read top-to-bottom; every file:line reference resolves to a real location.
+- Every finding has a concrete fix path with effort estimate.
+- Every P0 has a clear "blocking?" verdict.
+- 34/34 vitest pass (no code change).
+
+**Risk if rolled back:** Loses the audit document. No production impact, but Maxwell loses the input doc for the redesign session.
+
+**What's NOT in this PR:**
+- Any code changes. This is a read-only deliverable so Maxwell can review my opinion before I touch the site.
+- A specific redesign direction. Maxwell picks from the three proposed in §P1.1 before that PR lands.
+- A noindex on `/site/*`. Recommended in §R2 of the audit but separate PR (`phase4/site-noindex-temporary`).
+
+**Maxwell's next move:**
+Read `SITE_AUDIT.md`. Push back on anything you disagree with. Then either:
+1. Say "do the protective noindex first" and I'll ship the smallest protective PR.
+2. Pick one of the three design directions in §P1.1 and I'll start the redesign.
+3. Say "fix [specific item]" and I'll ship just that one.
+
+---
