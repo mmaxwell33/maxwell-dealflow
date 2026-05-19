@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page not found — Maxwell Midodzi REALTOR® at eXp Realty</title>
+<meta name="description" content="The page you were looking for doesn't exist. Head back to the homepage or get in touch with Maxwell directly.">
+
+<!-- 404 pages shouldn't be indexed -->
+<meta name="robots" content="noindex, nofollow">
+
+<!-- Favicons -->
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<!-- Shared site stylesheet -->
+<link rel="stylesheet" href="/site/css/site.css">
+
+<style>
+  /* 404-specific layout — center content vertically below the nav */
+  .nf-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 96px 24px 80px;
+    text-align: center;
+  }
+  .nf-num {
+    font-size: clamp(80px, 16vw, 140px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--brand-dark);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .nf-title {
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 14px;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  .nf-sub {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin: 0 auto 32px;
+    max-width: 50ch;
+    text-wrap: pretty;
+  }
+  .nf-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 520px) {
+    .nf-wrap { padding: 56px 18px 48px; }
+    .nf-ctas .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/site/">
+      <span class="nav-avatar" aria-hidden="true">MD</span>
+      <span>Maxwell Midodzi</span>
+    </a>
+    <div class="nav-links" aria-label="Site sections">
+      <a href="/site/about/">About</a>
+      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
+    </div>
+    <a class="nav-cta" href="/intake.html">Start with a free intake</a>
+  </div>
+</nav>
+
+<!-- ── 404 CONTENT ────────────────────────────────────────────────── -->
+<main>
+  <div class="nf-wrap">
+    <div class="nf-num" aria-hidden="true">404</div>
+    <h1 class="nf-title">We couldn't find that page.</h1>
+    <p class="nf-sub">
+      The link you followed might be out of date, or the page may have moved.
+      No big deal — head back to the homepage, or get in touch directly.
+    </p>
+    <div class="nf-ctas">
+      <a class="btn btn-primary" href="/site/">Back to homepage</a>
+      <a class="btn btn-outline" href="mailto:Maxwell.Midodzi@exprealty.com">Email Maxwell</a>
+    </div>
+  </div>
+</main>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
+<footer>
+  <div class="wrap">
+    <div>
+      <h4>Maxwell Delali Midodzi</h4>
+      <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
+      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+    </div>
+    <div>
+      <h4>Get in touch</h4>
+      <ul>
+        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+        <li style="color:var(--ink-3);margin-top:8px;">Typically responds within 48 business hours.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>More</h4>
+      <ul>
+        <li><a href="/site/">Home</a></li>
+        <li><a href="/site/about/">About Maxwell</a></li>
+        <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bot">
+    <span>© <span id="yr"></span> Maxwell Midodzi · REALTOR® at eXp Realty. All rights reserved.</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
