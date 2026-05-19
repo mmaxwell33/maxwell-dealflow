@@ -1938,6 +1938,72 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #47 — `phase4/site-polish-batch`
+
+**Closes:** Three small audit items in one batch:
+- `SITE_AUDIT.md §P2.4` — no branded 404 page
+- `SITE_AUDIT.md §P0.3` — unverifiable "follow up within one business day" SLA promise
+- `SITE_AUDIT.md §P2.2` — boilerplate "Independently owned and operated" footer line
+
+**Why bundled:** Each fix is small enough that three separate PRs would have been more bureaucracy than work. Combined diff is still under 200 lines.
+
+---
+
+### 1. Branded 404 at `/site/404.html` (§P2.4)
+
+New file, 131 lines, mostly inline-styled to keep page-specific CSS out of the shared stylesheet. Vercel automatically serves it for any unmatched URL under `/site/*`.
+
+**Content:** Large coral "404" number → "We couldn't find that page." headline → friendly explanatory paragraph → two CTAs (back to homepage + email Maxwell). Reuses the shared nav and footer so the page reads as Maxwell's site, not a generic Vercel default.
+
+Page has `<meta name="robots" content="noindex, nofollow">` (404s should never be indexed) and is NOT added to `sitemap.xml` (correct — sitemap is for canonical findable URLs only).
+
+### 2. Softened SLA promise (§P0.3)
+
+Three pages had the unverifiable "I'll follow up within one business day" / "We talk within one business day" / "Response within one business day" phrasing. The audit flagged this — a hard promise the agent can't always sustain (vacation, illness, busy days) becomes a written record of a missed promise the first time it slips.
+
+| Where | Was | Now |
+|---|---|---|
+| Landing page, "How I help" section subhead | "I'll follow up within one business day with a real plan" | "I aim to respond the same business day with a real plan" |
+| Landing page, Process Step 2 heading | "We talk within one business day" | "We talk shortly after" |
+| Landing page, Process Step 2 body | "I'll reach out by your preferred method…" | "I aim to reach out the same business day. You'll always hear back within 48 hours…" |
+| Footer (landing, about, 404) | "Response within one business day." | "Typically responds within 48 business hours." |
+
+The "Prefer a quick chat first?" card already had verbal hedges ("usually within a couple of hours during business hours") so it was left alone.
+
+The new phrasing **aims** for same-day, **promises** 48 hours. Sustainable.
+
+### 3. Dropped "Independently owned and operated" boilerplate (§P2.2)
+
+Real-estate footer boilerplate that means nothing to consumers and adds nothing to credibility. Removed from both `site/index.html` and `site/about/index.html` footers. If eXp Realty's compliance guide requires the phrase, it gets re-added under the brokerage-compliance footer block (filed at §P0.4, still Maxwell-input gated).
+
+---
+
+**Files changed:**
+- `site/404.html` — new, 131 lines.
+- `site/index.html` — three SLA softenings + drop the "Independently owned" boilerplate.
+- `site/about/index.html` — one footer SLA softening + drop the "Independently owned" boilerplate.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS changes).
+- Manual (post-deploy):
+  - Visit `https://maxwell-dealflow.vercel.app/site/foo` (any non-existent URL under `/site/*`) — Vercel serves the new branded 404 instead of its default page.
+  - Visit `/site/` — section subhead now reads "I aim to respond the same business day" not "I'll follow up within one business day".
+  - Footers across all three pages — no more "Independently owned and operated" line; copyright row is cleaner.
+
+**Visual change:** New 404 page exists at `/site/404.html`. Landing-page Process Step 2 reads slightly differently. All three footers are one line shorter.
+
+**Risk if rolled back:** Loses the branded 404 (back to Vercel default), restores the hard SLA promise + boilerplate. No data risk.
+
+**SITE_AUDIT progress with this PR:**
+- ✅ §P0.3 SLA promises (closed)
+- ✅ §P2.2 boilerplate (closed)
+- ✅ §P2.4 404 page (closed)
+
+**Self-contained items remaining on the audit:** None. The remaining ~9 audit items all need Maxwell input (photo, identity URLs, brokerage compliance, bio narrative, testimonials with consent migration, favicon design, OG image design, analytics signup) or specific reproductions (Pipeline filter bug screenshot).
+
+---
+
 ## PR #46 — `phase4/site-about-specialty-redesign`
 
 **Closes:** `SITE_AUDIT.md` §P1.5 — About page's "What I specialise in" cards duplicated the landing page's `.card` visual treatment, making the two pages feel like one long marketing surface. New pattern visually differentiates the About page.
