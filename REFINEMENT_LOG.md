@@ -1938,6 +1938,61 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #50 — `phase4/site-faq-section`
+
+**Closes:** Pre-conversion friction — the landing page asked visitors to commit to an intake form without first answering the questions they were already silently asking. ("Do you charge?" "How much do I need saved?" "What if I don't end up buying?") FAQ blocks let visitors self-qualify and walk in to the intake form already 70% sold.
+
+**What it does:**
+
+Adds a new "Common questions" section between the Areas Served grid and the closing CTA band. Eight collapsible Q&A pairs covering the most frequent buyer/seller anxieties, using native `<details>/<summary>` HTML for zero-JS accessibility:
+
+1. *Do you charge for an initial consultation?* (no, free)
+2. *How much do I need saved before I start looking?* (5% min + closing costs, CMHC insurance below 20%)
+3. *What does "pre-approval" actually mean — and do I need it?* (lender commitment, yes get one)
+4. *How long does it typically take from accepted offer to closing?* (30–60 days in NL)
+5. *How do you decide what to list my home for?* (CMA, low/likely/high range)
+6. *Who pays the real estate commission when I'm selling?* (seller's proceeds cover both sides in NL)
+7. *Do I really need a home inspection?* (almost always yes, $500-800)
+8. *What if I don't end up buying or selling?* (we part as friends, no fees)
+
+Each answer is grounded in real Newfoundland practice — actual NL closing-cost percentages, actual NL convention on who pays commission, actual price points for inspections. Not generic real-estate FAQ filler.
+
+**Plus a Schema.org `FAQPage` JSON-LD block** in the page head. When Google indexes the page, it can show the Q&As as expandable rich-result snippets in search results (the "People also ask" / inline FAQ accordion you see on knowledge-panel sites). Free SEO leverage — the same content surfaces in more places.
+
+**Approach:**
+
+1. **`<details>/<summary>` native HTML, not custom JS.** Keyboard accessible by default (Tab + Enter), screen-reader friendly (announces expanded/collapsed state), zero JavaScript dependency. Modern browsers handle the accordion behaviour natively.
+
+2. **Default `▶` markers hidden** via `summary { list-style: none; }` + `summary::-webkit-details-marker { display: none; }` (both needed for cross-browser). Replaced with a custom `+ / −` indicator via `::after` — rotates / swaps when the item is open. More editorial, less browser-default.
+
+3. **Style matches the `.svc-list` from the About page.** Hairline dividers between items, no boxes/shadows. Visually distinct from the cards earlier on the page; consistent feel with other "list" surfaces elsewhere on the site.
+
+4. **Mobile-optimized.** Single column at every viewport, font sizes shrink at `<520px`, generous tap targets (22px vertical padding on the summary). Easy thumb-scroll.
+
+5. **JSON-LD mirrors the visible HTML.** Each `Question`/`Answer` in the schema corresponds to a `<details>` block on the page. Plain-text version (no markup) for the schema since Google's rich-result parser doesn't render HTML inside answer text.
+
+**Files changed:**
+- `site/index.html` — new `<section>` with 8 `<details>` items (~75 lines), plus a new FAQPage JSON-LD script in the `<head>` (~80 lines).
+- `site/css/site.css` — new `.faq-list` / `.faq-item` / summary styles with custom +/− indicator and responsive rules (~60 lines).
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy):
+  - Scroll past Areas Served — new "Common questions" section appears with 8 collapsed Q&As.
+  - Click any question — body expands, `+` becomes `−`.
+  - Tab to a closed `<summary>` and press Enter — same expand behaviour, focus ring visible.
+  - View source — `FAQPage` JSON-LD present in the head.
+  - Test with Google's Rich Results Test (`https://search.google.com/test/rich-results`) — should validate as eligible for FAQ rich results.
+
+**Visual change:** New section on the landing page. Hairline-divided accordion list with custom +/− indicators. Light alt background (`.alt`) so it sits visually between the white Areas Served and the dark CTA band.
+
+**Risk if rolled back:** Loses the FAQ + the FAQPage rich-result eligibility. No data risk.
+
+**Performance impact:** Negligible — pure HTML + CSS. No new JS. The JSON-LD block is ~2KB inline, parsed once at page load by Google's crawler.
+
+---
+
 ## PR #49 — `phase4/site-areas-served`
 
 **Closes:** Geographic-grounding gap on the landing page. Visible to a visitor: no mention of specific Avalon neighbourhoods. Real estate is hyperlocal — the page claimed "St. John's and the Avalon" generically but listed zero concrete places a prospect could match against their actual search. CREA's site (which Maxwell pointed at as a reference) makes its geography explicit; his didn't.

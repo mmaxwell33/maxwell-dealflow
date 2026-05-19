@@ -35,6 +35,82 @@
 }
 </script>
 
+<!-- Schema.org FAQPage JSON-LD — lets Google show the FAQ Q&As as
+     expandable rich-result snippets in search results (PR #50). Each
+     mainEntity mirrors the visible HTML accordion below. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do you charge for an initial consultation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. The first conversation — in person, on the phone, or over video — is always free. Even if you're 12 months away from being ready to buy or sell, that conversation costs you nothing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much do I need saved before I start looking?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For a typical Newfoundland home (around $350K), you'll want a minimum 5% down payment — about $17,500 — plus closing costs of roughly 1.5–2% of the purchase price. Below 20% down, you'll also pay CMHC insurance, which gets rolled into your mortgage."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does pre-approval actually mean — and do I need it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A pre-approval is a lender's written commitment to lend you up to a specific amount, based on your income, credit, and debts. It's not a guarantee — the lender still has to approve the specific property — but it tells you (and any seller) what you can credibly offer. Yes, I'd want you pre-approved before we tour anything serious."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does it typically take from accepted offer to closing?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In Newfoundland, 30–60 days is the normal range, depending on financing, inspection, and lawyer availability. Faster is possible if everyone's on the ball; slower happens occasionally when something complex turns up in the inspection or title search."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do you decide what to list my home for?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Comparable Market Analysis (CMA). I pull every recent sale within a reasonable radius and adjust for condition, lot, finishes, and current market direction. Then I give you an honest range — usually a low / likely / high — and explain the tradeoffs at each price point."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who pays the real estate commission when I'm selling?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In Newfoundland the standard convention is that the seller's proceeds cover both the listing agent's and the buyer's agent's commission. I'll show you the full breakdown before you sign anything."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I really need a home inspection?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Almost always, yes. A solid inspection costs $500–$800 and surfaces issues a buyer would otherwise inherit — foundation, roof, electrical, plumbing, suspicious moisture. On older Newfoundland housing stock, inspections regularly find $5–15K worth of 'good to know' repairs."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if I don't end up buying or selling?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. About a third of the people who reach out aren't ready yet — most come back when they are."
+      }
+    }
+  ]
+}
+</script>
+
 <link rel="stylesheet" href="/site/css/site.css">
 </head>
 <body>
@@ -221,6 +297,80 @@
     </div>
 
     <p style="margin-top:28px;font-size:14px;color:var(--ink-3);">Looking somewhere not on this list? Ask — most of the Avalon is in reach.</p>
+  </div>
+</section>
+
+<!-- ── FAQ ────────────────────────────────────────────────────────── -->
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow">Common questions</div>
+    <h2 class="section-title">The stuff people ask before they call.</h2>
+    <p class="section-sub">If your question isn't here, just <a href="mailto:Maxwell.Midodzi@exprealty.com">email me</a> — happy to talk through anything.</p>
+
+    <div class="faq-list">
+
+      <details class="faq-item">
+        <summary>Do you charge for an initial consultation?</summary>
+        <div class="faq-body">
+          <p>No. The first conversation — in person, on the phone, or over video — is always free. Even if you're 12 months away from being ready to buy or sell, that conversation costs you nothing and helps both of us know whether we're a good fit.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How much do I need saved before I start looking?</summary>
+        <div class="faq-body">
+          <p>For a typical Newfoundland home (say, $350K), you'll want a minimum 5% down payment — about $17,500 — plus closing costs of roughly 1.5–2% of the purchase price. That's a working starting point.</p>
+          <p>Below 20% down, you'll also pay CMHC insurance, which gets rolled into your mortgage. We can walk through your exact numbers before any showings happen.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What does "pre-approval" actually mean — and do I need it?</summary>
+        <div class="faq-body">
+          <p>A pre-approval is a lender's written commitment to lend you up to a specific amount, based on your income, credit, and debts. It's <strong>not</strong> a guarantee — the lender still has to approve the specific property — but it tells you (and any seller) what you can credibly offer.</p>
+          <p>Yes, I'd want you pre-approved before we tour anything serious. It keeps us from falling in love with a house we can't actually finance.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How long does it typically take from accepted offer to closing?</summary>
+        <div class="faq-body">
+          <p>In Newfoundland, 30–60 days is the normal range, depending on financing, inspection, and lawyer availability. Faster than that is possible if everyone's on the ball; slower happens occasionally when something complex turns up in the inspection or title search.</p>
+          <p>I'll give you a realistic timeline at the offer stage, not a salesy one.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do you decide what to list my home for?</summary>
+        <div class="faq-body">
+          <p>A Comparable Market Analysis (CMA). I pull every recent sale within a reasonable radius and adjust for condition, lot, finishes, and current market direction. Then I give you an honest range — usually a low/likely/high — and explain the tradeoffs at each price point.</p>
+          <p>If your number and my number disagree by a lot, I'll tell you why. I won't list a property I think is overpriced just to win the listing.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who pays the real estate commission when I'm selling?</summary>
+        <div class="faq-body">
+          <p>In Newfoundland the standard convention is that the seller's proceeds cover both the listing agent's and the buyer's agent's commission. I'll show you the full breakdown before you sign anything — no surprises at closing.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do I really need a home inspection?</summary>
+        <div class="faq-body">
+          <p>Almost always, yes. A solid inspection costs $500–$800 and surfaces issues a buyer would otherwise inherit — foundation, roof, electrical, plumbing, suspicious moisture. On older Newfoundland housing stock, inspections regularly find $5–15K worth of "good to know" repairs.</p>
+          <p>I work with a small list of inspectors I trust to give straight answers, not soft pedal.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What if I don't end up buying or selling?</summary>
+        <div class="faq-body">
+          <p>Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. About a third of the people who reach out aren't ready yet — and most of them come back when they are.</p>
+        </div>
+      </details>
+
+    </div>
   </div>
 </section>
 
