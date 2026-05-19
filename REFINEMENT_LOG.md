@@ -1938,6 +1938,62 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #49 — `phase4/site-areas-served`
+
+**Closes:** Geographic-grounding gap on the landing page. Visible to a visitor: no mention of specific Avalon neighbourhoods. Real estate is hyperlocal — the page claimed "St. John's and the Avalon" generically but listed zero concrete places a prospect could match against their actual search. CREA's site (which Maxwell pointed at as a reference) makes its geography explicit; his didn't.
+
+**What it does:**
+
+Adds a new "Where I work" section between the trust strip and the closing CTA band. Section structure:
+- Eyebrow: *"Where I work"*
+- Heading: *"Across the Avalon — and a few favourite pockets."*
+- Subhead: short paragraph explaining hyperlocal credibility ("not from a map, but from walking the streets…")
+- **9-cell area grid** showing specific neighbourhoods, each with a one-line descriptor:
+  - **St. John's** — Downtown, Georgestown, Churchill Park, the Battery, Quidi Vidi
+  - **Mount Pearl** — Family-first, strong schools, great resale value
+  - **Paradise** — Newer builds, quiet cul-de-sacs, fast commute
+  - **Conception Bay South** — Waterfront pockets and growing new-build neighbourhoods
+  - **Torbay & Logy Bay** — Coastal living within 20 minutes of downtown
+  - **Portugal Cove–St. Philip's** — Rural character, larger lots, ferry to Bell Island
+  - **Pouch Cove & Flatrock** — Quieter, ocean views you can't get in the city
+  - **Bay Bulls & Witless Bay** — Southern Shore commuter towns
+  - **Goulds & Kilbride** — Established neighbourhoods on the southwest edge
+- A small grey closing line: *"Looking somewhere not on this list? Ask — most of the Avalon is in reach."*
+
+**Approach:**
+
+1. **Visual style is intentionally NOT cards.** The page already has cards in two places (How I help + What you can expect). Reusing cards a third time would feel repetitive. The areas use a clean 3×3 directory grid — cells separated by 1px hairlines, no shadows, no rounded sub-corners — distinct from everything else on the page. Reads like a service-area chart on a professional listing.
+
+2. **Responsive collapse.** 3 columns on desktop → 2 columns at `<720px` → 1 column at `<420px`. Each transition keeps the directory feel.
+
+3. **Subtle hover state** — cells lighten to `--bg-2` (warm beige). Optional polish; the section works fine without it.
+
+4. **SEO benefit.** Each neighbourhood name in plain text in a real `<div>` improves local-search relevance for queries like "realtor mount pearl", "realtor paradise nl", "realtor cbs newfoundland". Google can now match those terms to Maxwell's site directly.
+
+5. **Honest list, not exaggerated.** The 9 areas listed are all real Avalon communities Maxwell can plausibly serve (his eXp Realty NL license covers the whole province). The closing "looking somewhere not on this list? Ask" line invites broader inquiry without overcommitting on coverage.
+
+6. **Descriptors are useful, not marketing fluff.** Each neighbourhood gets one concrete characteristic a prospect can match against their priorities (schools, commute, water access, lot size, community feel, etc.) — not generic "great place to live!" copy.
+
+**Files changed:**
+- `site/index.html` — new `<section>` inserted between trust strip and CTA band, ~50 lines.
+- `site/css/site.css` — new `.areas-grid`, `.area-cell`, `.area-name`, `.area-desc` rules with 720px and 420px breakpoints, ~40 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy): scroll the landing page past "What you can expect." Section "Where I work" appears with a 3×3 grid of neighbourhood directory entries. Hover any cell — background lightens. Mobile (≤420px): single column stack.
+
+**Visual change:** New section on the landing page. Two pages now have geographic grounding (this new section + the existing about-page bio); previously it was implicit at best.
+
+**Risk if rolled back:** Loses the geographic anchor + local-SEO seed. No data risk.
+
+**Performance impact:** Negligible — static HTML + CSS, no JS, no images.
+
+**Open follow-ups (still Maxwell-input gated):**
+- §P0.1 photo, §P0.2 identity links, §P0.4 brokerage compliance, §P1.4 narrative, §P1.6 testimonials, §P1.8/§P2.6 favicon+OG, §P2.5 analytics, §P2.7 Pipeline bug screenshot.
+
+---
+
 ## PR #48 — `phase4/site-cinematic-hero`
 
 **Closes:** Maxwell's 2026-05-18 feedback after viewing his deployed site side-by-side with crea.ca (Canadian Real Estate Association homepage): "take inspiration from CREA, look at their website." The CREA site uses a **full-bleed dark hero with real photography + bright white headline overlay**. Maxwell's site was a plain warm-white background with centered text — readable but unmemorable.
