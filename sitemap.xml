@@ -47,6 +47,13 @@
     <priority>0.7</priority>
   </url>
 
+  <!-- Resources — link directory of NL real-estate tools, government programs, associations -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/site/resources/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
   <!-- Buyer intake form — direct-entry conversion target -->
   <url>
     <loc>https://maxwell-dealflow.vercel.app/intake.html</loc>
