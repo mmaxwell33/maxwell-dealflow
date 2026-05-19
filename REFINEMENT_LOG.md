@@ -1938,6 +1938,79 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #51 — `phase4/site-process-page`
+
+**Closes:** Marketing-site depth gap — the landing page's "Three steps, no surprises" section was a high-level teaser with no detail. Visitors with serious intent need to see Maxwell understands the actual mechanics of a Newfoundland real-estate transaction. New page at `/site/process/` is the long-form walkthrough; the landing snippet now links to it ("See the full step-by-step →").
+
+**What it does:**
+
+New page at `https://maxwell-dealflow.vercel.app/site/process/` — a 7-step buyer process + 7-step seller process walkthrough. Each step has:
+- A name (e.g. "Mortgage pre-approval")
+- A timeline pill ("1–3 days · Done with your lender of choice")
+- Real explanatory paragraphs — what happens, what Maxwell does, what the visitor needs to do
+- Where relevant, **actual Newfoundland-specific cost ranges** (inspection $500–800, lawyer $1,200–1,800, down payment + closing-cost math)
+
+**Buyer flow (7 steps):**
+1. Initial consultation (30–45 min, free)
+2. Mortgage pre-approval (1–3 days, with lender)
+3. Search and showings (2 weeks – 6 months)
+4. Making an offer (1–3 days)
+5. Conditions period (5–14 days) — inspection, financing, lawyer review
+6. Between conditions and closing (3–8 weeks)
+7. Closing day
+
+**Seller flow (7 steps):**
+1. Initial consultation + property tour (60–90 min, free)
+2. Comparable Market Analysis (2–4 days)
+3. Pre-listing prep (1–3 weeks)
+4. Listing goes live
+5. Showings + offer negotiation
+6. Conditions period (5–14 days)
+7. Closing day
+
+Numbered with zero-padded numerals (01, 02, 03…) in coral, divided by hairlines, with a small uppercase timeline pill below each heading. Editorial / serious / detailed — feels like reading a guide, not a brochure.
+
+A small **TOC at the top of the page** ("→ Buying a home / → Selling a home") jumps to the matching section via `#buying` / `#selling` anchors. Smooth-scroll already enabled site-wide via the existing `html { scroll-behavior: smooth }` rule.
+
+The seller section uses the `.alt` (warm-beige) background so the two sections are visually distinct as you scroll.
+
+**Approach:**
+
+1. **Real Newfoundland practice, not generic real-estate filler.** Specific NL conventions (seller pays both commissions, 30–60 day typical closing), specific local cost points (inspection price band, lawyer fee band), specific local realities (older NL housing stock + inspection findings). Cribbed nothing from US/Ontario norms.
+
+2. **Timeline pills give structure.** Every step has a small italic gray pill below the heading like "5–14 days from accepted offer". Sets expectations and answers "how long?" before the visitor even asks.
+
+3. **Numbered steps with `decimal-leading-zero`.** CSS `counter(pstep, decimal-leading-zero)` renders "01, 02, 03…" — more editorial than "1, 2, 3". Small touch but matches the law-firm aesthetic Maxwell pointed at.
+
+4. **No nav addition.** The page is reached via the landing's "See the full step-by-step →" link inline in the process section. Doesn't clutter the top nav with a 3rd link. Search engines will find it via the sitemap.
+
+5. **Sitemap updated** to include `/site/process/` with priority 0.8 (same as About — high-authority sub-page, not the primary landing).
+
+6. **Inline page-specific CSS in `<style>`** rather than adding `.process-*` classes to `/site/css/site.css`. Reasoning: these styles are only used on this one page, and inlining keeps the shared stylesheet from accumulating page-specific cruft. Trades off ~80 inline CSS lines for cleaner separation.
+
+**Files changed:**
+- `site/process/index.html` — new, 406 lines (HTML + inline page-specific CSS + nav/footer reused from shared site.css).
+- `site/index.html` — added "See the full step-by-step →" link inside the existing process section's subhead.
+- `sitemap.xml` — added `/site/process/` URL entry.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy):
+  - Visit `/site/`. Scroll to "Three steps, no surprises" section. New link at the end: "See the full step-by-step →".
+  - Click it. `/site/process/` loads with the TOC, hero, buyer section, then seller section.
+  - Click "→ Buying a home" in the TOC — page smooth-scrolls to the buyer section.
+  - Scroll through both sections — 14 total steps, each with timeline pill and real explanatory copy.
+  - Check sitemap.xml — `/site/process/` listed.
+
+**Visual change:** New page at `/site/process/`. Landing-page process snippet has one extra link to the full walkthrough.
+
+**Risk if rolled back:** Loses the deep content. Landing page still has the 3-step teaser; nothing breaks.
+
+**Performance impact:** New page is a single static HTML file (~17KB before gzip). No new dependencies, no JS, no images. Reuses shared `/site/css/site.css` so CSS is cache-warm by the time a visitor arrives from the landing.
+
+---
+
 ## PR #50 — `phase4/site-faq-section`
 
 **Closes:** Pre-conversion friction — the landing page asked visitors to commit to an intake form without first answering the questions they were already silently asking. ("Do you charge?" "How much do I need saved?" "What if I don't end up buying?") FAQ blocks let visitors self-qualify and walk in to the intake form already 70% sold.
