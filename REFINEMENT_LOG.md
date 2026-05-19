@@ -1938,6 +1938,54 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #46 — `phase4/site-about-specialty-redesign`
+
+**Closes:** `SITE_AUDIT.md` §P1.5 — About page's "What I specialise in" cards duplicated the landing page's `.card` visual treatment, making the two pages feel like one long marketing surface. New pattern visually differentiates the About page.
+
+**What changed:**
+
+The four boxed cards (First-time buyers / New builds / Sellers / Move-up & relocation) became a **service strip** — editorial row pattern with icon + headline + paragraph + inline pipe-separated tag list, divided by hairlines top and bottom of each row.
+
+| Before | After |
+|---|---|
+| 4 boxed `.card`s in a 2×2 grid | 4 horizontal rows in a vertical list, divided by hairlines |
+| Coral icon in a chip in the corner of each card | Icon in a coral-tinted square at the left of each row |
+| Bullet list of 4 sub-services per card (vertical) | Pipe-separated tags in one line |
+| Heavy shadow + border on each card (matches landing) | No box, just dividers (distinct from landing) |
+
+Same content, same icons, same service descriptions. Different layout.
+
+**Why this matters:**
+
+The audit's complaint was "duplicate visual rhythm" — if every section on every page uses the same card grid, the site reads as one long marketing brochure. Each page should have its own visual identity. The About page is now editorial/profile-style (matching the bio above it); the landing page stays card-grid-style (matching its "promote-and-convert" intent).
+
+**Approach:**
+
+1. **CSS-first.** Added `.svc-list`, `.svc-row`, `.svc-icon`, `.svc-body`, `.svc-tags`, `.svc-tags .sep` to `/site/css/site.css`. Mobile rule at `<520px` collapses the icon-column grid into stacked icon-then-content. ~50 lines of new CSS.
+
+2. **Coral-tinted icon squares.** The icon column uses `background: var(--brand-soft)` (the existing `rgba(204,120,92,0.08)` token from PR #38). Small visual flourish that ties to the brand without using the icon-chip-on-card pattern from the landing.
+
+3. **Inline tags with `·` separators** instead of bulleted lists. Faster to scan, more editorial. Wraps cleanly on narrow screens via `flex-wrap`.
+
+4. **Content unchanged.** All 16 sub-service tags (4 services × 4 tags each) are identical text — just relocated from `<ul><li>` markup to `<span>`s in `<div class="svc-tags">`. Nothing for Maxwell to update.
+
+**Files changed:**
+- `site/about/index.html` — "What I specialise in" section rewritten using the new pattern. ~60 lines of HTML restructured.
+- `site/css/site.css` — `.svc-*` rules added after the existing About-page rules. ~50 lines.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass.
+- Manual (post-deploy): visit `/site/about/`. The four services now appear as horizontal rows with hairline dividers, not boxed cards. Compare to `/site/` landing's card grid — visually distinct. Mobile: icon stacks above content, tags wrap naturally.
+
+**Visual change:** About page's "What I specialise in" section. Same content, more editorial feel. Landing page is unchanged.
+
+**Risk if rolled back:** Reverts to duplicate-with-landing card grid.
+
+**Performance impact:** None — CSS-only restructure, same rendering cost.
+
+---
+
 ## PR #45 — `phase4/site-mobile-typography`
 
 **Closes:** `SITE_AUDIT.md` §P1.7 — mobile typography polish. Most of Maxwell's prospective clients will visit the site on a phone (Newfoundland real-estate buyers skew toward text-message-and-phone-call workflows, not desktop browsing). Audit flagged: hero headline could break into 4+ lines on narrow phones, lead paragraph lacked mobile sizing, no defensive word-wrap for long client names / URLs.
