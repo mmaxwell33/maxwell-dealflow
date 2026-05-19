@@ -6,20 +6,41 @@
 <title>Maxwell Midodzi — REALTOR® in St. John's, NL | eXp Realty</title>
 <meta name="description" content="Buying or selling a home in St. John's, Newfoundland? Maxwell Midodzi is a REALTOR® with eXp Realty — local expertise, honest advice, no pressure. Start with a free 5-minute intake.">
 
-<!-- Open Graph / social shares -->
+<!-- Open Graph / social shares — image is a 1200x630 Unsplash hotlink that
+     renders cleanly in iMessage, WhatsApp, Slack, Twitter, etc. To swap,
+     replace the og:image URL with another Unsplash photo at the same dims. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Maxwell Midodzi — REALTOR® in St. John's, NL">
 <meta property="og:description" content="Buying or selling in St. John's, Newfoundland? Local expertise, honest advice, no pressure.">
-<meta property="og:image" content="/icons/icon-512.png">
+<meta property="og:image" content="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&h=630&q=80&fm=jpg&auto=format&fit=crop">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Newfoundland coastal landscape">
 <meta property="og:url" content="https://maxwell-dealflow.vercel.app/site/">
 <meta name="twitter:card" content="summary_large_image">
 
 <!-- Canonical URL — tells Google this is the authoritative version of the page -->
 <link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/">
 
-<!-- Favicons (reuses existing CRM icons) -->
-<link rel="icon" href="/icons/icon-192.png">
+<!-- Favicons — SVG primary (scales crisply at every size), PNG fallback
+     for older browsers, Apple touch icon for iOS bookmark. -->
+<link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<!-- Preconnect to the Unsplash CDN so the hero photo + recent-work cards
+     start their TLS handshake before the parser hits the image tags.
+     Saves ~150ms on first paint for image-heavy pages. -->
+<link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+
+<!-- Preload the hero background image. It's a CSS background (not an <img>),
+     so the browser doesn't discover it until CSSOM parses — preload tells
+     it to start fetching immediately. Critical above-the-fold asset. -->
+<link
+  rel="preload"
+  as="image"
+  href="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+  fetchpriority="high">
 
 <!-- Schema.org RealEstateAgent JSON-LD for Google -->
 <script type="application/ld+json">
@@ -226,6 +247,30 @@
     line-height: 1.3;
     flex-shrink: 0;
   }
+
+  /* ── AREAS SERVED banner ──────────────────────────────────────────
+     A full-bleed cinematic photo above the neighbourhood cards. Breaks
+     out of the .wrap container to span edge-to-edge. */
+  .areas-section { padding-top: 0; }
+  .areas-banner {
+    width: 100%;
+    height: clamp(220px, 30vw, 380px);
+    overflow: hidden;
+    margin-bottom: 56px;
+    background: var(--bg-2); /* fallback while image loads */
+  }
+  .areas-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .areas-banner {
+      height: 200px;
+      margin-bottom: 40px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -366,7 +411,20 @@
 </section>
 
 <!-- ── AREAS SERVED ───────────────────────────────────────────────── -->
-<section>
+<section class="areas-section">
+  <!-- Full-bleed banner photo above the area cards. One representative
+       Avalon/St. John's image gives this section the visual weight it
+       was missing without falsely claiming any specific neighbourhood
+       is shown. Photo is from Unsplash (free, hotlinked from their CDN).
+       Aspect ratio 21:9 for a cinematic banner feel. -->
+  <div class="areas-banner" aria-hidden="true">
+    <img
+      src="https://images.unsplash.com/photo-1518636248569-9b9b5b8d6c3a?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      width="2000" height="857">
+  </div>
   <div class="wrap">
     <div class="eyebrow">Where I work</div>
     <h2 class="section-title">Across the Avalon — and a few favourite pockets.</h2>
@@ -444,6 +502,7 @@
             src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=900&q=80&fm=jpg"
             alt="Colourful row houses, typical of downtown St. John's"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">
@@ -463,6 +522,7 @@
             src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=900&q=80&fm=jpg"
             alt="Modern family home with attached garage and landscaped yard"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">
@@ -482,6 +542,7 @@
             src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=900&q=80&fm=jpg"
             alt="Two-story residential home, typical of established Newfoundland subdivisions"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">
@@ -501,6 +562,7 @@
             src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=900&q=80&fm=jpg"
             alt="Contemporary architect-designed home with large windows"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">
@@ -520,6 +582,7 @@
             src="https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?w=900&q=80&fm=jpg"
             alt="Mid-century bungalow with character details and mature trees"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">
@@ -539,6 +602,7 @@
             src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=900&q=80&fm=jpg"
             alt="Coastal cottage with ocean views, typical of the Avalon shoreline"
             loading="lazy"
+            decoding="async"
             width="900" height="563">
         </div>
         <div class="work-body">

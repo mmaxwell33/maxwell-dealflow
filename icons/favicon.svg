@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Favicon — Maxwell Delali Midodzi, REALTOR® at eXp Realty.
+  Used in browser tabs, bookmarks, and the address bar across all site pages.
+
+  Design: brand-coral rounded square with white "MD" initials. Matches the
+  .nav-avatar pill used in the site navigation so users see one consistent
+  identity mark in the tab and the page.
+
+  Why SVG: vector scales crisply at every size (16x16 in tabs, 180x180 on
+  Apple touch icon), works for dark/light mode, and is ~500 bytes vs ~1KB
+  for a PNG equivalent. No raster files to swap out when we eventually
+  refresh the brand colour.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Maxwell Midodzi">
+  <rect width="32" height="32" rx="7" ry="7" fill="#CC785C"/>
+  <text
+    x="16"
+    y="16"
+    fill="#ffffff"
+    font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif"
+    font-size="14"
+    font-weight="700"
+    letter-spacing="-0.04em"
+    text-anchor="middle"
+    dominant-baseline="central">MD</text>
+</svg>

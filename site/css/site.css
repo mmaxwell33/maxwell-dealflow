@@ -170,9 +170,16 @@ a:hover { text-decoration-color: var(--brand); }
    I swap the `background` line to `url(...) center/cover`. */
 .hero {
   position: relative;
-  background: linear-gradient(135deg, #0A1220 0%, #16263D 60%, #0F1A2A 100%);
-  /* For when there's a real photo to drop in: */
-  /* background: linear-gradient(135deg, rgba(10,18,32,0.78), rgba(15,26,42,0.82)), url('/site/img/hero.jpg') center/cover; */
+  /* Hero background — Unsplash hotlink of a Newfoundland-style coastal landscape.
+     Dark gradient overlay on top of the photo so the white text/CTA stays readable
+     regardless of which part of the photo loads first. The .hero::before adds
+     additional warm radial light to tie the photo into the brand palette.
+     To swap photos: replace the URL below with another Unsplash image
+     (https://unsplash.com/s/photos/newfoundland or /coastal). */
+  background:
+    linear-gradient(135deg, rgba(10,18,32,0.78) 0%, rgba(15,26,42,0.72) 60%, rgba(10,18,32,0.85) 100%),
+    url('https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop') center/cover no-repeat;
+  background-color: #0A1220; /* fallback while image loads */
   color: #ffffff;
   padding: 120px 0 96px;
   min-height: 540px;
