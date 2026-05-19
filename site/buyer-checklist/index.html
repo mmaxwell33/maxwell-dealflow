@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>First-Time Home Buyer Checklist — Newfoundland | Maxwell Midodzi REALTOR®</title>
+<meta name="description" content="A printable step-by-step checklist for first-time home buyers in St. John's and the Avalon. Covers budget prep, pre-approval, search, offer, conditions, and closing — with realistic Newfoundland timelines and costs.">
+
+<!-- Canonical -->
+<link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/buyer-checklist/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="First-Time Home Buyer Checklist — Newfoundland">
+<meta property="og:description" content="Printable step-by-step checklist for buying your first home in St. John's, NL.">
+<meta property="og:image" content="/icons/icon-512.png">
+<meta property="og:url" content="https://maxwell-dealflow.vercel.app/site/buyer-checklist/">
+
+<!-- Favicons -->
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<!-- Shared site stylesheet -->
+<link rel="stylesheet" href="/site/css/site.css">
+
+<style>
+  .cl-hero {
+    padding: 72px 0 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cl-hero h1 {
+    font-size: clamp(32px, 4.5vw, 46px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    margin-bottom: 14px;
+    color: var(--ink);
+    max-width: 20ch;
+    text-wrap: balance;
+  }
+  .cl-hero p.lead {
+    font-size: clamp(16px, 2vw, 18px);
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin-bottom: 24px;
+  }
+  .cl-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .cl-actions .btn { padding: 11px 18px; font-size: 14px; }
+
+  /* Checklist body */
+  .cl-body {
+    padding: 48px 0 80px;
+    max-width: 760px;
+  }
+  .cl-phase {
+    margin-bottom: 44px;
+  }
+  .cl-phase-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .cl-phase-num {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--brand-dark);
+    text-transform: uppercase;
+  }
+  .cl-phase h2 {
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    line-height: 1.2;
+    flex: 1;
+  }
+  .cl-phase-time {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-bottom: 18px;
+    font-weight: 500;
+  }
+  .cl-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid var(--border);
+  }
+  .cl-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .cl-item input[type="checkbox"] {
+    /* Reset + restyle the native checkbox so it looks good in print + screen */
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--r-xs);
+    background: var(--bg);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: border-color 120ms, background 120ms;
+    position: relative;
+  }
+  .cl-item input[type="checkbox"]:hover { border-color: var(--brand); }
+  .cl-item input[type="checkbox"]:checked {
+    background: var(--brand);
+    border-color: var(--brand);
+  }
+  .cl-item input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cl-item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .cl-item label {
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .cl-item label strong { color: var(--ink); font-weight: 600; }
+  .cl-item input[type="checkbox"]:checked + label {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-4);
+  }
+
+  /* Inline notes that aren't checkable — sub-bullets under an item */
+  .cl-note {
+    grid-column: 2;
+    margin-top: 6px;
+    font-size: 13.5px;
+    color: var(--ink-3);
+    line-height: 1.5;
+    padding-left: 14px;
+    border-left: 2px solid var(--border);
+  }
+
+  /* Final CTA box */
+  .cl-final {
+    background: var(--bg-2);
+    border-radius: var(--r-md);
+    padding: 28px;
+    margin-top: 40px;
+    border: 1px solid var(--border);
+  }
+  .cl-final h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .cl-final p {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .cl-hero { padding: 56px 0 24px; }
+    .cl-body { padding: 36px 0 56px; }
+    .cl-phase h2 { font-size: 20px; }
+    .cl-item label { font-size: 15px; }
+  }
+
+  /* ── Print styles ───────────────────────────────────────────────
+     Visitors will print this. Strip the nav, footer, hero CTAs.
+     Make it black-on-white with tight margins. */
+  @media print {
+    .nav, footer, .cl-actions, .cl-final { display: none !important; }
+    body { background: #ffffff; color: #000000; }
+    .cl-hero { padding: 0 0 16px; border-bottom: 1px solid #000; }
+    .cl-body { padding: 16px 0; max-width: none; }
+    .cl-phase { page-break-inside: avoid; margin-bottom: 28px; }
+    .cl-item input[type="checkbox"] {
+      border-color: #000;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    .cl-item label { color: #000; }
+    .cl-note { color: #444; border-left-color: #aaa; }
+    a { color: #000; text-decoration: none; }
+    .cl-phase-num { color: #000; }
+  }
+
+  /* Tiny script-free helper button styling */
+  .print-btn {
+    background: var(--ink); color: var(--bg);
+    border: 1px solid var(--ink);
+  }
+  .print-btn:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/site/">
+      <span class="nav-avatar" aria-hidden="true">MD</span>
+      <span>Maxwell Midodzi</span>
+    </a>
+    <div class="nav-links" aria-label="Site sections">
+      <a href="/site/about/">About</a>
+      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
+    </div>
+    <a class="nav-cta" href="/intake.html">Start with a free intake</a>
+  </div>
+</nav>
+
+<!-- ── HERO ───────────────────────────────────────────────────────── -->
+<section class="cl-hero">
+  <div class="wrap">
+    <span class="eyebrow accent"><span class="eyebrow-divider"></span>For first-time buyers</span>
+    <h1>First-time home buyer checklist — Newfoundland.</h1>
+    <p class="lead">
+      A working checklist for buying your first home in St. John's or the Avalon. Tick items as you complete them. Print this page for a paper copy. Every step here happens in the same order, give or take a week.
+    </p>
+    <div class="cl-actions">
+      <button class="btn print-btn" onclick="window.print()">🖨 Print this checklist</button>
+      <a class="btn btn-outline" href="/site/process/">See the full process →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── CHECKLIST BODY ─────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <div class="cl-body">
+
+      <!-- PHASE 1 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 1</span>
+        </div>
+        <h2>Before you start looking</h2>
+        <p class="cl-phase-time">2–4 weeks before any showings</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p1-1">
+            <label for="p1-1"><strong>Pull your credit report.</strong> Get it free from Equifax or TransUnion. Confirm there are no surprises that would derail a mortgage approval.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-2">
+            <label for="p1-2"><strong>Pay down high-interest debt.</strong> Lenders look at your total debt-service ratio. Paying off a credit card or two before applying improves both your rate and your approval ceiling.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-3">
+            <label for="p1-3"><strong>Save your down payment + closing-cost buffer.</strong> As a working estimate: 5–20% down depending on price + roughly 1.5–2% of purchase price for closing costs. Your lender will run your real numbers.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-4">
+            <label for="p1-4"><strong>Gather paperwork your lender will ask for:</strong> last two years of tax returns / notices of assessment, recent pay stubs, employment letter, bank statements showing your down payment savings, photo ID.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-5">
+            <label for="p1-5"><strong>Make a "must-have" vs "nice-to-have" list.</strong> Bedrooms, parking, yard, neighbourhood, commute, schools. Be honest about which are deal-breakers.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 2</span>
+        </div>
+        <h2>Get pre-approved</h2>
+        <p class="cl-phase-time">1–3 days · talk to one or more lenders</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p2-1">
+            <label for="p2-1"><strong>Talk to a lender</strong> (your bank, a mortgage broker, or a credit union). Compare rates from at least two sources.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-2">
+            <label for="p2-2"><strong>Get a written pre-approval letter.</strong> It states the maximum mortgage they'll lend and is usually valid 90–120 days.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-3">
+            <label for="p2-3"><strong>Confirm your actual budget.</strong> Pre-approval ≠ your shopping ceiling. Take the lower of (a) what the lender will lend, (b) what your monthly cashflow can comfortably handle.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-4">
+            <label for="p2-4"><strong>Lock or float your rate.</strong> Ask your lender about rate-hold options — many will hold a quoted rate for the duration of the pre-approval.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 3</span>
+        </div>
+        <h2>Search and showings</h2>
+        <p class="cl-phase-time">2 weeks to 6 months, depending on inventory + criteria</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p3-1">
+            <label for="p3-1"><strong>Set up your search criteria with your REALTOR®.</strong> Price range, location, beds, baths, must-haves. They'll set you up with MLS alerts for matching listings.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-2">
+            <label for="p3-2"><strong>Book first-pass showings.</strong> See 3–5 homes per outing. Take photos and notes — they'll blur together fast.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-3">
+            <label for="p3-3"><strong>Review the comps for each shortlisted property.</strong> Your REALTOR® should send recent comparable sales before each viewing so you know if the asking price is fair.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-4">
+            <label for="p3-4"><strong>Drive the neighbourhood at different times.</strong> Morning commute, evening, weekend. Listen for traffic, look at parking, check what the surrounding properties are like.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-5">
+            <label for="p3-5"><strong>Don't rush.</strong> Most first-time buyers see 8–15 homes before making an offer. If something feels off, trust it.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 4</span>
+        </div>
+        <h2>Make an offer</h2>
+        <p class="cl-phase-time">1–3 days from "let's offer" to a signed agreement</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p4-1">
+            <label for="p4-1"><strong>Decide your offer strategy with your REALTOR®.</strong> Price, closing date, deposit amount, conditions to include. A CMA (Comparable Market Analysis) should anchor your number.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-2">
+            <label for="p4-2"><strong>Include the right conditions:</strong> financing, home inspection, lawyer review. These give you legitimate exits if something doesn't check out.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-3">
+            <label for="p4-3"><strong>Be ready for a counter-offer.</strong> Most negotiations involve at least one round of back-and-forth on price, closing date, or included items.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-4">
+            <label for="p4-4"><strong>Pay the deposit</strong> within 24–48 hours of acceptance — usually a few thousand dollars by certified cheque or e-transfer, held in the listing brokerage's trust account.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 5 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 5</span>
+        </div>
+        <h2>Conditions period (due diligence)</h2>
+        <p class="cl-phase-time">5–14 days from accepted offer</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p5-1">
+            <label for="p5-1"><strong>Book the home inspection</strong> immediately. Typical NL cost is around $500–800 — speak to your inspector for their exact quote based on home size.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-2">
+            <label for="p5-2"><strong>Confirm financing</strong> with your lender. They'll need the accepted offer and property details to do the full underwriting.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-3">
+            <label for="p5-3"><strong>Engage a real-estate lawyer.</strong> Legal closing costs typically run around 1.5% of the purchase price all-in (lawyer's fee + disbursements). Every firm is different — get quotes from two or three.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-4">
+            <label for="p5-4"><strong>Review the inspection report carefully</strong> with your REALTOR®. Major items (foundation, roof, electrical, plumbing) may justify renegotiating, requesting repairs, or walking away. Minor stuff is normal.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-5">
+            <label for="p5-5"><strong>Decide whether to remove conditions, renegotiate, or back out.</strong> You typically have until end-of-day on the condition-removal date written into your offer.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 6 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 6</span>
+        </div>
+        <h2>Between firm sale and closing</h2>
+        <p class="cl-phase-time">3–8 weeks of mostly waiting</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p6-1">
+            <label for="p6-1"><strong>Arrange home insurance.</strong> Mortgage lenders require proof of coverage on or before closing day. Get at least two quotes.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-2">
+            <label for="p6-2"><strong>Sign final mortgage paperwork</strong> with your lender. They'll send the mortgage funds to your lawyer a day or two before closing.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-3">
+            <label for="p6-3"><strong>Book your movers</strong> early — good ones get booked 4–6 weeks out, especially around month-ends.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-4">
+            <label for="p6-4"><strong>Set up utility transfers</strong> (electricity, oil/gas, water, internet) for the closing date. Same with mail forwarding through Canada Post.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-5">
+            <label for="p6-5"><strong>Do a final walkthrough</strong> 24–48 hours before closing. Confirm the property is in the same condition as when you accepted the offer and that any agreed inclusions are still there.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 7 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 7</span>
+        </div>
+        <h2>Closing day</h2>
+        <p class="cl-phase-time">The day you get the keys</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p7-1">
+            <label for="p7-1"><strong>Sign your closing documents</strong> at your lawyer's office. The full appointment is usually 30–45 minutes.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-2">
+            <label for="p7-2"><strong>Pay any remaining closing costs</strong> to your lawyer (down payment balance, legal fees, land-transfer registration, property-tax adjustments).</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-3">
+            <label for="p7-3"><strong>Pick up your keys</strong> in the afternoon, typically after funds and title transfer between lawyers (mid-to-late afternoon is normal in NL).</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-4">
+            <label for="p7-4"><strong>Change the locks.</strong> Old keys are floating around with previous owners, contractors, neighbours. New deadbolts are cheap insurance.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-5">
+            <label for="p7-5"><strong>Celebrate.</strong> You bought a house. 🎉</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Final CTA box (hidden in print) -->
+      <div class="cl-final">
+        <h3>Want help walking through this in person?</h3>
+        <p>Tell me what stage you're at and I'll help you get to the next one. Five-minute intake form, no pressure — first conversation is free.</p>
+        <a class="btn btn-primary" href="/intake.html">Start with a free intake →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
+<footer>
+  <div class="wrap">
+    <div>
+      <h4>Maxwell Delali Midodzi</h4>
+      <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
+      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+    </div>
+    <div>
+      <h4>Get in touch</h4>
+      <ul>
+        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+        <li style="color:var(--ink-3);margin-top:8px;">Typically responds within 48 business hours.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>More</h4>
+      <ul>
+        <li><a href="/site/">Home</a></li>
+        <li><a href="/site/about/">About Maxwell</a></li>
+        <li><a href="/site/process/">How it works</a></li>
+        <li><a href="/site/privacy/">Privacy</a></li>
+        <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bot">
+    <span>© <span id="yr"></span> Maxwell Midodzi · REALTOR® at eXp Realty.</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
