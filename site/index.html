@@ -112,6 +112,121 @@
 </script>
 
 <link rel="stylesheet" href="/site/css/site.css">
+
+<style>
+  /* ── RECENT WORK section ──────────────────────────────────────────
+     Inline here (not in site.css) because it's specific to the landing
+     page. If we end up reusing this card pattern elsewhere, lift to
+     shared CSS. */
+
+  .work-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 28px;
+  }
+  @media (max-width: 900px) {
+    .work-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  }
+  @media (max-width: 560px) {
+    .work-grid { grid-template-columns: 1fr; gap: 16px; }
+  }
+
+  .work-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+  .work-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border-color: var(--border-strong);
+  }
+
+  .work-photo {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg-2);
+  }
+  .work-photo img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 350ms ease;
+  }
+  .work-card:hover .work-photo img { transform: scale(1.04); }
+
+  /* "EXAMPLE" badge — top-left corner of each photo.
+     This is the honesty marker so visitors know cards are illustrative,
+     not actual closed transactions. Do NOT remove until real sales replace them. */
+  .work-badge {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(20, 20, 20, 0.85);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 9px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+  }
+
+  .work-body { padding: 18px 18px 20px; }
+  .work-price {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .work-meta {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+  .work-meta strong { color: var(--ink); font-weight: 600; }
+  .work-stats {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .work-stats span {
+    background: var(--bg-2);
+    padding: 4px 9px;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+
+  .work-disclaimer {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-top: 28px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .work-disclaimer::before {
+    content: "ℹ️";
+    font-size: 15px;
+    line-height: 1.3;
+    flex-shrink: 0;
+  }
+</style>
 </head>
 <body>
 
@@ -297,6 +412,152 @@
     </div>
 
     <p style="margin-top:28px;font-size:14px;color:var(--ink-3);">Looking somewhere not on this list? Ask — most of the Avalon is in reach.</p>
+  </div>
+</section>
+
+<!-- ── RECENT WORK ────────────────────────────────────────────────────
+     Illustrative property cards. Each photo is a free hotlink from
+     Unsplash (free for commercial use, no attribution required, see
+     https://unsplash.com/license). Photo URLs use the images.unsplash.com
+     CDN with width/quality parameters for performance.
+
+     EVERY CARD IS MARKED "EXAMPLE" — these are NOT actual transactions
+     Maxwell has closed. As Maxwell's book grows, replace these cards
+     one-by-one with real sold listings (with client permission). When
+     the section is fully real, remove the .work-disclaimer at the bottom.
+
+     If any Unsplash photo 404s in the future, swap with another from
+     https://unsplash.com/s/photos/house (any house photo works). -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Recent work</div>
+    <h2 class="section-title">The kinds of homes I help clients buy and sell.</h2>
+    <p class="section-sub">A snapshot of typical properties across St. John's and the Avalon — the styles, price points, and neighbourhoods I work in most often.</p>
+
+    <div class="work-grid">
+
+      <!-- Card 1 — Downtown row house -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=900&q=80&fm=jpg"
+            alt="Colourful row houses, typical of downtown St. John's"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$385,000</div>
+          <p class="work-meta"><strong>Downtown St. John's</strong> · Heritage row house</p>
+          <div class="work-stats">
+            <span>2 bed</span><span>1 bath</span><span>1,100 sqft</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 2 — Paradise family home -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=900&q=80&fm=jpg"
+            alt="Modern family home with attached garage and landscaped yard"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$525,000</div>
+          <p class="work-meta"><strong>Paradise</strong> · Newer-build family home</p>
+          <div class="work-stats">
+            <span>4 bed</span><span>2 bath</span><span>2,100 sqft</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 3 — Mount Pearl starter -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=900&q=80&fm=jpg"
+            alt="Two-story residential home, typical of established Newfoundland subdivisions"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$295,000</div>
+          <p class="work-meta"><strong>Mount Pearl</strong> · First-time buyer starter</p>
+          <div class="work-stats">
+            <span>3 bed</span><span>1 bath</span><span>1,250 sqft</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 4 — Quidi Vidi modern -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=900&q=80&fm=jpg"
+            alt="Contemporary architect-designed home with large windows"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$675,000</div>
+          <p class="work-meta"><strong>Quidi Vidi</strong> · Modern detached</p>
+          <div class="work-stats">
+            <span>3 bed</span><span>3 bath</span><span>2,400 sqft</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 5 — Goulds mid-century -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?w=900&q=80&fm=jpg"
+            alt="Mid-century bungalow with character details and mature trees"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$445,000</div>
+          <p class="work-meta"><strong>Goulds</strong> · Mid-century bungalow</p>
+          <div class="work-stats">
+            <span>3 bed</span><span>2 bath</span><span>1,650 sqft</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 6 — Pouch Cove coastal -->
+      <article class="work-card">
+        <div class="work-photo">
+          <span class="work-badge">Example</span>
+          <img
+            src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=900&q=80&fm=jpg"
+            alt="Coastal cottage with ocean views, typical of the Avalon shoreline"
+            loading="lazy"
+            width="900" height="563">
+        </div>
+        <div class="work-body">
+          <div class="work-price">$355,000</div>
+          <p class="work-meta"><strong>Pouch Cove</strong> · Coastal cottage</p>
+          <div class="work-stats">
+            <span>2 bed</span><span>1 bath</span><span>950 sqft</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- HONESTY CALLOUT — make absolutely sure no visitor mistakes the
+         cards above for real closed transactions. Remove this only once
+         every card is a real sold listing with client permission. -->
+    <div class="work-disclaimer">
+      <span>These are illustrative examples representing the kinds of properties I work with most often. Real recent sales will appear here as my book grows — and only with client permission.</span>
+    </div>
   </div>
 </section>
 
