@@ -1938,6 +1938,68 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #48 — `phase4/site-cinematic-hero`
+
+**Closes:** Maxwell's 2026-05-18 feedback after viewing his deployed site side-by-side with crea.ca (Canadian Real Estate Association homepage): "take inspiration from CREA, look at their website." The CREA site uses a **full-bleed dark hero with real photography + bright white headline overlay**. Maxwell's site was a plain warm-white background with centered text — readable but unmemorable.
+
+**What changed:**
+
+The landing-page hero went from "documentation page header" to "marketing statement."
+
+| Before | After |
+|---|---|
+| Warm-white background, dark ink text | **Deep-navy gradient with subtle coral glow**, white text |
+| 96px top / 80px bottom padding | 120px top / 96px bottom, `min-height: 540px` |
+| Hero feels integrated with the page below | Hero is a **distinct dark slab**, then the page transitions to warm-white below — dramatic visual break |
+| H1 in `--ink` (dark navy on light) | H1 in pure white at `clamp(40px, 7vw, 76px)` |
+| Accent words in `--brand-dark` (deeper coral) | Accent words in `--brand-light` (lighter coral) — readable on dark |
+| Eyebrow in muted slate | Eyebrow in coral-light with a coral hairline divider |
+| Lead paragraph in `--ink-2` (slate gray) | Lead paragraph in `rgba(255,255,255,0.82)` (semi-transparent white) |
+| Primary CTA: dark-ink button | Primary CTA: **coral button**, pops on the dark background |
+| Outline CTA: dark border, dark text | Outline CTA: **white-on-transparent with white border** |
+
+A subtle radial coral glow sits behind the headline (`::before` pseudo-element with a 10% coral radial-gradient at 30% / 40% of the hero box) — adds depth without competing with the headline. Almost imperceptible but stops the gradient reading as a flat colour swatch.
+
+**The rest of the page is unchanged.** Below the hero, the "How I help" section starts on warm-white and the page continues as before. Just the hero transforms.
+
+**Approach:**
+
+1. **Gradient first, photo later.** I shipped the dark gradient version *now* so the visual upgrade is live tonight. When Maxwell has a real Newfoundland photo (or stock asset from Unsplash), it drops into `/site/img/hero.jpg` and a one-line CSS swap layers it under the dark overlay — same visual treatment, more depth. `site/img/HERO_PHOTO_TODO.md` documents the exact steps and photo specs.
+
+2. **Why deep navy + coral, not pure black + bright accent.** Pure black + neon accent reads as "tech startup." Deep navy + muted coral reads as "trusted local professional." The gradient endpoints (`#0A1220 → #16263D → #0F1A2A`) drift slightly across the hero so the colour isn't perfectly flat — keeps the dark feeling intentional, not lazy.
+
+3. **No background image dependency.** The CSS gradient renders in every browser at zero asset cost. When the real photo arrives, the gradient becomes the overlay (with alpha) over the photo, so the headline contrast is preserved automatically.
+
+4. **CTA styling scoped to `.hero`** (`.hero .btn-primary` / `.hero .btn-outline`) so the same button classes get the dark-background treatment in the hero but keep their light-background treatment everywhere else on the page. No global button override.
+
+5. **Mobile scaling.** Hero `min-height` shrinks from 540px → 460px at `<720px` and to 420px at `<420px`. Headline `clamp` retains the dramatic scale on small phones (`clamp(32px, 9.5vw, 42px)`).
+
+6. **All other audit work preserved.** Mobile typography (PR #45), full-width buttons on phones (PR #45), trust cards (PR #44), specialty service strip (PR #46), polish batch (PR #47), Modern Canadian palette (PR #38) — every previous change stays intact.
+
+**Files changed:**
+- `site/css/site.css` — `.hero` block rewritten end-to-end (~70 lines). Other selectors untouched.
+- `site/img/HERO_PHOTO_TODO.md` — new file. Instructions for Maxwell to add a real photo when ready, including photo specs, composition guidance, free-source recommendations, and the exact CSS swap.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS changes).
+- Manual (post-deploy):
+  - Visit `https://maxwell-dealflow.vercel.app/site/` — hero is a dark navy slab with white headline. Resembles CREA's hero in scale and weight.
+  - Scroll down — page transitions back to warm-white as before. "How I help" / "What you can expect" sections look identical to PR #44/46 state.
+  - Mobile (390px) — hero still impactful, headline 2-3 lines, CTAs stack to full-width (carryover from PR #45).
+  - The about page (`/site/about/`) is unchanged — only the landing hero is dark.
+
+**Visual change:** The landing-page hero is now the dramatic statement Maxwell asked for. Everything else stays.
+
+**Risk if rolled back:** Reverts to the plain warm-white hero from PR #38. No data risk.
+
+**Performance impact:** Negligible. CSS gradient renders instantly, no extra HTTP requests until/unless Maxwell adds a hero photo.
+
+**Open: hero photo upgrade.**
+Documented in `site/img/HERO_PHOTO_TODO.md`. When Maxwell drops a JPG at `/site/img/hero.jpg`, a 2-minute CSS swap layers the photo under the dark overlay — same look, more depth.
+
+---
+
 ## PR #47 — `phase4/site-polish-batch`
 
 **Closes:** Three small audit items in one batch:
