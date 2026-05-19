@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home Seller Prep Checklist — Newfoundland | Maxwell Midodzi REALTOR®</title>
+<meta name="description" content="A printable step-by-step checklist for selling your home in St. John's and the Avalon. Covers pre-listing prep, pricing, marketing, offers, conditions, and closing — with realistic Newfoundland timelines.">
+
+<!-- Canonical -->
+<link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/seller-checklist/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="Home Seller Prep Checklist — Newfoundland">
+<meta property="og:description" content="Printable step-by-step checklist for selling your home in St. John's, NL.">
+<meta property="og:image" content="/icons/icon-512.png">
+<meta property="og:url" content="https://maxwell-dealflow.vercel.app/site/seller-checklist/">
+
+<!-- Favicons -->
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<!-- Shared site stylesheet -->
+<link rel="stylesheet" href="/site/css/site.css">
+
+<style>
+  /* Reuses the .cl-* checklist styles from buyer-checklist/index.html — duplicated
+     here inline so each checklist page is self-contained. If we keep building
+     more checklists, extract to shared site.css. */
+  .cl-hero {
+    padding: 72px 0 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cl-hero h1 {
+    font-size: clamp(32px, 4.5vw, 46px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    margin-bottom: 14px;
+    color: var(--ink);
+    max-width: 22ch;
+    text-wrap: balance;
+  }
+  .cl-hero p.lead {
+    font-size: clamp(16px, 2vw, 18px);
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin-bottom: 24px;
+  }
+  .cl-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .cl-actions .btn { padding: 11px 18px; font-size: 14px; }
+
+  .cl-body {
+    padding: 48px 0 80px;
+    max-width: 760px;
+  }
+  .cl-phase { margin-bottom: 44px; }
+  .cl-phase-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .cl-phase-num {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--brand-dark);
+    text-transform: uppercase;
+  }
+  .cl-phase h2 {
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    line-height: 1.2;
+    flex: 1;
+  }
+  .cl-phase-time {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-bottom: 18px;
+    font-weight: 500;
+  }
+  .cl-items {
+    list-style: none;
+    padding: 0; margin: 0;
+    border-top: 1px solid var(--border);
+  }
+  .cl-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .cl-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--r-xs);
+    background: var(--bg);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: border-color 120ms, background 120ms;
+    position: relative;
+  }
+  .cl-item input[type="checkbox"]:hover { border-color: var(--brand); }
+  .cl-item input[type="checkbox"]:checked {
+    background: var(--brand);
+    border-color: var(--brand);
+  }
+  .cl-item input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cl-item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .cl-item label {
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .cl-item label strong { color: var(--ink); font-weight: 600; }
+  .cl-item input[type="checkbox"]:checked + label {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-4);
+  }
+
+  .cl-final {
+    background: var(--bg-2);
+    border-radius: var(--r-md);
+    padding: 28px;
+    margin-top: 40px;
+    border: 1px solid var(--border);
+  }
+  .cl-final h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .cl-final p {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .cl-hero { padding: 56px 0 24px; }
+    .cl-body { padding: 36px 0 56px; }
+    .cl-phase h2 { font-size: 20px; }
+    .cl-item label { font-size: 15px; }
+  }
+
+  @media print {
+    .nav, footer, .cl-actions, .cl-final { display: none !important; }
+    body { background: #ffffff; color: #000000; }
+    .cl-hero { padding: 0 0 16px; border-bottom: 1px solid #000; }
+    .cl-body { padding: 16px 0; max-width: none; }
+    .cl-phase { page-break-inside: avoid; margin-bottom: 28px; }
+    .cl-item input[type="checkbox"] {
+      border-color: #000;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    .cl-item label { color: #000; }
+    a { color: #000; text-decoration: none; }
+    .cl-phase-num { color: #000; }
+  }
+
+  .print-btn {
+    background: var(--ink); color: var(--bg);
+    border: 1px solid var(--ink);
+  }
+  .print-btn:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/site/">
+      <span class="nav-avatar" aria-hidden="true">MD</span>
+      <span>Maxwell Midodzi</span>
+    </a>
+    <div class="nav-links" aria-label="Site sections">
+      <a href="/site/about/">About</a>
+      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
+    </div>
+    <a class="nav-cta" href="/intake.html">Start with a free intake</a>
+  </div>
+</nav>
+
+<!-- ── HERO ───────────────────────────────────────────────────────── -->
+<section class="cl-hero">
+  <div class="wrap">
+    <span class="eyebrow accent"><span class="eyebrow-divider"></span>For sellers</span>
+    <h1>Home seller prep checklist — Newfoundland.</h1>
+    <p class="lead">
+      A working checklist for preparing and selling your home in St. John's or the Avalon. Tick items as you complete them. Print this page for a paper copy. Most sellers spend 2–6 weeks on prep before the listing goes live.
+    </p>
+    <div class="cl-actions">
+      <button class="btn print-btn" onclick="window.print()">🖨 Print this checklist</button>
+      <a class="btn btn-outline" href="/site/process/#selling">See the full process →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── CHECKLIST BODY ─────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <div class="cl-body">
+
+      <!-- PHASE 1 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 1</span>
+        </div>
+        <h2>Before you list</h2>
+        <p class="cl-phase-time">4–12 weeks before listing day</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p1-1">
+            <label for="p1-1"><strong>Clarify your "why."</strong> Relocating? Upsizing? Downsizing? Cashing out for retirement? Your timeline and price flexibility depend on the answer.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-2">
+            <label for="p1-2"><strong>Decide what you'll do next.</strong> Buying another home in NL? Renting first? Leaving the province? Knowing your next move tells us whether you can be flexible on closing dates.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-3">
+            <label for="p1-3"><strong>Pull together property documents:</strong> deed, recent property-tax bill, survey if you have one, mortgage statement, oil-tank certificate (if applicable), permits for any major work done.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-4">
+            <label for="p1-4"><strong>Talk to your lender</strong> about any pre-payment penalty if you'll be discharging your mortgage early. The number can be material; better to know before pricing.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p1-5">
+            <label for="p1-5"><strong>Walk your property with a REALTOR®.</strong> A free consultation that flags what works in your favour and what might give buyers pause. No pricing commitments yet.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 2</span>
+        </div>
+        <h2>Pricing your home</h2>
+        <p class="cl-phase-time">2–4 days after the property tour</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p2-1">
+            <label for="p2-1"><strong>Get a Comparable Market Analysis (CMA).</strong> Your REALTOR® pulls every recent sale in your area and adjusts for your home's features. Should give you a conservative / most likely / ambitious range with reasoning.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-2">
+            <label for="p2-2"><strong>Cross-check with current active listings.</strong> What's your home competing against right now? Walk through a couple as a "buyer."</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-3">
+            <label for="p2-3"><strong>Decide your strategy:</strong> Price at market and expect competitive offers? Price slightly below to drive multiple offers? Price ambitiously and adjust if needed? Each has tradeoffs.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p2-4">
+            <label for="p2-4"><strong>Sign the listing agreement.</strong> Locks in price, commission, listing duration (usually 90–120 days in NL), and what's included with the property.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 3</span>
+        </div>
+        <h2>Pre-listing prep</h2>
+        <p class="cl-phase-time">1–4 weeks · the highest-ROI work you'll do</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p3-1">
+            <label for="p3-1"><strong>Declutter everywhere.</strong> Closets, garage, basement. Buyers open closets — overflowing storage signals "no room here for my stuff." Rent a storage unit if needed.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-2">
+            <label for="p3-2"><strong>Depersonalize.</strong> Family photos, kids' artwork, religious or political items, anything overly specific to you. Buyers need to imagine themselves in the space.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-3">
+            <label for="p3-3"><strong>Deep clean.</strong> Floors, baseboards, inside windows, oven, fridge, bathroom grout. Consider hiring this out — speak to a few cleaning companies for quotes.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-4">
+            <label for="p3-4"><strong>Fix the small, visible stuff.</strong> Burnt-out bulbs, loose handles, sticky doors, chipped paint, leaky faucets. None of these are dealbreakers individually; the cumulative impression matters.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-5">
+            <label for="p3-5"><strong>Touch up paint</strong> in any room with bold or unusual colours. Neutral palette (warm white, pale grey, soft beige) helps buyers see the canvas, not your taste.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-6">
+            <label for="p3-6"><strong>Boost curb appeal.</strong> Mow, weed, sweep the walk, plant something seasonal in pots by the door, power-wash the siding if needed. First impressions are often made before the buyer is inside.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-7">
+            <label for="p3-7"><strong>Stage thoughtfully (optional but recommended).</strong> Light staging — furniture rearrangement, accent pillows, fresh towels — often returns several times its cost. Full professional staging makes more sense in higher price bands.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p3-8">
+            <label for="p3-8"><strong>Schedule professional photography</strong> after prep is done. Photos drive online clicks; clicks drive showings; showings drive offers.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 4</span>
+        </div>
+        <h2>Listing goes live</h2>
+        <p class="cl-phase-time">Day 0 of marketing · the first 7–14 days are the most important</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p4-1">
+            <label for="p4-1"><strong>Review the listing copy + photos</strong> before they go live. You should be proud of the listing — if you wouldn't click on it as a buyer, neither will buyers.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-2">
+            <label for="p4-2"><strong>Set up showing availability.</strong> Most buyers want evening or weekend showings. The easier you make it to view, the more offers you'll see.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-3">
+            <label for="p4-3"><strong>Prepare a "showing-ready" routine.</strong> Beds made, dishes away, lights on, music low, animals out of the house. Aim for 15 minutes from "showing requested" to "ready."</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p4-4">
+            <label for="p4-4"><strong>Decide your open-house strategy.</strong> Saturday-afternoon open houses can drive serious buyers; they can also bring nosy neighbours. Your REALTOR® will recommend based on your area.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 5 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 5</span>
+        </div>
+        <h2>Receiving offers</h2>
+        <p class="cl-phase-time">Days to weeks, depending on price + market</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p5-1">
+            <label for="p5-1"><strong>Get feedback after every showing.</strong> Your REALTOR® collects it from the buyer's agent. After 5–10 showings without an offer, the feedback usually tells you whether the issue is price, presentation, or location.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-2">
+            <label for="p5-2"><strong>Evaluate offers on more than just price.</strong> Closing date flexibility, deposit size, conditions (financing, inspection), and buyer strength all matter. A $5K-lower offer with no conditions is often better than the top number with risky conditions.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-3">
+            <label for="p5-3"><strong>Decide: accept, counter, or reject.</strong> Your REALTOR® walks you through the math and strategy. Multiple-offer situations need a separate playbook — discuss before you're in one.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p5-4">
+            <label for="p5-4"><strong>Once accepted, the buyer has a defined conditions period</strong> (usually 5–14 days) to finalize financing, do an inspection, and have their lawyer review. You can't accept a backup offer during this period unless your original agreement allows it.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 6 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 6</span>
+        </div>
+        <h2>Buyer's due diligence (conditions period)</h2>
+        <p class="cl-phase-time">5–14 days from accepted offer</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p6-1">
+            <label for="p6-1"><strong>Cooperate with the home inspection.</strong> Be out of the house during the appointment (typically 2–4 hours). Make sure utilities are on and all areas are accessible.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-2">
+            <label for="p6-2"><strong>Expect a possible renegotiation</strong> if the inspection turns up something significant. Be prepared with your decision framework: fix, credit the buyer, hold price, or let the deal fall through.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-3">
+            <label for="p6-3"><strong>Send any paperwork your lawyer requests.</strong> They'll need the mortgage discharge statement, property-tax certificate, condo docs (if applicable), and survey/title information.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p6-4">
+            <label for="p6-4"><strong>Don't celebrate yet.</strong> The sale isn't final until conditions are removed. Most do; some don't. Your REALTOR® will let you know the moment conditions are confirmed removed in writing.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 7 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 7</span>
+        </div>
+        <h2>Between firm sale and closing</h2>
+        <p class="cl-phase-time">3–8 weeks of mostly logistics</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p7-1">
+            <label for="p7-1"><strong>Book your movers</strong> early. End-of-month dates fill up fast; book 4–6 weeks ahead if possible.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-2">
+            <label for="p7-2"><strong>Schedule utility transfers</strong> — electricity, oil/gas, water, internet, mail forwarding. Cancel or transfer them for the day after closing.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-3">
+            <label for="p7-3"><strong>Keep the home maintained.</strong> If your offer mentions a final walkthrough condition (most do), the property should be in the same shape on closing day as it was the day they signed. Don't damage walls during moving.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-4">
+            <label for="p7-4"><strong>Leave appliance manuals, warranty cards, and any spare keys/garage remotes</strong> on the kitchen counter for the new owner. Small touches that earn referrals.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p7-5">
+            <label for="p7-5"><strong>Clear out completely.</strong> Buyers in NL typically expect a "broom-clean" condition. Don't leave junk for the next owner — it sours the handover.</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- PHASE 8 -->
+      <div class="cl-phase">
+        <div class="cl-phase-head">
+          <span class="cl-phase-num">Phase 8</span>
+        </div>
+        <h2>Closing day</h2>
+        <p class="cl-phase-time">The day the property changes hands</p>
+        <ul class="cl-items">
+          <li class="cl-item">
+            <input type="checkbox" id="p8-1">
+            <label for="p8-1"><strong>Sign final documents</strong> at your lawyer's office (or remotely if your lawyer allows). Usually 30 minutes.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p8-2">
+            <label for="p8-2"><strong>Hand over keys, garage remotes, mailbox keys, and any access codes</strong> to your REALTOR® or directly to the buyer (depending on what's been arranged).</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p8-3">
+            <label for="p8-3"><strong>Your lawyer transfers funds</strong> to your bank account (minus commission, mortgage payoff, legal fees, and any adjustments). Usually same-day or next business day.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p8-4">
+            <label for="p8-4"><strong>Save the closing paperwork</strong> for your records — tax implications, future capital-gains tracking, and any disputes down the road. Keep it at least 7 years.</label>
+          </li>
+          <li class="cl-item">
+            <input type="checkbox" id="p8-5">
+            <label for="p8-5"><strong>You're done.</strong> 🎉</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Final CTA box (hidden in print) -->
+      <div class="cl-final">
+        <h3>Thinking about selling but not sure where to start?</h3>
+        <p>The first conversation is free — we walk through your property and goals, and you get a sense of what's realistic in this market. No commitment.</p>
+        <a class="btn btn-primary" href="/seller-intake.html">Start the seller intake →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
+<footer>
+  <div class="wrap">
+    <div>
+      <h4>Maxwell Delali Midodzi</h4>
+      <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
+      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+    </div>
+    <div>
+      <h4>Get in touch</h4>
+      <ul>
+        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+        <li style="color:var(--ink-3);margin-top:8px;">Typically responds within 48 business hours.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>More</h4>
+      <ul>
+        <li><a href="/site/">Home</a></li>
+        <li><a href="/site/about/">About Maxwell</a></li>
+        <li><a href="/site/process/">How it works</a></li>
+        <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
+        <li><a href="/site/privacy/">Privacy</a></li>
+        <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bot">
+    <span>© <span id="yr"></span> Maxwell Midodzi · REALTOR® at eXp Realty.</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
