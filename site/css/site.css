@@ -190,6 +190,13 @@ a:hover { text-decoration-color: var(--brand); }
   .hero { padding: 56px 0 48px; }
   .hero h1 { max-width: none; }
 }
+/* PR #45: very small phones — keep the hero headline confident but stop it
+   exploding into 5+ lines on 360px-wide screens (older iPhones in portrait). */
+@media (max-width: 420px) {
+  .hero { padding: 44px 0 36px; }
+  .hero h1 { font-size: clamp(30px, 9vw, 38px); letter-spacing: -0.025em; line-height: 1.08; }
+  .hero p.lead { font-size: 16px; line-height: 1.55; }
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────── */
 .btn {
@@ -215,6 +222,16 @@ a:hover { text-decoration-color: var(--brand); }
   border-color: var(--border-strong);
 }
 .btn-outline:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* PR #45: full-width buttons on phones. Tappier, more confident, prevents
+   thumb-stretching to a small button island on the right edge of the screen.
+   Hero + CTA-band buttons collapse to stacked block-level buttons under
+   520px. Desktop layout untouched. */
+@media (max-width: 520px) {
+  .hero-ctas { gap: 10px; }
+  .hero-ctas .btn { display: flex; justify-content: center; width: 100%; }
+  .btn { padding: 14px 20px; font-size: 15px; }
+}
 
 /* ── Section base ────────────────────────────────────────────────── */
 section { padding: 96px 0; }
@@ -245,6 +262,18 @@ section.tight { padding: 72px 0; }
   section.tight { padding: 48px 0; }
   .section-sub { margin-bottom: 36px; }
 }
+/* PR #45: small phones — section title shrinks a little more so the
+   page doesn't feel "shouty" on a 360-400px viewport. */
+@media (max-width: 420px) {
+  section { padding: 44px 0; }
+  .section-title { font-size: clamp(24px, 6.5vw, 30px); }
+  .section-sub { font-size: 15.5px; margin-bottom: 28px; }
+}
+
+/* PR #45: defensive — long unbroken strings (URLs, hyphenated last
+   names, foreign email addresses without natural break points) should
+   wrap on mobile rather than overflow horizontally. */
+h1, h2, h3, h4, p, li, a, td { overflow-wrap: break-word; word-wrap: break-word; }
 
 /* ── Cards ───────────────────────────────────────────────────────── */
 .card {

@@ -1938,6 +1938,52 @@ Rich-text editor input (HTML from a contenteditable) is detected and trusted as-
 
 ---
 
+## PR #45 — `phase4/site-mobile-typography`
+
+**Closes:** `SITE_AUDIT.md` §P1.7 — mobile typography polish. Most of Maxwell's prospective clients will visit the site on a phone (Newfoundland real-estate buyers skew toward text-message-and-phone-call workflows, not desktop browsing). Audit flagged: hero headline could break into 4+ lines on narrow phones, lead paragraph lacked mobile sizing, no defensive word-wrap for long client names / URLs.
+
+**Four small fixes, all `<420px` viewport scoped:**
+
+1. **Hero h1 fluid clamp tightened on very small phones.** Was `clamp(40px, 7vw, 72px)` — on a 360px iPhone, that's 40px (the clamp minimum), often wrapping a 6-word headline into 4 lines. New rule for `<420px`: `clamp(30px, 9vw, 38px)` with tighter `letter-spacing` and `line-height: 1.08`. Two-line headline on 360px screens, looks confident not crowded.
+
+2. **Section titles also shrink on small phones.** Was `clamp(28px, 3.6vw, 40px)` everywhere; new `<420px` rule shrinks to `clamp(24px, 6.5vw, 30px)`. Page stops feeling "shouty" on a 360-400px viewport.
+
+3. **Full-width buttons on phones (`<520px`).** Hero CTAs and CTA-band buttons collapse to stacked block-level `width: 100%` buttons. Standard mobile pattern (Apple HIG, Google Material). Tappier, more confident, no more "tiny island on the right edge of the screen" effect.
+
+4. **Defensive `overflow-wrap: break-word` on all text-bearing elements.** A long unbroken string (URL, hyphenated last name, email without a natural break point, MLS number) now wraps to the next line instead of overflowing horizontally and triggering a page-wide scroll on mobile.
+
+Section padding also reduced from 56px to 44px on `<420px` so the page doesn't feel like it's all whitespace on tiny screens.
+
+**Why this matters:** the audit's §P1.7 wasn't about a specific broken page — it was about *cumulative polish*. Each small phone-sized friction (orphan word, overflowing email address, button too far to thumb-stretch) makes the visitor lose 1% confidence. Adding the four fixes above brings the mobile experience to the same level as the desktop. Lighthouse's mobile-friendly test should now pass cleanly.
+
+**Files changed:**
+- `site/css/site.css` — four new media-query blocks, ~30 lines of CSS additions, zero changes to existing rules.
+- `REFINEMENT_LOG.md` — this entry.
+
+**Verification:**
+- `npm test` — 34/34 vitest pass (no JS / no helper changes).
+- Manual (post-deploy): resize the browser to 390px wide (DevTools mobile emulation, iPhone 12 Pro). Visit `/site/`. Headline fits in 2 lines, not 4-5. Buttons go full-width. Section padding feels right, not over-roomy.
+- iOS Safari (real device): same checks. Note `text-wrap: balance` already shipped in PR #38; Safari 17+ supports it natively.
+
+**Visual change:** Mostly invisible on desktop. On phones: tighter, more confident, more "designed-for-phone" feel.
+
+**Risk if rolled back:** Reverts to slightly oversized hero text on small phones + skinny side-margin buttons.
+
+**Performance impact:** None — pure CSS, no new selectors that affect render performance.
+
+**Still on SITE_AUDIT.md backlog after this PR:**
+- §P0.1 photo, §P0.2 verifiable identity, §P0.4 brokerage compliance — Maxwell-input gated.
+- §P0.3 SLA promises — mostly closed; still need to soften one line on landing page.
+- §P1.4 about narrative — Maxwell-input gated.
+- §P1.5 about-page card-style differentiation — cosmetic, low priority.
+- §P1.6 social proof / testimonials — needs migration + consent flow.
+- §P1.8 + §P2.6 marketing favicon + OG image — needs design work.
+- §P2.4 404 page — 15-min follow-up, easy.
+- §P2.5 Plausible analytics — Maxwell signup gated.
+- §P2.7 Pipeline filter chip rearrange — Maxwell screenshot gated.
+
+---
+
 ## PR #44 — `phase4/site-trust-cards-specific`
 
 **Closes:** `SITE_AUDIT.md` §P1.3 — generic adjective trust cards ("Local-first / Honest / Modern + responsive") replaced with three specific behaviors prospective clients can verify on a first call.
