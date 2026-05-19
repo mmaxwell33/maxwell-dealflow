@@ -26,6 +26,13 @@
     <priority>0.8</priority>
   </url>
 
+  <!-- Process page — long-form buyer/seller walkthrough, high-value SEO surface -->
+  <url>
+    <loc>https://maxwell-dealflow.vercel.app/site/process/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
   <!-- Buyer intake form — direct-entry conversion target -->
   <url>
     <loc>https://maxwell-dealflow.vercel.app/intake.html</loc>
