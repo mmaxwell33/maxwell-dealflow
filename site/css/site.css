@@ -179,15 +179,17 @@ a:hover { text-decoration-color: var(--brand); }
   overflow: hidden;
 }
 
-/* ── HERO CAROUSEL — auto-rotating lifestyle photos ───────────────────
-   6 images stacked with absolute positioning. CSS keyframes crossfade
-   between them on a 30-second cycle (5s per image, with overlap so the
-   transition is a smooth fade, not a hard cut).
-   Zero JS — just opacity animations with staggered delays. */
+/* ── HERO CAROUSEL — JS-driven, random order, Ken Burns zoom ──────────
+   Images are stacked with absolute positioning. The JS at the bottom of
+   the page injects them, shuffles their order randomly on each load,
+   then crossfades through them every 8 seconds. The .active class is
+   added to whichever image should currently be visible.
+   The Ken Burns slow zoom is a CSS animation triggered on .active. */
 .hero-carousel {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
 }
 .hero-carousel img {
   position: absolute;
@@ -196,28 +198,45 @@ a:hover { text-decoration-color: var(--brand); }
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  animation: heroCrossfade 30s infinite;
-  will-change: opacity;
+  transform: scale(1.04);
+  transition: opacity 1500ms ease;
+  will-change: opacity, transform;
 }
-.hero-carousel img:nth-child(1) { animation-delay:  0s; opacity: 1; }
-.hero-carousel img:nth-child(2) { animation-delay:  5s; }
-.hero-carousel img:nth-child(3) { animation-delay: 10s; }
-.hero-carousel img:nth-child(4) { animation-delay: 15s; }
-.hero-carousel img:nth-child(5) { animation-delay: 20s; }
-.hero-carousel img:nth-child(6) { animation-delay: 25s; }
-
-@keyframes heroCrossfade {
-  0%   { opacity: 0; }
-  3%   { opacity: 1; }
-  17%  { opacity: 1; }
-  20%  { opacity: 0; }
-  100% { opacity: 0; }
+.hero-carousel img.active {
+  opacity: 1;
+  animation: kenBurns 10s ease-out forwards;
+}
+@keyframes kenBurns {
+  from { transform: scale(1.0); }
+  to   { transform: scale(1.08); }
 }
 
-/* Respect reduced-motion preference — hold the first image static. */
+/* Respect reduced-motion preference — hold first image static, no zoom. */
 @media (prefers-reduced-motion: reduce) {
-  .hero-carousel img { animation: none; opacity: 0; }
-  .hero-carousel img:nth-child(1) { opacity: 1; }
+  .hero-carousel img.active { animation: none; transform: none; }
+}
+
+/* ── HERO TEXT — staggered fade-up animation ──────────────────────────
+   Each element with .anim-fade-up animates in from 16px below with a
+   delay set via inline --anim-delay style. The H1 spans display as
+   block so they animate as separate lines. */
+.anim-fade-up {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: animFadeUp 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--anim-delay, 0s);
+}
+.hero h1 .anim-fade-up { display: block; }
+
+@keyframes animFadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Dark gradient overlay on top of the carousel — keeps the white H1 and
