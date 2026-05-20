@@ -32,14 +32,23 @@
      start their TLS handshake before the parser hits the image tags.
      Saves ~150ms on first paint for image-heavy pages. -->
 <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
 
-<!-- Preload the hero background image. It's a CSS background (not an <img>),
-     so the browser doesn't discover it until CSSOM parses — preload tells
-     it to start fetching immediately. Critical above-the-fold asset. -->
+<!-- Leaflet.js — interactive map library. Loaded from unpkg CDN (free,
+     ~40KB CSS + ~150KB JS). Used by the "Explore the map" section.
+     Pinned to 1.9.4 so a future Leaflet release can't surprise us. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<!-- Preload the first hero carousel image. It's an <img> already but
+     preloading nudges it ahead of other images in the parser queue.
+     fetchpriority="high" also bumps it on the network stack — this is
+     the LCP candidate, so anything we can do to surface it faster
+     improves perceived load. -->
 <link
   rel="preload"
   as="image"
-  href="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+  href="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
   fetchpriority="high">
 
 <!-- Schema.org RealEstateAgent JSON-LD for Google -->
@@ -248,6 +257,86 @@
     flex-shrink: 0;
   }
 
+  /* ── INTERACTIVE MAP section ──────────────────────────────────────
+     The map frame breaks out of the .wrap container for a full-bleed
+     edge-to-edge feel. The map itself is a fixed-height container that
+     Leaflet hydrates into. Custom popup styling overrides Leaflet's
+     defaults so it matches the brand. */
+  .map-section { padding-bottom: 64px; }
+  .map-frame {
+    width: 100%;
+    margin: 40px 0 28px;
+    overflow: hidden;
+    background: var(--bg-2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  #avalon-map {
+    width: 100%;
+    height: clamp(420px, 55vh, 560px);
+    background: var(--bg-3);
+    position: relative;
+    z-index: 0;
+  }
+  .map-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--ink-3);
+    font-size: 14px;
+    background: var(--bg-2);
+    z-index: 1;
+    pointer-events: none;
+  }
+  /* Override Leaflet's default popup to use brand styling */
+  #avalon-map .leaflet-popup-content-wrapper {
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 4px;
+  }
+  #avalon-map .leaflet-popup-content {
+    margin: 12px 16px;
+    font-family: inherit;
+    line-height: 1.45;
+  }
+  #avalon-map .pop-badge {
+    display: inline-block;
+    background: var(--ink);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  #avalon-map .pop-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.015em;
+    margin-bottom: 2px;
+  }
+  #avalon-map .pop-area {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-bottom: 4px;
+  }
+  #avalon-map .pop-details {
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+  .map-disclaimer {
+    font-size: 13px;
+    color: var(--ink-3);
+    line-height: 1.55;
+    max-width: 70ch;
+    margin-top: 4px;
+  }
+
   /* ── AREAS SERVED banner ──────────────────────────────────────────
      A full-bleed cinematic photo above the neighbourhood cards. Breaks
      out of the .wrap container to span edge-to-edge. */
@@ -290,8 +379,35 @@
   </div>
 </nav>
 
-<!-- ── HERO ───────────────────────────────────────────────────────── -->
+<!-- ── HERO ─────────────────────────────────────────────────────────
+     Auto-rotating carousel of 6 lifestyle photos crossfading every 5
+     seconds. First image is eager + fetchpriority="high" (above the
+     fold, LCP candidate); the other 5 are lazy + async so they don't
+     block first paint. All Unsplash hotlinks (free, no API key).
+     To swap photos: replace the URLs below with other Unsplash images
+     of similar mood (homes, keys, families, NL coast). -->
 <section class="hero">
+  <div class="hero-carousel" aria-hidden="true">
+    <!-- 1: Colourful row houses — jellybean St. John's vibe -->
+    <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" decoding="async" fetchpriority="high" width="2000" height="1333">
+    <!-- 2: Handing over keys — the moment that matters -->
+    <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" loading="lazy" decoding="async" width="2000" height="1333">
+    <!-- 3: Modern home exterior — clean lines, curb appeal -->
+    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" loading="lazy" decoding="async" width="2000" height="1333">
+    <!-- 4: Warm interior — that "I could live here" feeling -->
+    <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" loading="lazy" decoding="async" width="2000" height="1333">
+    <!-- 5: Couple in front of a new home — celebration -->
+    <img src="https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" loading="lazy" decoding="async" width="2000" height="1333">
+    <!-- 6: Newfoundland coastline — local sense of place -->
+    <img src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" loading="lazy" decoding="async" width="2000" height="1333">
+  </div>
+  <div class="hero-overlay" aria-hidden="true"></div>
   <div class="wrap">
     <span class="eyebrow accent"><span class="eyebrow-divider"></span>Maxwell Midodzi · REALTOR® at eXp Realty</span>
     <h1>St. John's real estate, <span class="accent">handled with the patience it deserves.</span></h1>
@@ -470,6 +586,34 @@
     </div>
 
     <p style="margin-top:28px;font-size:14px;color:var(--ink-3);">Looking somewhere not on this list? Ask — most of the Avalon is in reach.</p>
+  </div>
+</section>
+
+<!-- ── INTERACTIVE MAP ─────────────────────────────────────────────────
+     Leaflet.js + OpenStreetMap tiles (both free, no API key). Visitors
+     can pan, zoom, and click pins to see example property details across
+     the St. John's metro area. Every pin is labelled "Example" because
+     these are illustrative, not actual closed transactions — same honesty
+     rule as the Recent Work section. To eventually swap in real listings,
+     edit the SOLD_LOCATIONS array in the init script below.
+     The map is centered on downtown St. John's [47.5615, -52.7126] at
+     zoom level 11 so the whole Avalon Peninsula is visible. -->
+<section class="alt map-section">
+  <div class="wrap">
+    <div class="eyebrow">Sample activity around the Avalon</div>
+    <h2 class="section-title">Explore the map.</h2>
+    <p class="section-sub">Pan, zoom, and click any pin to see an example of the kind of property I help clients with in that neighbourhood. Drag the map around the Avalon to get a feel for the area.</p>
+  </div>
+  <div class="map-frame">
+    <div id="avalon-map" role="application" aria-label="Interactive map of St. John's and the Avalon Peninsula with sample property markers">
+      <!-- Loading state — replaced once Leaflet initialises -->
+      <div class="map-loading" aria-hidden="true">
+        <span>Loading map…</span>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="map-disclaimer">Pins are illustrative examples of the property types and price ranges I work with — not specific closed transactions. Real recent sales will replace these as my book grows.</p>
   </div>
 </section>
 
@@ -699,14 +843,19 @@
   </div>
 </section>
 
-<!-- ── CTA BAND ───────────────────────────────────────────────────── -->
+<!-- ── CTA BAND ─────────────────────────────────────────────────────
+     Intentionally NOT another buyer/seller split — those buttons already
+     live in the hero. Down here we give visitors two *different* low-
+     commitment actions: book a quick call, or email directly. Reduces
+     CTA fatigue and gives people who weren't ready to click "intake" at
+     the top a softer way in. -->
 <div class="cta-band">
   <div class="wrap">
-    <h2>Take the first step.</h2>
-    <p>Five-minute intake form, mobile-friendly. I'll be in touch with a real plan — not a sales pitch.</p>
+    <h2>Still deciding? Let's just talk.</h2>
+    <p>Whether you're months away from listing or just kicking tires, a 15-minute conversation costs nothing and usually saves a lot of guesswork. No pitch, no follow-up sales emails.</p>
     <div class="hero-ctas" style="justify-content:center;">
-      <a class="btn btn-primary" href="/intake.html">Buyer intake</a>
-      <a class="btn btn-outline" href="/seller-intake.html">Seller intake</a>
+      <a class="btn btn-primary" href="mailto:Maxwell.Midodzi@exprealty.com?subject=15-minute%20intro%20call">📞 Book a 15-minute call</a>
+      <a class="btn btn-outline" href="mailto:Maxwell.Midodzi@exprealty.com">✉️ Email Maxwell directly</a>
     </div>
   </div>
 </div>
@@ -747,6 +896,82 @@
 <script>
   // Tiny inline script — just the year. No framework, no dependencies.
   document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+<!-- ── Leaflet + map init ──────────────────────────────────────────────
+     Loaded after page render so the carousel and hero paint first.
+     `defer` keeps the script async without blocking parsing. -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script defer>
+  // Wait for both DOMContentLoaded (so #avalon-map exists) AND Leaflet's
+  // global L (so the library is ready). Both fire before window.load.
+  window.addEventListener('DOMContentLoaded', function () {
+    // Sample property pins. Each represents a TYPE of home and PRICE RANGE
+    // I help clients with in that neighbourhood — not actual closed deals.
+    // The "Example" badge in the popup makes that explicit. To swap in
+    // real sold listings later, replace these objects (and drop the badge
+    // for any that become real transactions).
+    var SAMPLE_PINS = [
+      { coords: [47.5615, -52.7126], area: "Downtown St. John's", price: "$385,000", details: "2 bed · 1 bath · 1,100 sqft · Heritage row house" },
+      { coords: [47.5712, -52.6886], area: "Quidi Vidi",          price: "$675,000", details: "3 bed · 3 bath · 2,400 sqft · Modern detached" },
+      { coords: [47.5167, -52.7833], area: "Mount Pearl",         price: "$295,000", details: "3 bed · 1 bath · 1,250 sqft · First-time starter" },
+      { coords: [47.5333, -52.8833], area: "Paradise",            price: "$525,000", details: "4 bed · 2 bath · 2,100 sqft · Family home" },
+      { coords: [47.4500, -52.7833], area: "Goulds",              price: "$445,000", details: "3 bed · 2 bath · 1,650 sqft · Mid-century bungalow" },
+      { coords: [47.7667, -52.7667], area: "Pouch Cove",          price: "$355,000", details: "2 bed · 1 bath · 950 sqft · Coastal cottage" }
+    ];
+
+    // Defer until Leaflet is loaded. The defer attribute on the script
+    // tag means it loads after parsing, but L may not be ready yet at
+    // DOMContentLoaded if the CDN is slow — poll briefly.
+    function init() {
+      if (typeof L === 'undefined') { return setTimeout(init, 50); }
+      var container = document.getElementById('avalon-map');
+      if (!container) return;
+
+      // Center on St. John's, zoom 11 shows the whole Avalon Peninsula
+      var map = L.map('avalon-map', {
+        center: [47.56, -52.78],
+        zoom: 11,
+        scrollWheelZoom: false, // prevent hijacking page scroll
+        zoomControl: true
+      });
+
+      // OpenStreetMap tiles — free, no API key, ~250x250 px each
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 18
+      }).addTo(map);
+
+      // Brand-coloured circle markers. Custom DivIcon would look more polished
+      // but Leaflet's circleMarker is zero-deps and matches the rest of the
+      // brand language without raster assets.
+      SAMPLE_PINS.forEach(function (pin) {
+        var marker = L.circleMarker(pin.coords, {
+          radius: 11,
+          weight: 2,
+          color: '#ffffff',
+          fillColor: '#CC785C',
+          fillOpacity: 0.95
+        }).addTo(map);
+
+        marker.bindPopup(
+          '<div class="pop-badge">Example</div>' +
+          '<div class="pop-price">' + pin.price + '</div>' +
+          '<div class="pop-area">' + pin.area + '</div>' +
+          '<div class="pop-details">' + pin.details + '</div>'
+        );
+      });
+
+      // Once Leaflet has hydrated, drop the loading shim
+      var loading = container.querySelector('.map-loading');
+      if (loading) loading.remove();
+
+      // Re-enable scroll zoom only after the user clicks the map first.
+      // Stops the map from grabbing scroll while the user is reading.
+      map.once('click', function () { map.scrollWheelZoom.enable(); });
+    }
+    init();
+  });
 </script>
 
 </body>

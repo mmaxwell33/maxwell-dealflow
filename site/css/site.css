@@ -170,32 +170,70 @@ a:hover { text-decoration-color: var(--brand); }
    I swap the `background` line to `url(...) center/cover`. */
 .hero {
   position: relative;
-  /* Hero background — Unsplash hotlink of a Newfoundland-style coastal landscape.
-     Dark gradient overlay on top of the photo so the white text/CTA stays readable
-     regardless of which part of the photo loads first. The .hero::before adds
-     additional warm radial light to tie the photo into the brand palette.
-     To swap photos: replace the URL below with another Unsplash image
-     (https://unsplash.com/s/photos/newfoundland or /coastal). */
-  background:
-    linear-gradient(135deg, rgba(10,18,32,0.78) 0%, rgba(15,26,42,0.72) 60%, rgba(10,18,32,0.85) 100%),
-    url('https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop') center/cover no-repeat;
-  background-color: #0A1220; /* fallback while image loads */
+  background-color: #0A1220; /* fallback colour beneath the carousel */
   color: #ffffff;
   padding: 120px 0 96px;
-  min-height: 540px;
+  min-height: 600px;
   display: flex;
   align-items: center;
   overflow: hidden;
 }
-/* Subtle texture overlay — barely visible, adds depth so the gradient
-   doesn't read as a flat colour swatch. */
-.hero::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 30% 40%, rgba(204,120,92,0.10) 0%, transparent 50%);
+
+/* ── HERO CAROUSEL — auto-rotating lifestyle photos ───────────────────
+   6 images stacked with absolute positioning. CSS keyframes crossfade
+   between them on a 30-second cycle (5s per image, with overlap so the
+   transition is a smooth fade, not a hard cut).
+   Zero JS — just opacity animations with staggered delays. */
+.hero-carousel {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.hero-carousel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  animation: heroCrossfade 30s infinite;
+  will-change: opacity;
+}
+.hero-carousel img:nth-child(1) { animation-delay:  0s; opacity: 1; }
+.hero-carousel img:nth-child(2) { animation-delay:  5s; }
+.hero-carousel img:nth-child(3) { animation-delay: 10s; }
+.hero-carousel img:nth-child(4) { animation-delay: 15s; }
+.hero-carousel img:nth-child(5) { animation-delay: 20s; }
+.hero-carousel img:nth-child(6) { animation-delay: 25s; }
+
+@keyframes heroCrossfade {
+  0%   { opacity: 0; }
+  3%   { opacity: 1; }
+  17%  { opacity: 1; }
+  20%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Respect reduced-motion preference — hold the first image static. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel img { animation: none; opacity: 0; }
+  .hero-carousel img:nth-child(1) { opacity: 1; }
+}
+
+/* Dark gradient overlay on top of the carousel — keeps the white H1 and
+   CTAs readable no matter which photo is showing. Warm radial tint at the
+   bottom-left ties it to the brand palette. */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(135deg, rgba(10,18,32,0.70) 0%, rgba(15,26,42,0.58) 50%, rgba(10,18,32,0.78) 100%),
+    radial-gradient(circle at 20% 80%, rgba(204,120,92,0.15) 0%, transparent 55%);
   pointer-events: none;
 }
-.hero .wrap { position: relative; z-index: 1; }
+
+.hero .wrap { position: relative; z-index: 2; }
 .hero .eyebrow {
   color: var(--brand-light);
   margin-bottom: 22px;
