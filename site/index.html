@@ -33,12 +33,14 @@
      Saves ~150ms on first paint for image-heavy pages. -->
 <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
-<link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
 
-<!-- Leaflet.js — interactive map library. Loaded from unpkg CDN (free,
-     ~40KB CSS + ~150KB JS). Used by the "Explore the map" section.
-     Pinned to 1.9.4 so a future Leaflet release can't surprise us. -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- MapLibre GL JS — open-source 3D vector map renderer (Mapbox GL fork).
+     Used by the "Explore the map" section to render an interactive 3D
+     map with tilt, rotation, and 3D building extrusions.
+     Tiles come from OpenFreeMap (donation-funded, no API key, no signup,
+     no rate limits). Pinned to 4.x major; minor updates auto-pulled. -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 
 <!-- Preload the first hero carousel image. It's an <img> already but
      preloading nudges it ahead of other images in the parser queue.
@@ -289,16 +291,19 @@
     z-index: 1;
     pointer-events: none;
   }
-  /* Override Leaflet's default popup to use brand styling */
-  #avalon-map .leaflet-popup-content-wrapper {
+  /* Override MapLibre's default popup to use brand styling */
+  #avalon-map .maplibregl-popup-content {
     border-radius: var(--r-md);
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    padding: 4px;
-  }
-  #avalon-map .leaflet-popup-content {
-    margin: 12px 16px;
+    padding: 14px 18px;
     font-family: inherit;
     line-height: 1.45;
+  }
+  #avalon-map .maplibregl-ctrl-attrib.maplibregl-compact {
+    background: rgba(255,255,255,0.85);
+  }
+  .map-loading {
+    transition: opacity 400ms ease;
   }
   #avalon-map .pop-badge {
     display: inline-block;
@@ -380,41 +385,34 @@
 </nav>
 
 <!-- ── HERO ─────────────────────────────────────────────────────────
-     Auto-rotating carousel of 6 lifestyle photos crossfading every 5
-     seconds. First image is eager + fetchpriority="high" (above the
-     fold, LCP candidate); the other 5 are lazy + async so they don't
-     block first paint. All Unsplash hotlinks (free, no API key).
-     To swap photos: replace the URLs below with other Unsplash images
-     of similar mood (homes, keys, families, NL coast). -->
+     JS-driven carousel. We hardcode the first image so something
+     renders before JS runs (graceful no-JS fallback). The init script
+     at the bottom of the page injects 9 more images, shuffles the
+     order randomly, and crossfades them every 8 seconds with a slow
+     Ken Burns zoom for cinematic feel.
+
+     Why JS not CSS: CSS can't randomise order and can't react to image
+     load events. With JS we can preload, shuffle, and adapt.
+
+     Content vector: each image represents a moment in the home journey
+     — curb appeal, handover, family, celebration, sense of place. -->
 <section class="hero">
   <div class="hero-carousel" aria-hidden="true">
-    <!-- 1: Colourful row houses — jellybean St. John's vibe -->
-    <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+    <img class="active"
+         src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
          alt="" decoding="async" fetchpriority="high" width="2000" height="1333">
-    <!-- 2: Handing over keys — the moment that matters -->
-    <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" loading="lazy" decoding="async" width="2000" height="1333">
-    <!-- 3: Modern home exterior — clean lines, curb appeal -->
-    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" loading="lazy" decoding="async" width="2000" height="1333">
-    <!-- 4: Warm interior — that "I could live here" feeling -->
-    <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" loading="lazy" decoding="async" width="2000" height="1333">
-    <!-- 5: Couple in front of a new home — celebration -->
-    <img src="https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" loading="lazy" decoding="async" width="2000" height="1333">
-    <!-- 6: Newfoundland coastline — local sense of place -->
-    <img src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" loading="lazy" decoding="async" width="2000" height="1333">
   </div>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="wrap">
-    <span class="eyebrow accent"><span class="eyebrow-divider"></span>Maxwell Midodzi · REALTOR® at eXp Realty</span>
-    <h1>St. John's real estate, <span class="accent">handled with the patience it deserves.</span></h1>
-    <p class="lead">
+    <span class="eyebrow accent anim-fade-up" style="--anim-delay:0.1s"><span class="eyebrow-divider"></span>Maxwell Midodzi · REALTOR® at eXp Realty</span>
+    <h1>
+      <span class="anim-fade-up" style="--anim-delay:0.35s">St. John's real estate,</span>
+      <span class="anim-fade-up accent" style="--anim-delay:0.7s">handled with the patience it deserves.</span>
+    </h1>
+    <p class="lead anim-fade-up" style="--anim-delay:1.1s">
       I'm Maxwell. I help first-time buyers, growing families, and homeowners ready to list make confident decisions about the biggest purchase of their lives — without the pressure or runaround you'd expect.
     </p>
-    <div class="hero-ctas">
+    <div class="hero-ctas anim-fade-up" style="--anim-delay:1.5s">
       <a class="btn btn-primary" href="/intake.html">I'm looking to buy</a>
       <a class="btn btn-outline" href="/seller-intake.html">I'm looking to sell</a>
     </div>
@@ -898,77 +896,173 @@
   document.getElementById('yr').textContent = new Date().getFullYear();
 </script>
 
-<!-- ── Leaflet + map init ──────────────────────────────────────────────
-     Loaded after page render so the carousel and hero paint first.
-     `defer` keeps the script async without blocking parsing. -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-<script defer>
-  // Wait for both DOMContentLoaded (so #avalon-map exists) AND Leaflet's
-  // global L (so the library is ready). Both fire before window.load.
-  window.addEventListener('DOMContentLoaded', function () {
-    // Sample property pins. Each represents a TYPE of home and PRICE RANGE
-    // I help clients with in that neighbourhood — not actual closed deals.
-    // The "Example" badge in the popup makes that explicit. To swap in
-    // real sold listings later, replace these objects (and drop the badge
-    // for any that become real transactions).
-    var SAMPLE_PINS = [
-      { coords: [47.5615, -52.7126], area: "Downtown St. John's", price: "$385,000", details: "2 bed · 1 bath · 1,100 sqft · Heritage row house" },
-      { coords: [47.5712, -52.6886], area: "Quidi Vidi",          price: "$675,000", details: "3 bed · 3 bath · 2,400 sqft · Modern detached" },
-      { coords: [47.5167, -52.7833], area: "Mount Pearl",         price: "$295,000", details: "3 bed · 1 bath · 1,250 sqft · First-time starter" },
-      { coords: [47.5333, -52.8833], area: "Paradise",            price: "$525,000", details: "4 bed · 2 bath · 2,100 sqft · Family home" },
-      { coords: [47.4500, -52.7833], area: "Goulds",              price: "$445,000", details: "3 bed · 2 bath · 1,650 sqft · Mid-century bungalow" },
-      { coords: [47.7667, -52.7667], area: "Pouch Cove",          price: "$355,000", details: "2 bed · 1 bath · 950 sqft · Coastal cottage" }
+<!-- ── Hero carousel — random order, 8s pace, Ken Burns zoom ──────────
+     Pool of 10 lifestyle photos. We pick a random shuffle at load time
+     so every visitor sees a different sequence. The first image is
+     already in the DOM (hardcoded HTML, eager + fetchpriority high) —
+     this script appends the other 9 lazily and runs the slideshow. -->
+<script>
+  (function () {
+    var POOL = [
+      // First image is the same as the hardcoded one — but the shuffle
+      // means it might not appear first, and that's fine.
+      'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // colourful row houses
+      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=2000&q=80&fm=jpg&auto=format&fit=crop',  // handing over keys
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2000&q=80&fm=jpg&auto=format&fit=crop', // modern home exterior
+      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=2000&q=80&fm=jpg&auto=format&fit=crop', // warm interior
+      'https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple in front of house
+      'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop', // NL coastline
+      'https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=2000&q=80&fm=jpg&auto=format&fit=crop', // kitchen interior
+      'https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // sold sign / family
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=2000&q=80&fm=jpg&auto=format&fit=crop', // heritage home
+      'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=2000&q=80&fm=jpg&auto=format&fit=crop'  // family home exterior
     ];
 
-    // Defer until Leaflet is loaded. The defer attribute on the script
-    // tag means it loads after parsing, but L may not be ready yet at
-    // DOMContentLoaded if the CDN is slow — poll briefly.
+    var carousel = document.querySelector('.hero-carousel');
+    if (!carousel) return;
+
+    // Fisher-Yates shuffle for true random order
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    var order = shuffle(POOL);
+
+    // Inject 9 more <img>s. We don't replace the hardcoded first image
+    // because it's already loaded and rendering — keeps LCP fast.
+    // We add it last in the rotation list so the user sees a NEW image
+    // when the slideshow starts moving.
+    for (var i = 0; i < order.length; i++) {
+      // Skip injecting if this URL matches the hardcoded image already in DOM
+      if (order[i] === 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop') continue;
+      var img = document.createElement('img');
+      img.src = order[i];
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.width = 2000;
+      img.height = 1333;
+      img.alt = '';
+      carousel.appendChild(img);
+    }
+
+    // Slideshow — 8s per slide, 1.5s crossfade (handled by CSS transition)
+    var slides = carousel.querySelectorAll('img');
+    if (slides.length < 2) return;
+
+    var current = 0;
+    setInterval(function () {
+      slides[current].classList.remove('active');
+      current = (current + 1) % slides.length;
+      slides[current].classList.add('active');
+    }, 8000);
+  }());
+</script>
+
+<!-- ── MapLibre GL + 3D map init ────────────────────────────────────────
+     Replaces the previous Leaflet 2D map with a 3D vector map. Visitors
+     can tilt (right-click drag, or two-finger pinch on touch), rotate,
+     and zoom into 3D building extrusions over St. John's.
+     Tile source is OpenFreeMap (free, no API key required). -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
+<script defer>
+  window.addEventListener('DOMContentLoaded', function () {
+    // Sample property pins. NOTE: MapLibre uses [lng, lat] coordinate
+    // order (GeoJSON convention) — opposite of Leaflet's [lat, lng].
+    // The "Example" badge in each popup keeps the honesty marker visible.
+    var SAMPLE_PINS = [
+      { lngLat: [-52.7126, 47.5615], area: "Downtown St. John's", price: "$385,000", details: "2 bed · 1 bath · 1,100 sqft · Heritage row house" },
+      { lngLat: [-52.6886, 47.5712], area: "Quidi Vidi",          price: "$675,000", details: "3 bed · 3 bath · 2,400 sqft · Modern detached" },
+      { lngLat: [-52.7833, 47.5167], area: "Mount Pearl",         price: "$295,000", details: "3 bed · 1 bath · 1,250 sqft · First-time starter" },
+      { lngLat: [-52.8833, 47.5333], area: "Paradise",            price: "$525,000", details: "4 bed · 2 bath · 2,100 sqft · Family home" },
+      { lngLat: [-52.7833, 47.4500], area: "Goulds",              price: "$445,000", details: "3 bed · 2 bath · 1,650 sqft · Mid-century bungalow" },
+      { lngLat: [-52.7667, 47.7667], area: "Pouch Cove",          price: "$355,000", details: "2 bed · 1 bath · 950 sqft · Coastal cottage" }
+    ];
+
     function init() {
-      if (typeof L === 'undefined') { return setTimeout(init, 50); }
+      if (typeof maplibregl === 'undefined') { return setTimeout(init, 50); }
       var container = document.getElementById('avalon-map');
       if (!container) return;
 
-      // Center on St. John's, zoom 11 shows the whole Avalon Peninsula
-      var map = L.map('avalon-map', {
-        center: [47.56, -52.78],
+      var map = new maplibregl.Map({
+        container: 'avalon-map',
+        // OpenFreeMap "Liberty" style — clean, light, supports 3D buildings
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [-52.78, 47.56], // St. John's metro [lng, lat]
         zoom: 11,
-        scrollWheelZoom: false, // prevent hijacking page scroll
-        zoomControl: true
+        pitch: 55,    // 3D tilt — 0 = top-down, 60 = max useful
+        bearing: -17, // slight rotation so the map doesn't feel flat-square
+        attributionControl: { compact: true }
       });
 
-      // OpenStreetMap tiles — free, no API key, ~250x250 px each
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 18
-      }).addTo(map);
+      // UI controls — zoom, compass (click to reset bearing), fullscreen
+      map.addControl(new maplibregl.NavigationControl({
+        showCompass: true,
+        showZoom: true,
+        visualizePitch: true
+      }), 'top-left');
+      map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
-      // Brand-coloured circle markers. Custom DivIcon would look more polished
-      // but Leaflet's circleMarker is zero-deps and matches the rest of the
-      // brand language without raster assets.
-      SAMPLE_PINS.forEach(function (pin) {
-        var marker = L.circleMarker(pin.coords, {
-          radius: 11,
-          weight: 2,
-          color: '#ffffff',
-          fillColor: '#CC785C',
-          fillOpacity: 0.95
-        }).addTo(map);
+      // Disable scroll-wheel zoom by default — prevents the map from
+      // hijacking page scroll. Re-enable after first click so power
+      // users still get it.
+      map.scrollZoom.disable();
+      map.once('click', function () { map.scrollZoom.enable(); });
 
-        marker.bindPopup(
-          '<div class="pop-badge">Example</div>' +
-          '<div class="pop-price">' + pin.price + '</div>' +
-          '<div class="pop-area">' + pin.area + '</div>' +
-          '<div class="pop-details">' + pin.details + '</div>'
-        );
+      map.on('load', function () {
+        // Add 3D building extrusions over the existing OSM building layer.
+        // Buildings appear at zoom >= 14 (more detail required for them
+        // to be worth rendering). Brand-tinted with subtle transparency
+        // so they look architectural, not garish.
+        var firstSymbolId;
+        var layers = map.getStyle().layers || [];
+        for (var i = 0; i < layers.length; i++) {
+          if (layers[i].type === 'symbol') { firstSymbolId = layers[i].id; break; }
+        }
+
+        if (map.getSource('openmaptiles')) {
+          map.addLayer({
+            id: '3d-buildings',
+            source: 'openmaptiles',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 13,
+            paint: {
+              'fill-extrusion-color': [
+                'interpolate', ['linear'], ['get', 'render_height'],
+                0, '#d9c5b6',
+                50, '#CC785C',
+                200, '#A85636'
+              ],
+              'fill-extrusion-height': ['get', 'render_height'],
+              'fill-extrusion-base': ['get', 'render_min_height'],
+              'fill-extrusion-opacity': 0.85
+            }
+          }, firstSymbolId);
+        }
+
+        // Drop the markers. Each is a brand-coloured pin with a popup.
+        SAMPLE_PINS.forEach(function (pin) {
+          var popupHTML =
+            '<div class="pop-badge">Example</div>' +
+            '<div class="pop-price">' + pin.price + '</div>' +
+            '<div class="pop-area">' + pin.area + '</div>' +
+            '<div class="pop-details">' + pin.details + '</div>';
+
+          new maplibregl.Marker({ color: '#CC785C' })
+            .setLngLat(pin.lngLat)
+            .setPopup(new maplibregl.Popup({ offset: 25, closeButton: true }).setHTML(popupHTML))
+            .addTo(map);
+        });
+
+        // Hide the loading shim now that the map is fully rendered
+        var loading = container.querySelector('.map-loading');
+        if (loading) loading.style.opacity = '0';
       });
-
-      // Once Leaflet has hydrated, drop the loading shim
-      var loading = container.querySelector('.map-loading');
-      if (loading) loading.remove();
-
-      // Re-enable scroll zoom only after the user clicks the map first.
-      // Stops the map from grabbing scroll while the user is reading.
-      map.once('click', function () { map.scrollWheelZoom.enable(); });
     }
     init();
   });
