@@ -2316,12 +2316,19 @@ const Pipeline = {
         .eq('property_address', d.property_address)
         .in('status', ['Pending']);
     }
-    // Update client stage to Closed and auto-archive (can be reactivated later via Restore)
+    // Update client stage to Closed. We intentionally do NOT auto-archive
+    // anymore (the previous behaviour set status: 'Archived' here). Closed
+    // clients now stay visible in the Active list with a "Closed" badge,
+    // matching how Gilbert appeared in Maxwell's testing — and matching the
+    // user expectation that "a client's stage should show updated
+    // everywhere". Maxwell can manually archive any closed client later via
+    // the existing Archive button on the client card if he wants to clean
+    // up his Active list. James Owusu (already auto-archived under the old
+    // behaviour) can be brought back via the existing Restore button in
+    // the Archive tab.
     if (d?.client_id) {
       await db.from('clients').update({
         stage: 'Closed',
-        status: 'Archived',
-        archived_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }).eq('id', d.client_id);
     }
@@ -2370,9 +2377,14 @@ const Pipeline = {
         .eq('property_address', d.property_address)
         .in('status', ['Pending', 'Closed']);
     }
-    // Reset client stage back to Searching so they stay active in the pipeline
+    // Mark client stage as Fell Through (was: silently reset to 'Searching',
+    // which lost the signal that a deal had fallen through). Keeping the
+    // accurate stage means the Clients list shows the outcome too, in line
+    // with Maxwell's rule that "every stage of a client should show updated
+    // everywhere". If Maxwell wants to re-engage the client later, he can
+    // edit the stage manually back to Searching.
     if (d?.client_id) {
-      await db.from('clients').update({ stage: 'Searching', updated_at: new Date().toISOString() }).eq('id', d.client_id);
+      await db.from('clients').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', d.client_id);
     }
     // Queue encouraging email to client
     if (typeof Notify !== "undefined" && d?.client_email) {
@@ -2590,8 +2602,18 @@ const Pipeline = {
     const stage = document.getElementById('ps-stage').value;
     await db.from('pipeline').update({ stage, updated_at: new Date().toISOString() }).eq('id', id);
     const d = Pipeline.all.find(x => x.id === id);
-    // Keep client stage in sync with pipeline stage
-    const clientStageMap = { Accepted: 'Accepted', Conditions: 'Conditions', Closing: 'Closing', Closed: 'Closing' };
+    // Keep client stage in sync with pipeline stage. The map used to have
+    // Closed → 'Closing' (typo) and no Fell Through entry, which left
+    // clients.stage out of sync whenever a deal was finalised through this
+    // dropdown rather than the dedicated closeDeal()/markFellThrough()
+    // buttons. Identity-mapped so each pipeline stage maps to itself.
+    const clientStageMap = {
+      Accepted:       'Accepted',
+      Conditions:     'Conditions',
+      Closing:        'Closing',
+      Closed:         'Closed',
+      'Fell Through': 'Fell Through'
+    };
     const clientStage = clientStageMap[stage];
     if (d?.client_id && clientStage) {
       await db.from('clients').update({ stage: clientStage, updated_at: new Date().toISOString() }).eq('id', d.client_id);
