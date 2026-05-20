@@ -104,10 +104,66 @@ a:hover { text-decoration-color: var(--brand); }
   opacity: 0.6;
 }
 
+/* Anchor links land below the sticky nav, not behind it. */
+html { scroll-padding-top: 110px; }
+
+/* ── Top utility bar ──────────────────────────────────────────────────
+   Thin secondary nav above the main nav — affiliation on the left,
+   secondary links + brokerage info on the right. Inspired by CREA.ca's
+   tabbed top bar. Sits ABOVE the sticky main nav so it scrolls away
+   while the main nav stays pinned. */
+.utility-bar {
+  background: var(--ink);
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.utility-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 9px 24px;
+  gap: 16px;
+}
+.utility-affiliation {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--brand-light);
+  font-size: 11px;
+}
+.utility-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.utility-links a {
+  color: rgba(255,255,255,0.78);
+  text-decoration: none;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  transition: color 120ms;
+}
+.utility-links a:hover { color: #fff; }
+.utility-links .utility-login {
+  color: var(--brand-light);
+  font-weight: 700;
+}
+@media (max-width: 720px) {
+  .utility-inner { padding: 8px 16px; }
+  .utility-affiliation { display: none; }
+  .utility-links { gap: 14px; width: 100%; justify-content: flex-end; }
+}
+
 /* ── Top nav ─────────────────────────────────────────────────────── */
 .nav {
-  position: sticky; top: 0; z-index: 10;
-  background: rgba(250, 250, 247, 0.85);
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(250, 250, 247, 0.95);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-bottom: 1px solid var(--border);
@@ -115,7 +171,7 @@ a:hover { text-decoration-color: var(--brand); }
 .nav-inner {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 24px;
-  max-width: 1080px; margin: 0 auto;
+  max-width: 1280px; margin: 0 auto;
   gap: 24px;
 }
 .nav-brand {
@@ -127,40 +183,193 @@ a:hover { text-decoration-color: var(--brand); }
 }
 .nav-brand:hover { text-decoration: none; }
 .nav-avatar {
-  width: 30px; height: 30px;
+  width: 32px; height: 32px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--brand);
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--bg); font-weight: 700; font-size: 12px;
+  color: #ffffff; font-weight: 700; font-size: 12px;
   letter-spacing: 0.02em;
 }
-.nav-links {
-  display: flex; align-items: center; gap: 28px;
+
+/* ── MEGA-MENU ────────────────────────────────────────────────────────
+   CREA-inspired dropdown navigation. Each top-level item is a button
+   that reveals a full-width panel below the nav containing categorised
+   sub-links and an optional featured promotional card on the right.
+
+   Interaction: opens on hover for mouse, on click for touch (via JS).
+   Closes when pointer leaves the menu OR when focus moves elsewhere. */
+.mega-menu {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
 }
-.nav-links a {
+.mega-item {
+  position: relative;
+}
+.mega-trigger,
+.mega-direct {
+  background: none;
+  border: 0;
+  font-family: inherit;
   color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  padding: 10px 16px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 120ms, background 120ms;
+}
+.mega-trigger::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 180ms;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+.mega-trigger:hover,
+.mega-direct:hover,
+.mega-item:focus-within .mega-trigger,
+.mega-item.is-open .mega-trigger {
+  color: var(--ink);
+  background: var(--bg-2);
+}
+.mega-item.is-open .mega-trigger::after {
+  transform: rotate(-135deg) translate(-2px, 2px);
+}
+.mega-item.is-open .mega-trigger {
+  color: var(--brand-dark);
+}
+
+.mega-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  width: max-content;
+  min-width: 560px;
+  max-width: 760px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+  padding: 28px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+.mega-item:hover .mega-panel,
+.mega-item:focus-within .mega-panel,
+.mega-item.is-open .mega-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s;
+}
+/* Invisible bridge so the panel doesn't close when moving from trigger to panel */
+.mega-item:hover .mega-trigger::before,
+.mega-item:focus-within .mega-trigger::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  height: 16px;
+}
+
+.mega-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 220px;
+  gap: 28px;
+}
+.mega-col-title {
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: var(--brand-dark);
+  margin-bottom: 12px;
+}
+.mega-col a {
+  display: block;
+  padding: 7px 0;
+  color: var(--ink);
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
+  letter-spacing: -0.005em;
   transition: color 120ms;
+  line-height: 1.4;
 }
-.nav-links a:hover { color: var(--ink); text-decoration: none; }
-.nav-links a.active { color: var(--ink); font-weight: 600; }
+.mega-col a:hover {
+  color: var(--brand-dark);
+}
+
+.mega-feature {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: linear-gradient(160deg, var(--brand) 0%, var(--brand-dark) 100%);
+  color: #ffffff !important;
+  border-radius: var(--r-md);
+  padding: 20px;
+  text-decoration: none;
+  min-height: 160px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.mega-feature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(204, 120, 92, 0.35);
+  text-decoration: none;
+}
+.mega-feature-eyebrow {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  color: rgba(255,255,255,0.75);
+}
+.mega-feature-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  margin-top: 8px;
+}
+.mega-feature-cta {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 14px;
+  letter-spacing: 0.02em;
+}
+
 .nav-cta {
   display: inline-flex; align-items: center; gap: 8px;
-  background: var(--ink); color: var(--bg) !important;
-  padding: 10px 18px;
+  background: var(--brand); color: #ffffff !important;
+  padding: 11px 20px;
   border-radius: var(--r-sm);
-  font-weight: 600; font-size: 13.5px;
+  font-weight: 700; font-size: 13.5px;
   text-decoration: none;
   transition: background 120ms, transform 80ms;
   letter-spacing: -0.005em;
+  border: 1px solid var(--brand);
 }
-.nav-cta:hover { background: var(--brand-dark); text-decoration: none; }
+.nav-cta:hover { background: var(--brand-dark); border-color: var(--brand-dark); text-decoration: none; }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  .mega-menu { display: none; }
   .nav-inner { padding: 14px 18px; gap: 12px; }
-  .nav-links { display: none; }
 }
 
 /* ── Hero — cinematic dark variant (PR #48) ──────────────────────────

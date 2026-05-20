@@ -160,18 +160,112 @@
 </head>
 <body>
 
-<!-- ── NAV ────────────────────────────────────────────────────────── -->
-<nav class="nav" aria-label="Primary">
+<!-- ── TOP UTILITY BAR ───────────────────────────────────────────── -->
+<div class="utility-bar" aria-label="Secondary">
+  <div class="utility-inner">
+    <span class="utility-affiliation">eXp Realty · St. John's, NL · Avalon Peninsula</span>
+    <div class="utility-links">
+      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
+      <a href="/site/resources/">Resources</a>
+      <a href="/site/privacy/">Privacy</a>
+      <a href="/" class="utility-login">Agent Login</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN NAV with mega-menu dropdowns ─────────────────────────── -->
+<nav class="nav nav-mega" aria-label="Primary">
   <div class="nav-inner">
     <a class="nav-brand" href="/site/">
       <span class="nav-avatar" aria-hidden="true">MD</span>
       <span>Maxwell Midodzi</span>
     </a>
-    <div class="nav-links" aria-label="Site sections">
-      <a href="/site/about/">About</a>
-      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
-    </div>
-    <a class="nav-cta" href="/intake.html">Start with a free intake</a>
+
+    <ul class="mega-menu" role="menubar">
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Buying</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">Get started</div>
+              <a href="/site/buyer-checklist/">First-time buyer checklist</a>
+              <a href="/site/process/#buying">How buying works</a>
+              <a href="/intake.html">Buyer intake form</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Learn more</div>
+              <a href="/site/process/">Full process walkthrough</a>
+              <a href="/site/resources/">Mortgage tools &amp; calculators</a>
+              <a href="/site/#faq">Buyer FAQ</a>
+            </div>
+            <a class="mega-feature" href="/intake.html">
+              <div>
+                <div class="mega-feature-eyebrow">Free, 5 minutes</div>
+                <div class="mega-feature-title">Start a buyer intake</div>
+              </div>
+              <div class="mega-feature-cta">Begin now &rarr;</div>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Selling</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">Get started</div>
+              <a href="/site/seller-checklist/">Home prep checklist</a>
+              <a href="/site/process/#selling">How selling works</a>
+              <a href="/seller-intake.html">Seller intake form</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Learn more</div>
+              <a href="/site/process/">Full process walkthrough</a>
+              <a href="/site/#faq">Pricing &amp; commission FAQ</a>
+              <a href="/site/resources/">Seller resources</a>
+            </div>
+            <a class="mega-feature" href="/seller-intake.html">
+              <div>
+                <div class="mega-feature-eyebrow">Free home valuation</div>
+                <div class="mega-feature-title">Start a seller intake</div>
+              </div>
+              <div class="mega-feature-cta">Begin now &rarr;</div>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Explore</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">The Avalon</div>
+              <a href="/site/#areas">Areas served</a>
+              <a href="/site/#map">Interactive map</a>
+              <a href="/site/#recent">Recent work</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Resources</div>
+              <a href="/site/resources/">All resources</a>
+              <a href="/site/process/">The process</a>
+              <a href="/site/#faq">Frequently asked questions</a>
+            </div>
+            <a class="mega-feature" href="/site/#map">
+              <div>
+                <div class="mega-feature-eyebrow">Interactive</div>
+                <div class="mega-feature-title">Explore the 3D map of the Avalon</div>
+              </div>
+              <div class="mega-feature-cta">Open the map &rarr;</div>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li class="mega-item" role="none">
+        <a class="mega-direct" href="/site/about/">About</a>
+      </li>
+    </ul>
+
+    <a class="nav-cta" href="/intake.html">Get started</a>
   </div>
 </nav>
 
@@ -406,9 +500,8 @@
   </div>
 </footer>
 
-<script>
-  document.getElementById('yr').textContent = new Date().getFullYear();
-</script>
 
+<!-- Shared site JS — footer year + mega-menu support -->
+<script src="/site/js/site.js" defer></script>
 </body>
 </html>
