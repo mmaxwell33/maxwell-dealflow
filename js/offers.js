@@ -508,6 +508,16 @@ const Pipeline = {
     Pipeline.render(Pipeline.all);
   },
 
+  // Reset all three filter axes to 'all' in one call. Used by the empty-state
+  // "Clear all filters" button when a filter combination yields zero results.
+  clearFilters() {
+    Pipeline.currentFilter      = 'all';
+    Pipeline.currentSideFilter  = 'all';
+    Pipeline.currentStageFilter = 'all';
+    Pipeline._savePrefs();
+    Pipeline.render(Pipeline.all);
+  },
+
   // PR #28: persist all three filters in localStorage so the view survives reload.
   // Key: mdf-pipeline-view = {"type":"all","side":"all","stage":"all"}
   _loadPrefs() {
@@ -1468,10 +1478,22 @@ const Pipeline = {
 
     // Shared chip helper — uses the .cl-chip class introduced in PR #26 for
     // visual consistency with the Clients list. aria-pressed reflects active.
+    //
+    // Chips with count 0 render as disabled (greyed out, no onclick) UNLESS
+    // they're the 'all' chip OR the currently-active chip. The 'all' chip
+    // is always clickable because it's the user's escape hatch; the active
+    // chip stays clickable so the user can see what's selected and toggle
+    // it off. This prevents the "I clicked Sellers and now see nothing"
+    // confusion that prompted PR #57's empty-state fix.
     const chipBtn = (key, label, count, handler) => {
-      const pressed = key === handler.current ? 'true' : 'false';
-      return `<button class="cl-chip" aria-pressed="${pressed}"
-        onclick="Pipeline.${handler.fn}('${App.escAttr(key)}')">
+      const isActive = key === handler.current;
+      const pressed = isActive ? 'true' : 'false';
+      const isDisabled = count === 0 && key !== 'all' && !isActive;
+      const handlerAttr = isDisabled
+        ? ''
+        : `onclick="Pipeline.${handler.fn}('${App.escAttr(key)}')"`;
+      const disabledAttr = isDisabled ? 'aria-disabled="true" tabindex="-1"' : '';
+      return `<button class="cl-chip" aria-pressed="${pressed}" ${disabledAttr} ${handlerAttr}>
         ${label}<span class="cl-chip-count">${count}</span>
       </button>`;
     };
@@ -1657,7 +1679,28 @@ const Pipeline = {
 
     let html = filterRow;
     if (!filtered.length) {
-      html += `<div style="text-align:center;padding:30px 20px;color:var(--text2);font-size:14px;">No deals match this filter.</div>`;
+      // Identify which active filter has zero matches — that's the blocker.
+      // We check in order: stage → side → type (matches the visual top-down
+      // chip row order so the messaging matches what the user is looking at).
+      const sideLabel = { buy: '🏠 Buyers', sell: '🏷 Sellers' };
+      const typeLabel = { existing_home: '🏠 Existing Home', new_build: '🏗️ New Build' };
+      let blocker = null;
+      if (stageFilter !== 'all' && stageCounts[stageFilter] === 0) {
+        blocker = stageFilter;                    // e.g. "Conditions"
+      } else if (sideFilter !== 'all' && sideCounts[sideFilter] === 0) {
+        blocker = sideLabel[sideFilter];          // e.g. "🏷 Sellers"
+      } else if (filter !== 'all' && counts[filter] === 0) {
+        blocker = typeLabel[filter];              // e.g. "🏗️ New Build"
+      }
+      const msg = blocker
+        ? `You have no <strong>${blocker}</strong> deals in the pipeline right now.`
+        : `No deals match the current filter combination.`;
+      html += `
+        <div class="pl-empty">
+          <div class="pl-empty-icon" aria-hidden="true">📭</div>
+          <div class="pl-empty-msg">${msg}</div>
+          <button class="pl-empty-clear" onclick="Pipeline.clearFilters()">Clear all filters</button>
+        </div>`;
     } else {
       // PR #28: Active Deals now gets a header matching the Closed / Fell Through ones.
       if (active.length) {
