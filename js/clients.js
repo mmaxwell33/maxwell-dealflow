@@ -9,7 +9,11 @@ const Clients = {
   // Read at load time, written on every chip click or sort change.
   filter: 'All',
   sort: 'name',
-  _STAGE_ORDER: ['Searching', 'Viewings', 'Offers', 'Accepted', 'Conditions', 'Closing'],
+  // Stage list mirrors the pipeline lifecycle so a client's displayed stage
+  // matches the most-advanced deal stage everywhere in the app. Closed and
+  // Fell Through were added so closed/dead clients stay visible in the
+  // Active list (rather than vanishing) and so they can be filtered into.
+  _STAGE_ORDER: ['Searching', 'Viewings', 'Offers', 'Accepted', 'Conditions', 'Closing', 'Closed', 'Fell Through'],
 
   _loadPrefs() {
     try {
@@ -144,15 +148,26 @@ const Clients = {
 
   // Derive the TRUE stage of a client from the most advanced activity found
   // across pipeline → offers → viewings. Falls back to stored clients.stage.
+  //
+  // Order matters here. Closed and Fell Through are checked FIRST because
+  // they represent terminal pipeline states — a client whose deal closed
+  // should display "Closed" even if they also had viewings or earlier
+  // pipeline activity. Without this check the function falls through to the
+  // stale clients.stage column, which was the bug that left James Owusu's
+  // closed deal showing the wrong stage in the Clients list.
   _deriveStage(c, offers, pipeline, viewings) {
     const pipes = pipeline.filter(p => p.client_id === c.id);
     const offs  = offers.filter(o => o.client_id === c.id);
     const views = viewings.filter(v => v.client_id === c.id);
 
-    // Pipeline wins (most advanced)
-    if (pipes.some(p => p.stage === 'Closing'))    return 'Closing';
-    if (pipes.some(p => p.stage === 'Conditions')) return 'Conditions';
-    if (pipes.some(p => p.stage === 'Accepted'))   return 'Accepted';
+    // Terminal pipeline states win — most recent deal outcome is source of truth
+    if (pipes.some(p => p.stage === 'Closed'))       return 'Closed';
+    if (pipes.some(p => p.stage === 'Fell Through')) return 'Fell Through';
+
+    // In-progress pipeline (most advanced)
+    if (pipes.some(p => p.stage === 'Closing'))      return 'Closing';
+    if (pipes.some(p => p.stage === 'Conditions'))   return 'Conditions';
+    if (pipes.some(p => p.stage === 'Accepted'))     return 'Accepted';
 
     // Accepted offer that hasn't hit the pipeline yet
     if (offs.some(o => o.status === 'Accepted'))                      return 'Accepted';
@@ -219,14 +234,17 @@ const Clients = {
     list = view;
     // Phase 2.B: .card2 wrapper + .pill2 stage indicator built from
     // _derivedStage (true live stage) instead of stale c.stage.
+    // Closed → green (success). Fell Through → red (negative outcome).
     const stagePill = (s) => {
       const stage = s || 'Searching';
-      const variant = stage === 'Closing'    ? 'pill2-indigo'
-                    : stage === 'Conditions' ? 'pill2-amber'
-                    : stage === 'Accepted'   ? 'pill2-green'
-                    : stage === 'Offers'     ? 'pill2-indigo'
-                    : stage === 'Viewings'   ? 'pill2-neutral'
-                    : /* Searching */          'pill2-neutral';
+      const variant = stage === 'Closed'       ? 'pill2-green'
+                    : stage === 'Fell Through' ? 'pill2-red'
+                    : stage === 'Closing'      ? 'pill2-indigo'
+                    : stage === 'Conditions'   ? 'pill2-amber'
+                    : stage === 'Accepted'     ? 'pill2-green'
+                    : stage === 'Offers'       ? 'pill2-indigo'
+                    : stage === 'Viewings'     ? 'pill2-neutral'
+                    : /* Searching */            'pill2-neutral';
       return `<span class="pill2 ${variant}">${stage}</span>`;
     };
     el.innerHTML = `<div class="card2" style="padding:0 16px;">` +
@@ -397,13 +415,16 @@ const Clients = {
 
     // Phase 2.B.4: stage pill uses same variant mapping as the Clients list
     // (see Clients.render) so detail + list stay visually consistent.
+    // Closed → green, Fell Through → red — mirror the list variant.
     const stage = c.stage || 'Searching';
-    const stageVariant = stage === 'Closing'    ? 'pill2-indigo'
-                       : stage === 'Conditions' ? 'pill2-amber'
-                       : stage === 'Accepted'   ? 'pill2-green'
-                       : stage === 'Offers'     ? 'pill2-indigo'
-                       : stage === 'Viewings'   ? 'pill2-neutral'
-                       : /* Searching */          'pill2-neutral';
+    const stageVariant = stage === 'Closed'       ? 'pill2-green'
+                       : stage === 'Fell Through' ? 'pill2-red'
+                       : stage === 'Closing'      ? 'pill2-indigo'
+                       : stage === 'Conditions'   ? 'pill2-amber'
+                       : stage === 'Accepted'     ? 'pill2-green'
+                       : stage === 'Offers'       ? 'pill2-indigo'
+                       : stage === 'Viewings'     ? 'pill2-neutral'
+                       : /* Searching */            'pill2-neutral';
 
     App.openModal(`
       <div class="card2" style="padding:16px;margin-bottom:12px;">
