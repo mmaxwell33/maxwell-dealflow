@@ -1372,6 +1372,64 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   background: var(--bg);
   color: var(--text2);
 }
+
+/* Disabled chip (count == 0 and not currently active) — greyed out, no
+   hover state, cursor reads "not allowed". Click handler is also absent
+   in the markup, so even if a stray click registers, nothing fires.
+   Added in fix/pipeline-empty-filter-ux to stop users filtering into a
+   zero-result state without warning. */
+.cl-chip[aria-disabled="true"] {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.cl-chip[aria-disabled="true"]:hover {
+  background: var(--card);
+  color: var(--text2);
+  border-color: var(--border);
+}
+.cl-chip[aria-disabled="true"]:active {
+  transform: none;
+}
+
+/* Empty-state card shown when no deals match the current filter combination.
+   Identifies the blocking filter and offers a one-click reset button. */
+.pl-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text2);
+}
+.pl-empty-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.65;
+}
+.pl-empty-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  color: var(--text2);
+}
+.pl-empty-msg strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.pl-empty-clear {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.pl-empty-clear:hover {
+  background: var(--accent2);
+}
+.pl-empty-clear:active {
+  transform: scale(0.97);
+}
 .cl-sort {
   background: var(--card);
   border: 1px solid var(--border);
