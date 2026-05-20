@@ -10,10 +10,11 @@ const Clients = {
   filter: 'All',
   sort: 'name',
   // Stage list mirrors the pipeline lifecycle so a client's displayed stage
-  // matches the most-advanced deal stage everywhere in the app. Closed and
-  // Fell Through were added so closed/dead clients stay visible in the
-  // Active list (rather than vanishing) and so they can be filtered into.
-  _STAGE_ORDER: ['Searching', 'Viewings', 'Offers', 'Accepted', 'Conditions', 'Closing', 'Closed', 'Fell Through'],
+  // matches the most-advanced deal stage everywhere in the app. Order = the
+  // path a deal walks: Searching → Viewings → Offers → Accepted →
+  // Under Contract (auto-set when financing date passes) → Conditions →
+  // Closing → Closed (or Fell Through as the terminal-bad branch).
+  _STAGE_ORDER: ['Searching', 'Viewings', 'Offers', 'Accepted', 'Under Contract', 'Conditions', 'Closing', 'Closed', 'Fell Through'],
 
   _loadPrefs() {
     try {
@@ -160,14 +161,21 @@ const Clients = {
     const offs  = offers.filter(o => o.client_id === c.id);
     const views = viewings.filter(v => v.client_id === c.id);
 
-    // Terminal pipeline states win — most recent deal outcome is source of truth
-    if (pipes.some(p => p.stage === 'Closed'))       return 'Closed';
-    if (pipes.some(p => p.stage === 'Fell Through')) return 'Fell Through';
+    // Terminal pipeline states win — most recent deal outcome is source of truth.
+    // 'Done' is treated as a Closed alias because the deal-progress code uses
+    // both ('isFullyClosed = stage==="Closed" || stage==="Done"', offers.js).
+    // 'Withdrawn' is a Fell-Through alias for the same reason.
+    if (pipes.some(p => p.stage === 'Closed' || p.stage === 'Done'))             return 'Closed';
+    if (pipes.some(p => p.stage === 'Fell Through' || p.stage === 'Withdrawn'))  return 'Fell Through';
 
-    // In-progress pipeline (most advanced)
-    if (pipes.some(p => p.stage === 'Closing'))      return 'Closing';
-    if (pipes.some(p => p.stage === 'Conditions'))   return 'Conditions';
-    if (pipes.some(p => p.stage === 'Accepted'))     return 'Accepted';
+    // In-progress pipeline, most-advanced first. CRITICAL: Under Contract has
+    // to be checked BEFORE the offer-status fallback below, otherwise clients
+    // whose pipeline auto-advanced from Accepted → Under Contract still match
+    // the 'Accepted' offer record and silently display the wrong stage.
+    if (pipes.some(p => p.stage === 'Closing'))         return 'Closing';
+    if (pipes.some(p => p.stage === 'Conditions'))      return 'Conditions';
+    if (pipes.some(p => p.stage === 'Under Contract'))  return 'Under Contract';
+    if (pipes.some(p => p.stage === 'Accepted'))        return 'Accepted';
 
     // Accepted offer that hasn't hit the pipeline yet
     if (offs.some(o => o.status === 'Accepted'))                      return 'Accepted';
@@ -235,16 +243,18 @@ const Clients = {
     // Phase 2.B: .card2 wrapper + .pill2 stage indicator built from
     // _derivedStage (true live stage) instead of stale c.stage.
     // Closed → green (success). Fell Through → red (negative outcome).
+    // Under Contract → coral (signals "in motion, not yet final").
     const stagePill = (s) => {
       const stage = s || 'Searching';
-      const variant = stage === 'Closed'       ? 'pill2-green'
-                    : stage === 'Fell Through' ? 'pill2-red'
-                    : stage === 'Closing'      ? 'pill2-indigo'
-                    : stage === 'Conditions'   ? 'pill2-amber'
-                    : stage === 'Accepted'     ? 'pill2-green'
-                    : stage === 'Offers'       ? 'pill2-indigo'
-                    : stage === 'Viewings'     ? 'pill2-neutral'
-                    : /* Searching */            'pill2-neutral';
+      const variant = stage === 'Closed'         ? 'pill2-green'
+                    : stage === 'Fell Through'   ? 'pill2-red'
+                    : stage === 'Closing'        ? 'pill2-indigo'
+                    : stage === 'Conditions'     ? 'pill2-amber'
+                    : stage === 'Under Contract' ? 'pill2-coral'
+                    : stage === 'Accepted'       ? 'pill2-green'
+                    : stage === 'Offers'         ? 'pill2-indigo'
+                    : stage === 'Viewings'       ? 'pill2-neutral'
+                    : /* Searching */              'pill2-neutral';
       return `<span class="pill2 ${variant}">${stage}</span>`;
     };
     el.innerHTML = `<div class="card2" style="padding:0 16px;">` +
@@ -415,16 +425,17 @@ const Clients = {
 
     // Phase 2.B.4: stage pill uses same variant mapping as the Clients list
     // (see Clients.render) so detail + list stay visually consistent.
-    // Closed → green, Fell Through → red — mirror the list variant.
+    // Closed → green, Fell Through → red, Under Contract → coral.
     const stage = c.stage || 'Searching';
-    const stageVariant = stage === 'Closed'       ? 'pill2-green'
-                       : stage === 'Fell Through' ? 'pill2-red'
-                       : stage === 'Closing'      ? 'pill2-indigo'
-                       : stage === 'Conditions'   ? 'pill2-amber'
-                       : stage === 'Accepted'     ? 'pill2-green'
-                       : stage === 'Offers'       ? 'pill2-indigo'
-                       : stage === 'Viewings'     ? 'pill2-neutral'
-                       : /* Searching */            'pill2-neutral';
+    const stageVariant = stage === 'Closed'         ? 'pill2-green'
+                       : stage === 'Fell Through'   ? 'pill2-red'
+                       : stage === 'Closing'        ? 'pill2-indigo'
+                       : stage === 'Conditions'     ? 'pill2-amber'
+                       : stage === 'Under Contract' ? 'pill2-coral'
+                       : stage === 'Accepted'       ? 'pill2-green'
+                       : stage === 'Offers'         ? 'pill2-indigo'
+                       : stage === 'Viewings'       ? 'pill2-neutral'
+                       : /* Searching */              'pill2-neutral';
 
     App.openModal(`
       <div class="card2" style="padding:16px;margin-bottom:12px;">
