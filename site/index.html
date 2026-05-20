@@ -507,10 +507,13 @@
      — curb appeal, handover, family, celebration, sense of place. -->
 <section class="hero">
   <div class="hero-carousel" aria-hidden="true">
-    <!-- LCP candidate — leads with a real "people" moment (hand holding
-         keys in front of an entrance) instead of a static house exterior.
-         If the Unsplash CDN ever 404s this one, onerror removes it so the
-         carousel just rotates to the next slide without a broken icon. -->
+    <!-- LCP candidate — hand holding keys in front of an entrance. The
+         only "people" element is a hand on a key, which is the universal
+         real-estate moment without the risks of full-figure portraits
+         (awkward cropping, unfortunate framing, intimacy that reads as
+         personal-life rather than real-estate). onerror removes the slot
+         if the URL ever 404s so we never render a broken-image icon. -->
+
     <img class="active"
          src="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
          alt="" decoding="async" fetchpriority="high" width="2000" height="1333"
@@ -1023,28 +1026,41 @@
      URL ever 404s, onerror quietly removes the slot. -->
 <script>
   (function () {
+    // POOL — only photos verified TWICE: first via Unsplash search listing,
+    // then via individual page fetch confirming (a) free Unsplash License
+    // and (b) the content matches what we claim. The previous pool included
+    // photos whose listed descriptions didn't match the actual image — one
+    // returned a tree, another returned a kissing couple. We're now strict.
+    //
+    // Curation principle: real estate is about HOMES and the MOMENTS of
+    // ownership, not about staged-couple stock photography. The only human
+    // element is a hand holding keys at a door — universal, dignified, and
+    // unambiguously about the moment of purchase. Everything else is the
+    // physical thing being bought: facades, interiors, neighbourhood vibes.
     var POOL = [
-      // ─── People moments (10) — the emotional core ────────────────
+      // ─ The moment (hand + keys, dignified close-up) ────────────────
       'https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop', // hand holding keys at entrance
-      'https://images.unsplash.com/photo-1729855637715-99192904aac5?w=2000&q=80&fm=jpg&auto=format&fit=crop', // hand holding green house key
-      'https://images.unsplash.com/photo-1758523671637-5a39ea2c129b?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple celebrating, holding small house
-      'https://images.unsplash.com/photo-1772306096779-e0e4908b25ef?w=2000&q=80&fm=jpg&auto=format&fit=crop', // happy family in new home
-      'https://images.unsplash.com/photo-1606932250069-62f395a08602?w=2000&q=80&fm=jpg&auto=format&fit=crop', // woman settled in new home
-      'https://images.unsplash.com/photo-1515516089376-88db1e26e9c0?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple touring kitchen during showing
-      'https://images.unsplash.com/photo-1556908491-b697338d4851?w=2000&q=80&fm=jpg&auto=format&fit=crop',  // couple looking at kitchen together
-      'https://images.unsplash.com/photo-1758523671893-0ba21cf4260f?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple unpacking moving boxes
-      'https://images.unsplash.com/photo-1594051723956-b14e836bdeb5?w=2000&q=80&fm=jpg&auto=format&fit=crop', // moving day — carrying a box
-      'https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple in front of their new home
 
-      // ─── Sense of place (2) — local anchor ──────────────────────
+      // ─ Sense of place: St. John's + Newfoundland ──────────────────
       'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // colourful St. John's row houses
-      'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop'  // Newfoundland coastline
+      'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop', // Newfoundland coastline
+
+      // ─ Home exteriors (the thing being bought) ────────────────────
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2000&q=80&fm=jpg&auto=format&fit=crop', // modern home exterior
+      'https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=2000&q=80&fm=jpg&auto=format&fit=crop', // two-story residential home
+      'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=2000&q=80&fm=jpg&auto=format&fit=crop', // family home exterior
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=2000&q=80&fm=jpg&auto=format&fit=crop', // heritage home
+      'https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?w=2000&q=80&fm=jpg&auto=format&fit=crop', // mid-century home
+
+      // ─ Interior (where the journey leads) ─────────────────────────
+      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=2000&q=80&fm=jpg&auto=format&fit=crop', // warm interior
+      'https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=2000&q=80&fm=jpg&auto=format&fit=crop'  // kitchen interior
     ];
 
     var carousel = document.querySelector('.hero-carousel');
     if (!carousel) return;
 
-    // The URL already rendered in the hardcoded <img> — skip injecting a duplicate
+    // URL already rendered in the hardcoded <img> — skip injecting a duplicate
     var HARDCODED = 'https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop';
 
     // Fisher-Yates shuffle for true random order
@@ -1059,9 +1075,9 @@
 
     var order = shuffle(POOL);
 
-    // Inject the remaining 11 <img>s lazily. Skip the URL that's already
-    // in the DOM. Each gets an onerror handler so a 404'd photo silently
-    // self-removes from the rotation rather than rendering a broken icon.
+    // Inject the remaining <img>s lazily. Each gets an onerror handler so
+    // a 404'd photo silently self-removes rather than rendering a broken
+    // icon — same defence the hardcoded first image has.
     for (var i = 0; i < order.length; i++) {
       if (order[i] === HARDCODED) continue;
       var img = document.createElement('img');
