@@ -369,18 +369,127 @@
 </head>
 <body>
 
-<!-- ── NAV ────────────────────────────────────────────────────────── -->
-<nav class="nav" aria-label="Primary">
+<!-- ── TOP UTILITY BAR ───────────────────────────────────────────────
+     Thin secondary nav above the main nav. Affiliation + secondary
+     links. Inspired by the CREA.ca header pattern. -->
+<div class="utility-bar" aria-label="Secondary">
+  <div class="utility-inner">
+    <span class="utility-affiliation">eXp Realty · St. John's, NL · Avalon Peninsula</span>
+    <div class="utility-links">
+      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
+      <a href="/site/resources/">Resources</a>
+      <a href="/site/privacy/">Privacy</a>
+      <a href="/" class="utility-login">Agent Login</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN NAV with mega-menu dropdowns ─────────────────────────────
+     CREA-inspired structure: brand left, categorized dropdowns center,
+     primary CTA right. Each dropdown reveals a panel of categorized
+     links plus a featured promotional card. Opens on hover (mouse) +
+     click (touch + keyboard, via JS). -->
+<nav class="nav nav-mega" aria-label="Primary">
   <div class="nav-inner">
     <a class="nav-brand" href="/site/">
       <span class="nav-avatar" aria-hidden="true">MD</span>
       <span>Maxwell Midodzi</span>
     </a>
-    <div class="nav-links" aria-label="Site sections">
-      <a href="/site/about/">About</a>
-      <a href="mailto:Maxwell.Midodzi@exprealty.com">Contact</a>
-    </div>
-    <a class="nav-cta" href="/intake.html">Start with a free intake</a>
+
+    <ul class="mega-menu" role="menubar">
+
+      <!-- ─ BUYING ─ -->
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Buying</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">Get started</div>
+              <a href="/site/buyer-checklist/">First-time buyer checklist</a>
+              <a href="/site/process/#buying">How buying works</a>
+              <a href="/intake.html">Buyer intake form</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Learn more</div>
+              <a href="/site/process/">Full process walkthrough</a>
+              <a href="/site/resources/">Mortgage tools & calculators</a>
+              <a href="/site/#faq">Buyer FAQ</a>
+            </div>
+            <a class="mega-feature" href="/intake.html">
+              <div>
+                <div class="mega-feature-eyebrow">Free, 5 minutes</div>
+                <div class="mega-feature-title">Start a buyer intake</div>
+              </div>
+              <div class="mega-feature-cta">Begin now →</div>
+            </a>
+          </div>
+        </div>
+      </li>
+
+      <!-- ─ SELLING ─ -->
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Selling</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">Get started</div>
+              <a href="/site/seller-checklist/">Home prep checklist</a>
+              <a href="/site/process/#selling">How selling works</a>
+              <a href="/seller-intake.html">Seller intake form</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Learn more</div>
+              <a href="/site/process/">Full process walkthrough</a>
+              <a href="/site/#faq">Pricing & commission FAQ</a>
+              <a href="/site/resources/">Seller resources</a>
+            </div>
+            <a class="mega-feature" href="/seller-intake.html">
+              <div>
+                <div class="mega-feature-eyebrow">Free home valuation</div>
+                <div class="mega-feature-title">Start a seller intake</div>
+              </div>
+              <div class="mega-feature-cta">Begin now →</div>
+            </a>
+          </div>
+        </div>
+      </li>
+
+      <!-- ─ EXPLORE ─ (Areas / Map / Recent Work) -->
+      <li class="mega-item" role="none">
+        <button class="mega-trigger" type="button" aria-haspopup="true" aria-expanded="false">Explore</button>
+        <div class="mega-panel" role="menu">
+          <div class="mega-panel-grid">
+            <div class="mega-col">
+              <div class="mega-col-title">The Avalon</div>
+              <a href="/site/#areas">Areas served</a>
+              <a href="/site/#map">Interactive map</a>
+              <a href="/site/#recent">Recent work</a>
+            </div>
+            <div class="mega-col">
+              <div class="mega-col-title">Resources</div>
+              <a href="/site/resources/">All resources</a>
+              <a href="/site/process/">The process</a>
+              <a href="/site/#faq">Frequently asked questions</a>
+            </div>
+            <a class="mega-feature" href="/site/#map">
+              <div>
+                <div class="mega-feature-eyebrow">Interactive</div>
+                <div class="mega-feature-title">Explore the 3D map of the Avalon</div>
+              </div>
+              <div class="mega-feature-cta">Open the map →</div>
+            </a>
+          </div>
+        </div>
+      </li>
+
+      <!-- ─ ABOUT (no dropdown) ─ -->
+      <li class="mega-item" role="none">
+        <a class="mega-direct" href="/site/about/">About</a>
+      </li>
+
+    </ul>
+
+    <a class="nav-cta" href="/intake.html">Get started</a>
   </div>
 </nav>
 
@@ -525,7 +634,7 @@
 </section>
 
 <!-- ── AREAS SERVED ───────────────────────────────────────────────── -->
-<section class="areas-section">
+<section class="areas-section" id="areas">
   <!-- Full-bleed banner photo above the area cards. One representative
        Avalon/St. John's image gives this section the visual weight it
        was missing without falsely claiming any specific neighbourhood
@@ -596,7 +705,7 @@
      edit the SOLD_LOCATIONS array in the init script below.
      The map is centered on downtown St. John's [47.5615, -52.7126] at
      zoom level 11 so the whole Avalon Peninsula is visible. -->
-<section class="alt map-section">
+<section class="alt map-section" id="map">
   <div class="wrap">
     <div class="eyebrow">Sample activity around the Avalon</div>
     <h2 class="section-title">Explore the map.</h2>
@@ -628,7 +737,7 @@
 
      If any Unsplash photo 404s in the future, swap with another from
      https://unsplash.com/s/photos/house (any house photo works). -->
-<section>
+<section id="recent">
   <div class="wrap">
     <div class="eyebrow">Recent work</div>
     <h2 class="section-title">The kinds of homes I help clients buy and sell.</h2>
@@ -768,7 +877,7 @@
 </section>
 
 <!-- ── FAQ ────────────────────────────────────────────────────────── -->
-<section class="alt">
+<section class="alt" id="faq">
   <div class="wrap">
     <div class="eyebrow">Common questions</div>
     <h2 class="section-title">The stuff people ask before they call.</h2>
@@ -891,10 +1000,8 @@
   </div>
 </footer>
 
-<script>
-  // Tiny inline script — just the year. No framework, no dependencies.
-  document.getElementById('yr').textContent = new Date().getFullYear();
-</script>
+<!-- Shared site JS — footer year + mega-menu click/keyboard support -->
+<script src="/site/js/site.js" defer></script>
 
 <!-- ── Hero carousel — random order, 8s pace, Ken Burns zoom ──────────
      Pool of 10 lifestyle photos. We pick a random shuffle at load time
