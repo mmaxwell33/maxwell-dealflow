@@ -691,6 +691,7 @@ const App = {
     if (tab === 'system') SystemTools.load();
     if (tab === 'settings') Settings.load();
     if (tab === 'calendar') Calendar.load();
+    if (tab === 'mileage') Mileage.load();
     if (tab === 'broadcast') Broadcast.load();
     if (tab === 'reviews') Reviews.load();
     if (tab === 'briefing') Briefing.load();

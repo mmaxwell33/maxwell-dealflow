@@ -49,6 +49,7 @@
   <script defer src="js/pendingoffers.js"></script>
   <script defer src="js/responses.js"></script>
   <script defer src="js/extras.js"></script>
+  <script defer src="js/mileage.js"></script>
   <script defer src="js/disclosure.js"></script>
   <script defer src="js/analytics.js"></script>
   <script defer src="js/portal-traffic.js"></script>
@@ -235,6 +236,9 @@
           <div class="sb-group-items">
             <button class="nav-item" data-tab="commissions" onclick="App.switchTab('commissions')">
               <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
+            </button>
+            <button class="nav-item" data-tab="mileage" onclick="App.switchTab('mileage')">
+              <span class="nav-icon">🚗</span><span class="nav-label">Mileage</span>
             </button>
             <button class="nav-item" data-tab="reports" onclick="App.switchTab('reports')">
               <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
@@ -1013,6 +1017,11 @@
       <div id="reviews-list"></div>
     </div>
 
+    <!-- MILEAGE SCREEN — CRA vehicle logbook -->
+    <div id="screen-mileage" class="screen">
+      <div id="mileage"><div style="text-align:center;padding:40px;color:var(--text2);">Loading…</div></div>
+    </div>
+
     <!-- BRIEFING SCREEN — daily money brief -->
     <div id="screen-briefing" class="screen" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
@@ -1493,6 +1502,34 @@
           </div>
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveProfile()">Save Profile</button>
           <div id="set-profile-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
+
+        <!-- ── MILEAGE LOGBOOK SETTINGS ──────────────────────────────────── -->
+        <div class="settings-card" style="margin-top:16px;">
+          <div class="settings-card-title">🚗 Mileage Logbook</div>
+          <div class="settings-card-sub">Settings used by your CRA vehicle log. Edit any trip's km if your route differed.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+            <div style="grid-column:span 2;">
+              <label class="form-label">Home Base Address</label>
+              <input class="form-input" id="set-home-base" placeholder="Where most of your drives start — e.g. your eXp office">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">Used as the starting point for trips that don't specify one. Defensible CRA origin.</div>
+            </div>
+            <div>
+              <label class="form-label">Per-km Rate (CRA)</label>
+              <input class="form-input" id="set-per-km-rate" type="number" step="0.001" placeholder="0.730">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">2026 CRA rate: $0.730 (first 5,000 km), $0.670 after.</div>
+            </div>
+            <div>
+              <label class="form-label">Auto-prompt before viewings</label>
+              <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;">
+                <input id="set-mileage-prompts" type="checkbox" style="width:18px;height:18px;">
+                <span style="font-size:13px;">Push me to log mileage 30 min before each viewing</span>
+              </label>
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">Coming in next update — toggle ahead of time.</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveMileage()">Save Mileage Settings</button>
+          <div id="set-mileage-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
       </div>
 

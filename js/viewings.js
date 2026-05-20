@@ -306,6 +306,7 @@ const Viewings = {
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">Edit</button>
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
       </div>
+      <button class="btn2 btn2-ghost" style="justify-content:center;width:100%;margin-top:8px;font-size:13px;" onclick="App.closeModal();setTimeout(()=>Mileage.logFromViewing('${v.id}'),300)">🚗 Log drive to this property</button>
       ${isCompleted ? `
       <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📞 Manual Override — Client Called You?</div>

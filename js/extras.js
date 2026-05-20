@@ -4339,6 +4339,41 @@ const Settings = {
     set('set-province', a.province);
     set('set-license', a.license_number || a.license);
     set('set-signature', a.email_signature || a.signature || `${a.full_name || a.name}\n${a.brokerage || ''}\n${a.phone || ''}`);
+    // ── Mileage settings ──────────────────────────────────────────────────
+    set('set-home-base', a.home_base_address);
+    set('set-per-km-rate', a.per_km_rate != null ? Number(a.per_km_rate).toFixed(3) : '0.730');
+    const prompts = document.getElementById('set-mileage-prompts');
+    if (prompts) prompts.checked = a.mileage_prompts_enabled !== false;
+  },
+
+  async saveMileage() {
+    const msg = document.getElementById('set-mileage-msg');
+    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    const addr = document.getElementById('set-home-base')?.value.trim() || null;
+    const rateRaw = document.getElementById('set-per-km-rate')?.value;
+    const rate = rateRaw ? Number(rateRaw) : 0.73;
+    const prompts = document.getElementById('set-mileage-prompts')?.checked ?? true;
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving…'; }
+    const updates = {
+      home_base_address: addr,
+      per_km_rate: rate,
+      mileage_prompts_enabled: prompts
+    };
+    // Geocode the home base so future trips can compute distance without a re-lookup
+    if (addr && typeof Mileage !== 'undefined') {
+      try {
+        const coords = await Mileage.geocode(addr);
+        if (coords) { updates.home_base_lat = coords.lat; updates.home_base_lng = coords.lng; }
+      } catch (e) { console.warn('[Mileage] home base geocode failed', e); }
+    } else if (!addr) {
+      updates.home_base_lat = null;
+      updates.home_base_lng = null;
+    }
+    Object.assign(currentAgent, updates);
+    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
+    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
+    if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Mileage settings saved'; }
+    App.toast('✅ Mileage settings saved');
   },
 
   async saveProfile() {
