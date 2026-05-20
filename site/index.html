@@ -50,7 +50,7 @@
 <link
   rel="preload"
   as="image"
-  href="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+  href="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
   fetchpriority="high">
 
 <!-- Schema.org RealEstateAgent JSON-LD for Google -->
@@ -507,9 +507,14 @@
      — curb appeal, handover, family, celebration, sense of place. -->
 <section class="hero">
   <div class="hero-carousel" aria-hidden="true">
+    <!-- LCP candidate — leads with a real "people" moment (hand holding
+         keys in front of an entrance) instead of a static house exterior.
+         If the Unsplash CDN ever 404s this one, onerror removes it so the
+         carousel just rotates to the next slide without a broken icon. -->
     <img class="active"
-         src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
-         alt="" decoding="async" fetchpriority="high" width="2000" height="1333">
+         src="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         alt="" decoding="async" fetchpriority="high" width="2000" height="1333"
+         onerror="this.remove()">
   </div>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="wrap">
@@ -1004,29 +1009,43 @@
 <script src="/site/js/site.js" defer></script>
 
 <!-- ── Hero carousel — random order, 8s pace, Ken Burns zoom ──────────
-     Pool of 10 lifestyle photos. We pick a random shuffle at load time
-     so every visitor sees a different sequence. The first image is
-     already in the DOM (hardcoded HTML, eager + fetchpriority high) —
-     this script appends the other 9 lazily and runs the slideshow. -->
+     Pool curated for emotional weight: 10 photos of PEOPLE in real
+     home-buying moments (keys, kitchen tours, moving boxes, couples,
+     families) plus 2 sense-of-place shots that anchor the brand in
+     St. John's. We deliberately strip out the generic curb-appeal
+     exteriors that dominated the previous pool — those gave the hero
+     a "Zillow brochure" feel rather than the inspirational tone
+     Maxwell asked for.
+
+     The first image (hardcoded above as .active) is the LCP candidate
+     and stays put. The shuffle determines what comes second, third,
+     etc. — so every visitor sees a different rotation. If any Unsplash
+     URL ever 404s, onerror quietly removes the slot. -->
 <script>
   (function () {
     var POOL = [
-      // First image is the same as the hardcoded one — but the shuffle
-      // means it might not appear first, and that's fine.
-      'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // colourful row houses
-      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=2000&q=80&fm=jpg&auto=format&fit=crop',  // handing over keys
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2000&q=80&fm=jpg&auto=format&fit=crop', // modern home exterior
-      'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=2000&q=80&fm=jpg&auto=format&fit=crop', // warm interior
-      'https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple in front of house
-      'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop', // NL coastline
-      'https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=2000&q=80&fm=jpg&auto=format&fit=crop', // kitchen interior
-      'https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // sold sign / family
-      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=2000&q=80&fm=jpg&auto=format&fit=crop', // heritage home
-      'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=2000&q=80&fm=jpg&auto=format&fit=crop'  // family home exterior
+      // ─── People moments (10) — the emotional core ────────────────
+      'https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop', // hand holding keys at entrance
+      'https://images.unsplash.com/photo-1729855637715-99192904aac5?w=2000&q=80&fm=jpg&auto=format&fit=crop', // hand holding green house key
+      'https://images.unsplash.com/photo-1758523671637-5a39ea2c129b?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple celebrating, holding small house
+      'https://images.unsplash.com/photo-1772306096779-e0e4908b25ef?w=2000&q=80&fm=jpg&auto=format&fit=crop', // happy family in new home
+      'https://images.unsplash.com/photo-1606932250069-62f395a08602?w=2000&q=80&fm=jpg&auto=format&fit=crop', // woman settled in new home
+      'https://images.unsplash.com/photo-1515516089376-88db1e26e9c0?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple touring kitchen during showing
+      'https://images.unsplash.com/photo-1556908491-b697338d4851?w=2000&q=80&fm=jpg&auto=format&fit=crop',  // couple looking at kitchen together
+      'https://images.unsplash.com/photo-1758523671893-0ba21cf4260f?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple unpacking moving boxes
+      'https://images.unsplash.com/photo-1594051723956-b14e836bdeb5?w=2000&q=80&fm=jpg&auto=format&fit=crop', // moving day — carrying a box
+      'https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=2000&q=80&fm=jpg&auto=format&fit=crop', // couple in front of their new home
+
+      // ─── Sense of place (2) — local anchor ──────────────────────
+      'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop', // colourful St. John's row houses
+      'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop'  // Newfoundland coastline
     ];
 
     var carousel = document.querySelector('.hero-carousel');
     if (!carousel) return;
+
+    // The URL already rendered in the hardcoded <img> — skip injecting a duplicate
+    var HARDCODED = 'https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop';
 
     // Fisher-Yates shuffle for true random order
     function shuffle(arr) {
@@ -1040,13 +1059,11 @@
 
     var order = shuffle(POOL);
 
-    // Inject 9 more <img>s. We don't replace the hardcoded first image
-    // because it's already loaded and rendering — keeps LCP fast.
-    // We add it last in the rotation list so the user sees a NEW image
-    // when the slideshow starts moving.
+    // Inject the remaining 11 <img>s lazily. Skip the URL that's already
+    // in the DOM. Each gets an onerror handler so a 404'd photo silently
+    // self-removes from the rotation rather than rendering a broken icon.
     for (var i = 0; i < order.length; i++) {
-      // Skip injecting if this URL matches the hardcoded image already in DOM
-      if (order[i] === 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop') continue;
+      if (order[i] === HARDCODED) continue;
       var img = document.createElement('img');
       img.src = order[i];
       img.loading = 'lazy';
@@ -1054,6 +1071,7 @@
       img.width = 2000;
       img.height = 1333;
       img.alt = '';
+      img.onerror = function () { this.remove(); };
       carousel.appendChild(img);
     }
 
