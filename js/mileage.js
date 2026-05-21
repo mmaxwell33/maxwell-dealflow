@@ -414,6 +414,17 @@ const Mileage = {
     }
     if (!km || km <= 0) return; // Couldn't compute — don't insert a 0 km row
 
+    // Sanity check — Maxwell works the Avalon Peninsula. Any geocoded
+    // distance over 500 km means a geocoder hiccup picked the wrong
+    // continent (which is exactly the 4,773 km bug that triggered this
+    // fix). Refuse to insert; surface a toast so the agent knows to log
+    // the trip manually with the correct km.
+    if (km > 500) {
+      console.warn('[Mileage] auto-log refused — implausible distance:', km, 'km for', v.property_address);
+      App.toast?.(`⚠️ Couldn't auto-log mileage — distance looked off (${km.toFixed(0)} km). Log manually from the Mileage tab.`, 'var(--red)');
+      return;
+    }
+
     const client = (typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === v.client_id);
     const clientName = client?.full_name || v.client_name || null;
 
@@ -442,13 +453,45 @@ const Mileage = {
 
   // ── Geocoding via OSM Nominatim (free, no key) ──────────────────────────
   // Cached in-session so we don't hit Nominatim twice for the same address.
+  //
+  // BUG FIX: the previous version sent the bare address with no country or
+  // viewport context. Nominatim then matched the first hit in the world — so
+  // "89 Firdale Drive" resolved to a Firdale Drive somewhere in BC and the
+  // resulting Haversine distance from St. John's was 4,773 km. Two defences
+  // now stack:
+  //   (a) Bias the query toward Newfoundland: append ", St. John's, NL" if
+  //       the address doesn't already include a province / country hint
+  //   (b) Hard-restrict Nominatim with `countrycodes=ca` + an NL viewbox
+  //       (-58, 46 to -52, 52) with `bounded=1` so a no-match-in-NL returns
+  //       null rather than picking the closest hit in the rest of the world
+  // Without (b), a literally-typed address that doesn't exist in NL would
+  // still wander to wherever Nominatim found a match.
   _geoCache: {},
   async geocode(address) {
     if (!address) return null;
-    const key = address.trim().toLowerCase();
+    const raw = address.trim();
+    const key = raw.toLowerCase();
     if (this._geoCache[key]) return this._geoCache[key];
+
+    // (a) Append local context if the caller didn't include it. We check for
+    // "NL", "Newfoundland", or "Canada" — any of those means the caller
+    // already knows what they're doing and we leave the query alone.
+    const hasContext = /\b(NL|Newfoundland|Labrador|Canada|St\.?\s*John[s']?s)\b/i.test(raw);
+    const query = hasContext ? raw : `${raw}, St. John's, NL, Canada`;
+
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+      // (b) Hard-restrict to Canada + NL viewbox.
+      // viewbox order = lon1,lat1,lon2,lat2 (left, top, right, bottom).
+      // NL roughly: lng -58 to -52, lat 46 to 52.
+      const params = new URLSearchParams({
+        format:        'json',
+        limit:         '1',
+        q:             query,
+        countrycodes:  'ca',
+        viewbox:       '-58.0,52.0,-52.0,46.0',
+        bounded:       '1',
+      });
+      const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       const arr = await res.json();
       if (arr && arr.length) {
