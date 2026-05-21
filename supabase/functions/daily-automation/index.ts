@@ -373,17 +373,42 @@ serve(async (req) => {
   }
 
   // ── 5. Post-viewing feedback requests ─────────────────────────────────────
-  // Any viewing where: date <= today, status = Scheduled, no client_feedback
-  // These are viewings that happened but were never manually marked Completed
+  // Any viewing where the viewing's END TIME has actually passed, status is
+  // still Scheduled, and no client_feedback yet. These are viewings that
+  // happened but were never manually marked Completed.
+  //
+  // BUG FIX: the previous version used `viewing_date <= today` which is
+  // date-only — so a 4:30 PM viewing scheduled for today would get swept
+  // up at the 8 AM run of this function. The result: a "How was the
+  // viewing?" email queued and the viewing_status flipped to 'Needs
+  // Follow-Up' before the agent had even left for the showing. Fix:
+  // compute the actual viewing end time (start + duration_minutes, default
+  // 60) and only queue if NOW > end + 30-minute buffer.
   const { data: pastViewings } = await supabase
     .from('viewings')
-    .select('id, client_id, property_address, viewing_date, viewing_time, viewing_status')
+    .select('id, client_id, property_address, viewing_date, viewing_time, duration_minutes, viewing_status')
     .eq('viewing_status', 'Scheduled')
     .is('client_feedback', null)
     .lte('viewing_date', todayStr);
 
+  const nowMs = Date.now();
   for (const v of (pastViewings ?? [])) {
     if (!v.client_id) continue;
+
+    // ── Time gate: only proceed if the viewing actually ended (+ buffer)
+    // Treat viewing_time as a local clock-time on viewing_date. We parse
+    // it as ISO so V8's Date constructor handles it deterministically.
+    // Default duration: 60 min. Buffer: 30 min so we don't fire the moment
+    // the showing ends (the check-completed-viewings cron handles the
+    // immediate post-viewing push; this daily function is a safety net
+    // for the agent who never marked it Completed).
+    const startIso = `${v.viewing_date}T${(v.viewing_time || '12:00:00')}`;
+    const startMs = new Date(startIso).getTime();
+    if (Number.isNaN(startMs)) continue; // bad timestamp — skip rather than misfire
+    const durationMin = (v as any).duration_minutes ?? 60;
+    const endMs = startMs + durationMin * 60 * 1000;
+    const bufferMs = 30 * 60 * 1000;     // 30-minute grace window
+    if (nowMs < endMs + bufferMs) continue; // viewing hasn't actually finished yet
 
     const { data: clientRow } = await supabase
       .from('clients')
