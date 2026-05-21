@@ -356,6 +356,90 @@ const Mileage = {
     });
   },
 
+  // ── AUTO-LOG (no modal) ──────────────────────────────────────────────────
+  // Fires automatically when a viewing flips to Completed (via
+  // Viewings.markCompleted() or Notify.checkCompletedViewings() auto-flip).
+  // Does the same work as logFromViewing() but silently — no modal, no
+  // confirm. Idempotent: if a trip is already logged for this viewing,
+  // it bails out. Fails silently if the agent has no home_base_address set
+  // OR if geocoding doesn't return coordinates — so we never block the
+  // existing post-viewing feedback flow on a mileage hiccup.
+  //
+  // Triggers a single quiet toast on success so the agent knows it
+  // happened, with a hint to edit the km in the Mileage tab if the
+  // calculated distance doesn't match their actual drive.
+  async autoLogFromViewing(viewingId) {
+    if (!currentAgent?.id || !viewingId) return;
+
+    // Respect the "auto-prompt" setting — if the agent has turned mileage
+    // prompts off, don't auto-log either. They can still manually log
+    // from the viewing detail modal.
+    if (currentAgent.mileage_prompts_enabled === false) return;
+
+    // Skip if we've already logged a trip for this viewing — prevents
+    // duplicates when markCompleted() and the auto-completion poller
+    // both fire for the same viewing.
+    const { data: existing } = await db.from('mileage_trips')
+      .select('id').eq('agent_id', currentAgent.id)
+      .eq('linked_viewing_id', viewingId).limit(1).maybeSingle();
+    if (existing) return;
+
+    // Pull the viewing record (with property address + client info)
+    const v = (typeof Viewings !== 'undefined' ? Viewings.all : []).find(x => x.id === viewingId);
+    if (!v || !v.property_address) return;
+
+    const home = currentAgent.home_base_address;
+    if (!home) {
+      // No home base set — show a one-time hint so the agent knows
+      // they can flip this on by adding a home base in Settings.
+      App.toast?.('🚗 Set your home base in Settings to auto-log mileage', 'var(--text2)');
+      return;
+    }
+
+    // Compute distance via the same path the manual log uses
+    let km = 0;
+    let startLat = currentAgent.home_base_lat;
+    let startLng = currentAgent.home_base_lng;
+    try {
+      if (startLat == null || startLng == null) {
+        const s = await this.geocode(home);
+        if (s) { startLat = s.lat; startLng = s.lng; }
+      }
+      const e = await this.geocode(v.property_address);
+      if (e && startLat != null && startLng != null) {
+        km = this.distanceKm(startLat, startLng, e.lat, e.lng);
+      }
+    } catch (err) {
+      console.warn('[Mileage] auto-log geocode failed', err);
+    }
+    if (!km || km <= 0) return; // Couldn't compute — don't insert a 0 km row
+
+    const client = (typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === v.client_id);
+    const clientName = client?.full_name || v.client_name || null;
+
+    const { error } = await db.from('mileage_trips').insert({
+      agent_id:           currentAgent.id,
+      trip_date:          v.viewing_date || new Date().toISOString().slice(0,10),
+      start_address:      home,
+      start_lat:          startLat,
+      start_lng:          startLng,
+      end_address:        v.property_address,
+      distance_km:        km,
+      is_round_trip:      true,
+      purpose:            'Viewing',
+      linked_viewing_id:  v.id,
+      client_id:          v.client_id || null,
+      client_name:        clientName,
+      notes:              'Auto-logged after viewing marked completed'
+    });
+    if (error) {
+      console.warn('[Mileage] auto-log insert failed', error);
+      return;
+    }
+
+    App.toast?.(`🚗 ${km.toFixed(1)} km auto-logged (Mileage tab to edit)`, 'var(--green)');
+  },
+
   // ── Geocoding via OSM Nominatim (free, no key) ──────────────────────────
   // Cached in-session so we don't hit Nominatim twice for the same address.
   _geoCache: {},

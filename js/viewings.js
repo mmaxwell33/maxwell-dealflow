@@ -326,6 +326,12 @@ const Viewings = {
     App.toast('✅ Viewing marked completed');
     await Viewings.load();
     App.closeModal();
+    // Auto-log the mileage trip in the background (silent — no extra modal).
+    // Fire-and-forget; failures are swallowed inside autoLogFromViewing so
+    // a mileage hiccup never blocks the feedback modal flow below.
+    if (typeof Mileage !== 'undefined') {
+      Mileage.autoLogFromViewing(id).catch(err => console.warn('[Mileage] auto-log error', err));
+    }
     // Show agent feedback modal — how did the viewing go?
     setTimeout(() => Viewings.agentFeedbackModal(id), 400);
   },
