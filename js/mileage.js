@@ -477,9 +477,13 @@ const Mileage = {
 
     App.toast('🔍 Scanning past viewings…', 'var(--text2)');
 
-    // 1. Pull past viewings that imply a drive happened
+    // 1. Pull past viewings that imply a drive happened.
+    // NOTE: client_name lives on the `clients` table, NOT on `viewings`.
+    // We join via the implicit FK so the backfill can label each trip
+    // with the client's full name. (Earlier draft mistakenly selected
+    // viewings.client_name directly and 42703'd at runtime.)
     const { data: viewings, error: vErr } = await db.from('viewings')
-      .select('id, property_address, viewing_date, client_id, client_name, viewing_status')
+      .select('id, property_address, viewing_date, client_id, viewing_status, clients(full_name)')
       .eq('agent_id', currentAgent.id)
       .in('viewing_status', ['Completed', 'Done', 'Needs Follow-Up'])
       .not('property_address', 'is', null)
@@ -574,7 +578,7 @@ const Mileage = {
           purpose:            'Viewing',
           linked_viewing_id:  v.id,
           client_id:          v.client_id || null,
-          client_name:        v.client_name || null,
+          client_name:        v.clients?.full_name || null,
           notes:              'Backfilled from historical viewing record',
         });
         if (error) failed++; else ok++;
