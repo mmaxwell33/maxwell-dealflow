@@ -478,13 +478,16 @@ const Mileage = {
     App.toast('🔍 Scanning past viewings…', 'var(--text2)');
 
     // 1. Pull past viewings that imply a drive happened.
-    // NOTE: client_name lives on the `clients` table, NOT on `viewings`.
-    // We join via the implicit FK so the backfill can label each trip
-    // with the client's full name. (Earlier draft mistakenly selected
-    // viewings.client_name directly and 42703'd at runtime.)
+    //
+    // Schema notes (learned the hard way this session):
+    //   - viewings does NOT have a `client_name` column — join clients
+    //     via FK and read clients.full_name instead
+    //   - viewings does NOT have an `agent_id` column either — isolation
+    //     happens via RLS on the row level. Same pattern Viewings.load()
+    //     uses: no agent_id filter, trust RLS to return only this
+    //     agent's rows.
     const { data: viewings, error: vErr } = await db.from('viewings')
       .select('id, property_address, viewing_date, client_id, viewing_status, clients(full_name)')
-      .eq('agent_id', currentAgent.id)
       .in('viewing_status', ['Completed', 'Done', 'Needs Follow-Up'])
       .not('property_address', 'is', null)
       .order('viewing_date', { ascending: false });
