@@ -46,7 +46,8 @@ const Mileage = {
             <h1 style="margin:0 0 4px;font-size:24px;">🚗 Mileage Logbook</h1>
             <div style="color:var(--text2);font-size:13px;">CRA-compliant vehicle log for tax filing</div>
           </div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn2" onclick="Mileage.backfillFromPastViewings()" title="Scan past viewings without mileage logs and create them in bulk">📥 Backfill past viewings</button>
             <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
           </div>
         </div>
@@ -85,10 +86,13 @@ const Mileage = {
           <div class="card2" style="padding:48px 20px;text-align:center;">
             <div style="font-size:36px;margin-bottom:14px;opacity:0.6;">🚗</div>
             <div style="font-weight:600;margin-bottom:6px;font-size:15px;">No trips in this range</div>
-            <div style="color:var(--text2);font-size:13px;margin-bottom:18px;max-width:340px;margin-left:auto;margin-right:auto;">
-              Log your first trip to start building your CRA-compliant vehicle logbook.
+            <div style="color:var(--text2);font-size:13px;margin-bottom:18px;max-width:380px;margin-left:auto;margin-right:auto;">
+              Log your first trip to start building your CRA-compliant vehicle logbook &mdash; or pull in mileage from viewings you've already completed.
             </div>
-            <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
+              <button class="btn2" onclick="Mileage.backfillFromPastViewings()">📥 Backfill past viewings</button>
+            </div>
           </div>
         ` : `
           <div style="display:grid;gap:8px;">
@@ -449,6 +453,146 @@ const Mileage = {
     }
 
     App.toast?.(`🚗 ${km.toFixed(1)} km auto-logged (Mileage tab to edit)`, 'var(--green)');
+  },
+
+  // ── BACKFILL FROM PAST VIEWINGS ──────────────────────────────────────────
+  // One-shot bulk import: scan every past viewing the agent already has on
+  // record (status Completed, Done, or Needs Follow-Up — i.e. anything that
+  // implies a showing actually happened) and create a mileage_trips row for
+  // any that don't already have one linked.
+  //
+  // CRA defensibility: reconstructed logs are acceptable when supported by
+  // contemporaneous business records (the viewings table is that record).
+  // Each backfilled trip is tagged in notes so it's transparent that this
+  // came from reconstruction, not real-time logging. Going forward the
+  // auto-log path keeps the logbook contemporaneous for new viewings.
+  //
+  // Idempotent: a viewing already linked to a trip is skipped on re-run.
+  async backfillFromPastViewings() {
+    if (!currentAgent?.id) return;
+    if (!currentAgent.home_base_address) {
+      App.toast('Set your home base in Settings → Mileage first.', 'var(--red)');
+      return;
+    }
+
+    App.toast('🔍 Scanning past viewings…', 'var(--text2)');
+
+    // 1. Pull past viewings that imply a drive happened
+    const { data: viewings, error: vErr } = await db.from('viewings')
+      .select('id, property_address, viewing_date, client_id, client_name, viewing_status')
+      .eq('agent_id', currentAgent.id)
+      .in('viewing_status', ['Completed', 'Done', 'Needs Follow-Up'])
+      .not('property_address', 'is', null)
+      .order('viewing_date', { ascending: false });
+    if (vErr) { App.toast(`Couldn't load viewings: ${vErr.message}`, 'var(--red)'); return; }
+
+    // 2. Filter out viewings already linked to a mileage trip
+    const { data: existing, error: eErr } = await db.from('mileage_trips')
+      .select('linked_viewing_id')
+      .eq('agent_id', currentAgent.id)
+      .not('linked_viewing_id', 'is', null);
+    if (eErr) { App.toast(`Couldn't load existing trips: ${eErr.message}`, 'var(--red)'); return; }
+    const linkedIds = new Set((existing || []).map(t => t.linked_viewing_id));
+    const candidates = (viewings || []).filter(v => !linkedIds.has(v.id));
+
+    if (!candidates.length) {
+      App.toast('All past viewings already have mileage trips logged.', 'var(--text2)');
+      return;
+    }
+
+    // 3. Confirm with the agent — they should see the count + know this is reconstructed
+    const yearGroups = {};
+    candidates.forEach(v => {
+      const y = (v.viewing_date || '').slice(0, 4) || 'unknown';
+      yearGroups[y] = (yearGroups[y] || 0) + 1;
+    });
+    const breakdown = Object.entries(yearGroups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([y, n]) => `${y}: ${n} viewing${n === 1 ? '' : 's'}`)
+      .join('<br>');
+
+    App.openModal(`
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px;">🚗 Backfill mileage from past viewings</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.55;">
+        Found <strong style="color:var(--text);">${candidates.length}</strong> past viewings without a mileage log.<br>
+        ${breakdown}
+      </div>
+      <div style="background:var(--bg2);padding:12px 14px;border-radius:8px;font-size:12.5px;color:var(--text2);margin-bottom:18px;line-height:1.5;">
+        Each backfilled trip will use your <strong>home base</strong> as the
+        starting address and the viewing's property address as the destination.
+        Round-trip is assumed. Each row is tagged in the notes field as
+        reconstructed from a viewing record &mdash; defensible for CRA when
+        supported by the viewing data the trip references.
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn2 btn2-primary" style="flex:1;justify-content:center;" onclick="Mileage._runBackfill()">Log ${candidates.length} trip${candidates.length === 1 ? '' : 's'}</button>
+        <button class="btn2 btn2-ghost" style="flex:1;justify-content:center;" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+    Mileage._backfillQueue = candidates;
+  },
+
+  // Actual insert loop. Sequenced so we don't hammer Nominatim with parallel
+  // requests (their public endpoint asks for ~1 req/sec).
+  async _runBackfill() {
+    const queue = Mileage._backfillQueue || [];
+    Mileage._backfillQueue = null;
+    App.closeModal();
+    if (!queue.length) return;
+
+    let ok = 0, failed = 0;
+    App.toast(`Backfilling ${queue.length} trips… this may take a minute.`, 'var(--text2)');
+
+    // Resolve home base coords once — same coords reused for every row.
+    let homeLat = currentAgent.home_base_lat;
+    let homeLng = currentAgent.home_base_lng;
+    if (homeLat == null || homeLng == null) {
+      const h = await this.geocode(currentAgent.home_base_address);
+      if (h) { homeLat = h.lat; homeLng = h.lng; }
+    }
+    if (homeLat == null || homeLng == null) {
+      App.toast('Could not geocode your home base. Check the address in Settings.', 'var(--red)');
+      return;
+    }
+
+    for (const v of queue) {
+      try {
+        const e = await this.geocode(v.property_address);
+        if (!e) { failed++; continue; }
+        const km = this.distanceKm(homeLat, homeLng, e.lat, e.lng);
+        if (!km || km <= 0 || km > 500) { failed++; continue; }
+
+        const { error } = await db.from('mileage_trips').insert({
+          agent_id:           currentAgent.id,
+          trip_date:          v.viewing_date || new Date().toISOString().slice(0,10),
+          start_address:      currentAgent.home_base_address,
+          start_lat:          homeLat,
+          start_lng:          homeLng,
+          end_address:        v.property_address,
+          distance_km:        km,
+          is_round_trip:      true,
+          purpose:            'Viewing',
+          linked_viewing_id:  v.id,
+          client_id:          v.client_id || null,
+          client_name:        v.client_name || null,
+          notes:              'Backfilled from historical viewing record',
+        });
+        if (error) failed++; else ok++;
+
+        // Polite throttle for Nominatim's public endpoint (~1 req/sec)
+        await new Promise(r => setTimeout(r, 1100));
+      } catch (err) {
+        failed++;
+        console.warn('[Mileage] backfill row failed', v.id, err);
+      }
+    }
+
+    await this.load();
+    if (failed === 0) {
+      App.toast(`✅ Backfilled ${ok} trip${ok === 1 ? '' : 's'}`, 'var(--green)');
+    } else {
+      App.toast(`Backfill complete. ${ok} logged, ${failed} skipped (couldn't geocode or distance out of range).`, 'var(--text2)');
+    }
   },
 
   // ── Geocoding via OSM Nominatim (free, no key) ──────────────────────────
