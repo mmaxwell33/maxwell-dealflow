@@ -586,8 +586,10 @@ const Mileage = {
         });
         if (error) failed++; else ok++;
 
-        // Polite throttle for Nominatim's public endpoint (~1 req/sec)
-        await new Promise(r => setTimeout(r, 1100));
+        // Polite throttle for Nominatim's public endpoint (~1 req/sec).
+        // Bumped to 1.5s because geocode() may now make TWO requests per
+        // address (strict viewbox first, fall back to country-only).
+        await new Promise(r => setTimeout(r, 1500));
       } catch (err) {
         failed++;
         console.warn('[Mileage] backfill row failed', v.id, err);
@@ -624,34 +626,54 @@ const Mileage = {
     const key = raw.toLowerCase();
     if (this._geoCache[key]) return this._geoCache[key];
 
-    // (a) Append local context if the caller didn't include it. We check for
-    // "NL", "Newfoundland", or "Canada" — any of those means the caller
-    // already knows what they're doing and we leave the query alone.
+    // (a) Append local context if the caller didn't include it. Catches the
+    // typical "89 Firdale Drive" / "62 Galway Blvd" inputs that lack any
+    // province hint and would otherwise wander to BC.
     const hasContext = /\b(NL|Newfoundland|Labrador|Canada|St\.?\s*John[s']?s)\b/i.test(raw);
     const query = hasContext ? raw : `${raw}, St. John's, NL, Canada`;
 
+    // Two-pass strategy. The previous version used `bounded=1` with an NL
+    // viewbox to keep the geocoder from wandering. That was too strict:
+    // Nominatim returned nothing for addresses it would otherwise find —
+    // even ones in St. John's — so the entire backfill skipped all 14
+    // viewings ("0 logged, 14 skipped").
+    //
+    // Now we try strict (NL viewbox + bounded) first because that gives
+    // the highest-quality hit when it works. If strict returns nothing,
+    // we relax to countrycodes=ca with NO viewbox. Still safe against the
+    // 4,773 km bug: a result outside Canada is impossible. The 500 km
+    // sanity check in autoLogFromViewing remains as a final guard.
+    let r = await this._geocodeTry(query, {
+      countrycodes: 'ca',
+      viewbox:      '-58.0,52.0,-52.0,46.0',
+      bounded:      '1',
+    });
+    if (!r) {
+      console.log('[Mileage] geocode strict miss, retrying without viewbox:', query);
+      r = await this._geocodeTry(query, { countrycodes: 'ca' });
+    }
+    if (r) this._geoCache[key] = r;
+    else console.warn('[Mileage] geocode failed entirely for:', query);
+    return r;
+  },
+
+  // Single Nominatim request. Returns {lat,lng} or null.
+  async _geocodeTry(query, extraParams) {
     try {
-      // (b) Hard-restrict to Canada + NL viewbox.
-      // viewbox order = lon1,lat1,lon2,lat2 (left, top, right, bottom).
-      // NL roughly: lng -58 to -52, lat 46 to 52.
       const params = new URLSearchParams({
-        format:        'json',
-        limit:         '1',
-        q:             query,
-        countrycodes:  'ca',
-        viewbox:       '-58.0,52.0,-52.0,46.0',
-        bounded:       '1',
+        format: 'json',
+        limit:  '1',
+        q:      query,
+        ...extraParams,
       });
       const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       const arr = await res.json();
       if (arr && arr.length) {
-        const r = { lat: Number(arr[0].lat), lng: Number(arr[0].lon) };
-        this._geoCache[key] = r;
-        return r;
+        return { lat: Number(arr[0].lat), lng: Number(arr[0].lon) };
       }
     } catch (err) {
-      console.warn('[Mileage] geocode error', err);
+      console.warn('[Mileage] geocode request error', err);
     }
     return null;
   },
