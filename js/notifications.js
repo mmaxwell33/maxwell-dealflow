@@ -1861,6 +1861,14 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         // Pop the agent feedback modal so they don't have to tap anything
         setTimeout(() => Viewings.agentFeedbackModal(justCompletedIds[0]), 600);
       }
+      // Auto-log mileage trips for each auto-completed viewing. Silent —
+      // each call no-ops if already logged or if the agent has no home
+      // base set. Fired in parallel since they're independent DB inserts.
+      if (typeof Mileage !== 'undefined') {
+        justCompletedIds.forEach(vid => {
+          Mileage.autoLogFromViewing(vid).catch(err => console.warn('[Mileage] auto-log error', err));
+        });
+      }
       App.toast(
         `🏠 ${completedCount} viewing${completedCount > 1 ? 's' : ''} done — how did it go?`,
         'var(--accent2)'
