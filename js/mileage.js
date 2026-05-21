@@ -547,27 +547,47 @@ const Mileage = {
     App.closeModal();
     if (!queue.length) return;
 
-    let ok = 0, failed = 0;
+    let ok = 0, failGeo = 0, failDist = 0, failDb = 0;
     App.toast(`Backfilling ${queue.length} trips… this may take a minute.`, 'var(--text2)');
 
-    // Resolve home base coords once — same coords reused for every row.
-    let homeLat = currentAgent.home_base_lat;
-    let homeLng = currentAgent.home_base_lng;
-    if (homeLat == null || homeLng == null) {
-      const h = await this.geocode(currentAgent.home_base_address);
-      if (h) { homeLat = h.lat; homeLng = h.lng; }
-    }
-    if (homeLat == null || homeLng == null) {
+    // Resolve home base coords with a FRESH geocode every run. The stored
+    // home_base_lat/lng might be from the old buggy geocoder that wandered
+    // to BC for any address that didn't include "St. John's" — in which
+    // case every distance below is 4,700+ km and the 500 km sanity check
+    // kills every row. Re-geocode and persist back to agents so the
+    // next save reflects the corrected coords.
+    console.log('[Mileage] Re-geocoding home base:', currentAgent.home_base_address);
+    const h = await this.geocode(currentAgent.home_base_address);
+    if (!h) {
       App.toast('Could not geocode your home base. Check the address in Settings.', 'var(--red)');
+      console.error('[Mileage] Home base geocode returned null for:', currentAgent.home_base_address);
       return;
     }
+    const homeLat = h.lat, homeLng = h.lng;
+    console.log('[Mileage] Home base resolved to:', homeLat, homeLng);
+    // Persist the corrected coords back to the agent so future auto-logs
+    // use them rather than the stale ones.
+    await db.from('agents').update({
+      home_base_lat: homeLat,
+      home_base_lng: homeLng,
+    }).eq('id', currentAgent.id);
+    currentAgent.home_base_lat = homeLat;
+    currentAgent.home_base_lng = homeLng;
 
     for (const v of queue) {
       try {
+        console.log('[Mileage] Geocoding viewing:', v.property_address);
         const e = await this.geocode(v.property_address);
-        if (!e) { failed++; continue; }
+        if (!e) {
+          console.warn('[Mileage] No geocode for:', v.property_address);
+          failGeo++; continue;
+        }
         const km = this.distanceKm(homeLat, homeLng, e.lat, e.lng);
-        if (!km || km <= 0 || km > 500) { failed++; continue; }
+        console.log(`[Mileage]   → ${e.lat.toFixed(4)},${e.lng.toFixed(4)} = ${km.toFixed(1)} km`);
+        if (!km || km <= 0 || km > 500) {
+          console.warn(`[Mileage]   ✗ Distance out of range (${km.toFixed(1)} km) — skipping`);
+          failDist++; continue;
+        }
 
         const { error } = await db.from('mileage_trips').insert({
           agent_id:           currentAgent.id,
@@ -584,23 +604,25 @@ const Mileage = {
           client_name:        v.clients?.full_name || null,
           notes:              'Backfilled from historical viewing record',
         });
-        if (error) failed++; else ok++;
+        if (error) { console.error('[Mileage] insert failed:', error); failDb++; } else ok++;
 
         // Polite throttle for Nominatim's public endpoint (~1 req/sec).
         // Bumped to 1.5s because geocode() may now make TWO requests per
         // address (strict viewbox first, fall back to country-only).
         await new Promise(r => setTimeout(r, 1500));
       } catch (err) {
-        failed++;
-        console.warn('[Mileage] backfill row failed', v.id, err);
+        failGeo++;
+        console.warn('[Mileage] backfill row threw:', v.id, err);
       }
     }
 
     await this.load();
-    if (failed === 0) {
+    const total = failGeo + failDist + failDb;
+    console.log(`[Mileage] Backfill summary — ok:${ok}, geo-fail:${failGeo}, dist-out:${failDist}, db-fail:${failDb}`);
+    if (total === 0) {
       App.toast(`✅ Backfilled ${ok} trip${ok === 1 ? '' : 's'}`, 'var(--green)');
     } else {
-      App.toast(`Backfill complete. ${ok} logged, ${failed} skipped (couldn't geocode or distance out of range).`, 'var(--text2)');
+      App.toast(`Backfill: ${ok} logged · ${failGeo} couldn't geocode · ${failDist} out-of-range · ${failDb} db errors`, 'var(--text2)');
     }
   },
 
