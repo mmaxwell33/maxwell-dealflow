@@ -606,10 +606,11 @@ const Mileage = {
         });
         if (error) { console.error('[Mileage] insert failed:', error); failDb++; } else ok++;
 
-        // Polite throttle for Nominatim's public endpoint (~1 req/sec).
-        // Bumped to 1.5s because geocode() may now make TWO requests per
-        // address (strict viewbox first, fall back to country-only).
-        await new Promise(r => setTimeout(r, 1500));
+        // Small throttle — we're now hitting MapTiler via our Edge Function
+        // (100k/month free tier, no per-second rate limit) so 200ms is plenty.
+        // Keeps the UI from feeling instantaneous and gives Supabase Functions
+        // a beat between invocations.
+        await new Promise(r => setTimeout(r, 200));
       } catch (err) {
         failGeo++;
         console.warn('[Mileage] backfill row threw:', v.id, err);
@@ -642,60 +643,57 @@ const Mileage = {
   // Without (b), a literally-typed address that doesn't exist in NL would
   // still wander to wherever Nominatim found a match.
   _geoCache: {},
+
+  // Geocode an address via our /functions/v1/geocode Edge Function (which
+  // proxies to MapTiler using a server-side API key stored as MAPTILER_KEY
+  // in Supabase secrets).
+  //
+  // Why we moved off Nominatim:
+  //   - OSM's public endpoint rate-limits aggressively (1 req/sec per IP,
+  //     with cool-down for abuse). After a few backfill runs Maxwell's IP
+  //     was 429'ing and every geocode returned null. The "0 logged" bug.
+  //   - MapTiler's free tier is 100k/month vs Nominatim's effective ~1k/day
+  //     before throttling. With Maxwell's volume (~30/month) we'll never
+  //     get close.
+  //   - The Edge Function approach also keeps the API key off the client
+  //     and applies country=ca + St. John's proximity in one server-side
+  //     place rather than re-passing parameters from every caller.
   async geocode(address) {
     if (!address) return null;
     const raw = address.trim();
-    const key = raw.toLowerCase();
-    if (this._geoCache[key]) return this._geoCache[key];
+    const cacheKey = raw.toLowerCase();
+    if (this._geoCache[cacheKey]) return this._geoCache[cacheKey];
 
-    // (a) Append local context if the caller didn't include it. Catches the
-    // typical "89 Firdale Drive" / "62 Galway Blvd" inputs that lack any
-    // province hint and would otherwise wander to BC.
-    const hasContext = /\b(NL|Newfoundland|Labrador|Canada|St\.?\s*John[s']?s)\b/i.test(raw);
-    const query = hasContext ? raw : `${raw}, St. John's, NL, Canada`;
-
-    // Two-pass strategy. The previous version used `bounded=1` with an NL
-    // viewbox to keep the geocoder from wandering. That was too strict:
-    // Nominatim returned nothing for addresses it would otherwise find —
-    // even ones in St. John's — so the entire backfill skipped all 14
-    // viewings ("0 logged, 14 skipped").
-    //
-    // Now we try strict (NL viewbox + bounded) first because that gives
-    // the highest-quality hit when it works. If strict returns nothing,
-    // we relax to countrycodes=ca with NO viewbox. Still safe against the
-    // 4,773 km bug: a result outside Canada is impossible. The 500 km
-    // sanity check in autoLogFromViewing remains as a final guard.
-    let r = await this._geocodeTry(query, {
-      countrycodes: 'ca',
-      viewbox:      '-58.0,52.0,-52.0,46.0',
-      bounded:      '1',
-    });
-    if (!r) {
-      console.log('[Mileage] geocode strict miss, retrying without viewbox:', query);
-      r = await this._geocodeTry(query, { countrycodes: 'ca' });
-    }
-    if (r) this._geoCache[key] = r;
-    else console.warn('[Mileage] geocode failed entirely for:', query);
-    return r;
-  },
-
-  // Single Nominatim request. Returns {lat,lng} or null.
-  async _geocodeTry(query, extraParams) {
     try {
-      const params = new URLSearchParams({
-        format: 'json',
-        limit:  '1',
-        q:      query,
-        ...extraParams,
+      // Need an auth header on the Edge Function — any Supabase session
+      // token is fine, we just want to prove the call came from the app.
+      const { data: { session } } = await db.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        console.warn('[Mileage] geocode skipped — no auth session');
+        return null;
+      }
+
+      const url = `${SUPABASE_URL}/functions/v1/geocode?q=${encodeURIComponent(raw)}`;
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey':        SUPABASE_ANON_KEY,
+          'Accept':        'application/json',
+        },
       });
-      const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-      const arr = await res.json();
-      if (arr && arr.length) {
-        return { lat: Number(arr[0].lat), lng: Number(arr[0].lon) };
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('[Mileage] geocode failed:', res.status, body?.error || body);
+        return null;
+      }
+      if (typeof body.lat === 'number' && typeof body.lng === 'number') {
+        const r = { lat: body.lat, lng: body.lng };
+        this._geoCache[cacheKey] = r;
+        return r;
       }
     } catch (err) {
-      console.warn('[Mileage] geocode request error', err);
+      console.warn('[Mileage] geocode request threw:', err);
     }
     return null;
   },
