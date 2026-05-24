@@ -29,6 +29,14 @@ const Mileage = {
   },
 
   // ── Render the Mileage tab ──────────────────────────────────────────────
+  // Layout (top → bottom):
+  //   1. Header  — title + Backfill / Log-a-trip actions
+  //   2. Stats   — three premium cards (Trips, Kilometers, Claimable value)
+  //   3. Controls — filter chips on the left, export buttons on the right
+  //   4. Trips   — grouped by MONTH with a per-month subtotal line, each
+  //                trip rendered as a rich card (date pill, route, meta
+  //                chips, prominent km + $)
+  //   5. Empty   — friendly empty-state when no trips match the filter
   render() {
     const el = document.getElementById('mileage');
     if (!el) return;
@@ -38,77 +46,142 @@ const Mileage = {
     const tripCount = trips.length;
     const rate = Number(currentAgent?.per_km_rate || 0.73);
     const estValue = totalKm * rate;
+    const filterLabel = ({all:'all time', thisYear:'this year', thisQuarter:'this quarter', thisMonth:'this month'})[this.filter] || 'this period';
 
     el.innerHTML = `
-      <div style="max-width:960px;margin:0 auto;padding:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
-          <div>
-            <h1 style="margin:0 0 4px;font-size:24px;">🚗 Mileage Logbook</h1>
-            <div style="color:var(--text2);font-size:13px;">CRA-compliant vehicle log for tax filing</div>
+      <div class="ml-wrap">
+        <!-- ── HEADER ─────────────────────────────────────────────────── -->
+        <header class="ml-header">
+          <div class="ml-header-title">
+            <h1>🚗 Mileage Logbook</h1>
+            <p>CRA-compliant vehicle log for tax filing &middot; <span style="color:var(--text);">${filterLabel}</span></p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+          <div class="ml-header-actions">
             <button class="btn2" onclick="Mileage.backfillFromPastViewings()" title="Scan past viewings without mileage logs and create them in bulk">📥 Backfill past viewings</button>
             <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
           </div>
-        </div>
+        </header>
 
-        <div class="card2" style="padding:18px;margin-bottom:16px;">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px;">
-            <div>
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Trips</div>
-              <div style="font-size:26px;font-weight:700;margin-top:4px;">${tripCount}</div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Total kilometers</div>
-              <div style="font-size:26px;font-weight:700;margin-top:4px;">${totalKm.toFixed(1)} <span style="font-size:14px;font-weight:400;color:var(--text2);">km</span></div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Est. value @ $${rate.toFixed(2)}/km</div>
-              <div style="font-size:26px;font-weight:700;margin-top:4px;">$${estValue.toFixed(2)}</div>
+        <!-- ── STATS ──────────────────────────────────────────────────── -->
+        <section class="ml-stats">
+          <div class="ml-stat">
+            <div class="ml-stat-icon ml-stat-icon-blue">🚗</div>
+            <div class="ml-stat-body">
+              <div class="ml-stat-label">Trips</div>
+              <div class="ml-stat-value">${tripCount}</div>
+              <div class="ml-stat-hint">${tripCount === 1 ? 'logged' : 'logged'} ${filterLabel}</div>
             </div>
           </div>
-        </div>
+          <div class="ml-stat">
+            <div class="ml-stat-icon ml-stat-icon-coral">📍</div>
+            <div class="ml-stat-body">
+              <div class="ml-stat-label">Total kilometres</div>
+              <div class="ml-stat-value">${totalKm.toFixed(1)} <span class="ml-stat-unit">km</span></div>
+              <div class="ml-stat-hint">Round-trips counted both ways</div>
+            </div>
+          </div>
+          <div class="ml-stat ml-stat-accent">
+            <div class="ml-stat-icon ml-stat-icon-white">💰</div>
+            <div class="ml-stat-body">
+              <div class="ml-stat-label">Claimable @ $${rate.toFixed(2)}/km</div>
+              <div class="ml-stat-value">$${estValue.toFixed(2)}</div>
+              <div class="ml-stat-hint">Estimated CRA deduction</div>
+            </div>
+          </div>
+        </section>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <!-- ── CONTROLS ───────────────────────────────────────────────── -->
+        <section class="ml-controls">
+          <div class="ml-chips">
             ${this._chip('all','All')}
             ${this._chip('thisYear','This year')}
             ${this._chip('thisQuarter','This quarter')}
             ${this._chip('thisMonth','This month')}
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn2" onclick="Mileage.exportCSV()">⬇ CSV</button>
-            <button class="btn2 btn2-primary" onclick="Mileage.exportPDF()">📄 CRA logbook PDF</button>
+          <div class="ml-exports">
+            <button class="btn2 ml-export-btn" onclick="Mileage.exportCSV()">
+              <span class="ml-export-icon">⬇</span>
+              <span>CSV</span>
+            </button>
+            <button class="btn2 btn2-primary ml-export-btn" onclick="Mileage.exportPDF()">
+              <span class="ml-export-icon">📄</span>
+              <span>CRA Logbook PDF</span>
+            </button>
           </div>
-        </div>
+        </section>
 
-        ${trips.length === 0 ? `
-          <div class="card2" style="padding:48px 20px;text-align:center;">
-            <div style="font-size:36px;margin-bottom:14px;opacity:0.6;">🚗</div>
-            <div style="font-weight:600;margin-bottom:6px;font-size:15px;">No trips in this range</div>
-            <div style="color:var(--text2);font-size:13px;margin-bottom:18px;max-width:380px;margin-left:auto;margin-right:auto;">
-              Log your first trip to start building your CRA-compliant vehicle logbook &mdash; or pull in mileage from viewings you've already completed.
-            </div>
-            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
-              <button class="btn2" onclick="Mileage.backfillFromPastViewings()">📥 Backfill past viewings</button>
-            </div>
-          </div>
-        ` : `
-          <div style="display:grid;gap:8px;">
-            ${trips.map(t => this._tripCard(t)).join('')}
-          </div>
-        `}
+        <!-- ── TRIPS LIST or EMPTY STATE ──────────────────────────────── -->
+        ${trips.length === 0 ? this._emptyState() : this._tripsByMonth(trips, rate)}
       </div>
     `;
   },
 
+  // ── EMPTY STATE ─────────────────────────────────────────────────────────
+  _emptyState() {
+    return `
+      <div class="ml-empty">
+        <div class="ml-empty-icon">🚗</div>
+        <h3>No trips in this range</h3>
+        <p>Log your first trip to start building your CRA-compliant vehicle logbook &mdash; or pull in mileage from viewings you've already completed.</p>
+        <div class="ml-empty-actions">
+          <button class="btn2 btn2-primary" onclick="Mileage.openLogModal()">+ Log a trip</button>
+          <button class="btn2" onclick="Mileage.backfillFromPastViewings()">📥 Backfill past viewings</button>
+        </div>
+      </div>`;
+  },
+
+  // ── TRIPS GROUPED BY MONTH ──────────────────────────────────────────────
+  // Each month gets a header with subtotal (km + $) so a glance tells the
+  // agent how much they drove + can claim per month — without computing
+  // anything in their head.
+  _tripsByMonth(trips, rate) {
+    // Bucket trips into {YYYY-MM: [trips]} preserving insertion order
+    const buckets = new Map();
+    trips.forEach(t => {
+      const key = (t.trip_date || '').slice(0, 7); // YYYY-MM
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(t);
+    });
+    const months = Array.from(buckets.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+    return `
+      <section class="ml-months">
+        ${months.map(([ym, mTrips]) => {
+          const mKm = mTrips.reduce((s, t) => s + Number(t.distance_km || 0), 0);
+          const mValue = mKm * rate;
+          const monthLabel = this._formatMonth(ym);
+          return `
+            <div class="ml-month-group">
+              <div class="ml-month-header">
+                <div class="ml-month-name">${monthLabel}</div>
+                <div class="ml-month-stats">
+                  <span>${mTrips.length} trip${mTrips.length === 1 ? '' : 's'}</span>
+                  <span class="ml-dot">·</span>
+                  <span>${mKm.toFixed(1)} km</span>
+                  <span class="ml-dot">·</span>
+                  <span class="ml-month-money">$${mValue.toFixed(2)}</span>
+                </div>
+              </div>
+              <div class="ml-month-trips">
+                ${mTrips.map(t => this._tripCard(t, rate)).join('')}
+              </div>
+            </div>`;
+        }).join('')}
+      </section>`;
+  },
+
+  _formatMonth(ym) {
+    if (!ym) return 'Unknown';
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long' });
+  },
+
+  // ── FILTER CHIP ─────────────────────────────────────────────────────────
+  // Active variant uses the coral brand colour. Inactive sits flat with a
+  // subtle border so the active state has clear visual emphasis.
   _chip(key, label) {
     const active = this.filter === key;
-    const style = active
-      ? 'background:var(--accent);color:white;border-color:var(--accent);'
-      : '';
-    return `<button class="btn2" style="font-size:12px;padding:6px 12px;${style}" onclick="Mileage.setFilter('${key}')">${label}</button>`;
+    return `<button class="ml-chip ${active ? 'is-active' : ''}" onclick="Mileage.setFilter('${key}')">${label}</button>`;
   },
 
   setFilter(key) { this.filter = key; this.render(); },
@@ -127,24 +200,52 @@ const Mileage = {
     });
   },
 
-  _tripCard(t) {
+  // ── TRIP CARD ──────────────────────────────────────────────────────────
+  // Anatomy:
+  //   [Date pill] [Route: from → to + meta chips] [km] [$value] [edit]
+  // The date pill is a deliberate visual anchor on the left so the agent
+  // can scan a long list and pick out a specific date instantly.
+  _tripCard(t, rate) {
     const dest = App.esc(t.end_address || '');
-    const client = t.client_name ? ` · ${App.esc(t.client_name)}` : '';
-    const km = Number(t.distance_km || 0).toFixed(1);
-    const rt = t.is_round_trip ? ' · round-trip' : '';
+    const from = App.esc(t.start_address || (currentAgent?.home_base_address || 'Home base'));
+    const client = t.client_name ? App.esc(t.client_name) : '';
+    const km = Number(t.distance_km || 0);
+    const value = km * (rate || Number(currentAgent?.per_km_rate || 0.73));
+    const d = new Date(t.trip_date);
+    const day = isNaN(d) ? '—' : d.getDate();
+    const monthAbbr = isNaN(d) ? '' : d.toLocaleDateString('en-CA', { month: 'short' }).toUpperCase();
+    const purposeIcon = ({
+      'Viewing':              '🏠',
+      'Listing appointment':  '📋',
+      'Closing':              '🤝',
+      'Open house':           '🚪',
+      'Office / Broker':      '🏢',
+      'Other':                '📍',
+    })[t.purpose] || '📍';
+
     return `
-      <div class="card2" style="padding:13px 16px;cursor:pointer;" onclick="Mileage.openEditModal('${t.id}')">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${dest}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px;">
-              ${App.fmtDate(t.trip_date)} · ${App.esc(t.purpose)}${rt}${client}
-            </div>
+      <div class="ml-trip" onclick="Mileage.openEditModal('${t.id}')" title="Edit this trip">
+        <div class="ml-trip-date">
+          <div class="ml-trip-day">${day}</div>
+          <div class="ml-trip-month">${monthAbbr}</div>
+        </div>
+        <div class="ml-trip-body">
+          <div class="ml-trip-route">
+            <span class="ml-trip-from">${from}</span>
+            <span class="ml-trip-arrow">→</span>
+            <span class="ml-trip-to">${dest}</span>
           </div>
-          <div style="flex-shrink:0;text-align:right;">
-            <div style="font-weight:700;font-size:16px;">${km} <span style="font-size:11px;color:var(--text2);font-weight:400;">km</span></div>
+          <div class="ml-trip-meta">
+            <span class="ml-trip-tag">${purposeIcon} ${App.esc(t.purpose || 'Trip')}</span>
+            ${t.is_round_trip ? '<span class="ml-trip-tag ml-trip-tag-muted">↔ Round-trip</span>' : '<span class="ml-trip-tag ml-trip-tag-muted">→ One-way</span>'}
+            ${client ? `<span class="ml-trip-client">with ${client}</span>` : ''}
           </div>
         </div>
+        <div class="ml-trip-stats">
+          <div class="ml-trip-km">${km.toFixed(1)} <span class="ml-trip-unit">km</span></div>
+          <div class="ml-trip-value">$${value.toFixed(2)}</div>
+        </div>
+        <button class="ml-trip-edit" onclick="event.stopPropagation();Mileage.openEditModal('${t.id}')" aria-label="Edit trip">⋯</button>
       </div>`;
   },
 
