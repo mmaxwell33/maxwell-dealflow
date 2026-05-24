@@ -1517,3 +1517,401 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   .cal-filter-chips::-webkit-scrollbar { height: 4px; }
   .cal-filter-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   MILEAGE LOGBOOK — Professional dashboard treatment
+   Stripe-inspired: hierarchy, breathing room, premium feel. All selectors
+   prefixed .ml- to stay scoped to the Mileage screen.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.ml-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 56px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.ml-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.ml-header-title h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.ml-header-title p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.ml-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Stats grid ───────────────────────────────────────────────────────── */
+.ml-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.ml-stat {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.ml-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-2);
+  border-color: var(--border-strong);
+}
+.ml-stat-accent {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent;
+  color: #fff;
+}
+.ml-stat-accent .ml-stat-label,
+.ml-stat-accent .ml-stat-hint {
+  color: rgba(255,255,255,0.78);
+}
+.ml-stat-accent .ml-stat-value,
+.ml-stat-accent .ml-stat-unit {
+  color: #fff;
+}
+
+.ml-stat-icon {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.ml-stat-icon-blue  { background: rgba(91,91,214,0.14);  color: #7c7cff; }
+.ml-stat-icon-coral { background: var(--coral-soft);     color: var(--accent); }
+.ml-stat-icon-white { background: rgba(255,255,255,0.18); color: #fff; }
+
+.ml-stat-body { min-width: 0; flex: 1; }
+.ml-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text2);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.ml-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.05;
+}
+.ml-stat-unit {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text2);
+  letter-spacing: 0;
+}
+.ml-stat-hint {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+/* ── Controls row (chips + exports) ──────────────────────────────────── */
+.ml-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.ml-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.ml-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 140ms ease;
+  font-family: inherit;
+}
+.ml-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.ml-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ml-exports { display: flex; gap: 8px; }
+.ml-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ml-export-icon { font-size: 13px; }
+
+/* ── Month group ──────────────────────────────────────────────────────── */
+.ml-month-group { margin-bottom: 28px; }
+.ml-month-group:last-child { margin-bottom: 0; }
+
+.ml-month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.ml-month-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.ml-month-stats {
+  font-size: 12.5px;
+  color: var(--text2);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ml-month-stats .ml-dot { opacity: 0.4; }
+.ml-month-money {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ml-month-trips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Trip card ────────────────────────────────────────────────────────── */
+.ml-trip {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.ml-trip:hover {
+  transform: translateX(2px);
+  border-color: var(--accent);
+  box-shadow: var(--sh-1);
+}
+
+.ml-trip-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  padding: 8px 0;
+  background: var(--bg2);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.ml-trip-day {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.ml-trip-month {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+.ml-trip-body { min-width: 0; }
+.ml-trip-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ml-trip-from {
+  color: var(--text2);
+  font-weight: 500;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ml-trip-arrow {
+  color: var(--text3);
+  flex-shrink: 0;
+  font-weight: 400;
+}
+.ml-trip-to {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ml-trip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.ml-trip-tag {
+  background: var(--coral-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0;
+}
+.ml-trip-tag-muted {
+  background: var(--bg2);
+  color: var(--text2);
+}
+.ml-trip-client {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.ml-trip-stats {
+  text-align: right;
+  flex-shrink: 0;
+  padding-right: 28px;
+}
+.ml-trip-km {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.ml-trip-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+}
+.ml-trip-value {
+  font-size: 12.5px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.ml-trip-edit {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  color: var(--text3);
+  font-size: 18px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms, background 140ms;
+}
+.ml-trip:hover .ml-trip-edit { opacity: 1; }
+.ml-trip-edit:hover { background: var(--bg2); color: var(--text); }
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+.ml-empty {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 56px 24px;
+  text-align: center;
+}
+.ml-empty-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.ml-empty h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.ml-empty p {
+  font-size: 13.5px;
+  color: var(--text2);
+  line-height: 1.55;
+  max-width: 420px;
+  margin: 0 auto 22px;
+}
+.ml-empty-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .ml-wrap { padding: 18px 14px 48px; }
+  .ml-header-title h1 { font-size: 22px; }
+  .ml-stats { grid-template-columns: 1fr; gap: 10px; }
+  .ml-stat { padding: 14px 14px 12px; }
+  .ml-stat-value { font-size: 24px; }
+  .ml-trip {
+    grid-template-columns: 48px 1fr;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .ml-trip-stats {
+    grid-column: 2;
+    text-align: left;
+    padding-right: 0;
+    margin-top: 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .ml-trip-route { font-size: 13px; }
+  .ml-trip-from { max-width: 40%; }
+  .ml-trip-edit { display: none; }
+}
