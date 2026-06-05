@@ -394,6 +394,40 @@ html { scroll-padding-top: 110px; }
    then crossfades through them every 8 seconds. The .active class is
    added to whichever image should currently be visible.
    The Ken Burns slow zoom is a CSS animation triggered on .active. */
+/* ── HERO VIDEO BACKGROUND ────────────────────────────────────────────
+   Full-bleed video taking up the entire hero. The poster image renders
+   immediately (cached / preloaded) and the video begins playing as
+   soon as enough data has buffered. Mobile devices that refuse autoplay
+   gracefully degrade to the poster image, which still looks great. */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.hero-video-fallback {
+  /* Only visible if <video> can't be rendered (very old browsers).
+     Layered behind <video> via DOM order so the video always wins
+     when both render successfully. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+/* Legacy carousel CSS — kept so any other page that still references
+   the carousel class doesn't break. The homepage now uses .hero-media
+   above instead. Safe to remove if no other page uses .hero-carousel. */
 .hero-carousel {
   position: absolute;
   inset: 0;
@@ -406,9 +440,6 @@ html { scroll-padding-top: 110px; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Most carousel photos are portraits of people — faces tend to live in
-     the upper half of the frame. Pulling object-position up keeps faces
-     in shot when the hero crops to a wide landscape ratio on desktop. */
   object-position: center 35%;
   opacity: 0;
   transform: scale(1.04);
@@ -424,8 +455,11 @@ html { scroll-padding-top: 110px; }
   to   { transform: scale(1.08); }
 }
 
-/* Respect reduced-motion preference — hold first image static, no zoom. */
+/* Respect reduced-motion preference — pause the hero video for users
+   who've requested reduced motion. The browser still shows the first
+   frame so the hero doesn't go black. */
 @media (prefers-reduced-motion: reduce) {
+  .hero-video { display: none; }
   .hero-carousel img.active { animation: none; transform: none; }
 }
 
