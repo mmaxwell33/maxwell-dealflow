@@ -28,6 +28,144 @@
 <!-- Shared site stylesheet -->
 <link rel="stylesheet" href="/site/css/site.css">
 
+<style>
+  /* ── MEET MAXWELL section — Hollet-inspired "Meet the agent" hero
+     Two-column layout: photo on the left, dark editorial bio panel on
+     the right. Inline here (not in site.css) because it's specific to
+     the About page; if we add a "Meet" page for additional team members
+     later, lift these styles to shared. */
+
+  .meet-section {
+    background: var(--bg);
+    padding: 72px 0 64px;
+  }
+  .meet-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .meet-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 380px) 1fr;
+    gap: 0;
+    align-items: stretch;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.10);
+  }
+
+  /* Photo column — placeholder gradient with initials until a real
+     headshot lands. When a photo is added, the <div> becomes an <img>
+     and these styles still apply (object-fit: cover handles aspect). */
+  .meet-photo {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 72px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    min-height: 480px;
+  }
+  .meet-photo img,
+  img.meet-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 25%;
+  }
+
+  /* Bio column — dark ink panel. Hollet uses near-black with white text
+     to make the bio feel weighty and editorial. We follow the same
+     pattern but tinted slightly warmer (the ink colour from our palette
+     rather than pure black) so it reads as confident, not stark. */
+  .meet-bio {
+    background: var(--ink);
+    color: #ffffff;
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .meet-name {
+    font-size: clamp(34px, 4.5vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    color: #ffffff;
+    margin: 0 0 8px;
+  }
+  .meet-role {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--brand-light);
+    margin: 0 0 26px;
+  }
+  .meet-bio p {
+    font-size: 15.5px;
+    line-height: 1.65;
+    color: rgba(255, 255, 255, 0.86);
+    margin: 0 0 16px;
+    text-wrap: pretty;
+  }
+  .meet-bio p strong {
+    color: #ffffff;
+    font-weight: 600;
+  }
+  .meet-cta-line {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-style: italic;
+    border-left: 3px solid var(--brand);
+    padding-left: 16px;
+    margin-top: 22px !important;
+  }
+  .meet-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
+  .meet-actions .btn-primary {
+    background: var(--brand);
+    color: #ffffff;
+    border-color: var(--brand);
+  }
+  .meet-actions .btn-primary:hover {
+    background: var(--brand-dark);
+    border-color: var(--brand-dark);
+  }
+  .meet-actions .btn-outline {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+  }
+  .meet-actions .btn-outline:hover {
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Mobile — stack vertically, photo on top, bio below */
+  @media (max-width: 840px) {
+    .meet-section { padding: 48px 0 40px; }
+    .meet-grid {
+      grid-template-columns: 1fr;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    .meet-photo {
+      min-height: 320px;
+      font-size: 56px;
+    }
+    .meet-bio {
+      padding: 36px 28px;
+    }
+    .meet-name {
+      font-size: 30px;
+    }
+  }
+</style>
+
 <!-- Schema.org Person -->
 <script type="application/ld+json">
 {
@@ -153,25 +291,51 @@
   </div>
 </nav>
 
-<!-- ── ABOUT HERO ─────────────────────────────────────────────────── -->
-<section class="about-hero">
-  <div class="wrap">
-    <div class="about-hero-grid">
-      <!-- Photo column — placeholder gradient with initials until Maxwell uploads a real headshot.
-           TODO: Maxwell, replace this <div> with <img src="/site/img/maxwell.jpg" alt="Maxwell Delali Midodzi"> -->
-      <div class="about-photo" aria-label="Maxwell Midodzi headshot placeholder">MD</div>
+<!-- ── MEET MAXWELL — Hollet-inspired "Meet the agent" hero ─────────
+     Two-column layout, photo on the left, third-person professional
+     bio on a dark ink-coloured panel on the right. The dark panel
+     gives the bio editorial weight (mirroring Hollet's pattern) so
+     the agent reads as established and intentional, not introductory. -->
+<section class="meet-section">
+  <div class="meet-wrap">
+    <div class="meet-grid">
 
-      <div class="about-body">
-        <span class="eyebrow accent"><span class="eyebrow-divider"></span>About</span>
-        <h1>Early in my career. Serious about every deal.</h1>
-        <p class="role">REALTOR® · eXp Realty · St. John's, NL</p>
+      <!-- Photo column. Placeholder gradient with "MD" initials until a
+           real headshot is uploaded. Replace the <div class="meet-photo">
+           with <img src="/site/img/maxwell.jpg" alt="..."> when ready. -->
+      <div class="meet-photo" aria-label="Maxwell Midodzi headshot placeholder">MD</div>
+
+      <!-- Bio column — dark ink-coloured panel, editorial typography -->
+      <div class="meet-bio">
+        <h1 class="meet-name">Meet Maxwell</h1>
+        <p class="meet-role">REALTOR® · eXp Realty</p>
+
         <p>
-          I'm Maxwell Delali Midodzi, a REALTOR® serving St. John's and the Avalon Peninsula. I'm newer to the industry — but that's exactly why every client gets my full attention. I'm not coasting on a Rolodex; I'm building a practice the right way, one careful deal at a time.
+          Maxwell Delali Midodzi is a REALTOR® with eXp Realty serving St. John's, Newfoundland and Labrador, and the Avalon Peninsula. While newer to the real-estate industry, Maxwell brings a different kind of edge to the work: the discipline of someone who reads every page of the inspection report, the operating mindset of a builder, and an unshakeable belief that every client deserves the same level of care &mdash; whether they are purchasing their first home or listing the family property they have lived in for thirty years.
         </p>
+
         <p>
-          My approach is simple: <strong>be honest, do the homework, and treat every client like a long-term relationship — not a transaction.</strong> I'd rather lose a deal than push someone into the wrong house. The agents I most respect built their reputations the same way.
+          What sets Maxwell apart is what he has built behind the scenes. Most agents juggle their pipeline with sticky notes, spreadsheets, and the hope that nothing important slips through the cracks. Maxwell built a custom client-management platform from the ground up &mdash; an end-to-end system that automates intake, viewing confirmations, offer tracking, deadline reminders, document checklists, and client communication. Clients can see live deal progress through a private link, receive automatic email confirmations the moment a viewing is booked, and never have to ask &ldquo;any updates?&rdquo; &mdash; because the answer is always one tap away.
         </p>
+
+        <p>
+          Maxwell&rsquo;s market is the Avalon Peninsula and its surrounding communities: St. John&rsquo;s, Mount Pearl, Paradise, Conception Bay South, Torbay, Portugal Cove&ndash;St. Philip&rsquo;s, Pouch Cove, Flatrock, Goulds, Kilbride, and the Southern Shore. He does not recommend a neighbourhood from a map; he recommends one because he has walked its streets, watched the market shift in it, and knows what a fair price looks like in it.
+        </p>
+
+        <p>
+          His philosophy refuses to compromise on three principles: <strong>do the homework before the showing</strong>, <strong>tell clients what he actually sees</strong> &mdash; even when it costs the deal &mdash; and <strong>stay in touch through the whole journey</strong>, not just until the listing is signed. He works primarily with first-time buyers, growing families, and homeowners ready to list &mdash; clients for whom this is the largest financial decision of their lives, and who deserve an agent who treats it that way.
+        </p>
+
+        <p class="meet-cta-line">
+          Whether you are three months from your first showing or a year out from listing, Maxwell is happy to have a no-pressure conversation about the market, the process, or what is realistic in your situation.
+        </p>
+
+        <div class="meet-actions">
+          <a class="btn btn-primary" href="/intake.html">Start with a free intake</a>
+          <a class="btn btn-outline" href="mailto:Maxwell.Midodzi@exprealty.com">Email Maxwell</a>
+        </div>
       </div>
+
     </div>
   </div>
 </section>
