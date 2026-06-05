@@ -47,11 +47,19 @@
      fetchpriority="high" also bumps it on the network stack — this is
      the LCP candidate, so anything we can do to surface it faster
      improves perceived load. -->
+<!-- Preload the hero video poster so something paints immediately while
+     the .mp4 starts streaming. NL coastline still — same asset used
+     for og:image so the request often hits a warm cache. -->
 <link
   rel="preload"
   as="image"
-  href="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+  href="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
   fetchpriority="high">
+
+<!-- Preconnect to the Pexels video CDN so the hero video begins
+     downloading without waiting for DNS + TLS handshake first. -->
+<link rel="preconnect" href="https://videos.pexels.com" crossorigin>
+<link rel="preconnect" href="https://www.pexels.com" crossorigin>
 
 <!-- Schema.org RealEstateAgent JSON-LD for Google -->
 <script type="application/ld+json">
@@ -494,28 +502,39 @@
 </nav>
 
 <!-- ── HERO ─────────────────────────────────────────────────────────
-     JS-driven carousel. We hardcode the first image so something
-     renders before JS runs (graceful no-JS fallback). The init script
-     at the bottom of the page injects 9 more images, shuffles the
-     order randomly, and crossfades them every 8 seconds with a slow
-     Ken Burns zoom for cinematic feel.
+     Full-bleed video background (rocky North Atlantic coastline drone
+     footage from Pexels, free for commercial use). Mirrors the Hollet
+     Group pattern — premium-feeling motion that anchors the brand to
+     Newfoundland from the first frame.
 
-     Why JS not CSS: CSS can't randomise order and can't react to image
-     load events. With JS we can preload, shuffle, and adapt.
+     Why a video instead of the previous carousel: video reads as
+     cinematic; a single sweeping shot beats six staged stock photos.
+     We keep the poster image (NL coastline still) so something renders
+     immediately while the video downloads — the poster is what every
+     visitor sees for the first ~0.5-2 seconds. Mobile devices that
+     don't autoplay video stay on the poster, which still looks great.
 
-     Content vector: each image represents a moment in the home journey
-     — curb appeal, handover, family, celebration, sense of place. -->
+     <video> attributes:
+       autoplay      — start playing as soon as data is ready
+       muted         — required for browser autoplay policy
+       loop          — seamlessly restart at end
+       playsinline   — iOS Safari requires this to play in-place
+       preload=auto  — start downloading immediately
+       poster=...    — show this still until video starts
+     -->
 <section class="hero">
-  <div class="hero-carousel" aria-hidden="true">
-    <!-- LCP candidate — hand holding keys in front of an entrance. The
-         only "people" element is a hand on a key, which is the universal
-         real-estate moment without the risks of full-figure portraits
-         (awkward cropping, unfortunate framing, intimacy that reads as
-         personal-life rather than real-estate). onerror removes the slot
-         if the URL ever 404s so we never render a broken-image icon. -->
-
-    <img class="active"
-         src="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+  <div class="hero-media" aria-hidden="true">
+    <video
+      class="hero-video"
+      autoplay muted loop playsinline preload="auto"
+      poster="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop">
+      <source src="https://www.pexels.com/download/video/5619695/" type="video/mp4">
+    </video>
+    <!-- Image fallback for the rare browser that loads neither the
+         video nor honours the poster (very old IE-era stuff). Same
+         URL as the poster, so duplicate request is cheap. -->
+    <img class="hero-video-fallback"
+         src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
          alt="" decoding="async" fetchpriority="high" width="2000" height="1333"
          onerror="this.remove()">
   </div>
