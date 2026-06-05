@@ -373,6 +373,302 @@
       margin-bottom: 40px;
     }
   }
+
+  /* ── HOLLET-STYLE SECTION HEADING ────────────────────────────────
+     Centered title flanked by short horizontal divider lines on each
+     side. Mirrors Hollet's "My Services" and "Featured Listings"
+     section heading pattern. */
+  .section-heading-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 14px;
+  }
+  .section-divider {
+    flex: 0 0 80px;
+    height: 1px;
+    background: var(--ink-3);
+    opacity: 0.4;
+  }
+  .section-title-center {
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.1;
+    margin: 0;
+  }
+  .section-sub-center {
+    text-align: center;
+    color: var(--ink-2);
+    font-size: 16px;
+    line-height: 1.55;
+    max-width: 640px;
+    margin: 0 auto 44px;
+  }
+
+  /* ── HERO SEARCH BAR ─────────────────────────────────────────────
+     White (or near-white) horizontal bar overlapping the bottom of
+     the hero photo. Each field is labelled, with a coral submit
+     button. On mobile, fields stack vertically. */
+  .hero-search {
+    position: relative;
+    z-index: 3;
+    max-width: 1080px;
+    margin: 56px auto 0;
+    padding: 0 24px;
+    width: 100%;
+  }
+  .hero-search-inner {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(12px);
+    border-radius: var(--r-md);
+    padding: 14px;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+    align-items: end;
+  }
+  .hsr-field {
+    padding: 0 14px;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+  .hsr-field:last-of-type { border-right: 0; }
+  .hsr-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 4px;
+  }
+  .hsr-field input,
+  .hsr-field select {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    outline: none;
+    padding: 4px 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2364748B' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+  }
+  .hsr-field input { background-image: none; }
+  .hsr-field input::placeholder { color: var(--ink-3); font-weight: 400; }
+  .hsr-submit {
+    background: var(--brand);
+    color: #fff;
+    border: 0;
+    padding: 14px 28px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: background 140ms;
+    margin-left: 10px;
+    align-self: stretch;
+  }
+  .hsr-submit:hover { background: var(--brand-dark); }
+  .hsr-note {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12.5px;
+    margin-top: 14px;
+    text-align: center;
+    line-height: 1.5;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+  }
+
+  /* ── MY SERVICES big photo cards ─────────────────────────────────
+     6 cards in a 3-column grid (3/2/1 desktop/tablet/mobile). Each
+     card is a full-bleed photo with a label overlay at the bottom.
+     Hover lifts the card and zooms the photo slightly. */
+  .services-section {
+    padding: 80px 0 64px;
+    background: var(--bg);
+  }
+  .svc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .svc-card {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: var(--r-md);
+    text-decoration: none;
+    background: var(--ink);
+    color: #fff;
+    transition: transform 240ms ease, box-shadow 240ms ease;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  }
+  .svc-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.20);
+    text-decoration: none;
+  }
+  .svc-photo {
+    position: absolute;
+    inset: 0;
+    background: #0F172A;
+  }
+  .svc-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 600ms ease;
+  }
+  .svc-card:hover .svc-photo img {
+    transform: scale(1.06);
+  }
+  .svc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.55) 40%, rgba(15,23,42,0.10) 70%, transparent 100%);
+    pointer-events: none;
+  }
+  .svc-body {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 22px 22px 20px;
+    color: #fff;
+    z-index: 1;
+  }
+  .svc-label {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .svc-sub {
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.86);
+  }
+
+  /* ── FEATURED COMMUNITIES photo grid ─────────────────────────────
+     6 photo cards. The first is wide (spans 2 columns) to give the
+     hometown — St. John's — visual prominence; the other 5 are
+     standard squares. Hollet does similar prominence weighting on
+     their Featured Communities. */
+  .community-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .community-card-large {
+    grid-column: span 2;
+  }
+  .community-card {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: var(--r-md);
+    text-decoration: none;
+    background: var(--ink);
+    transition: transform 240ms ease;
+  }
+  .community-card-large {
+    aspect-ratio: 8 / 5;
+  }
+  .community-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 600ms ease;
+  }
+  .community-card:hover {
+    transform: translateY(-3px);
+    text-decoration: none;
+  }
+  .community-card:hover img {
+    transform: scale(1.06);
+  }
+  .community-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.2) 60%, transparent 100%);
+    display: flex;
+    align-items: flex-end;
+    padding: 22px 22px 20px;
+    color: #fff;
+    pointer-events: none;
+  }
+  .community-label {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .community-card-large .community-label {
+    font-size: 22px;
+  }
+  .community-footnote {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 14px;
+    color: var(--ink-3);
+    line-height: 1.5;
+  }
+  .community-footnote a {
+    color: var(--brand-dark);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .community-footnote a:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Mobile responsive — stack/reflow everything for phone ────── */
+  @media (max-width: 880px) {
+    .hero-search-inner {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hsr-field {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 12px;
+    }
+    .hsr-field-wide { grid-column: span 2; }
+    .hsr-submit {
+      grid-column: span 2;
+      margin: 6px 0 0;
+    }
+    .svc-grid { grid-template-columns: repeat(2, 1fr); }
+    .community-grid { grid-template-columns: repeat(2, 1fr); }
+    .community-card-large { grid-column: span 2; }
+  }
+  @media (max-width: 540px) {
+    .svc-grid { grid-template-columns: 1fr; }
+    .svc-card { aspect-ratio: 16 / 11; }
+    .community-grid { grid-template-columns: 1fr; }
+    .community-card-large { grid-column: span 1; aspect-ratio: 4 / 3; }
+    .section-divider { flex-basis: 32px; }
+    .hero-search { margin-top: 32px; }
+  }
 </style>
 </head>
 <body>
@@ -553,39 +849,151 @@
       <a class="btn btn-outline" href="/seller-intake.html">I'm looking to sell</a>
     </div>
   </div>
+
+  <!-- ── HERO SEARCH BAR (Hollet-style) ────────────────────────────
+       Lets visitors specify what they're looking for right from the
+       hero. Submits to /intake.html with the criteria as URL params,
+       so the lead arrives with their preferences attached. Same
+       pattern Hollet uses on their landing page. -->
+  <form class="hero-search anim-fade-up" style="--anim-delay:1.8s" method="GET" action="/intake.html">
+    <div class="hero-search-inner">
+      <div class="hsr-field hsr-field-wide">
+        <label for="hsr-city">City, community, or area</label>
+        <input type="text" id="hsr-city" name="area" placeholder="e.g. St. John's, Mount Pearl, Paradise" autocomplete="off">
+      </div>
+      <div class="hsr-field">
+        <label for="hsr-beds">Bedrooms</label>
+        <select id="hsr-beds" name="beds">
+          <option value="">Any</option>
+          <option value="1">1+</option>
+          <option value="2">2+</option>
+          <option value="3">3+</option>
+          <option value="4">4+</option>
+          <option value="5">5+</option>
+        </select>
+      </div>
+      <div class="hsr-field">
+        <label for="hsr-baths">Bathrooms</label>
+        <select id="hsr-baths" name="baths">
+          <option value="">Any</option>
+          <option value="1">1+</option>
+          <option value="2">2+</option>
+          <option value="3">3+</option>
+        </select>
+      </div>
+      <div class="hsr-field">
+        <label for="hsr-min">Price from</label>
+        <select id="hsr-min" name="price_min">
+          <option value="">Any</option>
+          <option value="200000">$200K</option>
+          <option value="300000">$300K</option>
+          <option value="400000">$400K</option>
+          <option value="500000">$500K</option>
+          <option value="700000">$700K</option>
+          <option value="1000000">$1M</option>
+        </select>
+      </div>
+      <div class="hsr-field">
+        <label for="hsr-max">Price to</label>
+        <select id="hsr-max" name="price_max">
+          <option value="">Any</option>
+          <option value="300000">$300K</option>
+          <option value="500000">$500K</option>
+          <option value="700000">$700K</option>
+          <option value="1000000">$1M</option>
+          <option value="1500000">$1.5M+</option>
+        </select>
+      </div>
+      <button type="submit" class="hsr-submit">Search</button>
+    </div>
+    <div class="hsr-note">
+      I don't pull from MLS directly &mdash; instead I'll handpick listings that match your criteria and email them the same day.
+    </div>
+  </form>
 </section>
 
-<!-- ── HOW I HELP ─────────────────────────────────────────────────── -->
-<section class="alt">
+<!-- ── MY SERVICES — Hollet-style big photo card grid ──────────────
+     Six cards, each a full-bleed photo with a uppercase label and a
+     one-line description. Click anywhere on the card to land on the
+     matching service. Visual pattern mirrors Hollet's "My Services"
+     section faithfully. -->
+<section class="services-section">
   <div class="wrap">
-    <div class="eyebrow">How I help</div>
-    <h2 class="section-title">Two clear paths, both start the same way.</h2>
-    <p class="section-sub">Tell me what you need with a short intake form. I aim to respond the same business day with a real plan — no hard sell, no high-pressure tactics.</p>
+    <div class="section-heading-center">
+      <span class="section-divider"></span>
+      <h2 class="section-title-center">My Services</h2>
+      <span class="section-divider"></span>
+    </div>
+    <p class="section-sub-center">Six ways to get value out of the next 6&ndash;12 months, whether you're ready to buy or sell today or just gathering information.</p>
 
-    <div class="row cols-2">
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">🏠</div>
-        <h3>Buying a home</h3>
-        <p>From your first showing to closing day, I'll walk you through every step and make sure you don't overpay or miss something important.</p>
-        <ul>
-          <li>Free buyer consultation — in person, phone, or video</li>
-          <li>Real-time listing alerts tailored to your search</li>
-          <li>Honest pricing analysis on every property we view</li>
-          <li>Negotiation, inspection, and closing handled end-to-end</li>
-        </ul>
-      </article>
+    <div class="svc-grid">
 
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">🏷</div>
-        <h3>Selling your home</h3>
-        <p>Selling is more than putting a sign on the lawn. We'll set a realistic price, prep the listing properly, and market it where buyers actually look.</p>
-        <ul>
-          <li>Free home valuation grounded in recent comparable sales</li>
-          <li>Professional photography and listing copy</li>
-          <li>Targeted marketing on MLS, social, and partner networks</li>
-          <li>Clear weekly updates so you always know where things stand</li>
-        </ul>
-      </article>
+      <a class="svc-card" href="/seller-intake.html">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">What's Your Home Worth?</div>
+          <div class="svc-sub">Free home valuation based on real recent comparables in your neighbourhood.</div>
+        </div>
+      </a>
+
+      <a class="svc-card" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Coffee%20%26%20Real%20Estate">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">Coffee &amp; Real Estate</div>
+          <div class="svc-sub">No-pressure conversation about the market, your timeline, or what's actually possible.</div>
+        </div>
+      </a>
+
+      <a class="svc-card" href="/site/buyer-checklist/">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1741156386380-0236c72eb6f9?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">First-Time Buyer Checklist</div>
+          <div class="svc-sub">Printable step-by-step from "thinking about it" to keys in your hand &mdash; Newfoundland-specific.</div>
+        </div>
+      </a>
+
+      <a class="svc-card" href="/site/seller-checklist/">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">Seller Prep Checklist</div>
+          <div class="svc-sub">Every move to make in the 30 days before your listing goes live, ranked by ROI.</div>
+        </div>
+      </a>
+
+      <a class="svc-card" href="/site/process/">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">The Process Explained</div>
+          <div class="svc-sub">Long-form walkthrough of how buying and selling actually work in St. John's &mdash; real timelines, real costs.</div>
+        </div>
+      </a>
+
+      <a class="svc-card" href="/site/resources/">
+        <div class="svc-photo">
+          <img src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+               alt="" loading="lazy" decoding="async" onerror="this.style.background='#0F172A'">
+        </div>
+        <div class="svc-body">
+          <div class="svc-label">NL Resources &amp; Tools</div>
+          <div class="svc-sub">Mortgage calculators, government programs, professional associations &mdash; everything I send clients.</div>
+        </div>
+      </a>
+
     </div>
   </div>
 </section>
@@ -676,50 +1084,66 @@
       width="2000" height="857">
   </div>
   <div class="wrap">
-    <div class="eyebrow">Where I work</div>
-    <h2 class="section-title">Across the Avalon — and a few favourite pockets.</h2>
-    <p class="section-sub">Real estate is hyperlocal. I know these places not from a map, but from walking the streets, attending the schools, and watching the market shift over years. If your search is somewhere on this list, we're already ahead.</p>
+    <div class="section-heading-center">
+      <span class="section-divider"></span>
+      <h2 class="section-title-center">Featured Communities</h2>
+      <span class="section-divider"></span>
+    </div>
+    <p class="section-sub-center">Across the Avalon Peninsula &mdash; the neighbourhoods I know best, from walking their streets and watching their markets shift over years.</p>
 
-    <div class="areas-grid">
-      <div class="area-cell">
-        <div class="area-name">St. John's</div>
-        <div class="area-desc">Downtown, Georgestown, Churchill Park, the Battery, Quidi Vidi.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Mount Pearl</div>
-        <div class="area-desc">Family-first, strong schools, great resale value.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Paradise</div>
-        <div class="area-desc">Newer builds, quiet cul-de-sacs, fast commute to St. John's.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Conception Bay South</div>
-        <div class="area-desc">Waterfront pockets and growing new-build neighbourhoods.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Torbay &amp; Logy Bay</div>
-        <div class="area-desc">Coastal living within 20 minutes of downtown St. John's.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Portugal Cove–St. Philip's</div>
-        <div class="area-desc">Rural character, larger lots, the ferry to Bell Island.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Pouch Cove &amp; Flatrock</div>
-        <div class="area-desc">Quieter, more space, ocean views you can't get in the city.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Bay Bulls &amp; Witless Bay</div>
-        <div class="area-desc">Southern Shore commuter towns with strong community feel.</div>
-      </div>
-      <div class="area-cell">
-        <div class="area-name">Goulds &amp; Kilbride</div>
-        <div class="area-desc">Established neighbourhoods on the southwest edge of St. John's.</div>
-      </div>
+    <div class="community-grid">
+
+      <a class="community-card community-card-large" href="/intake.html?area=St.%20John%27s">
+        <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1600&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">St. John's</div>
+        </div>
+      </a>
+
+      <a class="community-card" href="/intake.html?area=Torbay">
+        <img src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">Torbay</div>
+        </div>
+      </a>
+
+      <a class="community-card" href="/intake.html?area=Paradise">
+        <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">Paradise</div>
+        </div>
+      </a>
+
+      <a class="community-card" href="/intake.html?area=Conception%20Bay%20South">
+        <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">Conception Bay South</div>
+        </div>
+      </a>
+
+      <a class="community-card" href="/intake.html?area=Mount%20Pearl">
+        <img src="https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">Mount Pearl</div>
+        </div>
+      </a>
+
+      <a class="community-card" href="/intake.html?area=Pouch%20Cove%2FFlatrock">
+        <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1200&q=80&fm=jpg&auto=format&fit=crop"
+             alt="" loading="lazy" decoding="async">
+        <div class="community-overlay">
+          <div class="community-label">Pouch Cove &amp; Flatrock</div>
+        </div>
+      </a>
+
     </div>
 
-    <p style="margin-top:28px;font-size:14px;color:var(--ink-3);">Looking somewhere not on this list? Ask — most of the Avalon is in reach.</p>
+    <p class="community-footnote">Looking somewhere not pictured? Bay Bulls, Witless Bay, Goulds, Kilbride, Portugal Cove&ndash;St. Philip's, Logy Bay, the Southern Shore &mdash; most of the Avalon is in reach. <a href="mailto:Maxwell.Midodzi@exprealty.com">Ask &rarr;</a></p>
   </div>
 </section>
 
