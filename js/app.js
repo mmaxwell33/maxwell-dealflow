@@ -539,31 +539,44 @@ const App = {
       { data: todayV },
       { data: tomorrowV },
       { data: pending },
-      { data: recentClients }
+      { data: recentClients },
+      { data: needFeedback }
     ] = await Promise.all([
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', today).neq('viewing_status', 'Completed'),
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', tomorrow).neq('viewing_status', 'Completed'),
       db.from('approval_queue').select('*').eq('agent_id', currentAgent.id).eq('status', 'Pending'),
       db.from('clients').select('id,full_name,stage,updated_at').eq('agent_id', currentAgent.id)
-        .gte('created_at', weekAgo).order('created_at', { ascending: false }).limit(3)
+        .gte('created_at', weekAgo).order('created_at', { ascending: false }).limit(3),
+      // Completed viewings still waiting on Maxwell's "how did it go?" feedback.
+      // These are the "missed" prompts — they persist in the bell until acted on.
+      db.from('viewings').select('*, clients(full_name)').eq('viewing_status', 'Completed')
+        .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10)
     ]);
     const items = [];
+    // Missed "how did the viewing go?" prompts come first — they're the most
+    // actionable and the ones Maxwell asked to never lose. Clicking opens the
+    // feedback modal right from the bell.
+    (needFeedback || []).forEach(v => {
+      const name = (v.clients && v.clients.full_name) || v.client_name || 'Client';
+      const addr = v.property_address || v.address || 'Property';
+      items.push({ icon: '📝', bg: 'rgba(245,158,11,0.18)', color: '#f59e0b', title: 'Viewing — needs your feedback', text: `${name} — ${addr}`, tag: 'Action', action: `App.closeNotifPanel();Viewings.agentFeedbackModal('${v.id}')` });
+    });
     (todayV || []).forEach(v => {
       const name = (v.clients && v.clients.full_name) || 'Client';
       const addr = v.property_address || v.address || 'Property';
       const time = v.viewing_time ? v.viewing_time.slice(0, 5) : '';
-      items.push({ icon: '🏠', bg: 'rgba(91,91,214,0.15)', color: '#7c7cff', title: `Viewing Today${time ? ' at ' + time : ''}`, text: `${name} — ${addr}`, tag: 'Today' });
+      items.push({ icon: '🏠', bg: 'rgba(91,91,214,0.15)', color: '#7c7cff', title: `Viewing Today${time ? ' at ' + time : ''}`, text: `${name} — ${addr}`, tag: 'Today', action: `App.closeNotifPanel();App.switchTab('viewings')` });
     });
     (tomorrowV || []).forEach(v => {
       const name = (v.clients && v.clients.full_name) || 'Client';
       const addr = v.property_address || v.address || 'Property';
-      items.push({ icon: '📅', bg: 'rgba(6,182,212,0.15)', color: '#06b6d4', title: 'Viewing Tomorrow', text: `${name} — ${addr}`, tag: 'Tomorrow' });
+      items.push({ icon: '📅', bg: 'rgba(6,182,212,0.15)', color: '#06b6d4', title: 'Viewing Tomorrow', text: `${name} — ${addr}`, tag: 'Tomorrow', action: `App.closeNotifPanel();App.switchTab('viewings')` });
     });
     (pending || []).forEach(a => {
-      items.push({ icon: '✅', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', title: 'Pending Approval', text: a.subject || a.type || 'Needs your review', tag: 'Pending' });
+      items.push({ icon: '✅', bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', title: 'Pending Approval', text: a.subject || a.type || 'Needs your review', tag: 'Pending', action: `App.closeNotifPanel();App.switchTab('approvals')` });
     });
     (recentClients || []).forEach(c => {
-      items.push({ icon: '👤', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', title: 'New Client Added', text: c.full_name + (c.stage ? ' — ' + c.stage : ''), tag: 'New' });
+      items.push({ icon: '👤', bg: 'rgba(139,92,246,0.15)', color: '#8b5cf6', title: 'New Client Added', text: c.full_name + (c.stage ? ' — ' + c.stage : ''), tag: 'New', action: `App.closeNotifPanel();App.switchTab('clients')` });
     });
     // Update bell badge
     const badge = document.getElementById('tb-bell-count');
@@ -580,7 +593,7 @@ const App = {
       return;
     }
     el.innerHTML = items.map(item => `
-      <div class="notif-item">
+      <div class="notif-item"${item.action ? ` onclick="${item.action}" style="cursor:pointer;"` : ''}>
         <div class="notif-icon" style="background:${item.bg};color:${item.color};">${item.icon}</div>
         <div class="notif-body">
           <div class="notif-item-title">${item.title}</div>

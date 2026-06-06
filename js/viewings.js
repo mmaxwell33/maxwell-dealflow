@@ -244,11 +244,10 @@ const Viewings = {
         }
       }
     }
-    // If feedback was added on update, queue follow-up
-    if (existingId && !error && payload.client_feedback && typeof Notify !== "undefined") {
-      const clientObj = { ...client, email: client?.email || '(no email on file)' };
-      await Notify.onViewingFeedback(payload, clientObj, payload.client_feedback);
-    }
+    // NOTE: editing a viewing's feedback no longer auto-emails the client.
+    // Client emails are driven only by the explicit post-viewing buttons
+    // (Good → "ready to make an offer?" invitation, which goes through
+    // Approvals). Keep-searching / Pass never email the client.
     if (error) { if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; } return; }
     App.closeModal();
     App.toast(existingId ? '✅ Viewing updated!' : '✅ Viewing booked!');
@@ -384,66 +383,42 @@ const Viewings = {
     const clientObj = { ...client, email: client?.email || '(no email on file)' };
     const firstName = clientObj.full_name?.split(' ')[0] || 'your client';
 
-    if (typeof Notify !== "undefined") {
-      // For 'interested' feedback we send ONLY the richer 'Ready to Make an Offer?' email
-      // (it already opens with "Based on your strong interest…"). Sending the
-      // separate viewing-followup on top would be a duplicate to the same client.
-      const skipFollowupEmail = (feedback === 'interested');
+    // Only the "interested → ready to make an offer" path emails the client.
+    // "Good — keep searching" and "Pass" record the outcome SILENTLY — no email
+    // ever goes to the client on keep-searching/pass (Maxwell's call).
+    if (feedback === 'interested' && typeof Notify !== "undefined") {
       const { data: { user } } = await db.auth.getUser();
       const agentId = user?.id || currentAgent?.id;
-
-      if (!skipFollowupEmail) {
-        // Non-interested feedback (good / not interested) — send the standard followup
-        await Notify.onViewingFeedback({...v, client_feedback: feedback}, clientObj, feedback);
-        if (agentId) {
-          const { data: queued } = await db.from('approval_queue')
-            .select('id').eq('agent_id', agentId).eq('status', 'Pending')
-            .eq('approval_type', 'Post-Viewing Follow-Up').eq('related_id', id)
-            .order('created_at', { ascending: false }).limit(1).maybeSingle();
-          if (queued?.id && typeof Approvals !== 'undefined') {
-            setTimeout(() => Approvals.approve(queued.id), 500);
-          }
-        }
-      }
-
-      if (feedback === 'interested') {
-        // Generate a unique response token so client can respond via the web page
-        const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
-        const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days
-        await db.from('viewing_responses').insert({
-          viewing_id: id,
-          client_id: v.client_id,
-          agent_id: agentId || null,
-          property_address: v.property_address || null,
-          list_price: v.list_price || null,
-          mls_number: v.mls_number || null,
-          client_name: clientObj.full_name || null,
-          client_email: clientObj.email || null,
-          token,
-          expires_at: expiresAt,
-          expired: false
-        });
-        const viewingWithToken = { ...v, client_feedback: feedback, _responseToken: token };
-        await Notify.onReadyToOffer(viewingWithToken, clientObj);
-        // Auto-approve the "Ready to Make an Offer?" email too
-        if (agentId) {
-          const { data: offerQ } = await db.from('approval_queue')
-            .select('id').eq('agent_id', agentId).eq('status', 'Pending')
-            .eq('approval_type', 'Ready to Make an Offer?').eq('related_id', id)
-            .order('created_at', { ascending: false }).limit(1).maybeSingle();
-          if (offerQ?.id && typeof Approvals !== 'undefined') {
-            setTimeout(() => Approvals.approve(offerQ.id), 1200);
-          }
-        }
-      }
+      // Unique response token so the client can reply via the web page.
+      const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days
+      await db.from('viewing_responses').insert({
+        viewing_id: id,
+        client_id: v.client_id,
+        agent_id: agentId || null,
+        property_address: v.property_address || null,
+        list_price: v.list_price || null,
+        mls_number: v.mls_number || null,
+        client_name: clientObj.full_name || null,
+        client_email: clientObj.email || null,
+        token,
+        expires_at: expiresAt,
+        expired: false
+      });
+      const viewingWithToken = { ...v, client_feedback: feedback, _responseToken: token };
+      // Queue the "Ready to Make an Offer?" invitation. It stays PENDING in
+      // Approvals so Maxwell reviews and sends it himself — it is NOT
+      // auto-approved (Maxwell wants the offer invitation to go through his
+      // approval before it reaches the client).
+      await Notify.onReadyToOffer(viewingWithToken, clientObj);
     }
 
-    // Show contextual toast with what just happened — no "check Approvals" needed
+    // Contextual toast — make it clear whether anything was sent.
     const toastMsg = feedback === 'interested'
-      ? `🌟 ${firstName} — follow-up + offer invitation sent automatically`
+      ? `🌟 ${firstName} — offer invitation queued in Approvals for your review`
       : feedback === 'good'
-      ? `✅ ${firstName} — follow-up email sent automatically`
-      : `📬 ${firstName} — "keep searching" email sent automatically`;
+      ? `✅ Noted — ${firstName} liked it, still searching. No email sent.`
+      : `📝 Noted — ${firstName} passed. No email sent.`;
     App.toast(toastMsg, 'var(--green)');
 
     await Viewings.load();
