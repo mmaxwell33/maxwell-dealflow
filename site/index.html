@@ -669,6 +669,75 @@
     .section-divider { flex-basis: 32px; }
     .hero-search { margin-top: 32px; }
   }
+
+  /* ── PROPERTY TYPES ──────────────────────────────────────────────
+     Photo on top, text below — the visual flip from My Services
+     (overlay on photo) keeps the page from reading as three identical
+     photo grids stacked. Cards are smaller and read like a glossary
+     of home types. */
+  .home-types-section {
+    padding: 80px 0;
+  }
+  .home-types-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 8px;
+  }
+  .home-type-card {
+    background: var(--bg);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    border: 1px solid var(--border);
+    transition: transform 240ms ease, box-shadow 240ms ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .home-type-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14);
+  }
+  .home-type-photo {
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--bg-2);
+  }
+  .home-type-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 600ms ease;
+  }
+  .home-type-card:hover .home-type-photo img {
+    transform: scale(1.05);
+  }
+  .home-type-body {
+    padding: 20px 22px 22px;
+    flex: 1;
+  }
+  .home-type-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 6px;
+    letter-spacing: -0.005em;
+  }
+  .home-type-desc {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin: 0;
+  }
+
+  @media (max-width: 880px) {
+    .home-types-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  }
+  @media (max-width: 540px) {
+    .home-types-grid { grid-template-columns: 1fr; }
+    .home-types-section { padding: 56px 0; }
+  }
 </style>
 </head>
 <body>
@@ -823,14 +892,20 @@
     <video
       class="hero-video"
       autoplay muted loop playsinline preload="auto"
-      poster="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop">
+      poster="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop">
+      <!-- Aerial drone over a suburban neighborhood — real-estate flavoured,
+           homes visible from above. Two fallbacks in case the primary fails:
+           a second neighborhood video, then the original coastline as a final
+           NL-themed safety net. Browser uses the first that loads. -->
+      <source src="https://www.pexels.com/download/video/4117521/" type="video/mp4">
+      <source src="https://www.pexels.com/download/video/5031099/" type="video/mp4">
       <source src="https://www.pexels.com/download/video/5619695/" type="video/mp4">
     </video>
     <!-- Image fallback for the rare browser that loads neither the
          video nor honours the poster (very old IE-era stuff). Same
          URL as the poster, so duplicate request is cheap. -->
     <img class="hero-video-fallback"
-         src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
          alt="" decoding="async" fetchpriority="high" width="2000" height="1333"
          onerror="this.remove()">
   </div>
@@ -994,6 +1069,92 @@
         </div>
       </a>
 
+    </div>
+  </div>
+</section>
+
+<!-- ── PROPERTY TYPES ─────────────────────────────────────────────
+     What kinds of Avalon homes Maxwell helps clients buy and sell.
+     Distinct visual treatment from My Services: photo on top, text
+     below (vs Services' overlay-on-photo) — keeps the page from
+     reading as three identical photo grids stacked. This section is
+     not in Hollet's homepage — it's our differentiator. -->
+<section class="home-types-section alt">
+  <div class="wrap">
+    <div class="section-heading-center">
+      <span class="section-divider"></span>
+      <h2 class="section-title-center">Property types I work with</h2>
+      <span class="section-divider"></span>
+    </div>
+    <p class="section-sub-center">
+      Across the Avalon &mdash; from heritage row houses downtown to new builds in Paradise &mdash; these are the homes my clients buy and sell most often.
+    </p>
+    <div class="home-types-grid">
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Single-family detached home" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Single-Family Detached</h3>
+          <p class="home-type-desc">The most common Avalon home &mdash; your own lot, your own driveway, full privacy on all sides.</p>
+        </div>
+      </article>
+
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Split-entry home" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Split-Entry / Bi-Level</h3>
+          <p class="home-type-desc">Common in St. John's and Mount Pearl. Entry foyer between two living levels &mdash; great for in-law suites or rentals.</p>
+        </div>
+      </article>
+
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Two-storey home" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Two-Storey</h3>
+          <p class="home-type-desc">Bedrooms upstairs, living spaces down. The classic family home &mdash; rooms for everyone, growth-friendly.</p>
+        </div>
+      </article>
+
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Bungalow" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Bungalow</h3>
+          <p class="home-type-desc">Single-level living &mdash; popular with first-time buyers, downsizers, and anyone who wants to skip the stairs.</p>
+        </div>
+      </article>
+
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Row house" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Row House &amp; Heritage</h3>
+          <p class="home-type-desc">Downtown St. John's signature &mdash; the colourful Jellybean Row houses and Victorian-era heritage homes.</p>
+        </div>
+      </article>
+
+      <article class="home-type-card">
+        <div class="home-type-photo">
+          <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=900&q=80&fm=jpg&auto=format&fit=crop"
+               alt="Condo or townhouse" loading="lazy" decoding="async">
+        </div>
+        <div class="home-type-body">
+          <h3 class="home-type-name">Condo &amp; Townhouse</h3>
+          <p class="home-type-desc">Lower maintenance, often closer to amenities &mdash; the right fit for busy professionals or anyone who wants less yard work.</p>
+        </div>
+      </article>
     </div>
   </div>
 </section>
