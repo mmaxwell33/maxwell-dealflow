@@ -894,11 +894,12 @@
       autoplay muted loop playsinline preload="auto"
       poster="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=2000&q=80&fm=jpg&auto=format&fit=crop">
       <!-- Aerial drone over a residential neighborhood — homes, rooftops,
-           driveways, quiet streets. This is the real-estate footage Maxwell
-           asked for. Hosted LOCALLY in the repo (/site/img/) so it always
-           loads — no hotlink, no CORS, no fall-through to a coastline clip.
-           Mixkit CDN copy kept as a network fallback only. -->
-      <source src="/site/img/hero-neighborhood.mp4" type="video/mp4">
+           driveways, quiet streets. Served from Mixkit's official asset CDN
+           under the Mixkit Free License (commercial use OK, no attribution,
+           no identifiable people in frame). We link the CDN directly rather
+           than bundling the file, so we're not redistributing the stock
+           asset — fully license-clean. If the video fails to load, the
+           poster / <img> fallback below shows instead. -->
       <source src="https://assets.mixkit.co/videos/48394/48394-720.mp4" type="video/mp4">
     </video>
     <!-- Image fallback for the rare browser that loads neither the
