@@ -892,20 +892,20 @@
     <video
       class="hero-video"
       autoplay muted loop playsinline preload="auto"
-      poster="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop">
-      <!-- Aerial drone over a suburban neighborhood — real-estate flavoured,
-           homes visible from above. Two fallbacks in case the primary fails:
-           a second neighborhood video, then the original coastline as a final
-           NL-themed safety net. Browser uses the first that loads. -->
-      <source src="https://www.pexels.com/download/video/4117521/" type="video/mp4">
-      <source src="https://www.pexels.com/download/video/5031099/" type="video/mp4">
-      <source src="https://www.pexels.com/download/video/5619695/" type="video/mp4">
+      poster="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=2000&q=80&fm=jpg&auto=format&fit=crop">
+      <!-- Aerial drone over a residential neighborhood — homes, rooftops,
+           driveways, quiet streets. This is the real-estate footage Maxwell
+           asked for. Hosted LOCALLY in the repo (/site/img/) so it always
+           loads — no hotlink, no CORS, no fall-through to a coastline clip.
+           Mixkit CDN copy kept as a network fallback only. -->
+      <source src="/site/img/hero-neighborhood.mp4" type="video/mp4">
+      <source src="https://assets.mixkit.co/videos/48394/48394-720.mp4" type="video/mp4">
     </video>
     <!-- Image fallback for the rare browser that loads neither the
          video nor honours the poster (very old IE-era stuff). Same
          URL as the poster, so duplicate request is cheap. -->
     <img class="hero-video-fallback"
-         src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=2000&q=80&fm=jpg&auto=format&fit=crop"
+         src="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=2000&q=80&fm=jpg&auto=format&fit=crop"
          alt="" decoding="async" fetchpriority="high" width="2000" height="1333"
          onerror="this.remove()">
   </div>
