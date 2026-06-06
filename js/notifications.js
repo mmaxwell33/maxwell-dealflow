@@ -1252,6 +1252,61 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // ── MORTGAGE BROKER INTRO ──────────────────────────────────────────────
+    // Sent TO the agent's mortgage broker, CC'ing the client, when a buyer's
+    // intake says they need pre-approval guidance. A warm hand-off: brief
+    // intro + the client's criteria + "I'll let you two take it from here."
+    broker_intro: (client, intake, agent, broker) => {
+      const clientFirst = client.full_name?.split(' ')[0] || 'the client';
+      const clientName  = client.full_name || 'the client';
+      const brokerFirst = (broker?.name || '').split(' ')[0] || 'there';
+      const agentName   = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
+      const agentPhone  = agent?.phone || '(709) 325-0545';
+      const agentEmail  = agent?.email || 'Maxwell.Midodzi@exprealty.com';
+
+      // Client snapshot — only the lines we actually have.
+      const lines = [];
+      if (intake?.budget_max) lines.push(`Budget: up to ${Number(intake.budget_max).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0})}`);
+      if (intake?.preferred_areas) lines.push(`Areas: ${intake.preferred_areas}`);
+      if (intake?.bedrooms) lines.push(`Bedrooms: ${intake.bedrooms}`);
+      if (intake?.property_types) lines.push(`Looking for: ${intake.property_types}`);
+      if (intake?.timeline) lines.push(`Timeline: ${intake.timeline}`);
+      if (client?.phone || intake?.phone) lines.push(`Phone: ${client.phone || intake.phone}`);
+      if (client?.email) lines.push(`Email: ${client.email}`);
+      const snapshotText = lines.length ? '\n\nA quick snapshot:\n• ' + lines.join('\n• ') : '';
+      const snapshotHTML = lines.length
+        ? `<p style="margin:6px 0;font-size:14px;color:#333;"><strong>A quick snapshot:</strong></p>` +
+          lines.map(l => `<p style="margin:4px 0;font-size:14px;color:#333;">• ${l}</p>`).join('')
+        : '';
+
+      const plainText =
+`Hi ${brokerFirst},
+
+I'd like to introduce you to ${clientName}, who I'm working with on the home-buying side. ${clientFirst} is getting started and would benefit from your guidance on financing and pre-approval.${snapshotText}
+
+I've CC'd ${clientFirst} here so you two can connect directly — I'll let you take it from there. Thanks for looking after them.
+
+Best,
+${agentName}
+eXp Realty
+${agentPhone}
+${agentEmail}`;
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${brokerFirst},</p>
+        <p>I'd like to introduce you to <strong>${clientName}</strong>, who I'm working with on the home-buying side. ${clientFirst} is getting started and would benefit from your guidance on financing and pre-approval.</p>
+        ${snapshotHTML}
+        <p>I've CC'd ${clientFirst} here so you two can connect directly — I'll let you take it from there. Thanks for looking after them.</p>
+        <p>Best,<br><strong>${agentName}</strong><br>eXp Realty<br>${agentPhone}<br>${agentEmail}</p>
+      </body></html>`;
+
+      return {
+        subject: `Intro: ${clientName} — mortgage pre-approval`,
+        body: plainText,
+        html
+      };
+    },
+
     // ── SELLER WELCOME EMAIL (seller-side feature) ─────────────────────────
     // Sent after a seller intake is converted into a client. Sets expectations
     // for the free consultation, positions Maxwell as the marketing expert,
@@ -1528,6 +1583,25 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, null, tmpl.html
     );
+  },
+
+  // Warm intro to the agent's mortgage broker, CC'ing the client. Queued for
+  // approval like every other outbound email — Maxwell reviews before it sends.
+  // The PRIMARY recipient is the broker; the client is CC'd so they connect
+  // directly. Returns false (no-op) if no broker email is configured.
+  async onBrokerReferral(client, intake) {
+    const agent = currentAgent || {};
+    const broker = { name: agent.broker_name, email: agent.broker_email };
+    if (!broker.email) return false;            // referrals off until a broker is set
+    const tmpl = Notify.templates.broker_intro(client, intake, agent, broker);
+    await Notify.queue(
+      'Mortgage Broker Intro',
+      client.id, broker.name || 'Mortgage Broker', broker.email,
+      tmpl.subject, tmpl.body, null, tmpl.html,
+      null,                 // ics
+      client.email || null  // CC the client so they're introduced directly
+    );
+    return true;
   },
 
   // Seller-side parallel of onClientAdded — keeps buyer welcome path untouched.

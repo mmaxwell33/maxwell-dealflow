@@ -1531,6 +1531,24 @@
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveMileage()">Save Mileage Settings</button>
           <div id="set-mileage-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
+
+        <!-- ── MORTGAGE BROKER REFERRAL ──────────────────────────────────── -->
+        <div class="settings-card" style="margin-top:16px;">
+          <div class="settings-card-title">🏦 Mortgage Broker Referral</div>
+          <div class="settings-card-sub">When a buyer's intake says they need pre-approval guidance, the CRM queues a warm intro email to this broker (CC'ing the client) for your approval. Leave blank to turn the referral off.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+            <div>
+              <label class="form-label">Broker Name</label>
+              <input class="form-input" id="set-broker-name" placeholder="e.g. Jane Smith">
+            </div>
+            <div>
+              <label class="form-label">Broker Email</label>
+              <input class="form-input" id="set-broker-email" type="email" placeholder="e.g. jane@mortgages.ca">
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveBroker()">Save Broker</button>
+          <div id="set-broker-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
       </div>
 
       <!-- APPEARANCE TAB -->

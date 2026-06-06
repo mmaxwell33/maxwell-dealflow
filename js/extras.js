@@ -540,16 +540,28 @@ const FormResponses = {
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
     // Use newClient if fetched, otherwise build a minimal client object from intake
     const clientForEmail = newClient || { id: null, full_name: r.full_name, email: r.email };
+    let brokerQueued = false;
     if (typeof Notify !== "undefined") {
       // Seller-side feature: route seller intakes to the seller welcome email.
       if (r.intake_type === 'seller' && typeof Notify.onSellerClientAdded === 'function') {
         await Notify.onSellerClientAdded(clientForEmail, r);
       } else {
         await Notify.onClientAdded(clientForEmail, r);
+        // Mortgage broker referral: if this BUYER said they need pre-approval
+        // guidance and a broker is configured in Settings, also queue a warm
+        // intro email to the broker (CC the client) for Maxwell's approval.
+        const wantsBroker = !!r.preapproval && /need guidance|not yet/i.test(r.preapproval);
+        if (wantsBroker && typeof Notify.onBrokerReferral === 'function') {
+          brokerQueued = await Notify.onBrokerReferral(clientForEmail, r);
+        }
       }
     }
 
-    App.toast(`✅ ${r.full_name} added! Welcome email queued for your approval.`, 'var(--green)');
+    App.toast(
+      brokerQueued
+        ? `✅ ${r.full_name} added! Welcome email + mortgage broker intro queued for your approval.`
+        : `✅ ${r.full_name} added! Welcome email queued for your approval.`,
+      'var(--green)');
     FormResponses.load();
     Clients.load();
     // Switch to Approvals so agent can review the welcome email right away
@@ -4344,6 +4356,27 @@ const Settings = {
     set('set-per-km-rate', a.per_km_rate != null ? Number(a.per_km_rate).toFixed(3) : '0.730');
     const prompts = document.getElementById('set-mileage-prompts');
     if (prompts) prompts.checked = a.mileage_prompts_enabled !== false;
+    // ── Mortgage broker referral ───────────────────────────────────────────
+    set('set-broker-name', a.broker_name);
+    set('set-broker-email', a.broker_email);
+  },
+
+  async saveBroker() {
+    const msg = document.getElementById('set-broker-msg');
+    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    const name  = document.getElementById('set-broker-name')?.value.trim() || null;
+    const email = document.getElementById('set-broker-email')?.value.trim() || null;
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent='Please enter a valid broker email.'; }
+      return;
+    }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving…'; }
+    const updates = { broker_name: name, broker_email: email };
+    Object.assign(currentAgent, updates);
+    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
+    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
+    if (msg) { msg.style.color='var(--green)'; msg.textContent = email ? '✅ Broker saved — referrals are on' : '✅ Saved — referrals off (no broker set)'; }
+    App.toast('✅ Mortgage broker saved');
   },
 
   async saveMileage() {
