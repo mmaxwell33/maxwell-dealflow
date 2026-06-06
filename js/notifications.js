@@ -1265,8 +1265,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const agentEmail  = agent?.email || 'Maxwell.Midodzi@exprealty.com';
 
       // Client snapshot — only the lines we actually have.
+      // NOTE: intentionally NO budget/amount. The figure on the intake is just
+      // the client's own guess; the broker is the one who actually assesses
+      // affordability, so Maxwell's intro must not put a number in front of them.
       const lines = [];
-      if (intake?.budget_max) lines.push(`Budget: up to ${Number(intake.budget_max).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0})}`);
       if (intake?.preferred_areas) lines.push(`Areas: ${intake.preferred_areas}`);
       if (intake?.bedrooms) lines.push(`Bedrooms: ${intake.bedrooms}`);
       if (intake?.property_types) lines.push(`Looking for: ${intake.property_types}`);
