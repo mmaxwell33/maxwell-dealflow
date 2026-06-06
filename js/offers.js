@@ -96,7 +96,10 @@ const Offers = {
       const resumeBanner = isOrphan
         ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.10);border:1px solid var(--yellow);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;">
              <span style="color:var(--yellow);font-weight:600;">⚠️ Acceptance not finished — pipeline missing</span>
-             <button class="btn btn-sm" style="background:var(--yellow);color:#000;font-weight:700;padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();Offers.resumeAcceptance('${o.id}')">🔄 Resume</button>
+             <div style="display:flex;gap:6px;flex-shrink:0;">
+               <button class="btn btn-sm" style="background:var(--yellow);color:#000;font-weight:700;padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();Offers.resumeAcceptance('${o.id}')">🔄 Resume</button>
+               <button class="btn btn-sm" style="background:var(--red);color:#fff;font-weight:700;padding:4px 9px;font-size:11px;" title="Delete this offer" onclick="event.stopPropagation();Offers.confirmDelete('${o.id}')">🗑️</button>
+             </div>
            </div>`
         : '';
       return `
@@ -293,8 +296,71 @@ const Offers = {
              </div>`
           : `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>`
       ) : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
-      <button class="btn btn-outline btn-block" style="margin-top:4px;" onclick="App.closeModal()">Close</button>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Close</button>
+        <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="Offers.confirmDelete('${o.id}')">🗑️ Delete</button>
+      </div>
     `);
+  },
+
+  // Delete an offer outright — e.g. an orphan "Accepted — pipeline missing"
+  // card, or a test offer. Cascades to any pipeline deal that shares the
+  // address, removes queued emails, and drops the client back to Searching if
+  // this was their only live deal/offer.
+  confirmDelete(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const heavy = o.status === 'Accepted';
+    App.openModal(`
+      <div class="modal-title" style="color:var(--red);">🗑️ Delete Offer</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+        This permanently removes the offer${heavy ? ', any pipeline deal started from it, and its checklist / documents / commission' : ''}.
+        ${heavy ? 'The client drops back to <strong>Searching</strong> unless they have another live deal. ' : ''}<strong style="color:var(--red);">This cannot be undone.</strong>
+      </div>
+      <div style="background:var(--bg);padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:13px;">
+        <div class="fw-700">${App.esc(o.property_address || '—')}</div>
+        <div style="color:var(--text2);">👤 ${App.esc(o.clients?.full_name || o.client_name || '—')} · ${App.fmtMoney(o.offer_amount)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-red" onclick="Offers.deleteOffer('${id}')">🗑️ Delete</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async deleteOffer(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) { App.closeModal(); return; }
+    const safe = async (label, fn) => {
+      try { await fn(); } catch (e) { console.warn(`[deleteOffer] ${label} skipped:`, e?.message || e); }
+    };
+    // Cascade-delete any pipeline deal spawned from this offer (same address).
+    if (o.property_address) {
+      try {
+        const { data: pRows } = await db.from('pipeline').select('*')
+          .eq('agent_id', currentAgent.id).eq('property_address', o.property_address);
+        for (const p of (pRows || [])) {
+          await Pipeline._cascadeChildren(p, { deleteOffer: false });
+          await safe('pipeline', () => db.from('pipeline').delete().eq('id', p.id));
+        }
+      } catch (e) { console.warn('[deleteOffer] pipeline lookup skipped:', e?.message || e); }
+    }
+    // Queued / sent emails tied to this client.
+    const email = o.client_email || o.clients?.email;
+    if (email) {
+      await safe('approval_queue', () => db.from('approval_queue').delete()
+        .eq('agent_id', currentAgent.id).eq('client_email', email));
+    }
+    // The offer row itself — the only step whose error must surface.
+    const { error } = await db.from('offers').delete().eq('id', id);
+    if (error) { App.toast('⚠️ Delete failed: ' + (error.message || 'unknown'), 'var(--red)'); return; }
+    // Drop the client back to Searching if nothing else is live.
+    await Pipeline._resetClientStageIfClear(o.client_id, null);
+    App.closeModal();
+    App.toast('🗑️ Offer deleted');
+    Offers.load();
+    if (typeof Clients !== 'undefined' && Clients.load) Clients.load();
+    if (App.loadOverview) App.loadOverview();
   },
 
   async sellerAccepted(id) {
@@ -1662,6 +1728,7 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
         </div>
         ${Pipeline.renderDealStakeholders(d.id)}
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
@@ -1782,6 +1849,7 @@ const Pipeline = {
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
       </div>
       ${Pipeline.renderDealStakeholders(d.id)}
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">🕐 Updated: ${updatedStr}</div>
@@ -2497,13 +2565,18 @@ const Pipeline = {
   },
 
   confirmDeleteForever(id) {
-    const rec = Pipeline.archived?.find(x => x.id === id);
+    // Reachable from BOTH the Archive view and any live pipeline card, so look
+    // in both collections.
+    const rec = (Pipeline.archived || []).find(x => x.id === id)
+             || (Pipeline.all || []).find(x => x.id === id);
     if (!rec) return;
     App.openModal(`
       <div class="modal-title" style="color:var(--red);">🗑️ Delete Forever</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
-        This will permanently delete the deal and all associated checklist items, tasks, commissions,
-        activity log entries, and approval queue entries. <strong style="color:var(--red);">This cannot be undone.</strong>
+        This permanently deletes the deal and everything tied to it — checklist, tasks,
+        documents, stakeholders, reviews, the commission, queued emails, and the original
+        offer. The client drops back to <strong>Searching</strong> unless they have another
+        live deal. <strong style="color:var(--red);">This cannot be undone.</strong>
       </div>
       <div style="background:var(--bg);padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:13px;">
         <div class="fw-700">${App.esc(rec.client_name||'—')}</div>
@@ -2522,62 +2595,95 @@ const Pipeline = {
     setTimeout(() => document.getElementById('del-confirm-input')?.focus(), 50);
   },
 
+  // Shared cascade: remove every child row tied to a pipeline deal, plus the
+  // commission, queued emails, and (optionally) the spawning offer. Best-effort
+  // per table — a missing table/column is logged and skipped, never blocks the
+  // delete. `id` here is the pipeline PK, which every child table stores as
+  // `pipeline_id` (see openChecklist / createFromOfferWithDates).
+  // NOTE: we intentionally do NOT delete activity_log — that's keyed only by
+  // client, so wiping it would erase the client's history for OTHER deals too.
+  async _cascadeChildren(rec, { deleteOffer = true } = {}) {
+    const id = rec.id;
+    const safe = async (label, fn) => {
+      try { await fn(); }
+      catch (e) { console.warn(`[cascadeDelete] ${label} skipped:`, e?.message || e); }
+    };
+    const childTables = [
+      'checklist_items', 'deal_checklist', 'pipeline_tasks',
+      'pipeline_reschedules', 'deal_documents', 'deal_stakeholders',
+      'client_reviews', 'disclosures'
+    ];
+    for (const t of childTables) {
+      await safe(t, () => db.from(t).delete().eq('pipeline_id', id));
+    }
+    // Commission — matched by agent + property address (same shape as closeDeal).
+    if (rec.property_address) {
+      await safe('commissions', () => db.from('commissions').delete()
+        .eq('agent_id', currentAgent.id).eq('property_address', rec.property_address));
+    }
+    // Queued / sent emails for this client.
+    if (rec.client_email) {
+      await safe('approval_queue', () => db.from('approval_queue').delete()
+        .eq('agent_id', currentAgent.id).eq('client_email', rec.client_email));
+    }
+    // The offer that spawned this deal (pipeline has no offer_id column, so we
+    // match by agent + property address).
+    if (deleteOffer && rec.property_address) {
+      await safe('offers', () => db.from('offers').delete()
+        .eq('agent_id', currentAgent.id).eq('property_address', rec.property_address));
+    }
+  },
+
+  // After a deal/offer is removed, drop the client back to 'Searching' — but
+  // ONLY if they have no other live deal or offer, so a client with a second
+  // active deal keeps their real stage.
+  async _resetClientStageIfClear(clientId, excludePipelineId) {
+    if (!clientId) return;
+    try {
+      const { data: pRows } = await db.from('pipeline')
+        .select('id,stage,archived_at').eq('client_id', clientId);
+      const liveDeals = (pRows || []).filter(r =>
+        r.id !== excludePipelineId && !r.archived_at &&
+        !['Closed', 'Fell Through'].includes(r.stage));
+      const { data: oRows } = await db.from('offers')
+        .select('id,status').eq('client_id', clientId);
+      const liveOffers = (oRows || []).filter(o =>
+        ['Submitted', 'Accepted', 'Conditions', 'Closing'].includes(o.status));
+      if (!liveDeals.length && !liveOffers.length) {
+        await db.from('clients')
+          .update({ stage: 'Searching', updated_at: new Date().toISOString() })
+          .eq('id', clientId);
+      }
+    } catch (e) { console.warn('[resetClientStage] skipped:', e?.message || e); }
+  },
+
   async deleteForever(id) {
     const input = document.getElementById('del-confirm-input')?.value;
     if (input !== 'DELETE') { App.toast('⚠️ You must type DELETE to confirm'); return; }
-    const rec = Pipeline.archived?.find(x => x.id === id);
+    const rec = (Pipeline.archived || []).find(x => x.id === id)
+             || (Pipeline.all || []).find(x => x.id === id);
     if (!rec) { App.closeModal(); return; }
 
-    // Cascade delete in dependency order. Each step is best-effort: if a table
-    // does not have a matching FK column we swallow the error and continue,
-    // so a missing column does not block the final pipeline-row delete.
-    const safe = async (label, fn) => {
-      try { await fn(); }
-      catch (e) { console.warn(`[deleteForever] ${label} skipped:`, e?.message || e); }
-    };
+    // Cascade all child rows + commission + queued emails + the original offer.
+    await Pipeline._cascadeChildren(rec, { deleteOffer: true });
 
-    // 1. checklist_items (by pipeline_id)
-    await safe('checklist_items', () =>
-      db.from('checklist_items').delete().eq('pipeline_id', id));
-
-    // 2. pipeline_tasks (by pipeline_id)
-    await safe('pipeline_tasks', () =>
-      db.from('pipeline_tasks').delete().eq('pipeline_id', id));
-
-    // 3. commissions (matched by agent + property address — same shape as closeDeal)
-    if (rec.property_address) {
-      await safe('commissions', () =>
-        db.from('commissions').delete()
-          .eq('agent_id', currentAgent.id)
-          .eq('property_address', rec.property_address));
-    }
-
-    // 4. activity_log (best-effort: by client_id)
-    if (rec.client_id) {
-      await safe('activity_log', () =>
-        db.from('activity_log').delete()
-          .eq('agent_id', currentAgent.id)
-          .eq('client_id', rec.client_id));
-    }
-
-    // 5. approval_queue (best-effort: by agent + client email)
-    if (rec.client_email) {
-      await safe('approval_queue', () =>
-        db.from('approval_queue').delete()
-          .eq('agent_id', currentAgent.id)
-          .eq('client_email', rec.client_email));
-    }
-
-    // 6. pipeline row itself — this is the only step whose error must surface.
+    // The pipeline row itself — the only step whose error must surface.
     const { error } = await db.from('pipeline').delete().eq('id', id);
     if (error) {
       App.toast('⚠️ Delete failed: ' + (error.message || 'unknown error'), 'var(--red)');
       return;
     }
 
+    // Drop the client back to Searching if this was their only live deal/offer.
+    await Pipeline._resetClientStageIfClear(rec.client_id, id);
+
     App.closeModal();
     App.toast('🗑️ Deal permanently deleted');
-    Pipeline.loadArchive();
+    // Refresh whichever views are mounted.
+    if (document.getElementById('pipeline-archive-list')) Pipeline.loadArchive();
+    if (Pipeline.load) Pipeline.load();
+    if (typeof Clients !== 'undefined' && Clients.load) Clients.load();
+    if (typeof Offers !== 'undefined' && Offers.load) Offers.load();
     if (App.loadOverview) App.loadOverview();
   },
 
