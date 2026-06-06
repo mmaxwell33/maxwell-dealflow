@@ -1253,42 +1253,40 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     },
 
     // ── MORTGAGE BROKER INTRO ──────────────────────────────────────────────
-    // A short, warm connector email. Maxwell personally introduces his go-to
-    // local broker to the client. Greets both, names the client, vouches for
-    // the broker, then steps back. Deliberately simple — no criteria snapshot,
-    // no dollar figures (the broker assesses affordability, not the intake).
-    // Pronoun-free (broker gender unknown) — uses the broker's first name.
+    // Modelled on Maxwell's own past intro email: greet the broker, warmly
+    // connect them to the client, then "[Client], meet [Broker] — my go-to
+    // mortgage broker", and step back with "I'll let you two take it from
+    // here!". Simple, no criteria snapshot, no dollar figures (the broker
+    // assesses affordability). Pronoun-free — uses the broker's name. Uses the
+    // standard EmailFormat signature + confidentiality footer like every other
+    // app email, so it doesn't duplicate sign-offs.
     broker_intro: (client, intake, agent, broker) => {
       const clientFirst = client.full_name?.split(' ')[0] || 'there';
-      const clientName  = client.full_name || 'my client';
       const brokerFirst = (broker?.name || '').split(' ')[0] || 'my broker';
       const brokerName  = broker?.name || 'my mortgage broker';
-      const agentName   = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
-      const agentPhone  = agent?.phone || '(709) 325-0545';
-      const agentEmail  = agent?.email || 'Maxwell.Midodzi@exprealty.com';
 
       const plainText =
-`Hi ${brokerFirst} and ${clientFirst},
+`Hi ${brokerFirst},
 
-${clientFirst}, meet ${brokerName} — a local mortgage broker here in Newfoundland and my go-to. ${brokerFirst} will take great care of you on the financing and pre-approval side.
+Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point — just to understand the process and know where things stand.
 
-${brokerFirst}, ${clientName} is just getting started on the home-buying side — I'll let you two take it from here.
+${clientFirst}, meet ${brokerName} — my go-to mortgage broker, who'll walk you through everything you need to know.
 
-Best,
-${agentName}
-eXp Realty
-${agentPhone}
-${agentEmail}`;
+I'll let you two take it from here!
+
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
-        <p>Hi ${brokerFirst} and ${clientFirst},</p>
-        <p>${clientFirst}, meet <strong>${brokerName}</strong> — a local mortgage broker here in Newfoundland and my go-to. ${brokerFirst} will take great care of you on the financing and pre-approval side.</p>
-        <p>${brokerFirst}, ${clientName} is just getting started on the home-buying side — I'll let you two take it from here.</p>
-        <p>Best,<br><strong>${agentName}</strong><br>eXp Realty<br>${agentPhone}<br>${agentEmail}</p>
+        <p>Hi ${brokerFirst},</p>
+        <p>Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point — just to understand the process and know where things stand.</p>
+        <p>${clientFirst}, meet <strong>${brokerName}</strong> — my go-to mortgage broker, who'll walk you through everything you need to know.</p>
+        <p>I'll let you two take it from here!</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
       </body></html>`;
 
       return {
-        subject: `Intro: ${clientName} ↔ ${brokerName}`,
+        subject: `Introduction – ${clientFirst} & ${brokerFirst}`,
         body: plainText,
         html
       };
