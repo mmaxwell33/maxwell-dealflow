@@ -1253,40 +1253,26 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     },
 
     // ── MORTGAGE BROKER INTRO ──────────────────────────────────────────────
-    // Sent TO the agent's mortgage broker, CC'ing the client, when a buyer's
-    // intake says they need pre-approval guidance. A warm hand-off: brief
-    // intro + the client's criteria + "I'll let you two take it from here."
+    // A short, warm connector email. Maxwell personally introduces his go-to
+    // local broker to the client. Greets both, names the client, vouches for
+    // the broker, then steps back. Deliberately simple — no criteria snapshot,
+    // no dollar figures (the broker assesses affordability, not the intake).
+    // Pronoun-free (broker gender unknown) — uses the broker's first name.
     broker_intro: (client, intake, agent, broker) => {
-      const clientFirst = client.full_name?.split(' ')[0] || 'the client';
-      const clientName  = client.full_name || 'the client';
-      const brokerFirst = (broker?.name || '').split(' ')[0] || 'there';
+      const clientFirst = client.full_name?.split(' ')[0] || 'there';
+      const clientName  = client.full_name || 'my client';
+      const brokerFirst = (broker?.name || '').split(' ')[0] || 'my broker';
+      const brokerName  = broker?.name || 'my mortgage broker';
       const agentName   = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
       const agentPhone  = agent?.phone || '(709) 325-0545';
       const agentEmail  = agent?.email || 'Maxwell.Midodzi@exprealty.com';
 
-      // Client snapshot — only the lines we actually have.
-      // NOTE: intentionally NO budget/amount. The figure on the intake is just
-      // the client's own guess; the broker is the one who actually assesses
-      // affordability, so Maxwell's intro must not put a number in front of them.
-      const lines = [];
-      if (intake?.preferred_areas) lines.push(`Areas: ${intake.preferred_areas}`);
-      if (intake?.bedrooms) lines.push(`Bedrooms: ${intake.bedrooms}`);
-      if (intake?.property_types) lines.push(`Looking for: ${intake.property_types}`);
-      if (intake?.timeline) lines.push(`Timeline: ${intake.timeline}`);
-      if (client?.phone || intake?.phone) lines.push(`Phone: ${client.phone || intake.phone}`);
-      if (client?.email) lines.push(`Email: ${client.email}`);
-      const snapshotText = lines.length ? '\n\nA quick snapshot:\n• ' + lines.join('\n• ') : '';
-      const snapshotHTML = lines.length
-        ? `<p style="margin:6px 0;font-size:14px;color:#333;"><strong>A quick snapshot:</strong></p>` +
-          lines.map(l => `<p style="margin:4px 0;font-size:14px;color:#333;">• ${l}</p>`).join('')
-        : '';
-
       const plainText =
-`Hi ${brokerFirst},
+`Hi ${brokerFirst} and ${clientFirst},
 
-I'd like to introduce you to ${clientName}, who I'm working with on the home-buying side. ${clientFirst} is getting started and would benefit from your guidance on financing and pre-approval.${snapshotText}
+${clientFirst}, meet ${brokerName} — a local mortgage broker here in Newfoundland and my go-to. ${brokerFirst} will take great care of you on the financing and pre-approval side.
 
-I've CC'd ${clientFirst} here so you two can connect directly — I'll let you take it from there. Thanks for looking after them.
+${brokerFirst}, ${clientName} is just getting started on the home-buying side — I'll let you two take it from here.
 
 Best,
 ${agentName}
@@ -1295,15 +1281,14 @@ ${agentPhone}
 ${agentEmail}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
-        <p>Hi ${brokerFirst},</p>
-        <p>I'd like to introduce you to <strong>${clientName}</strong>, who I'm working with on the home-buying side. ${clientFirst} is getting started and would benefit from your guidance on financing and pre-approval.</p>
-        ${snapshotHTML}
-        <p>I've CC'd ${clientFirst} here so you two can connect directly — I'll let you take it from there. Thanks for looking after them.</p>
+        <p>Hi ${brokerFirst} and ${clientFirst},</p>
+        <p>${clientFirst}, meet <strong>${brokerName}</strong> — a local mortgage broker here in Newfoundland and my go-to. ${brokerFirst} will take great care of you on the financing and pre-approval side.</p>
+        <p>${brokerFirst}, ${clientName} is just getting started on the home-buying side — I'll let you two take it from here.</p>
         <p>Best,<br><strong>${agentName}</strong><br>eXp Realty<br>${agentPhone}<br>${agentEmail}</p>
       </body></html>`;
 
       return {
-        subject: `Intro: ${clientName} — mortgage pre-approval`,
+        subject: `Intro: ${clientName} ↔ ${brokerName}`,
         body: plainText,
         html
       };
