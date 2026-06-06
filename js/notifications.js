@@ -1585,21 +1585,27 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     );
   },
 
-  // Warm intro to the agent's mortgage broker, CC'ing the client. Queued for
-  // approval like every other outbound email — Maxwell reviews before it sends.
-  // The PRIMARY recipient is the broker; the client is CC'd so they connect
-  // directly. Returns false (no-op) if no broker email is configured.
+  // Warm intro to the agent's mortgage broker. Queued for approval like every
+  // other outbound email — Maxwell reviews before it sends. The PRIMARY
+  // recipient is the broker; the client AND Maxwell are CC'd (client so they
+  // connect directly, Maxwell so he keeps his own copy). No-op if no broker
+  // email is configured.
   async onBrokerReferral(client, intake) {
     const agent = currentAgent || {};
     const broker = { name: agent.broker_name, email: agent.broker_email };
     if (!broker.email) return false;            // referrals off until a broker is set
     const tmpl = Notify.templates.broker_intro(client, intake, agent, broker);
+    // CC the client + Maxwell. Comma-joined, de-duplicated, empties dropped.
+    const cc = [client.email, agent.email]
+      .filter(Boolean)
+      .filter((e, i, arr) => arr.indexOf(e) === i)
+      .join(', ') || null;
     await Notify.queue(
       'Mortgage Broker Intro',
       client.id, broker.name || 'Mortgage Broker', broker.email,
       tmpl.subject, tmpl.body, null, tmpl.html,
-      null,                 // ics
-      client.email || null  // CC the client so they're introduced directly
+      null,   // ics
+      cc      // CC: client + Maxwell
     );
     return true;
   },
