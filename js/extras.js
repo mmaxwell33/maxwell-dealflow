@@ -434,7 +434,10 @@ const FormResponses = {
             <button class="btn btn-primary btn-sm" style="flex:1;min-width:130px;" onclick="FormResponses.addAsClient('${r.id}')">✅ Add as Client</button>
             <button class="btn btn-outline btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.openEdit('${r.id}')">✏️ Edit</button>
             <button class="btn btn-red btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
-          </div>` : ''}
+          </div>` : `
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="FormResponses.deleteResponse('${r.id}')">🗑 Delete Submission</button>
+          </div>`}
         </div>`;
       }).join('')}`;
   },
@@ -678,6 +681,19 @@ const FormResponses = {
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.closeModal();
     App.toast('✅ Intake updated');
+    FormResponses.load();
+  },
+
+  // Hard-delete a submission from Form Responses. Useful for clearing stale
+  // intakes (e.g. one whose client was already deleted). Removes ONLY the
+  // intake row — it does not touch any client already created from it.
+  async deleteResponse(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    const label = r?.full_name || 'this submission';
+    if (!confirm(`Delete the intake submission for "${label}"?\n\nThis removes it from Form Responses only — it does NOT affect any client you already created from it.\n\nThis cannot be undone.`)) return;
+    const { error } = await db.from('client_intake').delete().eq('id', id);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('🗑 Submission deleted');
     FormResponses.load();
   },
 
