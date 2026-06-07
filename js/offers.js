@@ -331,6 +331,12 @@ const Offers = {
   async deleteOffer(id) {
     const o = Offers.all.find(x => x.id === id);
     if (!o) { App.closeModal(); return; }
+    // Delete password gate (if one is set in Settings).
+    const ok = await App.requireDeletePin({
+      title: 'Delete Offer',
+      message: `Permanently delete the offer on ${o.property_address || 'this property'}? This cannot be undone.`
+    });
+    if (!ok) return;
     const safe = async (label, fn) => {
       try { await fn(); } catch (e) { console.warn(`[deleteOffer] ${label} skipped:`, e?.message || e); }
     };
@@ -2663,6 +2669,14 @@ const Pipeline = {
     const rec = (Pipeline.archived || []).find(x => x.id === id)
              || (Pipeline.all || []).find(x => x.id === id);
     if (!rec) { App.closeModal(); return; }
+
+    // Delete password gate (if one is set in Settings) — on top of the typed
+    // DELETE confirm, since this is the heaviest cascade in the app.
+    const ok = await App.requireDeletePin({
+      title: 'Delete Deal',
+      message: `Permanently delete the deal for ${rec.client_name || ''} (${rec.property_address || ''}) and everything tied to it? This cannot be undone.`
+    });
+    if (!ok) return;
 
     // Cascade all child rows + commission + queued emails + the original offer.
     await Pipeline._cascadeChildren(rec, { deleteOffer: true });
