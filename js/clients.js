@@ -687,7 +687,11 @@ const Clients = {
   // stakeholder contacts, queued emails, and activity. "Delete everywhere."
   // Best-effort per table so a missing table/column never blocks the delete.
   async permanentDelete(id, name) {
-    if (!confirm(`⚠️ Permanently delete "${name}"?\n\nThis removes EVERYTHING tied to them — the client record, their intake submission, viewings, offers, pipeline deals, saved contacts, and queued emails.\n\nThis CANNOT be undone. Use Archive instead if you just want to hide them.\n\nAre you sure?`)) return;
+    const ok = await App.requireDeletePin({
+      title: 'Delete Client',
+      message: `Permanently delete "${name}" and EVERYTHING tied to them — intake submission, viewings, offers, pipeline deals, saved contacts, and queued emails. This cannot be undone. (Use Archive to just hide them.)`
+    });
+    if (!ok) return;
 
     const c = Clients.all.find(x => x.id === id);
     const email = c?.email || null;

@@ -1549,6 +1549,18 @@
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveBroker()">Save Broker</button>
           <div id="set-broker-msg" style="font-size:13px;margin-top:8px;"></div>
         </div>
+
+        <!-- ── DELETE PASSWORD ───────────────────────────────────────────── -->
+        <div class="settings-card" style="margin-top:16px;">
+          <div class="settings-card-title">🔒 Delete Password</div>
+          <div class="settings-card-sub">Require a password before anything can be deleted (submissions, clients, deals, offers). Stops anyone using your logged-in DealFlow from deleting without this PIN. <span id="set-delpin-status" style="font-weight:600;"></span></div>
+          <div style="margin-top:14px;max-width:280px;">
+            <label class="form-label">New Delete Password</label>
+            <input class="form-input" id="set-delete-pin" type="password" autocomplete="new-password" placeholder="Min 4 characters · blank to remove">
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveDeletePin()">Save Password</button>
+          <div id="set-delpin-msg" style="font-size:13px;margin-top:8px;"></div>
+        </div>
       </div>
 
       <!-- APPEARANCE TAB -->

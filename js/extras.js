@@ -436,7 +436,7 @@ const FormResponses = {
             <button class="btn btn-red btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
           </div>` : `
           <div style="display:flex;justify-content:flex-end;">
-            <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="FormResponses.deleteResponse('${r.id}')">🗑 Delete Submission</button>
+            <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);" title="More actions" onclick="FormResponses.openMenu('${r.id}')">⋮</button>
           </div>`}
         </div>`;
       }).join('')}`;
@@ -684,13 +684,30 @@ const FormResponses = {
     FormResponses.load();
   },
 
+  // Tucked-away actions menu — keeps Delete out of accidental/casual reach.
+  openMenu(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    const label = r?.full_name || 'this submission';
+    App.openModal(`
+      <div class="modal-title">${App.esc(label)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Submission actions</div>
+      <button class="btn btn-outline btn-block" style="border-color:var(--red);color:var(--red);margin-bottom:8px;" onclick="FormResponses.deleteResponse('${id}')">🗑 Delete Submission</button>
+      <button class="btn btn-outline btn-block" onclick="App.closeModal()">Cancel</button>
+    `);
+  },
+
   // Hard-delete a submission from Form Responses. Useful for clearing stale
   // intakes (e.g. one whose client was already deleted). Removes ONLY the
   // intake row — it does not touch any client already created from it.
+  // Gated by the delete password (if one is set in Settings).
   async deleteResponse(id) {
     const r = FormResponses.all.find(x => x.id === id);
     const label = r?.full_name || 'this submission';
-    if (!confirm(`Delete the intake submission for "${label}"?\n\nThis removes it from Form Responses only — it does NOT affect any client you already created from it.\n\nThis cannot be undone.`)) return;
+    const ok = await App.requireDeletePin({
+      title: 'Delete Submission',
+      message: `Delete the intake submission for "${label}"? This removes it from Form Responses only — it does NOT affect any client you already created from it.`
+    });
+    if (!ok) return;
     const { error } = await db.from('client_intake').delete().eq('id', id);
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.toast('🗑 Submission deleted');
@@ -4488,6 +4505,39 @@ const Settings = {
     // ── Mortgage broker referral ───────────────────────────────────────────
     set('set-broker-name', a.broker_name);
     set('set-broker-email', a.broker_email);
+    // ── Delete password — show whether one is set (never the value) ─────────
+    const delStatus = document.getElementById('set-delpin-status');
+    if (delStatus) {
+      delStatus.textContent = a.delete_pin_hash ? '✅ Currently ON.' : '⚠️ Currently OFF.';
+      delStatus.style.color = a.delete_pin_hash ? 'var(--green)' : 'var(--yellow)';
+    }
+  },
+
+  async saveDeletePin() {
+    const msg = document.getElementById('set-delpin-msg');
+    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    const pin = document.getElementById('set-delete-pin')?.value || '';
+    if (pin && pin.length < 4) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent='Use at least 4 characters.'; }
+      return;
+    }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving…'; }
+    // Store only the hash — empty input clears the password (turns the gate off).
+    const hash = pin ? await App._sha256(pin) : null;
+    const { error } = await db.from('agents').update({ delete_pin_hash: hash }).eq('id', currentAgent.id);
+    if (error) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent = error.message + ' (run migration 050_agent_delete_pin)'; }
+      return;
+    }
+    currentAgent.delete_pin_hash = hash;
+    const input = document.getElementById('set-delete-pin'); if (input) input.value = '';
+    const delStatus = document.getElementById('set-delpin-status');
+    if (delStatus) {
+      delStatus.textContent = hash ? '✅ Currently ON.' : '⚠️ Currently OFF.';
+      delStatus.style.color = hash ? 'var(--green)' : 'var(--yellow)';
+    }
+    if (msg) { msg.style.color='var(--green)'; msg.textContent = hash ? '✅ Delete password set' : '✅ Delete password removed'; }
+    App.toast(hash ? '🔒 Delete password set' : '🔓 Delete password removed');
   },
 
   async saveBroker() {

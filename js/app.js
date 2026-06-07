@@ -616,6 +616,72 @@ const App = {
     if (panel) panel.style.display = 'none';
   },
 
+  // ── DELETE PASSWORD GATE ────────────────────────────────────────────────
+  // SHA-256 a string to a hex digest (used for the delete PIN — we never store
+  // the raw PIN, only its hash).
+  async _sha256(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Gate a destructive action. Returns a Promise<boolean>. If a delete PIN is
+  // set on the agent, prompts for it and only resolves true on a correct match.
+  // If no PIN is set, falls back to a plain confirm (with a hint to set one).
+  // Honest scope: this is a UI deterrent against casual deletion by someone on
+  // the logged-in session — not server-enforced security.
+  requireDeletePin(opts = {}) {
+    const title   = opts.title   || 'Confirm Delete';
+    const message = opts.message || 'This cannot be undone.';
+    const hash = currentAgent?.delete_pin_hash || null;
+    return new Promise((resolve) => {
+      App._pinResolve = resolve;
+      if (!hash) {
+        App.openModal(`
+          <div class="modal-title" style="color:var(--red);">🗑 ${App.esc(title)}</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${App.esc(message)}</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:14px;background:var(--bg);padding:8px 10px;border-radius:6px;">🔒 Tip: set a <strong>Delete Password</strong> in Settings to require a PIN before anyone can delete.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="btn btn-red" onclick="App._resolveDeletePin(true)">🗑 Delete</button>
+            <button class="btn btn-outline" onclick="App._resolveDeletePin(false)">Cancel</button>
+          </div>`);
+        return;
+      }
+      App.openModal(`
+        <div class="modal-title" style="color:var(--red);">🔒 ${App.esc(title)}</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${App.esc(message)}</div>
+        <div class="form-group">
+          <label class="form-label">Enter your delete password</label>
+          <input class="form-input" id="del-pin-input" type="password" autocomplete="off"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._checkDeletePin();}">
+        </div>
+        <div id="del-pin-msg" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn btn-red" onclick="App._checkDeletePin()">🗑 Confirm Delete</button>
+          <button class="btn btn-outline" onclick="App._resolveDeletePin(false)">Cancel</button>
+        </div>`);
+      setTimeout(() => document.getElementById('del-pin-input')?.focus(), 50);
+    });
+  },
+
+  async _checkDeletePin() {
+    const val = document.getElementById('del-pin-input')?.value || '';
+    const msg = document.getElementById('del-pin-msg');
+    if (!val) { if (msg) msg.textContent = 'Enter your password.'; return; }
+    const h = await App._sha256(val);
+    if (h === (currentAgent?.delete_pin_hash || '')) {
+      App._resolveDeletePin(true);
+    } else if (msg) {
+      msg.textContent = '❌ Incorrect password — not deleted.';
+      const inp = document.getElementById('del-pin-input'); if (inp) { inp.value = ''; inp.focus(); }
+    }
+  },
+
+  _resolveDeletePin(ok) {
+    const r = App._pinResolve; App._pinResolve = null;
+    App.closeModal();
+    if (typeof r === 'function') r(!!ok);
+  },
+
   // ── Mobile FAB (Floating Action Button) ──
   toggleFab() {
     const fab = document.getElementById('mobile-fab');
