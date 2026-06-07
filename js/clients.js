@@ -631,8 +631,27 @@ const Clients = {
         .eq('client_name', oldClient.full_name)
         .eq('status', 'Pending');
     }
+
+    // Keep the original intake submission (Form Responses) in sync with the
+    // edit, so the same person never shows two different budgets/contact/etc.
+    // client_intake has no client_id — it's matched by the client's OLD email.
+    // Best-effort: a failure here never blocks the client save.
+    if (oldClient?.email) {
+      const intakeSync = {
+        full_name:  newName,
+        email:      newEmail,
+        phone:      document.getElementById('ce-phone').value.trim() || null,
+        budget_min: parseNum(document.getElementById('ce-bmin')?.value),
+        budget_max: parseNum(document.getElementById('ce-bmax')?.value),
+        preapproval: document.getElementById('ce-preapproval')?.value || null
+      };
+      const { error: inErr } = await db.from('client_intake').update(intakeSync).eq('email', oldClient.email);
+      if (inErr) console.warn('Intake sync skipped:', inErr.message);
+    }
+
     App.closeModal(); App.toast('✅ Client updated!');
     Clients.load(); App.loadOverview();
+    if (typeof FormResponses !== 'undefined' && FormResponses.load) FormResponses.load();
   },
 
   // ── SEND WELCOME EMAIL to existing client ───────────────────────────────────
