@@ -645,8 +645,20 @@ const Clients = {
         budget_max: parseNum(document.getElementById('ce-bmax')?.value),
         preapproval: document.getElementById('ce-preapproval')?.value || null
       };
-      const { error: inErr } = await db.from('client_intake').update(intakeSync).eq('email', oldClient.email);
-      if (inErr) console.warn('Intake sync skipped:', inErr.message);
+      // Match the submission by email — case-insensitive + trimmed (the stored
+      // value can differ in case/whitespace). .select() so we can see how many
+      // rows actually matched, and surface any error instead of swallowing it.
+      const { data: synced, error: inErr } = await db.from('client_intake')
+        .update(intakeSync)
+        .ilike('email', (oldClient.email || '').trim())
+        .select('id');
+      if (inErr) {
+        console.warn('[intake sync] error:', inErr);
+        App.toast('⚠️ Client saved, but the submission card couldn\'t update: ' + (inErr.message || inErr.code || 'unknown'), 'var(--yellow)');
+      } else if (!synced || !synced.length) {
+        console.warn('[intake sync] 0 rows matched for', oldClient.email);
+        App.toast('ℹ️ Client saved — but no matching Form Response was found to sync.', 'var(--yellow)');
+      }
     }
 
     App.closeModal(); App.toast('✅ Client updated!');
