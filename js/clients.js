@@ -681,20 +681,62 @@ const Clients = {
     App.loadOverview();
   },
 
-  // ── PERMANENT DELETE ─────────────────────────────────────────────────────────
+  // ── PERMANENT DELETE (full cascade) ──────────────────────────────────────────
+  // Removes the client AND everything tied to them — the original intake
+  // submission, viewings, offers, pipeline deals (+ their children), saved
+  // stakeholder contacts, queued emails, and activity. "Delete everywhere."
+  // Best-effort per table so a missing table/column never blocks the delete.
   async permanentDelete(id, name) {
-    if (!confirm(`⚠️ Permanently delete "${name}"?\n\nThis will remove the client record completely. Their viewings and offer history will remain in the database but will be unlinked.\n\nThis CANNOT be undone. Are you sure?`)) return;
+    if (!confirm(`⚠️ Permanently delete "${name}"?\n\nThis removes EVERYTHING tied to them — the client record, their intake submission, viewings, offers, pipeline deals, saved contacts, and queued emails.\n\nThis CANNOT be undone. Use Archive instead if you just want to hide them.\n\nAre you sure?`)) return;
+
+    const c = Clients.all.find(x => x.id === id);
+    const email = c?.email || null;
+    const safe = async (label, fn) => {
+      try { const res = await fn(); if (res && res.error) console.warn(`[client delete] ${label}:`, res.error.message); }
+      catch (e) { console.warn(`[client delete] ${label}:`, e?.message || e); }
+    };
+
+    // Pipeline deals for this client + each deal's children (checklist, docs,
+    // stakeholders, reviews, commission, etc.) via the shared pipeline cascade.
+    try {
+      const { data: pRows } = await db.from('pipeline').select('*').eq('client_id', id);
+      for (const p of (pRows || [])) {
+        if (typeof Pipeline !== 'undefined' && Pipeline._cascadeChildren) {
+          await Pipeline._cascadeChildren(p, { deleteOffer: false });
+        }
+        await safe('pipeline', () => db.from('pipeline').delete().eq('id', p.id));
+      }
+    } catch (e) { console.warn('[client delete] pipeline lookup:', e?.message || e); }
+
+    // Records keyed by client_id.
+    await safe('offers',            () => db.from('offers').delete().eq('client_id', id));
+    await safe('viewing_responses', () => db.from('viewing_responses').delete().eq('client_id', id));
+    await safe('viewings',          () => db.from('viewings').delete().eq('client_id', id));
+    await safe('client_contacts',   () => db.from('client_contacts').delete().eq('client_id', id));
+    await safe('client_responses',  () => db.from('client_responses').delete().eq('client_id', id));
+    await safe('activity_log',      () => db.from('activity_log').delete().eq('client_id', id));
+
+    // Records keyed by email (the intake submission has no client_id — it's
+    // matched on email — so this is the row still showing in Form Responses).
+    if (email) {
+      await safe('client_intake',  () => db.from('client_intake').delete().eq('email', email));
+      await safe('approval_queue', () => db.from('approval_queue').delete().eq('agent_id', currentAgent.id).eq('client_email', email));
+    }
+
+    // Finally the client row itself — the only step whose error must surface.
     const { error } = await db.from('clients').delete().eq('id', id);
     if (error) { App.toast(`❌ Error: ${error.message}`, 'var(--red)'); return; }
-    App.toast(`🗑 ${name} permanently deleted.`, 'var(--red)');
+
+    App.toast(`🗑 ${name} and all linked records permanently deleted.`, 'var(--red)');
     Clients.load();
+    if (typeof FormResponses !== 'undefined' && FormResponses.load) FormResponses.load();
     App.loadOverview();
   },
 
   confirmDelete(id, name) {
     App.openModal(`
       <div class="modal-title">🗑 Delete Client</div>
-      <p style="color:var(--text2);margin-bottom:20px;">Permanently delete <strong>${App.esc(name)}</strong>? This cannot be undone. Their pipeline and offer history will remain in the database.</p>
+      <p style="color:var(--text2);margin-bottom:20px;">Permanently delete <strong>${App.esc(name)}</strong> and <strong>everything tied to them</strong> — intake submission, viewings, offers, pipeline deals, saved contacts, and queued emails? This cannot be undone. Use <strong>Archive</strong> instead to just hide them.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal()">Cancel</button>
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.permanentDelete('${id}','${App.escAttr(name)}')">🗑 Yes, Delete</button>
