@@ -533,6 +533,23 @@ const Clients = {
             `<option ${c.stage===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Min Budget ($)</label>
+          <input class="form-input" id="ce-bmin" type="number" value="${c.budget_min!=null?c.budget_min:''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Budget ($)</label>
+          <input class="form-input" id="ce-bmax" type="number" value="${c.budget_max!=null?c.budget_max:''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pre-Approval Status</label>
+        <select class="form-input form-select" id="ce-preapproval">
+          ${['','Yes — fully pre-approved','In progress','Not yet — need guidance','Paying cash'].map(o=>
+            `<option value="${o}" ${(c.preapproval||'')===o?'selected':''}>${o||'— Not set —'}</option>`).join('')}
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Notes</label>
         <textarea class="form-input" id="ce-notes" rows="3">${c.notes||''}</textarea>
@@ -563,15 +580,26 @@ const Clients = {
   async update(id) {
     const st = document.getElementById('ce-status');
     st.textContent = 'Saving...';
+    // Budget columns already exist on clients, so they go in the main update.
+    const parseNum = (v) => { const n = Number(String(v||'').replace(/[^0-9.]/g,'')); return Number.isFinite(n) && n > 0 ? n : null; };
     const { error } = await db.from('clients').update({
       full_name: document.getElementById('ce-name').value.trim(),
       email: document.getElementById('ce-email').value.trim(),
       phone: document.getElementById('ce-phone').value.trim(),
       stage: document.getElementById('ce-stage').value,
+      budget_min: parseNum(document.getElementById('ce-bmin')?.value),
+      budget_max: parseNum(document.getElementById('ce-bmax')?.value),
       notes: document.getElementById('ce-notes').value.trim(),
       updated_at: new Date().toISOString()
     }).eq('id', id);
     if (error) { st.style.color='var(--red)'; st.textContent = error.message; return; }
+
+    // Pre-approval lives in a column added by migration 049. Write it
+    // separately + best-effort, so if that migration hasn't been run yet the
+    // main save above still succeeds (we just log a hint).
+    const preapproval = document.getElementById('ce-preapproval')?.value || null;
+    const { error: paErr } = await db.from('clients').update({ preapproval }).eq('id', id);
+    if (paErr) console.warn('Pre-approval not saved — run migration 049_client_preapproval.sql:', paErr.message);
 
     // Upsert any stakeholder contacts entered. Skip empty rows.
     const roles = ['mortgage_broker','lawyer','inspector','builder'];
