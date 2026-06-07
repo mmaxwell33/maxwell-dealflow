@@ -430,9 +430,10 @@ const FormResponses = {
           ${r.notes ? `<div style="font-size:12px;background:var(--bg);padding:8px;border-radius:6px;color:var(--text2);margin-bottom:10px;line-height:1.5;">📝 ${r.notes}</div>` : ''}
           <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Submitted ${date}</div>
           ${isNew ? `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <button class="btn btn-primary btn-sm" onclick="FormResponses.addAsClient('${r.id}')">✅ Add as Client</button>
-            <button class="btn btn-red btn-sm" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" style="flex:1;min-width:130px;" onclick="FormResponses.addAsClient('${r.id}')">✅ Add as Client</button>
+            <button class="btn btn-outline btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.openEdit('${r.id}')">✏️ Edit</button>
+            <button class="btn btn-red btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
           </div>` : ''}
         </div>`;
       }).join('')}`;
@@ -566,6 +567,118 @@ const FormResponses = {
     Clients.load();
     // Switch to Approvals so agent can review the welcome email right away
     if (window.App?.switchTab) App.switchTab('approvals');
+  },
+
+  // ── EDIT A SUBMITTED INTAKE ────────────────────────────────────────────
+  // Lets Maxwell correct/adjust an intake before adding it as a client — e.g.
+  // fix a fat-fingered budget, or flip pre-approval to "Not yet — need
+  // guidance" so the mortgage-broker intro fires. Saves back to client_intake;
+  // the updated values are what "Add as Client" then uses.
+  openEdit(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    if (!r) { App.toast('Submission not found', 'var(--red)'); return; }
+    const isSeller = r.intake_type === 'seller';
+    // Attribute-safe escaper (handles quotes for value="…" and textarea text).
+    const esc = (v) => v == null ? '' : String(v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // Exact values the intake form stores, so the broker-trigger regex matches.
+    const preapprovalOpts = ['Yes — fully pre-approved', 'In progress', 'Not yet — need guidance', 'Paying cash'];
+
+    const commonFields = `
+      <div class="form-group"><label class="form-label">Full Name</label>
+        <input class="form-input" id="fe-name" value="${esc(r.full_name)}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group"><label class="form-label">Email</label>
+          <input class="form-input" id="fe-email" value="${esc(r.email)}"></div>
+        <div class="form-group"><label class="form-label">Phone</label>
+          <input class="form-input" id="fe-phone" value="${esc(r.phone)}"></div>
+      </div>`;
+
+    const buyerFields = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group"><label class="form-label">Min Budget ($)</label>
+          <input class="form-input" id="fe-bmin" type="number" value="${esc(r.budget_min)}"></div>
+        <div class="form-group"><label class="form-label">Max Budget ($)</label>
+          <input class="form-input" id="fe-bmax" type="number" value="${esc(r.budget_max)}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Pre-Approval Status</label>
+        <select class="form-input form-select" id="fe-preapproval">
+          ${preapprovalOpts.map(o => `<option value="${esc(o)}" ${r.preapproval === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Set to "Not yet — need guidance" to trigger the mortgage broker intro when you Add as Client.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group"><label class="form-label">Bedrooms</label>
+          <input class="form-input" id="fe-beds" value="${esc(r.bedrooms)}"></div>
+        <div class="form-group"><label class="form-label">Timeline</label>
+          <input class="form-input" id="fe-timeline" value="${esc(r.timeline)}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Preferred Areas</label>
+        <input class="form-input" id="fe-areas" value="${esc(r.preferred_areas)}"></div>
+      <div class="form-group"><label class="form-label">Property Type</label>
+        <input class="form-input" id="fe-ptypes" value="${esc(r.property_types)}"></div>
+      <div class="form-group"><label class="form-label">Must-haves</label>
+        <input class="form-input" id="fe-musthaves" value="${esc(r.must_haves)}"></div>`;
+
+    const sellerFields = `
+      <div class="form-group"><label class="form-label">Property Address</label>
+        <input class="form-input" id="fe-saddr" value="${esc(r.property_address)}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group"><label class="form-label">Asking Price</label>
+          <input class="form-input" id="fe-asking" value="${esc(r.asking_price)}"></div>
+        <div class="form-group"><label class="form-label">Sell Timeline</label>
+          <input class="form-input" id="fe-stimeline" value="${esc(r.sell_timeline)}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Property Type</label>
+        <input class="form-input" id="fe-stype" value="${esc(r.property_type)}"></div>`;
+
+    App.openModal(`
+      <div class="modal-title">✏️ Edit Intake — ${esc(r.full_name) || '—'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">These changes save to the submission and are used when you tap "Add as Client".</div>
+      ${commonFields}
+      ${isSeller ? sellerFields : buyerFields}
+      <div class="form-group"><label class="form-label">Notes</label>
+        <textarea class="form-input" id="fe-notes" rows="3">${esc(r.notes)}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <button class="btn btn-primary" onclick="FormResponses.saveEdit('${r.id}')">💾 Save Changes</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async saveEdit(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    if (!r) { App.toast('Submission not found', 'var(--red)'); return; }
+    const isSeller = r.intake_type === 'seller';
+    const val = (elId) => (document.getElementById(elId)?.value ?? '').trim();
+    const numOrNull = (elId) => { const v = val(elId).replace(/[^0-9.]/g, ''); return v ? Number(v) : null; };
+
+    const updates = {
+      full_name: val('fe-name') || r.full_name,
+      email:     val('fe-email') || r.email,
+      phone:     val('fe-phone') || null,
+      notes:     val('fe-notes') || null
+    };
+    if (isSeller) {
+      updates.property_address = val('fe-saddr') || null;
+      updates.asking_price     = val('fe-asking') || null;
+      updates.sell_timeline    = val('fe-stimeline') || null;
+      updates.property_type    = val('fe-stype') || null;
+    } else {
+      updates.budget_min      = numOrNull('fe-bmin');
+      updates.budget_max      = numOrNull('fe-bmax');
+      updates.preapproval     = val('fe-preapproval') || null;
+      updates.bedrooms        = val('fe-beds') || null;
+      updates.timeline        = val('fe-timeline') || null;
+      updates.preferred_areas = val('fe-areas') || null;
+      updates.property_types  = val('fe-ptypes') || null;
+      updates.must_haves      = val('fe-musthaves') || null;
+    }
+    const { error } = await db.from('client_intake').update(updates).eq('id', id);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.closeModal();
+    App.toast('✅ Intake updated');
+    FormResponses.load();
   },
 
   async dismiss(id) {
