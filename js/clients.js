@@ -637,11 +637,14 @@ const Clients = {
     // client_intake has no client_id — it's matched by the client's OLD email.
     // Best-effort: a failure here never blocks the client save.
     if (oldClient?.email) {
+      // NOTE: client_intake has NO budget_min column (budget_min lives only on
+      // clients). Including it made the whole update fail with a 42703 column
+      // error — which is why the submission never synced. Only set columns that
+      // actually exist on client_intake.
       const intakeSync = {
         full_name:  newName,
         email:      newEmail,
         phone:      document.getElementById('ce-phone').value.trim() || null,
-        budget_min: parseNum(document.getElementById('ce-bmin')?.value),
         budget_max: parseNum(document.getElementById('ce-bmax')?.value),
         preapproval: document.getElementById('ce-preapproval')?.value || null
       };
