@@ -297,7 +297,7 @@ const Notify = {
       const loc = meeting.location || 'TBD';
 
       const rows = [];
-      rows.push(`<tr><td class="label">Builder</td><td class="value"><strong>${builder}</strong></td></tr>`);
+      // (No "Builder" row — the intro line already says "your meeting with X".)
       rows.push(`<tr><td class="label">Location</td><td class="value">${loc}</td></tr>`);
       rows.push(`<tr><td class="label">Date</td><td class="value">${dateStr}</td></tr>`);
       if (timeStr) rows.push(`<tr><td class="label">Time</td><td class="value">${fmt12h(timeStr)}</td></tr>`);
@@ -314,7 +314,7 @@ const Notify = {
       } else { gStart = meeting.meeting_date.replace(/-/g,''); gEnd = gStart; }
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Meeting with ' + builder)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent('Builder meeting arranged by ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail)}`;
 
-      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nBuilder: ${builder}\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this to your calendar.\n\nSee you there!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}`;
+      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this to your calendar.\n\nSee you there!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
