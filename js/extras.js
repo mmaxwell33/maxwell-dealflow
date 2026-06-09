@@ -1238,6 +1238,34 @@ const Reports = {
     const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5 };
     const currentStageIdx = stageAliases[client.stage] ?? 0;
 
+    // ── Headline status badge ──────────────────────────────────────────────
+    // The client-facing status the report leads with. A Closed / Fell-Through
+    // pipeline deal is the most definitive signal, so it overrides client.stage.
+    const stageDisplay = {
+      'New Lead':       { label: 'New Lead',         icon: '🌱' },
+      'Searching':      { label: 'Active Search',    icon: '🔍' },
+      'Active Search':  { label: 'Active Search',    icon: '🔍' },
+      'Viewings':       { label: 'Viewing Homes',    icon: '🏠' },
+      'Viewing':        { label: 'Viewing Homes',    icon: '🏠' },
+      'Offers':         { label: 'Offer Stage',      icon: '📝' },
+      'In Offer':       { label: 'Offer Submitted',  icon: '📝' },
+      'Accepted':       { label: 'Offer Accepted',   icon: '🤝' },
+      'Under Contract': { label: 'Under Contract',   icon: '📄' },
+      'Conditions':     { label: 'Conditions Period',icon: '⏳' },
+      'Financing':      { label: 'Financing',        icon: '🏦' },
+      'Closing':        { label: 'Closing',          icon: '🔑' },
+      'Closed':         { label: 'Deal Closed',      icon: '✅' },
+      'Fell Through':   { label: 'Deal Ended',       icon: '◾' }
+    };
+    const dealClosed = (pipelineDeals || []).some(d => d.stage === 'Closed');
+    const dealFell   = (pipelineDeals || []).some(d => d.stage === 'Fell Through');
+    const effStage   = dealClosed ? 'Closed' : dealFell ? 'Fell Through' : (client.stage || 'Searching');
+    const sd         = stageDisplay[effStage] || { label: effStage, icon: '•' };
+    // Closed gets a solid white pill with green text so it really pops on the
+    // terracotta header; everything else is a translucent white pill.
+    const pillBg    = effStage === 'Closed' ? '#FFFFFF' : 'rgba(255,255,255,0.20)';
+    const pillColor = effStage === 'Closed' ? '#157347' : '#FFFFFF';
+
     // Preferred areas → chips
     const areaChips = (client.preferred_areas||'').split(/[,;]/).map(s => s.trim()).filter(Boolean);
 
@@ -1251,10 +1279,13 @@ const Reports = {
 
     // HEADER
     html += `<div style="background:linear-gradient(135deg,${ACCENT} 0%,${ACCENT2} 100%);padding:36px 36px 32px;color:#fff;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;opacity:0.85;margin-bottom:10px;">Client Progress Report</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;opacity:0.85;padding-top:6px;">Client Progress Report</div>
+        <div style="display:inline-block;background:${pillBg};color:${pillColor};font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:8px 18px;border-radius:50px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.12);">${sd.icon} ${sd.label}</div>
+      </div>
       <div style="font-family:${SERIF};font-size:38px;font-weight:600;letter-spacing:-1px;line-height:1.05;margin-bottom:8px;">${client.full_name||'Client'}</div>
       <div style="font-size:14px;opacity:0.9;margin-bottom:18px;">Your property search journey · Prepared by ${agentName}</div>
-      <div style="font-size:12px;opacity:0.85;">📅 ${dateStr} &nbsp;·&nbsp; 🏠 ${client.status||'Active'} · ${daysActive} day${daysActive===1?'':'s'} &nbsp;·&nbsp; 🔖 ${reportId}</div>
+      <div style="font-size:12px;opacity:0.85;">📅 ${dateStr} &nbsp;·&nbsp; 📍 ${sd.label} · ${daysActive} day${daysActive===1?'':'s'} &nbsp;·&nbsp; 🔖 ${reportId}</div>
     </div>`;
 
     // SNAPSHOT STATS
