@@ -98,10 +98,13 @@ function buildRawMime(opts: {
     }
     lines.push('');
     if (opts.ics) {
+      // Name the .ics after the email type so a meeting invite isn't mislabelled
+      // "viewing.ics". Derived from the subject — no client changes needed.
+      const icsName = /meeting/i.test(opts.subject || '') ? 'meeting.ics' : 'viewing.ics';
       lines.push(`--${boundary}`);
-      lines.push('Content-Type: text/calendar; charset=UTF-8; method=REQUEST');
+      lines.push(`Content-Type: text/calendar; charset=UTF-8; method=REQUEST; name="${icsName}"`);
       lines.push('Content-Transfer-Encoding: base64');
-      lines.push('Content-Disposition: attachment; filename="viewing.ics"');
+      lines.push(`Content-Disposition: attachment; filename="${icsName}"`);
       lines.push('');
       const icsText = opts.ics;
       if (icsText.startsWith('BEGIN:VCALENDAR')) {
