@@ -657,10 +657,13 @@ const Clients = {
         .select('id');
       if (inErr) {
         console.warn('[intake sync] error:', inErr);
-        App.toast('⚠️ Client saved, but the submission card couldn\'t update: ' + (inErr.message || inErr.code || 'unknown'), 'var(--yellow)');
+        App.toast('⚠️ Submission sync ERROR: ' + (inErr.message || inErr.code || 'unknown'), 'var(--red)');
       } else if (!synced || !synced.length) {
         console.warn('[intake sync] 0 rows matched for', oldClient.email);
-        App.toast('ℹ️ Client saved — but no matching Form Response was found to sync.', 'var(--yellow)');
+        App.toast('ℹ️ No matching Form Response found for ' + oldClient.email, 'var(--yellow)');
+      } else {
+        const b = parseNum(document.getElementById('ce-bmax')?.value);
+        App.toast(`✅ Submission synced (${synced.length}) — budget now $${(b||0).toLocaleString()}`, 'var(--green)');
       }
     }
 
