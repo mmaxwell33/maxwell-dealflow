@@ -719,7 +719,7 @@ const Meetings = {
       </div>
       <div class="form-group">
         <label class="form-label">Builder Name *</label>
-        <input class="form-input" id="mt-builder" placeholder="e.g. Highbury Homes">
+        <input class="form-input" id="mt-builder" placeholder="e.g. Dave Power (a name, not an email)">
       </div>
       <div class="form-group">
         <label class="form-label">Builder Email <span style="color:var(--text2);font-weight:400;">(optional — to CC them the invite)</span></label>
@@ -763,6 +763,7 @@ const Meetings = {
     const date     = document.getElementById('mt-date')?.value || '';
     if (!clientId) { set('⚠️ Select a client', 'var(--red)'); return; }
     if (!builder)  { set('⚠️ Enter the builder name', 'var(--red)'); return; }
+    if (/@/.test(builder)) { set('⚠️ That looks like an email. Put the builder\'s NAME here (e.g. Dave Power) and their email in the Builder Email field below.', 'var(--red)'); return; }
     if (!location) { set('⚠️ Enter the location', 'var(--red)'); return; }
     if (!date)     { set('⚠️ Pick a date', 'var(--red)'); return; }
     set('Saving…', 'var(--text2)');
