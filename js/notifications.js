@@ -282,6 +282,84 @@ const Notify = {
       return { subject: isUpdate ? `Viewing Update - ${viewing.property_address}` : `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
     },
 
+    // ── BUILDER MEETING INVITE ─────────────────────────────────────────────
+    // Mirrors the viewing-confirmed template: details table + Add-to-Calendar
+    // button + an attached .ics. Used when scheduling a meeting between the
+    // client and a builder.
+    builder_meeting: (client, meeting, agent) => {
+      const a = EmailFormat._agent(agent);
+      const agentName = a.name, agentPhone = a.phone, agentEmail = a.email;
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const dateStr = new Date(meeting.meeting_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      const fmt12h = (t) => { if (!t) return null; const [h,m] = t.split(':').map(Number); const ap = h>=12?'PM':'AM'; return `${h%12||12}:${String(m).padStart(2,'0')} ${ap}`; };
+      const timeStr = meeting.meeting_time ? meeting.meeting_time.slice(0,5) : null;
+      const builder = meeting.builder_name || 'the builder';
+      const loc = meeting.location || 'TBD';
+
+      const rows = [];
+      rows.push(`<tr><td class="label">Builder</td><td class="value"><strong>${builder}</strong></td></tr>`);
+      rows.push(`<tr><td class="label">Location</td><td class="value">${loc}</td></tr>`);
+      rows.push(`<tr><td class="label">Date</td><td class="value">${dateStr}</td></tr>`);
+      if (timeStr) rows.push(`<tr><td class="label">Time</td><td class="value">${fmt12h(timeStr)}</td></tr>`);
+      if (meeting.notes) rows.push(`<tr><td class="label">Notes</td><td class="value">${meeting.notes}</td></tr>`);
+
+      // Google Calendar "Add to Calendar" link
+      let gStart, gEnd;
+      if (meeting.meeting_time) {
+        const [gh, gm] = meeting.meeting_time.split(':');
+        const s = new Date(`${meeting.meeting_date}T${gh.padStart(2,'0')}:${gm.padStart(2,'0')}:00`);
+        const e = new Date(s.getTime() + 60*60*1000); // 1 hour
+        gStart = s.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+        gEnd   = e.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+      } else { gStart = meeting.meeting_date.replace(/-/g,''); gEnd = gStart; }
+      const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Meeting with ' + builder)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent('Builder meeting arranged by ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail)}`;
+
+      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nBuilder: ${builder}\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this to your calendar.\n\nSee you there!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}`;
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${firstName},</p>
+        <p>Your meeting with <strong>${builder}</strong> has been arranged. Here are the details:</p>
+        <table class="dt">${rows.join('')}</table>
+        <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
+        <p class="cal-note">Click above to add it to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
+        <p>Looking forward to it!</p>
+        <p>Best regards,</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
+      </body></html>`;
+
+      // ── .ICS INVITE ────────────────────────────────────────────────────────
+      const uid = `meeting-${meeting.id || Date.now()}@maxwell-dealflow`;
+      const dtStamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+      let dtStart, dtEnd;
+      if (meeting.meeting_time) {
+        const [h, m] = meeting.meeting_time.split(':');
+        const s = new Date(`${meeting.meeting_date}T${h.padStart(2,'0')}:${m.padStart(2,'0')}:00`);
+        const e = new Date(s.getTime() + 60*60*1000);
+        dtStart = s.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+        dtEnd   = e.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+      } else { dtStart = meeting.meeting_date.replace(/-/g,''); dtEnd = dtStart; }
+      const dateProps = meeting.meeting_time
+        ? `DTSTART:${dtStart}\r\nDTEND:${dtEnd}`
+        : `DTSTART;VALUE=DATE:${dtStart}\r\nDTEND;VALUE=DATE:${dtEnd}`;
+      const icsContent = [
+        'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Maxwell DealFlow CRM//EN','CALSCALE:GREGORIAN','METHOD:REQUEST',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        dateProps,
+        `SUMMARY:Meeting with ${builder}`,
+        `DESCRIPTION:Builder meeting arranged by ${agentName}\\n${agentPhone}\\n${agentEmail}${meeting.notes ? '\\nNotes: ' + meeting.notes : ''}`,
+        `LOCATION:${loc}`,
+        `ORGANIZER;CN=${agentName}:mailto:${agentEmail}`,
+        `ATTENDEE;CN=${client.full_name || 'Client'};CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${client.email || agentEmail}`,
+        'STATUS:CONFIRMED','SEQUENCE:0','END:VEVENT','END:VCALENDAR'
+      ].join('\r\n');
+      const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
+
+      return { subject: `Meeting with ${builder} — ${dateStr}`, body, html, ics: icsBase64 };
+    },
+
     viewing_followup: (client, viewing, feedback, agent) => ({
       subject: `Follow-Up: ${viewing.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
@@ -1472,6 +1550,20 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       tmpl.html,          // beautiful HTML email
       tmpl.ics,           // base64 .ics calendar invite
       viewing.cc_email || null  // CC second buyer if present
+    );
+  },
+
+  // Builder meeting invite — emails the client the .ics, CC the builder.
+  async onBuilderMeeting(meeting, client) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.builder_meeting(client, meeting, agent);
+    await Notify.queue(
+      'Builder Meeting',
+      client.id || null, client.full_name || meeting.client_name, client.email || meeting.client_email,
+      tmpl.subject, tmpl.body, meeting.id,
+      tmpl.html,
+      tmpl.ics,
+      meeting.builder_email || null   // CC the builder
     );
   },
 

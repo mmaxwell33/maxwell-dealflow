@@ -77,6 +77,16 @@ const Calendar = {
       .order('final_date', { ascending: true })
       .limit(150);
 
+    // Quick builder meetings (standalone — scheduled from the Calendar screen)
+    let meetings = [];
+    try {
+      const { data } = await db.from('meetings')
+        .select('id, client_name, builder_name, location, meeting_date, meeting_time')
+        .order('meeting_date', { ascending: true })
+        .limit(150);
+      meetings = data || [];
+    } catch (_) { /* table not migrated yet — skip silently */ }
+
     const events = [];
 
     const addDealEvent = (date, label, type, icon, clientName, address, dealId) => {
@@ -120,6 +130,20 @@ const Calendar = {
         client: bv.new_builds?.client_name || '—',
         sub:    (bv.new_builds?.lot_address || '') + (bv.stage_item_label ? ' — ' + bv.stage_item_label : ''),
         time:   t ? (t+'').slice(0,5) : null,
+        status: 'Confirmed'
+      });
+    });
+
+    (meetings || []).forEach(m => {
+      if (!m.meeting_date) return;
+      events.push({
+        date:   m.meeting_date.slice(0,10),
+        label:  'Builder Meeting',
+        type:   'builder_visit',
+        icon:   '🏗️',
+        client: m.client_name || '—',
+        sub:    (m.builder_name ? m.builder_name : '') + (m.location ? ' · ' + m.location : ''),
+        time:   m.meeting_time ? (m.meeting_time+'').slice(0,5) : null,
         status: 'Confirmed'
       });
     });

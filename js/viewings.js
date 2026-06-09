@@ -701,3 +701,106 @@ const Viewings = {
     }, 600);
   },
 };
+
+// ── BUILDER MEETING ─────────────────────────────────────────────────────────
+// Quick scheduler (like a viewing) for a client↔builder meeting. Saves to the
+// `meetings` table (shows on the Calendar) and queues an .ics invite email to
+// the client, CC the builder — all through Approvals.
+const Meetings = {
+  openForm(prefillClientId) {
+    const today = new Date().toISOString().slice(0,10);
+    const clientOpts = (typeof Clients !== 'undefined' ? Clients.all : []).map(c =>
+      `<option value="${c.id}" ${c.id===prefillClientId?'selected':''}>${App.esc(c.full_name)}</option>`).join('');
+    App.openModal(`
+      <div class="modal-title">🏗️ Book Builder Meeting</div>
+      <div class="form-group">
+        <label class="form-label">Client *</label>
+        <select class="form-input form-select" id="mt-client"><option value="">Select client…</option>${clientOpts}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Builder Name *</label>
+        <input class="form-input" id="mt-builder" placeholder="e.g. Highbury Homes">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Builder Email <span style="color:var(--text2);font-weight:400;">(optional — to CC them the invite)</span></label>
+        <input class="form-input" id="mt-builder-email" type="email" placeholder="builder@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location *</label>
+        <input class="form-input" id="mt-location" placeholder="e.g. Show home, 12 Kenmount Rd">
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input class="form-input" id="mt-date" type="date" value="${today}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time</label>
+          <input class="form-input" id="mt-time" type="time">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-input" id="mt-notes" rows="2" placeholder="Anything the client should know…"></textarea>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;">
+        <input type="checkbox" id="mt-email" checked> Email the client an invite (and CC the builder)
+      </label>
+      <div id="mt-msg" style="font-size:13px;margin-bottom:8px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Meetings.save()">📅 Book Meeting</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async save() {
+    const msg = document.getElementById('mt-msg');
+    const set = (t, c) => { if (msg) { msg.style.color = c; msg.textContent = t; } };
+    const clientId = document.getElementById('mt-client')?.value || '';
+    const builder  = document.getElementById('mt-builder')?.value.trim() || '';
+    const location = document.getElementById('mt-location')?.value.trim() || '';
+    const date     = document.getElementById('mt-date')?.value || '';
+    if (!clientId) { set('⚠️ Select a client', 'var(--red)'); return; }
+    if (!builder)  { set('⚠️ Enter the builder name', 'var(--red)'); return; }
+    if (!location) { set('⚠️ Enter the location', 'var(--red)'); return; }
+    if (!date)     { set('⚠️ Pick a date', 'var(--red)'); return; }
+    set('Saving…', 'var(--text2)');
+
+    const client = (typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === clientId) || {};
+    const { data: { user } } = await db.auth.getUser();
+    const agentId = user?.id || currentAgent?.id;
+    const row = {
+      agent_id: agentId,
+      client_id: clientId,
+      client_name: client.full_name || null,
+      client_email: client.email || null,
+      builder_name: builder,
+      builder_email: document.getElementById('mt-builder-email')?.value.trim() || null,
+      location,
+      meeting_date: date,
+      meeting_time: document.getElementById('mt-time')?.value || null,
+      notes: document.getElementById('mt-notes')?.value.trim() || null
+    };
+    const { data: saved, error } = await db.from('meetings').insert(row).select('id').single();
+    if (error) {
+      set('❌ ' + (error.message || 'Save failed') + (error.code === '42P01' ? ' — run migration 051_builder_meetings' : ''), 'var(--red)');
+      return;
+    }
+
+    // Email the client the invite (+ CC builder), queued for approval.
+    const wantEmail = document.getElementById('mt-email')?.checked;
+    if (wantEmail && typeof Notify !== 'undefined') {
+      if (client.email) {
+        await Notify.onBuilderMeeting({ ...row, id: saved?.id }, client);
+      } else {
+        App.toast('⚠️ No email on file for this client — meeting saved, invite not sent', 'var(--yellow)');
+      }
+    }
+
+    App.closeModal();
+    App.toast(wantEmail ? '🏗️ Meeting booked — invite queued in Approvals' : '🏗️ Meeting booked & added to your calendar', 'var(--green)');
+    if (typeof Calendar !== 'undefined' && Calendar.load) Calendar.load();
+    if (App.loadOverview) App.loadOverview();
+  }
+};
