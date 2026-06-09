@@ -314,14 +314,17 @@ const Notify = {
       } else { gStart = meeting.meeting_date.replace(/-/g,''); gEnd = gStart; }
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Meeting with ' + builder)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent('Builder meeting arranged by ' + agentName + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail)}`;
 
-      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this to your calendar.\n\nSee you there!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}`;
+      // Mirror the viewing-confirmation template exactly: same intro→table→
+      // Add-to-Calendar→cal-note→reach-out line→sign-off→signature→disclaimer.
+      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>Your meeting with <strong>${builder}</strong> has been arranged. Here are the details:</p>
         <table class="dt">${rows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
-        <p class="cal-note">Click above to add it to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
+        <p class="cal-note">Click the button above to add this meeting to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
+        <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to it!</p>
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
