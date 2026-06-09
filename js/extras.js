@@ -1444,9 +1444,16 @@ const Reports = {
    */
   async toPDF(client, html) {
     if (!window.html2pdf) throw new Error('PDF library not loaded. Reload the page and try again.');
-    // Render into an offscreen container so html2pdf can measure it at its natural width.
+    // Render the report on-screen (top-left, behind everything via opacity +
+    // pointer-events) rather than parked at left:-10000px — html2canvas often
+    // captures BLANK from far-off-screen elements, which is what produced empty
+    // PDFs. This sits at 0,0 so html2canvas measures and paints it correctly;
+    // it's removed in the finally block before the user can really see it.
+    // NOTE: full opacity — html2canvas honours the element's own opacity, so a
+    // faded wrapper would capture blank. z-index:-1 keeps it behind the app
+    // (hidden from the user) while still fully painted for the capture.
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:fixed;left:-10000px;top:0;width:680px;background:#fff;';
+    wrap.style.cssText = 'position:fixed;left:0;top:0;width:680px;background:#fff;z-index:-1;pointer-events:none;';
     wrap.innerHTML = html;
     document.body.appendChild(wrap);
 
@@ -1483,16 +1490,19 @@ const Reports = {
     const sel = document.getElementById('rpt-client-sel');
     const msg = document.getElementById('rpt-msg');
     if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
-    msg.textContent = '⏳ Building PDF preview...'; msg.style.color='var(--text2)';
+    msg.textContent = '⏳ Building preview...'; msg.style.color='var(--text2)';
     try {
       const result = await Reports.buildReport(sel.value);
       if (!result) { msg.style.color='var(--red)'; msg.textContent='⚠️ Could not load client data'; return; }
       const { client, html } = result;
-      const { blob } = await Reports.toPDF(client, html);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      // Revoke after a delay so the new tab has time to load the URL
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // Open the report as a REAL HTML document — this always renders. (The old
+      // path rasterised to a PDF off-screen, which often came out blank.) The
+      // PDF is only needed for the emailed copy, handled in sendToClient().
+      const win = window.open('', '_blank');
+      if (!win) { msg.style.color='var(--red)'; msg.textContent='⚠️ Popup blocked — allow popups for this site and retry.'; return; }
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${(client.full_name||'Client')} — Progress Report</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet"></head><body style="margin:0;background:#F3F1EC;padding:24px 12px;">${html}</body></html>`);
+      win.document.close();
       msg.style.color='var(--text2)'; msg.textContent='✓ Preview opened in a new tab';
     } catch (e) {
       console.error('Report preview error:', e);
