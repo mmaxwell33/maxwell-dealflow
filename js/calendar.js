@@ -137,14 +137,15 @@ const Calendar = {
     (meetings || []).forEach(m => {
       if (!m.meeting_date) return;
       events.push({
-        date:   m.meeting_date.slice(0,10),
-        label:  'Builder Meeting',
-        type:   'builder_visit',
-        icon:   '🏗️',
-        client: m.client_name || '—',
-        sub:    (m.builder_name ? m.builder_name : '') + (m.location ? ' · ' + m.location : ''),
-        time:   m.meeting_time ? (m.meeting_time+'').slice(0,5) : null,
-        status: 'Confirmed'
+        date:      m.meeting_date.slice(0,10),
+        label:     'Builder Meeting',
+        type:      'builder_visit',
+        icon:      '🏗️',
+        client:    m.client_name || '—',
+        sub:       (m.builder_name ? m.builder_name : '') + (m.location ? ' · ' + m.location : ''),
+        time:      m.meeting_time ? (m.meeting_time+'').slice(0,5) : null,
+        status:    'Confirmed',
+        meetingId: m.id   // enables delete from the day popup
       });
     });
 
@@ -333,12 +334,13 @@ const Calendar = {
       <div class="modal-title">📅 ${fmtd}</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
       ${evs.map(e => `
-        <div class="cal-day-ev">
+        <div class="cal-day-ev" style="display:flex;align-items:flex-start;gap:8px;">
           <div class="cal-dot cal-dot-${e.type}" style="flex-shrink:0;margin-top:4px;"></div>
-          <div>
+          <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:700;">${e.icon} ${e.label}</div>
             <div style="font-size:12px;color:var(--text2);">${App.esc(e.client)}${e.sub ? ' · ' + App.esc(e.sub) : ''}${e.time ? ' · ⏰ ' + e.time : ''}</div>
           </div>
+          ${e.meetingId ? `<button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);flex-shrink:0;padding:2px 10px;" title="Delete meeting" onclick="Meetings.delete('${e.meetingId}')">🗑️</button>` : ''}
         </div>`).join('')}
       </div>
     `);

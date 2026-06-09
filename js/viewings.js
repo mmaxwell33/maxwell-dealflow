@@ -803,5 +803,20 @@ const Meetings = {
     App.toast(wantEmail ? '🏗️ Meeting booked — invite queued in Approvals' : '🏗️ Meeting booked & added to your calendar', 'var(--green)');
     if (typeof Calendar !== 'undefined' && Calendar.load) Calendar.load();
     if (App.loadOverview) App.loadOverview();
+  },
+
+  // Delete a builder meeting (e.g. a test). PIN-gated like every other delete.
+  async delete(id) {
+    const ok = await App.requireDeletePin({
+      title: 'Delete Meeting',
+      message: 'Delete this builder meeting? It will be removed from your calendar. This cannot be undone.'
+    });
+    if (!ok) return;
+    const { error } = await db.from('meetings').delete().eq('id', id);
+    if (error) { App.toast('⚠️ ' + (error.message || 'Delete failed'), 'var(--red)'); return; }
+    App.closeModal();
+    App.toast('🗑️ Meeting deleted');
+    if (typeof Calendar !== 'undefined' && Calendar.refresh) Calendar.refresh();
+    if (App.loadOverview) App.loadOverview();
   }
 };
