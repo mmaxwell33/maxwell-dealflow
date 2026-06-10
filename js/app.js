@@ -58,6 +58,15 @@ const App = {
   async init() {
     // Register service worker
     if ('serviceWorker' in navigator) {
+      // When a new SW takes control (after a deploy), reload ONCE so the page
+      // runs the fresh JS instead of the old cached copy. Guarded against loops.
+      // This ends the "hard-refresh twice after every update" problem.
+      let _swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_swReloaded) return;
+        _swReloaded = true;
+        location.reload();
+      });
       navigator.serviceWorker.register('sw.js').catch(() => {});
       // Listen for SW messages (e.g. notification tap → switch tab)
       navigator.serviceWorker.addEventListener('message', e => {
