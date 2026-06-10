@@ -1546,7 +1546,7 @@ const Reports = {
     const msg = document.getElementById('rpt-msg');
     if (!sel?.value) { msg.style.color='var(--red)'; msg.textContent='⚠️ Please select a client first'; return; }
     const ccInput = document.getElementById('rpt-cc');
-    const sendMeCopy = document.getElementById('rpt-send-copy')?.checked;
+    const sendMeCopy = document.getElementById('rpt-sendcopy')?.checked;
 
     msg.textContent = '⏳ Generating PDF...'; msg.style.color='var(--text2)';
     try {
@@ -1596,50 +1596,32 @@ ${agentSig}`;
       if (ccInput?.value.trim()) ccList.push(ccInput.value.trim());
       if (sendMeCopy && currentAgent?.email) ccList.push(currentAgent.email);
 
-      const payload = {
-        to: client.email,
-        cc: ccList.length ? ccList.join(', ') : null,
-        subject: `Your Progress Report — ${client.full_name}`,
-        body: plainBody,
-        html: htmlBody,
-        from_name: currentAgent?.full_name || 'Your Agent',
-        attachments: [{
-          filename,
-          mime_type: 'application/pdf',
-          data: base64
-        }]
-      };
+      const cc = ccList.length ? ccList.join(', ') : null;
 
-      const { data: sess } = await db.auth.getSession();
-      const token = sess?.session?.access_token;
-      if (!token) { msg.style.color='var(--red)'; msg.textContent='⚠️ Not signed in. Reload and try again.'; return; }
+      // Queue through Approvals like every other outbound email — so it's
+      // reviewable there, logged on send (EMAIL_SENT), and the CC (any extra
+      // address + your self-copy) is handled. Previously this sent directly,
+      // bypassing Approvals, and logged to non-existent columns so nothing
+      // appeared in the activity log.
+      if (typeof Notify === 'undefined' || !Notify.queue) { msg.style.color='var(--red)'; msg.textContent='⚠️ Notify unavailable — reload and retry.'; return; }
+      await Notify.queue(
+        'Progress Report',
+        client.id, client.full_name, client.email,
+        `Your Progress Report — ${client.full_name}`,
+        plainBody,
+        null,        // relatedId
+        htmlBody,    // html body
+        null,        // no ics
+        cc,          // cc: optional address + your self-copy
+        [{ filename, mime_type: 'application/pdf', data: base64 }]  // the PDF attachment
+      );
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      const out = await res.json();
-      if (!res.ok) throw new Error(out.error || 'Email send failed');
-
-      // Log to activity
-      try {
-        await db.from('activity_log').insert({
-          agent_id: currentAgent.id,
-          client_id: client.id,
-          action: 'Report sent',
-          detail: `Progress report PDF sent to ${client.email}`
-        });
-      } catch (_) { /* non-fatal */ }
-
-      msg.style.color='var(--green)'; msg.textContent=`✓ Report sent to ${client.full_name}`;
-      App.toast(`📎 Report PDF sent to ${client.full_name}!`);
+      msg.style.color='var(--green)'; msg.textContent='✓ Report queued in Approvals — review & send it there.';
+      App.toast(`📋 Report for ${client.full_name} queued in Approvals`);
+      if (App.switchTab) App.switchTab('approvals');
     } catch (e) {
-      console.error('Report send error:', e);
-      msg.style.color='var(--red)'; msg.textContent='⚠️ Send failed: ' + (e.message||'unknown error');
+      console.error('Report queue error:', e);
+      msg.style.color='var(--red)'; msg.textContent='⚠️ Failed: ' + (e.message||'unknown error');
     }
   }
 };
