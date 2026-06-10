@@ -1245,7 +1245,7 @@ maxwellmidodzi.exprealty.com
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    welcome_email: (client, intake, agent) => {
+    welcome_email: (client, intake, agent, opts = {}) => {
       const firstName = client.full_name?.split(' ')[0] || client.first_name || 'there';
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
@@ -1339,6 +1339,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p style="margin-top:20px;"><strong>Your Search Criteria on File</strong></p>
         <div>${criteriaHTML}</div>` : ''}
         <p style="margin-top:20px;">Feel free to reach out anytime — I'm here to help!</p>
+        ${opts.referralToken ? `
+        <div style="margin-top:18px;padding:14px 16px;background:#FAFAF9;border-left:3px solid #CC785C;border-radius:8px;">
+          <p style="margin:0 0 10px;font-size:13px;font-style:italic;color:#555;">One more thing — I work with a great mortgage broker here in Newfoundland day to day. If you'd ever like a second opinion or a smoother financing process, I'm happy to introduce you — no pressure at all.</p>
+          <a href="https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#CC785C;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
+        </div>` : ''}
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
@@ -1355,7 +1360,7 @@ Here's what happens next:
 4. Offer & Closing — I'll negotiate the best deal for you
 
 Feel free to reach out anytime — I'm here to help!
-
+${opts.referralToken ? `\nP.S. — I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}\n` : ''}
 Best regards,
 ${agentName}
 REALTOR® | eXp Realty
@@ -1697,7 +1702,29 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   async onClientAdded(client, intake) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.welcome_email(client, intake, agent);
+    // Soft broker offer: only when the buyer ALREADY has a broker / pre-approval
+    // (not "need guidance" — that path gets the full auto-intro — and not cash),
+    // and a broker is configured in Settings. Create a tokenised request row so
+    // the welcome email can show a "Yes, introduce me" button that routes back
+    // here for the agent's approval.
+    let referralToken = null;
+    const pa = (intake?.preapproval || '').toLowerCase();
+    const eligible = pa && !/need guidance|not yet/.test(pa) && !/cash/.test(pa);
+    if (eligible && agent?.broker_email && client?.id) {
+      try {
+        const { data: { user } } = await db.auth.getUser();
+        const agentId = user?.id || agent.id;
+        const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+        const { error } = await db.from('broker_referral_requests').insert({
+          agent_id: agentId, client_id: client.id,
+          client_name: client.full_name || null, client_email: client.email || null,
+          token, status: 'offered'
+        });
+        if (!error) referralToken = token;
+        else console.warn('[referral offer] skipped:', error.message);
+      } catch (e) { console.warn('[referral offer] skipped:', e?.message || e); }
+    }
+    const tmpl = Notify.templates.welcome_email(client, intake, agent, { referralToken });
     await Notify.queue(
       'Welcome Email',
       client.id, client.full_name, client.email,

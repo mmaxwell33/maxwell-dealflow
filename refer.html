@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mortgage Broker Introduction — Maxwell Delali Midodzi</title>
+<style>
+  :root { --accent:#CC785C; --accent2:#B3654A; --ink:#0F172A; --ink2:#64748B; --bg:#F3F1EC; --card:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:520px; margin:0 auto; padding:40px 20px; }
+  .card { background:var(--card); border-radius:16px; box-shadow:0 12px 40px rgba(15,23,42,.10); overflow:hidden; }
+  .hd { background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%); color:#fff; padding:30px 28px; }
+  .hd .eyebrow { font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.85; }
+  .hd h1 { font-size:24px; margin:8px 0 0; font-weight:700; letter-spacing:-.3px; }
+  .bd { padding:28px; }
+  .bd p { font-size:15px; line-height:1.6; color:#334155; }
+  .btn { display:block; width:100%; text-align:center; background:var(--accent); color:#fff; border:0; font-size:16px; font-weight:700; padding:15px; border-radius:10px; cursor:pointer; margin-top:18px; }
+  .btn:hover { background:var(--accent2); }
+  .btn:disabled { opacity:.6; cursor:default; }
+  .ghost { display:block; width:100%; text-align:center; background:transparent; color:var(--ink2); border:1px solid #e2e8f0; font-size:14px; padding:12px; border-radius:10px; cursor:pointer; margin-top:10px; text-decoration:none; }
+  .icon { font-size:42px; text-align:center; margin-bottom:6px; }
+  .center { text-align:center; }
+  .muted { color:var(--ink2); font-size:13px; }
+  footer { text-align:center; color:var(--ink2); font-size:12px; padding:24px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="hd">
+      <div class="eyebrow">Maxwell Delali Midodzi · eXp Realty</div>
+      <h1>Mortgage Broker Introduction</h1>
+    </div>
+    <div class="bd">
+      <div id="state-loading" class="center"><p class="muted">Loading…</p></div>
+
+      <div id="state-main" hidden>
+        <div class="icon">🤝</div>
+        <p><strong>Happy to connect you!</strong></p>
+        <p>I work with a trusted mortgage broker here in Newfoundland day to day — they make the financing side smooth and straightforward. Tap below and I'll personally introduce you by email. No pressure, no obligation.</p>
+        <button class="btn" id="yes-btn" onclick="confirmIntro()">Yes, introduce me →</button>
+        <p class="muted center" style="margin-top:14px;">You can ignore this anytime — it only goes ahead if you tap the button.</p>
+      </div>
+
+      <div id="state-done" hidden class="center">
+        <div class="icon">✅</div>
+        <p><strong>Done — I'll make the introduction.</strong></p>
+        <p>You'll get a warm intro email shortly connecting you with my mortgage broker. Looking forward to helping you move things along!</p>
+      </div>
+
+      <div id="state-expired" hidden class="center">
+        <div class="icon">⏳</div>
+        <p><strong>This link is no longer active.</strong></p>
+        <p class="muted">No problem — just reply to my email or give me a call and I'll connect you with my broker directly.</p>
+      </div>
+    </div>
+  </div>
+  <footer>Maxwell DealFlow CRM &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty</footer>
+</div>
+
+<script>
+const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+let rec = null;
+
+async function sb(path, opts = {}) {
+  const method = (opts.method || 'GET').toUpperCase();
+  const hdrs = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (TOKEN) hdrs['X-Response-Token'] = TOKEN;
+  if (method !== 'GET') hdrs['Prefer'] = opts.prefer || 'return=minimal';
+  const r = await fetch(SB_URL + '/rest/v1/' + path, { ...opts, headers: hdrs });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e?.message || r.statusText); }
+  return r.json().catch(() => null);
+}
+
+function show(s) {
+  ['loading', 'main', 'done', 'expired'].forEach(id => {
+    const el = document.getElementById('state-' + id); if (el) el.hidden = (id !== s);
+  });
+}
+
+async function init() {
+  if (!TOKEN) { show('expired'); return; }
+  try {
+    const rows = await sb(`broker_referral_requests?token=eq.${encodeURIComponent(TOKEN)}&select=*`);
+    if (!rows || !rows.length) { show('expired'); return; }
+    rec = rows[0];
+    if (new Date(rec.expires_at) < new Date()) { show('expired'); return; }
+    if (rec.status === 'requested' || rec.status === 'sent') { show('done'); return; }
+    show('main');
+  } catch (_) { show('expired'); }
+}
+
+async function confirmIntro() {
+  const btn = document.getElementById('yes-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'One moment…'; }
+  try {
+    await sb(`broker_referral_requests?id=eq.${rec.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'requested', requested_at: new Date().toISOString() })
+    });
+    show('done');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, introduce me →'; }
+    alert('Something went wrong — please reply to the email instead. (' + (e.message || '') + ')');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -540,7 +540,8 @@ const App = {
       { data: tomorrowV },
       { data: pending },
       { data: recentClients },
-      { data: needFeedback }
+      { data: needFeedback },
+      referralRes
     ] = await Promise.all([
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', today).neq('viewing_status', 'Completed'),
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', tomorrow).neq('viewing_status', 'Completed'),
@@ -550,9 +551,21 @@ const App = {
       // Completed viewings still waiting on Maxwell's "how did it go?" feedback.
       // These are the "missed" prompts — they persist in the bell until acted on.
       db.from('viewings').select('*, clients(full_name)').eq('viewing_status', 'Completed')
-        .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10)
+        .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10),
+      // Clients who tapped "Yes, introduce me" on the welcome email's soft broker
+      // offer. Best-effort (table may not be migrated yet).
+      db.from('broker_referral_requests').select('id,client_id,client_name,client_email')
+        .eq('agent_id', currentAgent.id).eq('status', 'requested')
+        .order('requested_at', { ascending: false }).limit(10)
+        .then(r => r, () => ({ data: [] }))
     ]);
+    const referrals = referralRes?.data || [];
     const items = [];
+    // Broker-intro requests sit at the very top — the client raised their hand,
+    // so this is hot. Clicking sends the intro (through Approvals) and clears it.
+    (referrals || []).forEach(r => {
+      items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C', title: 'Broker intro requested', text: `${r.client_name || 'A client'} wants an introduction to your broker`, tag: 'Action', action: `App.closeNotifPanel();App.sendBrokerReferral('${r.id}')` });
+    });
     // Missed "how did the viewing go?" prompts come first — they're the most
     // actionable and the ones Maxwell asked to never lose. Clicking opens the
     // feedback modal right from the bell.
@@ -614,6 +627,24 @@ const App = {
   closeNotifPanel() {
     const panel = document.getElementById('notif-panel');
     if (panel) panel.style.display = 'none';
+  },
+
+  // A client tapped "Yes, introduce me" in their welcome email. Fire the warm
+  // broker intro (queued to Approvals for review) and mark the request sent.
+  async sendBrokerReferral(id) {
+    if (!id) return;
+    const { data: req } = await db.from('broker_referral_requests').select('*').eq('id', id).single();
+    if (!req) { App.toast('Referral request not found', 'var(--red)'); return; }
+    const name = req.client_name || 'this client';
+    if (!confirm(`Send your mortgage-broker intro for ${name}?\n\nIt'll be queued in Approvals for you to review and send.`)) return;
+    if (typeof Notify === 'undefined' || !Notify.onBrokerReferral) { App.toast('Notify unavailable', 'var(--red)'); return; }
+    const client = { id: req.client_id, full_name: req.client_name, email: req.client_email };
+    const ok = await Notify.onBrokerReferral(client, {});
+    if (ok === false) { App.toast('⚠️ Set your broker in Settings → Mortgage Broker Referral first', 'var(--yellow)'); return; }
+    await db.from('broker_referral_requests').update({ status: 'sent' }).eq('id', id);
+    App.toast('🤝 Broker intro queued in Approvals', 'var(--green)');
+    App.loadNotifications();
+    if (App.switchTab) App.switchTab('approvals');
   },
 
   // ── DELETE PASSWORD GATE ────────────────────────────────────────────────
