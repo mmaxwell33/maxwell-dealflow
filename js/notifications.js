@@ -1793,7 +1793,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     try {
       // 1. Find active clients with no recent updated_at
       const { data: stale, error } = await db.from('clients')
-        .select('id, full_name, email, phone, stage, status, current_status, preapproval, preferred_areas, updated_at')
+        .select('id, full_name, email, phone, stage, status, client_type, preapproval, preferred_areas, updated_at')
         .eq('agent_id', agent.id)
         .neq('status', 'Archived')
         .lt('updated_at', cutoff)
@@ -1816,7 +1816,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
         // 3. Pick a template based on client state — variety + relevance
         let templateName, queueLabel;
-        const isSeller = (c.current_status || '').toLowerCase().includes('sell');
+        const isSeller = (c.client_type || '').toLowerCase() === 'seller';
         const preApproval = (c.preapproval || '').toLowerCase();
         const isPreApprovalInProgress = preApproval.includes('progress') || preApproval.includes('pending');
 
