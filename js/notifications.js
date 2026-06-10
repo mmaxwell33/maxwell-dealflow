@@ -1253,6 +1253,46 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
       const agentAddress = agent.brokerage_address || '33 Pippy PL, Suite 101, St. John\'s, NL A1B 3X2';
 
+      // ── CONTEXT-AWARE OPENING ──────────────────────────────────────────────
+      // Pick a welcome variant from the client's situation (intake.current_status
+      // + property type). Subject + opening change; the steps/criteria/signature
+      // below stay shared since they apply to every buyer. Falls back to a warm
+      // general welcome if the situation is unknown.
+      const _status = (intake.current_status || '').toLowerCase();
+      let _situation = 'default';
+      if (/relocat/.test(_status))                          _situation = 'relocating';
+      else if (/invest|rental|portfolio|income/.test(_status)) _situation = 'investor';
+      else if (/homeowner|own a home|buying another/.test(_status)) _situation = 'move_up';
+      else if (/rent|family|friends/.test(_status))         _situation = 'first_time';
+      const _variants = {
+        first_time: {
+          subject: `Welcome, ${firstName} — let's find your first home`,
+          html: `🎉 <strong>Welcome!</strong> Buying your first home is a big (and exciting) step — and I've got you. I'll walk you through every stage, explain the jargon in plain English, and make sure you never feel rushed or in the dark.`,
+          text: `Welcome! Buying your first home is a big, exciting step — and I've got you. I'll walk you through every stage and make sure you never feel rushed or in the dark.`
+        },
+        move_up: {
+          subject: `Welcome, ${firstName} — on to your next home`,
+          html: `🎉 <strong>Welcome!</strong> Since you already own, the secret to a smooth move is timing — lining up the sale of your current place with the purchase of the next so you're never caught in between. I'll help you map that out, and we'll factor your equity into the plan.`,
+          text: `Welcome! Since you already own, the secret to a smooth move is timing — lining up the sale of your current place with buying the next. I'll help you map that out and factor your equity into the plan.`
+        },
+        relocating: {
+          subject: `Welcome to the area, ${firstName}!`,
+          html: `🎉 <strong>Welcome!</strong> Relocating is a big move, so my job is to make the Newfoundland side seamless. I'll get you up to speed on the neighbourhoods that fit your life, and we can handle most of the search remotely — video tours, virtual updates, the works.`,
+          text: `Welcome! Relocating is a big move, so my job is to make the Newfoundland side seamless. I'll get you up to speed on the right neighbourhoods, and we can handle most of the search remotely.`
+        },
+        investor: {
+          subject: `Welcome, ${firstName} — let's grow the portfolio`,
+          html: `🎉 <strong>Welcome!</strong> For an investment purchase it's all about the numbers — rental demand, cash flow, and the right pockets of the market. I'll bring you opportunities that make sense on paper, not just ones that show well.`,
+          text: `Welcome! For an investment purchase it's all about the numbers — rental demand, cash flow, and the right areas. I'll bring you opportunities that make sense on paper.`
+        },
+        default: {
+          subject: `Welcome to eXp Realty, ${firstName}!`,
+          html: `🎉 <strong>Welcome!</strong> Thank you for choosing me as your real estate agent. I'm excited to help you find your perfect home.`,
+          text: `Welcome! I'm ${agentName} and I'm thrilled to be working with you on your real estate journey.`
+        }
+      };
+      const _v = _variants[_situation] || _variants.default;
+
       // Build criteria rows
       const criteriaLines = [];
       if (intake.property_types) criteriaLines.push(`🏠 <strong>Property Type:</strong> ${intake.property_types}`);
@@ -1290,7 +1330,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
-        <p>🎉 <strong>Welcome!</strong> Thank you for choosing me as your real estate agent. I'm excited to help you find your perfect home.</p>
+        <p>${_v.html}</p>
         <p><strong>Here's what happens next:</strong></p>
         <div>
           ${steps.map(s => `<div class="step-row"><strong>${s.n}. ${s.title}</strong> — ${s.desc}</div>`).join('')}
@@ -1306,7 +1346,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       const plainText = `Hi ${firstName},
 
-Welcome! I'm ${agentName} and I'm thrilled to be working with you on your real estate journey.
+${_v.text}
 
 Here's what happens next:
 1. Discovery Call — We'll discuss your needs, budget, and timeline
@@ -1327,7 +1367,7 @@ ${agentWebsite}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       return {
-        subject: `Welcome to eXp Realty, ${firstName}! - ${agentName}`,
+        subject: `${_v.subject} — ${agentName}`,
         body: plainText,
         html
       };
