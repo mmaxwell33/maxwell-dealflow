@@ -1555,41 +1555,26 @@ const Reports = {
       const { client, html } = result;
       if (!client.email) { msg.style.color='var(--red)'; msg.textContent='⚠️ This client has no email on file'; return; }
 
-      const { base64, filename } = await Reports.toPDF(client, html);
-
-      msg.textContent = '⏳ Sending email...';
+      msg.textContent = '⏳ Queueing report...';
 
       const firstName = (client.full_name||'there').split(/\s+/)[0];
-      const agentFirst = (currentAgent?.full_name||'Your agent').split(/\s+/)[0];
-      const agentSig = [
-        currentAgent?.full_name || '',
-        'REALTOR® | eXp Realty',
-        currentAgent?.phone || '',
-        currentAgent?.email || ''
-      ].filter(Boolean).join('\n');
+
+      // The email BODY *is* the branded report (the same gorgeous HTML you see
+      // in Preview) — built with email-safe inline styles, so it renders in
+      // Gmail. No more raw "please find attached" note + blank rasterised PDF;
+      // the report itself is the email. A short personal line sits above it.
+      const introHtml = `<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#0A0A0A;line-height:1.6;margin:0 0 16px;">Hi ${firstName}, here's your latest progress report — a quick snapshot of where things stand. Let me know if you have any questions.</p>`;
+      const htmlBody = `<div style="max-width:680px;margin:0 auto;">${introHtml}${html}</div>`;
 
       const plainBody =
 `Hi ${firstName},
 
-Please find attached your updated progress report showing the current stage of your deal.
-
-Let me know if you have any questions.
+Here's your latest progress report — a quick snapshot of where things stand. Let me know if you have any questions.
 
 Best regards,
-${agentSig}`;
-
-      const htmlBody =
-`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#0A0A0A;line-height:1.6;max-width:620px;">
-  <p>Hi ${firstName},</p>
-  <p>Please find attached your updated progress report showing the current stage of your deal.</p>
-  <p>Let me know if you have any questions.</p>
-  <p>Best regards,<br>
-  <strong>${currentAgent?.full_name||''}</strong><br>
-  REALTOR® | eXp Realty<br>
-  ${currentAgent?.phone?`${currentAgent.phone}<br>`:''}
-  ${currentAgent?.email?`${currentAgent.email}`:''}
-  </p>
-</div>`;
+${currentAgent?.full_name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+${currentAgent?.phone || '(709) 325-0545'} | ${currentAgent?.email || 'Maxwell.Midodzi@exprealty.com'}`;
 
       // Build cc list (optional cc input + optional self-copy)
       const ccList = [];
@@ -1598,11 +1583,9 @@ ${agentSig}`;
 
       const cc = ccList.length ? ccList.join(', ') : null;
 
-      // Queue through Approvals like every other outbound email — so it's
-      // reviewable there, logged on send (EMAIL_SENT), and the CC (any extra
-      // address + your self-copy) is handled. Previously this sent directly,
-      // bypassing Approvals, and logged to non-existent columns so nothing
-      // appeared in the activity log.
+      // Queue through Approvals like every other outbound email — reviewable,
+      // logged on send (EMAIL_SENT), CC handled. The report is the HTML body
+      // (no attachment), so it always renders and there's no blank-PDF problem.
       if (typeof Notify === 'undefined' || !Notify.queue) { msg.style.color='var(--red)'; msg.textContent='⚠️ Notify unavailable — reload and retry.'; return; }
       await Notify.queue(
         'Progress Report',
@@ -1610,10 +1593,9 @@ ${agentSig}`;
         `Your Progress Report — ${client.full_name}`,
         plainBody,
         null,        // relatedId
-        htmlBody,    // html body
+        htmlBody,    // the full branded report, as the email body
         null,        // no ics
-        cc,          // cc: optional address + your self-copy
-        [{ filename, mime_type: 'application/pdf', data: base64 }]  // the PDF attachment
+        cc           // cc: optional address + your self-copy
       );
 
       msg.style.color='var(--green)'; msg.textContent='✓ Report queued in Approvals — review & send it there.';
