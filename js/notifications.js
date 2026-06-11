@@ -1810,9 +1810,16 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         .gte('created_at', recencyWindow);
       const recentEmails = new Set((recentLogs || []).map(r => r.client_email));
 
+      // Stages where a "still searching?" check-in is WRONG: the client is
+      // mid-deal or finished — already bought, sold, fell through, or under
+      // contract. Re-engagement only makes sense for quiet EARLY-stage leads.
+      const SKIP_STAGES = ['Accepted', 'Conditions', 'Closing', 'Closed', 'Fell Through', 'Done', 'Withdrawn', 'Sold'];
+
       let queued = 0, skipped = 0;
       for (const c of stale) {
         if (recentEmails.has(c.email)) { skipped++; continue; }
+        // Don't nudge clients who've bought / closed / are mid-deal.
+        if (SKIP_STAGES.includes((c.stage || '').trim())) { continue; }
 
         // 3. Pick a template based on client state — variety + relevance
         let templateName, queueLabel;
