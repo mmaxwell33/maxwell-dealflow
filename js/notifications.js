@@ -1815,11 +1815,26 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       // contract. Re-engagement only makes sense for quiet EARLY-stage leads.
       const SKIP_STAGES = ['Accepted', 'Conditions', 'Closing', 'Closed', 'Fell Through', 'Done', 'Withdrawn', 'Sold'];
 
+      // Belt-and-suspenders: also exclude anyone who has a closed / fell-through
+      // / in-progress deal in the PIPELINE, even if their clients.stage field
+      // wasn't updated. So a buyer who closed never gets a "still looking?" nudge.
+      let inDealClientIds = new Set();
+      try {
+        const { data: dealRows } = await db.from('pipeline')
+          .select('client_id, stage').eq('agent_id', agent.id);
+        const doneOrActive = ['Accepted', 'Conditions', 'Closing', 'Closed', 'Fell Through', 'Done', 'Withdrawn', 'Sold'];
+        (dealRows || []).forEach(d => {
+          if (d.client_id && doneOrActive.includes((d.stage || '').trim())) inDealClientIds.add(d.client_id);
+        });
+      } catch (_) { /* non-fatal — stage filter still applies */ }
+
       let queued = 0, skipped = 0;
       for (const c of stale) {
         if (recentEmails.has(c.email)) { skipped++; continue; }
-        // Don't nudge clients who've bought / closed / are mid-deal.
+        // Don't nudge clients who've bought / closed / are mid-deal — by their
+        // own stage OR by any matching pipeline deal.
         if (SKIP_STAGES.includes((c.stage || '').trim())) { continue; }
+        if (inDealClientIds.has(c.id)) { continue; }
 
         // 3. Pick a template based on client state — variety + relevance
         let templateName, queueLabel;
