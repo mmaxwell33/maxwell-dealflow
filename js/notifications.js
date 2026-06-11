@@ -1509,6 +1509,17 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
+
+    // Consistency net: if a template only supplied plain text (no HTML version),
+    // auto-wrap it in the SAME branded shell every other email uses — so every
+    // email renders with the same fonts, spacing and white background (the
+    // "real Gmail" look) across Gmail/Yahoo/Outlook, never as raw plain text.
+    // The wrap degrades gracefully (plain <p> paragraphs) if a client strips
+    // <style>. Templates that already have HTML are left untouched.
+    if (!htmlBody && emailBody) {
+      htmlBody = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>${EmailFormat.bodyHTML(emailBody)}</body></html>`;
+    }
+
     // Pack html + ics + real file attachments into context_data
     let contextData = null;
     if (htmlBody || icsBase64 || ccEmail || fileAttachments?.length) {
