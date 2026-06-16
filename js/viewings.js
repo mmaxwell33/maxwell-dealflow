@@ -715,7 +715,13 @@ const Meetings = {
       <div class="modal-title">🏗️ Book Builder Meeting</div>
       <div class="form-group">
         <label class="form-label">Client *</label>
-        <select class="form-input form-select" id="mt-client"><option value="">Select client…</option>${clientOpts}</select>
+        <select class="form-input form-select" id="mt-client" onchange="Meetings.onClientChange()"><option value="">Select client…</option>${clientOpts}<option value="__other__">➕ Other (not in my system)</option></select>
+      </div>
+      <div class="form-group" id="mt-other-fields" style="display:none;">
+        <label class="form-label">New Client Name *</label>
+        <input class="form-input" id="mt-other-name" placeholder="e.g. Jane Smith">
+        <label class="form-label" style="margin-top:8px;">New Client Email <span style="color:var(--text2);font-weight:400;">(optional — for the invite)</span></label>
+        <input class="form-input" id="mt-other-email" type="email" placeholder="client@example.com">
       </div>
       <div class="form-group">
         <label class="form-label">Builder Name *</label>
@@ -754,26 +760,38 @@ const Meetings = {
     `);
   },
 
+  // Show the manual name/email fields only when "Other (not in my system)" is picked.
+  onClientChange() {
+    const sel = document.getElementById('mt-client')?.value;
+    const box = document.getElementById('mt-other-fields');
+    if (box) box.style.display = (sel === '__other__') ? 'block' : 'none';
+  },
+
   async save() {
     const msg = document.getElementById('mt-msg');
     const set = (t, c) => { if (msg) { msg.style.color = c; msg.textContent = t; } };
     const clientId = document.getElementById('mt-client')?.value || '';
+    const isOther  = clientId === '__other__';
     const builder  = document.getElementById('mt-builder')?.value.trim() || '';
     const location = document.getElementById('mt-location')?.value.trim() || '';
     const date     = document.getElementById('mt-date')?.value || '';
     if (!clientId) { set('⚠️ Select a client', 'var(--red)'); return; }
+    if (isOther && !document.getElementById('mt-other-name')?.value.trim()) { set('⚠️ Enter the new client name', 'var(--red)'); return; }
     if (!builder)  { set('⚠️ Enter the builder name', 'var(--red)'); return; }
     if (/@/.test(builder)) { set('⚠️ That looks like an email. Put the builder\'s NAME here (e.g. Dave Power) and their email in the Builder Email field below.', 'var(--red)'); return; }
     if (!location) { set('⚠️ Enter the location', 'var(--red)'); return; }
     if (!date)     { set('⚠️ Pick a date', 'var(--red)'); return; }
     set('Saving…', 'var(--text2)');
 
-    const client = (typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === clientId) || {};
+    const client = isOther
+      ? { full_name: document.getElementById('mt-other-name')?.value.trim() || null,
+          email:     document.getElementById('mt-other-email')?.value.trim() || null }
+      : ((typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === clientId) || {});
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     const row = {
       agent_id: agentId,
-      client_id: clientId,
+      client_id: isOther ? null : clientId,
       client_name: client.full_name || null,
       client_email: client.email || null,
       builder_name: builder,
