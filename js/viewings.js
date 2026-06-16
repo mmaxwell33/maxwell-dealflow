@@ -732,6 +732,26 @@ const Meetings = {
         <input class="form-input" id="mt-builder-email" type="email" placeholder="builder@example.com">
       </div>
       <div class="form-group">
+        <label class="form-label">Does the client know who this person is?</label>
+        <select class="form-input form-select" id="mt-knows" onchange="Meetings.onKnowsChange()">
+          <option value="yes">Yes — just use their name</option>
+          <option value="no">No — add a label to their name in the email</option>
+        </select>
+      </div>
+      <div class="form-group" id="mt-role-field" style="display:none;">
+        <label class="form-label">Who are they?</label>
+        <select class="form-input form-select" id="mt-role">
+          <option value="builder">a builder</option>
+          <option value="electrician">an electrician</option>
+          <option value="plumber">a plumber</option>
+          <option value="contractor">a contractor</option>
+          <option value="home inspector">a home inspector</option>
+          <option value="mortgage broker">a mortgage broker</option>
+          <option value="lawyer">a lawyer</option>
+          <option value="appraiser">an appraiser</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">Location *</label>
         <input class="form-input" id="mt-location" placeholder="e.g. Show home, 12 Kenmount Rd">
       </div>
@@ -765,6 +785,14 @@ const Meetings = {
     const sel = document.getElementById('mt-client')?.value;
     const box = document.getElementById('mt-other-fields');
     if (box) box.style.display = (sel === '__other__') ? 'block' : 'none';
+  },
+
+  // Show the role dropdown only when the client does NOT know who the person is,
+  // so the email can read "Dave, the builder" instead of just "Dave".
+  onKnowsChange() {
+    const knows = document.getElementById('mt-knows')?.value;
+    const box = document.getElementById('mt-role-field');
+    if (box) box.style.display = (knows === 'no') ? 'block' : 'none';
   },
 
   async save() {
@@ -809,9 +837,12 @@ const Meetings = {
 
     // Email the client the invite (+ CC builder), queued for approval.
     const wantEmail = document.getElementById('mt-email')?.checked;
+    // If the client doesn't know who this person is, label them in the email.
+    const builderLabel = (document.getElementById('mt-knows')?.value === 'no')
+      ? (document.getElementById('mt-role')?.value || null) : null;
     if (wantEmail && typeof Notify !== 'undefined') {
       if (client.email) {
-        await Notify.onBuilderMeeting({ ...row, id: saved?.id }, client);
+        await Notify.onBuilderMeeting({ ...row, id: saved?.id, builder_label: builderLabel }, client);
       } else {
         App.toast('⚠️ No email on file for this client — meeting saved, invite not sent', 'var(--yellow)');
       }

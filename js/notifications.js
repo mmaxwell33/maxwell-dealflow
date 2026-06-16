@@ -294,6 +294,10 @@ const Notify = {
       const fmt12h = (t) => { if (!t) return null; const [h,m] = t.split(':').map(Number); const ap = h>=12?'PM':'AM'; return `${h%12||12}:${String(m).padStart(2,'0')} ${ap}`; };
       const timeStr = meeting.meeting_time ? meeting.meeting_time.slice(0,5) : null;
       const builder = meeting.builder_name || 'the builder';
+      // If the client may not recognise the name, the form passes a role label
+      // (e.g. "builder", "electrician") so the email reads "Dave, the builder".
+      const builderRole = meeting.builder_label ? `, the ${meeting.builder_label}` : '';
+      const builderFull = builder + builderRole;
       const loc = meeting.location || 'TBD';
 
       const rows = [];
@@ -316,11 +320,11 @@ const Notify = {
 
       // Mirror the viewing-confirmation template exactly: same intro→table→
       // Add-to-Calendar→cal-note→reach-out line→sign-off→signature→disclaimer.
-      const body = `Hi ${firstName},\n\nYour meeting with ${builder} has been arranged.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
-        <p>Your meeting with <strong>${builder}</strong> has been arranged. Here are the details:</p>
+        <p>I've arranged your meeting with <strong>${builder}</strong>${builderRole}. Here are the details:</p>
         <table class="dt">${rows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this meeting to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
