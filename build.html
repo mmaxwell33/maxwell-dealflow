@@ -200,7 +200,7 @@
 const SB_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 
-// 5 sections / 27 steps — matches NewBuilds.STAGES in js/extras.js so buyer
+// 5 sections / 28 steps — matches NewBuilds.STAGES in js/extras.js so buyer
 // view stays in sync with what the agent (and builder) see in DealFlow.
 const SECTIONS = [
   { key:'pre_construction', label:'📋 Pre-Construction', steps:[
@@ -219,6 +219,7 @@ const SECTIONS = [
     { key:'full_approval',       label:'Full financing approval received' },
   ]},
   { key:'construction', label:'🏗️ Construction', steps:[
+    { key:'permit_approved',      label:'Building permit approved' },
     { key:'construction_started', label:'Builder starts construction' },
     { key:'foundation',           label:'Foundation poured' },
     { key:'framing',              label:'Framing complete' },

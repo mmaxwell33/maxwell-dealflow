@@ -34,6 +34,7 @@
       {key:'full_approval',       label:'Full financing approval received'},
     ]},
     { key:'construction', label:'Construction', icon:'\ud83c\udfd7\ufe0f', steps:[
+      {key:'permit_approved',      label:'Building permit approved'},
       {key:'construction_started', label:'Builder starts construction'},
       {key:'foundation',           label:'Foundation poured'},
       {key:'framing',              label:'Framing complete'},

@@ -1652,6 +1652,7 @@ const NewBuilds = {
       emailOnComplete: false,
       emailPerStep: true,   // each step ticked = one real-time client email
       steps: [
+        { key: 'permit_approved',      label: 'Building permit approved' },
         { key: 'construction_started', label: 'Builder starts construction' },
         { key: 'foundation',           label: 'Foundation poured' },
         { key: 'framing',              label: 'Framing complete' },
@@ -1818,11 +1819,17 @@ const NewBuilds = {
     return last;
   },
 
+  // Built-in steps for a stage plus any custom steps the agent added to THIS build
+  allStepsFor(stage, pm) {
+    const custom = pm?.[stage.key]?.custom || [];
+    return [...stage.steps, ...custom];
+  },
+
   // Count total steps done across all stages for progress bar
   countAllSteps(pm) {
     let done = 0, total = 0;
     for (const stage of NewBuilds.STAGES) {
-      for (const step of stage.steps) {
+      for (const step of NewBuilds.allStepsFor(stage, pm)) {
         total++;
         if (pm[stage.key]?.steps?.[step.key]) done++;
       }
@@ -1849,21 +1856,29 @@ const NewBuilds = {
       // Build grouped stage sections
       const stageSections = NewBuilds.STAGES.map(stage => {
         const stagePm = pm[stage.key] || { done: false, steps: {} };
-        const stepsDone = stage.steps.filter(s => stagePm.steps?.[s.key]).length;
-        const stepsTotal = stage.steps.length;
+        const allSteps = NewBuilds.allStepsFor(stage, pm);
+        const stepsDone = allSteps.filter(s => stagePm.steps?.[s.key]).length;
+        const stepsTotal = allSteps.length;
         const stageDone = stagePm.done;
         const headerColor = stageDone ? 'var(--green)' : stepsDone > 0 ? 'var(--yellow)' : 'var(--text2)';
         const headerBg = stageDone ? 'rgba(34,197,94,0.1)' : 'var(--bg)';
 
-        const stepRows = stage.steps.map(step => {
+        const renderRow = (step, isCustom) => {
           const checked = stagePm.steps?.[step.key] || false;
           return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px 6px 14px;font-size:12px;${checked ? 'color:var(--green);' : 'color:var(--text2);'}">
             <input type="checkbox" onchange="NewBuilds.checkStep('${b.id}','${stage.key}','${step.key}',this.checked)"
               ${checked ? 'checked' : ''} style="width:14px;height:14px;cursor:pointer;accent-color:var(--green);">
-            <span style="${checked ? 'text-decoration:line-through;opacity:0.7;' : ''}">${step.label}</span>
-            ${checked ? '<span style="margin-left:auto;font-size:10px;opacity:0.6;">✓</span>' : ''}
+            <span style="${checked ? 'text-decoration:line-through;opacity:0.7;' : ''}">${step.label}${isCustom ? ' <span style="font-size:9px;opacity:0.55;">(custom)</span>' : ''}</span>
+            ${isCustom
+              ? `<button onclick="NewBuilds.removeCustomStep('${b.id}','${stage.key}','${step.key}')" title="Remove this custom step" style="margin-left:auto;background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;line-height:1;padding:0 4px;">✕</button>`
+              : (checked ? '<span style="margin-left:auto;font-size:10px;opacity:0.6;">✓</span>' : '')}
           </div>`;
-        }).join('');
+        };
+        const stepRows = stage.steps.map(s => renderRow(s, false)).join('')
+          + (stagePm.custom || []).map(s => renderRow(s, true)).join('')
+          + `<div style="padding:4px 10px 8px 14px;">
+              <button onclick="NewBuilds.addCustomStep('${b.id}','${stage.key}')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">+ Add custom step…</button>
+            </div>`;
 
         return `<div style="margin-bottom:6px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${headerBg};cursor:pointer;"
@@ -2284,8 +2299,9 @@ const NewBuilds = {
     pm[stageKey].steps[stepKey] = checked;
 
     const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
-    const step = stage.steps.find(s => s.key === stepKey);
-    const allStepsDone = stage.steps.every(s => pm[stageKey].steps[s.key]);
+    const allSteps = NewBuilds.allStepsFor(stage, pm);
+    const step = allSteps.find(s => s.key === stepKey);
+    const allStepsDone = allSteps.every(s => pm[stageKey].steps[s.key]);
     const wasAlreadyDone = b.pipeline_milestones?.[stageKey]?.done;
 
     // Mark stage done/undone based on all steps
@@ -2326,6 +2342,52 @@ const NewBuilds = {
     }
   },
 
+  // ── Add a custom checklist step under one category of one build (agent-only) ──
+  // Stored alongside built-in steps in pipeline_milestones, so it counts toward
+  // progress and stage-completion exactly like a built-in step. No email is sent
+  // when the step is added — only when the agent later ticks it.
+  async addCustomStep(buildId, stageKey) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) return;
+    const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
+    if (!stage) return;
+    const cat = stage.label.replace(/[📋🏦🏗️✅🎉]\s*/u, '');
+    const label = (prompt(`Add a custom step under "${cat}":`, '') || '').trim();
+    if (!label) return;
+    const pm = JSON.parse(JSON.stringify(b.pipeline_milestones || {}));
+    if (!pm[stageKey]) pm[stageKey] = { done: false, steps: {} };
+    if (!pm[stageKey].steps)  pm[stageKey].steps = {};
+    if (!pm[stageKey].custom) pm[stageKey].custom = [];
+    const key = 'custom_' + Date.now();
+    pm[stageKey].custom.push({ key, label });
+    pm[stageKey].steps[key] = false;
+    // A new unchecked step means the category is no longer fully complete
+    pm[stageKey].done = NewBuilds.allStepsFor(stage, pm).every(s => pm[stageKey].steps[s.key]);
+    await db.from('new_builds').update({ pipeline_milestones: pm, updated_at: new Date().toISOString() }).eq('id', buildId);
+    b.pipeline_milestones = pm;
+    NewBuilds.render(NewBuilds.all);
+    App.toast(`➕ Added "${label}"`, 'var(--green)');
+  },
+
+  // ── Remove a custom step (built-in steps are not removable) ──
+  async removeCustomStep(buildId, stageKey, stepKey) {
+    const b = NewBuilds.all.find(x => x.id === buildId);
+    if (!b) return;
+    const stage = NewBuilds.STAGES.find(s => s.key === stageKey);
+    if (!stage) return;
+    const target = (b.pipeline_milestones?.[stageKey]?.custom || []).find(s => s.key === stepKey);
+    if (!target) return;
+    if (!confirm(`Remove custom step "${target.label}"?`)) return;
+    const pm = JSON.parse(JSON.stringify(b.pipeline_milestones || {}));
+    pm[stageKey].custom = (pm[stageKey].custom || []).filter(s => s.key !== stepKey);
+    if (pm[stageKey].steps) delete pm[stageKey].steps[stepKey];
+    pm[stageKey].done = NewBuilds.allStepsFor(stage, pm).every(s => pm[stageKey].steps?.[s.key]);
+    await db.from('new_builds').update({ pipeline_milestones: pm, updated_at: new Date().toISOString() }).eq('id', buildId);
+    b.pipeline_milestones = pm;
+    NewBuilds.render(NewBuilds.all);
+    App.toast(`🗑️ Removed "${target.label}"`, 'var(--text2)');
+  },
+
   // Auto-queue client email — stepKey is non-null for construction per-step emails
   async autoQueueStageEmail(buildId, stageKey, stepKey) {
     const b = NewBuilds.all.find(x => x.id === buildId);
@@ -2357,7 +2419,7 @@ const NewBuilds = {
 
     // ── CONSTRUCTION: per-step email ──
     if (stage.emailPerStep && stepKey) {
-      const step = stage.steps.find(s => s.key === stepKey);
+      const step = NewBuilds.allStepsFor(stage, pm).find(s => s.key === stepKey);
       const stepLabel = step?.label || stepKey;
       const subject = `🏗️ Build Update — ${stepLabel} · ${property}`;
       const customNote = `Your build has reached a new milestone: <strong>${stepLabel}</strong>`;
