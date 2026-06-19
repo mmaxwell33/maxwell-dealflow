@@ -2342,21 +2342,17 @@ const NewBuilds = {
     b.pipeline_milestones = pm;
     NewBuilds.render(NewBuilds.all);
 
-    // ── CONSTRUCTION STAGE: emailPerStep — each step queues its own email ──
+    // Ticking a step NEVER emails the client automatically. It only saves
+    // progress and keeps the internal deal pipeline in sync. The agent decides
+    // when to email, using the "Notify Client" / "Send Buyer Portal" buttons.
     if (checked && stage.emailPerStep) {
       await NewBuilds.syncPipeline(b, stage.pipelineStage);
-      await NewBuilds.autoQueueStageEmail(buildId, stageKey, stepKey);
-      App.toast(`📬 Build update queued: "${step.label}"`, 'var(--green)');
-      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 800);
+      App.toast(`✓ Saved: "${step?.label || 'step'}"`, 'var(--text2)');
       return;
     }
-
-    // ── ALL OTHER STAGES: emailOnComplete — email only when ALL steps done ──
     if (stage.emailOnComplete && allStepsDone && !wasAlreadyDone) {
       await NewBuilds.syncPipeline(b, stage.pipelineStage);
-      App.toast(`✅ ${stage.label} complete! Client update queued in Approvals.`, 'var(--green)');
-      await NewBuilds.autoQueueStageEmail(buildId, stageKey, null);
-      if (typeof Approvals !== 'undefined') setTimeout(() => Approvals.load(), 800);
+      App.toast(`✅ ${stage.label} complete`, 'var(--green)');
     }
   },
 
@@ -2657,6 +2653,13 @@ const NewBuilds = {
     const property = (b.lot_address || 'Your Property').replace(/[^\x20-\x7E]/g, '');
     const subject = `New Build Update - ${property}`;
 
+    // Live buyer-portal link (same token as "Send Buyer Portal") so the client
+    // can click straight to their live tracker from this manual update email.
+    const portalToken = await NewBuilds.ensureBuildToken(id);
+    const portalUrl = portalToken ? `${location.origin}/build.html?t=${portalToken}` : null;
+    const portalPlain = portalUrl ? `\n\nView your live build tracker any time:\n${portalUrl}` : '';
+    const portalBtn = portalUrl ? `<p style="text-align:center;margin:24px 0 6px;"><a href="${portalUrl}" style="background:#5b5bd6;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View Your Build Progress</a></p><p style="font-size:12px;color:#94a3b8;text-align:center;margin:0 0 8px;">Tap any time for live updates - no login needed.</p>` : '';
+
     const stageRows = NewBuilds.STAGES.map(s => {
       const done2 = pm[s.key]?.done ? 'Done' : 'Pending';
       const lbl = s.label.replace(/[^\x20-\x7E]/g, '').trim();
@@ -2664,7 +2667,7 @@ const NewBuilds = {
     }).join('\n');
     const possession = b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : '';
     const noteText = customNote ? `\n\nNotes: ${customNote.replace(/[^\x20-\x7E]/g, '')}` : '';
-    const plainBody = `Hi ${firstName},\n\nNew Build Update - ${property}\n\nCurrent Stage: ${stageLabel.replace(/[^\x20-\x7E]/g,'')}\nProgress: ${pct}% (${done}/${total} steps)\n\n${stageRows}${possession}${noteText}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
+    const plainBody = `Hi ${firstName},\n\nNew Build Update - ${property}\n\nCurrent Stage: ${stageLabel.replace(/[^\x20-\x7E]/g,'')}\nProgress: ${pct}% (${done}/${total} steps)\n\n${stageRows}${possession}${noteText}${portalPlain}\n\nI will be in touch as the build progresses.\n\nMaxwell Delali Midodzi - eXp Realty - (709) 325-0545`;
 
     // Build HTML email in default format
     const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
@@ -2679,7 +2682,7 @@ const NewBuilds = {
     }).join('');
     const possessionRow = b.est_completion_date ? `<tr><td class="lb">Est. Possession</td><td class="vl">${b.est_completion_date}</td></tr>` : '';
     const noteHtml = customNote ? `<p style="font-size:14px;background:#fffbeb;padding:12px;border-left:3px solid #f59e0b;border-radius:4px;margin:0 0 16px;">${customNote.replace(/[^\x20-\x7E]/g,'')}</p>` : '';
-    const bodyContent = `<p>Hi ${firstName},</p><p>Here is your latest new build progress update for <strong>${property}</strong>.</p>${noteHtml}<table class="dt">${stageRowsHtml}${possessionRow}<tr><td class="lb">Overall Progress</td><td class="vl" style="color:#1a6ef5">${pct}% (${done}/${total} steps)</td></tr></table>`;
+    const bodyContent = `<p>Hi ${firstName},</p><p>Here is your latest new build progress update for <strong>${property}</strong>.</p>${noteHtml}<table class="dt">${stageRowsHtml}${possessionRow}<tr><td class="lb">Overall Progress</td><td class="vl" style="color:#1a6ef5">${pct}% (${done}/${total} steps)</td></tr></table>${portalBtn}`;
     const htmlEmail = EmailFormat.htmlEmail(bodyContent, agent);
     const htmlB64 = btoa(unescape(encodeURIComponent(htmlEmail)));
 
