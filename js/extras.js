@@ -2061,6 +2061,24 @@ const NewBuilds = {
   // Reuses the existing build_tokens table + build.html page (the simple buyer
   // tracker). Queues a branded email through approval_queue, identical pattern
   // to sendBuilderLink. Independent of the builder_token flow.
+  // Return the active buyer-portal token for a build, reusing an existing
+  // active row or creating one. Returns null if it couldn't be created.
+  async ensureBuildToken(buildId) {
+    let token = null;
+    try {
+      const { data: existing } = await db.from('build_tokens')
+        .select('token').eq('build_id', buildId).eq('active', true).limit(1).single();
+      if (existing?.token) token = existing.token;
+    } catch (_) { /* no row — fall through and create */ }
+    if (!token) {
+      token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
+              .replace(/-/g,'') + Math.random().toString(36).slice(2,10);
+      const { error: insErr } = await db.from('build_tokens').insert({ build_id: buildId, token, active: true });
+      if (insErr) return null;
+    }
+    return token;
+  },
+
   async sendClientLink(buildId) {
     const b = NewBuilds.all.find(x => x.id === buildId);
     if (!b) return;
@@ -2417,14 +2435,19 @@ const NewBuilds = {
     const pctVal = Math.round((doneCount / totalCount) * 100);
     const majorStageFull = NewBuilds.getCurrentMajorStage(pm);
 
+    // Live buyer-portal link so the client can click straight to live updates
+    const portalToken = await NewBuilds.ensureBuildToken(buildId);
+    const portalUrl = portalToken ? `${location.origin}/build.html?t=${portalToken}` : null;
+    const portalPlain = portalUrl ? `\n\nView your live build tracker any time:\n${portalUrl}` : '';
+
     // ── CONSTRUCTION: per-step email ──
     if (stage.emailPerStep && stepKey) {
       const step = NewBuilds.allStepsFor(stage, pm).find(s => s.key === stepKey);
       const stepLabel = step?.label || stepKey;
       const subject = `🏗️ Build Update — ${stepLabel} · ${property}`;
       const customNote = `Your build has reached a new milestone: <strong>${stepLabel}</strong>`;
-      const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote, highlightStage: stageKey, highlightStep: stepKey });
-      const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${stage.steps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will keep you updated as your home progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+      const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote, highlightStage: stageKey, highlightStep: stepKey, portalUrl });
+      const plainBody = `Hi ${firstName},\n\nGreat news — your build has reached a new milestone: ${stepLabel}\n\nProperty: ${property}\n\n🏗️ Construction Progress:\n${stage.steps.map(s => `  ${pm[stageKey]?.steps?.[s.key] ? '✅' : '○'} ${s.label}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}${portalPlain}\n\nI will keep you updated as your home progresses.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
       if (typeof Notify !== 'undefined') {
         await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, null, html, null, b.cc_email || null);
       }
@@ -2433,15 +2456,15 @@ const NewBuilds = {
 
     // ── ALL OTHER STAGES: stage completion email ──
     const subject = `${stage.emailSubject} — ${property}`;
-    const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote: stage.emailHeadline, highlightStage: stageKey });
-    const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline}\n\nProperty: ${property}\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✅' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}\n\nI will be in touch as we move to the next stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
+    const html = NewBuilds.buildEmailHtml({ b, pm, majorStage: majorStageFull, done: doneCount, total: totalCount, pct: pctVal, customNote: stage.emailHeadline, highlightStage: stageKey, portalUrl });
+    const plainBody = `Hi ${firstName},\n\n${stage.emailHeadline}\n\nProperty: ${property}\n\nBuild Progress:\n${NewBuilds.STAGES.map(s => `  ${pm[s.key]?.done ? '✅' : '○'} ${s.label.replace(/[📋🏦🏗️✅🎉]\s*/u,'')}`).join('\n')}${b.est_completion_date ? `\n\nEst. Possession: ${b.est_completion_date}` : ''}${portalPlain}\n\nI will be in touch as we move to the next stage.\n\nMaxwell Delali Midodzi · eXp Realty · (709) 325-0545`;
     if (typeof Notify !== 'undefined') {
       await Notify.queue('New Build Update', clientId, b.client_name, clientEmail, subject, plainBody, null, html, null, b.cc_email || null);
     }
   },
 
   // ── Shared rich email HTML builder ──────────────────────────────────────
-  buildEmailHtml({ b, pm, majorStage, done, total, pct, customNote = '', highlightStage = null, highlightStep = null }) {
+  buildEmailHtml({ b, pm, majorStage, done, total, pct, customNote = '', highlightStage = null, highlightStep = null, portalUrl = null }) {
     const firstName = (b.client_name || 'there').split(' ')[0];
     const property  = b.lot_address || 'Your Property';
 
@@ -2532,6 +2555,11 @@ const NewBuilds = {
   </table>
 
   ${possessionHtml}
+
+  ${portalUrl ? `<p style="text-align:center;margin:24px 0 6px;">
+    <a href="${portalUrl}" style="background:#5b5bd6;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">🏗️ View Your Build Progress</a>
+  </p>
+  <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0 0 16px;">Tap any time for live updates — no login needed.</p>` : ''}
 
   <p>Please don't hesitate to reach out if you have any questions.</p>
   <p>Looking forward to seeing this build through to possession!</p>
