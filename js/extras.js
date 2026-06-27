@@ -154,6 +154,22 @@ const Approvals = {
         htmlBody = item.context_data;
       }
     }
+    // ── PAYLOAD SIZE GUARD ───────────────────────────────────────────────────
+    // The edge function's memory and Gmail's ~25 MB message cap can't handle an
+    // oversized email — almost always caused by photos pasted/embedded inline in
+    // the body. Catch it here with a clear, actionable message (and the real
+    // size) instead of the cryptic "not enough compute resources" failure.
+    const payloadMB = (
+      (htmlBody?.length || 0) +
+      (item.email_body?.length || 0) +
+      (fileAttachments?.reduce((s, a) => s + (a.data?.length || 0), 0) || 0)
+    ) / (1024 * 1024);
+    if (payloadMB > 18) {
+      App.toast(`❌ This email is too large (~${payloadMB.toFixed(1)} MB). Gmail's limit is ~25 MB and embedded photos balloon the size fast. Tap "Preview & Edit", remove the inline photos / large attachments, and paste your buyer-portal link instead.`, 'var(--red)');
+      Approvals._sending.delete(id);
+      return;
+    }
+
     // Resolve the primary recipient: client email, or fall back to CC if client has no email
     const toEmail = item.client_email || ccEmail;
     const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
@@ -187,7 +203,8 @@ const Approvals = {
         const result = await res.json();
         if (!res.ok || result.error) {
           const errMsg = result.error || result.message || JSON.stringify(result);
-          App.toast(`❌ Email failed: ${errMsg}`, 'var(--red)');
+          const sizeHint = /compute resources|too large|payload|memory/i.test(errMsg) ? ` (payload ~${payloadMB.toFixed(1)} MB)` : '';
+          App.toast(`❌ Email failed: ${errMsg}${sizeHint}`, 'var(--red)');
           console.error('Email send error:', result);
           Approvals._sending.delete(id);
           return;
