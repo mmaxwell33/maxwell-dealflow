@@ -18,6 +18,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { encode as base64Encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
+import { encode as base64UrlEncode } from 'https://deno.land/std@0.168.0/encoding/base64url.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -41,10 +42,11 @@ function mimeEncodeHeader(value: string): string {
 }
 
 function toBase64Url(bytes: Uint8Array): string {
-  return base64Encode(bytes)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  // base64url is exactly what Gmail's `raw` field expects (URL-safe, no padding).
+  // The dedicated encoder does it in ONE pass — the old version ran three full
+  // regex passes over the entire ~10MB+ message, which was burning the CPU/memory
+  // budget and causing "not enough compute resources" on larger emails.
+  return base64UrlEncode(bytes);
 }
 
 function buildRawMime(opts: {
@@ -159,9 +161,9 @@ function buildRawMime(opts: {
 // Base64 is a single fast pass and uses far less CPU/memory.
 function base64Body(input: string): string {
   const b64 = base64Encode(new TextEncoder().encode(input));
-  const chunks: string[] = [];
-  for (let i = 0; i < b64.length; i += 76) chunks.push(b64.slice(i, i + 76));
-  return chunks.join('\r\n');
+  // RFC 2045: wrap at 76 chars. A single regex pass is far cheaper than a
+  // per-chunk slice/push/join loop over a large body.
+  return b64.replace(/.{76}/g, '$&\r\n');
 }
 
 // ── DB-BACKED RATE LIMITER ──────────────────────────────────────────────────

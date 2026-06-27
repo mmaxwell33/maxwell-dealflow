@@ -164,8 +164,8 @@ const Approvals = {
       (item.email_body?.length || 0) +
       (fileAttachments?.reduce((s, a) => s + (a.data?.length || 0), 0) || 0)
     ) / (1024 * 1024);
-    if (payloadMB > 18) {
-      App.toast(`❌ This email is too large (~${payloadMB.toFixed(1)} MB). Gmail's limit is ~25 MB and embedded photos balloon the size fast. Tap "Preview & Edit", remove the inline photos / large attachments, and paste your buyer-portal link instead.`, 'var(--red)');
+    if (payloadMB > 5) {
+      App.toast(`❌ This email is too large to send (~${payloadMB.toFixed(1)} MB) — usually photos embedded in the body. Tap "Preview & Edit", remove the inline photos, and paste your buyer-portal link instead so the client clicks through to see them.`, 'var(--red)');
       Approvals._sending.delete(id);
       return;
     }
