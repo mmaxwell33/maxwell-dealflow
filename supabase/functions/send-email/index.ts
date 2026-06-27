@@ -79,22 +79,22 @@ function buildRawMime(opts: {
       lines.push('');
       lines.push(`--${inner}`);
       lines.push('Content-Type: text/plain; charset=UTF-8');
-      lines.push('Content-Transfer-Encoding: quoted-printable');
+      lines.push('Content-Transfer-Encoding: base64');
       lines.push('');
-      lines.push(quotedPrintableEncode(opts.text));
+      lines.push(base64Body(opts.text));
       lines.push('');
       lines.push(`--${inner}`);
       lines.push('Content-Type: text/html; charset=UTF-8');
-      lines.push('Content-Transfer-Encoding: quoted-printable');
+      lines.push('Content-Transfer-Encoding: base64');
       lines.push('');
-      lines.push(quotedPrintableEncode(opts.html));
+      lines.push(base64Body(opts.html));
       lines.push('');
       lines.push(`--${inner}--`);
     } else {
       lines.push('Content-Type: text/plain; charset=UTF-8');
-      lines.push('Content-Transfer-Encoding: quoted-printable');
+      lines.push('Content-Transfer-Encoding: base64');
       lines.push('');
-      lines.push(quotedPrintableEncode(opts.text));
+      lines.push(base64Body(opts.text));
     }
     lines.push('');
     if (opts.ics) {
@@ -131,50 +131,37 @@ function buildRawMime(opts: {
     lines.push('');
     lines.push(`--${boundary}`);
     lines.push('Content-Type: text/plain; charset=UTF-8');
-    lines.push('Content-Transfer-Encoding: quoted-printable');
+    lines.push('Content-Transfer-Encoding: base64');
     lines.push('');
-    lines.push(quotedPrintableEncode(opts.text));
+    lines.push(base64Body(opts.text));
     lines.push('');
     lines.push(`--${boundary}`);
     lines.push('Content-Type: text/html; charset=UTF-8');
-    lines.push('Content-Transfer-Encoding: quoted-printable');
+    lines.push('Content-Transfer-Encoding: base64');
     lines.push('');
-    lines.push(quotedPrintableEncode(opts.html));
+    lines.push(base64Body(opts.html));
     lines.push('');
     lines.push(`--${boundary}--`);
   } else {
     lines.push('Content-Type: text/plain; charset=UTF-8');
-    lines.push('Content-Transfer-Encoding: quoted-printable');
+    lines.push('Content-Transfer-Encoding: base64');
     lines.push('');
-    lines.push(quotedPrintableEncode(opts.text));
+    lines.push(base64Body(opts.text));
   }
 
   return new TextEncoder().encode(lines.join('\r\n'));
 }
 
-function quotedPrintableEncode(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  let result = '';
-  let lineLen = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    const b = bytes[i];
-    let encoded: string;
-    if (b === 0x0D && i + 1 < bytes.length && bytes[i + 1] === 0x0A) {
-      result += '\r\n'; lineLen = 0; i++; continue;
-    } else if (b === 0x0A) {
-      result += '\r\n'; lineLen = 0; continue;
-    } else if ((b >= 33 && b <= 126 && b !== 61) || b === 9 || b === 32) {
-      encoded = String.fromCharCode(b);
-    } else {
-      encoded = '=' + b.toString(16).toUpperCase().padStart(2, '0');
-    }
-    if (lineLen + encoded.length > 75) {
-      result += '=\r\n'; lineLen = 0;
-    }
-    result += encoded;
-    lineLen += encoded.length;
-  }
-  return result;
+// Base64-encode a body part (RFC 2045, wrapped at 76 chars per line).
+// Replaces the old per-character quoted-printable encoder, whose string
+// building + char loop over large HTML bodies was tipping the function
+// over Supabase's CPU/memory limit ("not enough compute resources").
+// Base64 is a single fast pass and uses far less CPU/memory.
+function base64Body(input: string): string {
+  const b64 = base64Encode(new TextEncoder().encode(input));
+  const chunks: string[] = [];
+  for (let i = 0; i < b64.length; i += 76) chunks.push(b64.slice(i, i + 76));
+  return chunks.join('\r\n');
 }
 
 // ── DB-BACKED RATE LIMITER ──────────────────────────────────────────────────
