@@ -310,24 +310,41 @@ serve(async (req) => {
       references: references || null,
     });
 
-    // Step 3: Encode
-    const encoded = toBase64Url(rawBytes);
-
-    // Step 4: Send
-    const sendPayload: Record<string, string> = { raw: encoded };
-    if (thread_id) sendPayload.threadId = thread_id;
-
-    const sendRes = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
+    // Step 3 & 4: Send.
+    // Gmail requires the media-upload endpoint for messages larger than 5 MB,
+    // and it lets us POST the raw MIME bytes DIRECTLY (Content-Type
+    // message/rfc822) — no base64url encoding of the whole message and no giant
+    // JSON body. That's the key fix: the old simple endpoint base64-bloated a
+    // 7 MB email into a ~10 MB+ JSON string, exhausting the function's memory
+    // ("not enough compute resources"). Threaded replies (always small) keep the
+    // simple JSON method so threadId is preserved.
+    let sendRes: Response;
+    if (thread_id) {
+      const sendPayload: Record<string, string> = { raw: toBase64Url(rawBytes), threadId: thread_id };
+      sendRes = await fetch(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(sendPayload),
         },
-        body: JSON.stringify(sendPayload),
-      },
-    );
+      );
+    } else {
+      sendRes = await fetch(
+        'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            'Content-Type': 'message/rfc822',
+          },
+          body: rawBytes,
+        },
+      );
+    }
     const sendData = await sendRes.json();
     if (!sendRes.ok) {
       throw new Error('Gmail send failed: ' + (sendData.error?.message || JSON.stringify(sendData)));
