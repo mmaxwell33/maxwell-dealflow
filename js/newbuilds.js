@@ -44,6 +44,34 @@ const NewBuilds = {
     NewBuilds.render(NewBuilds.all);
   },
 
+  // Auto-create a construction-stage tracker when a deal is flagged "New Build"
+  // at offer acceptance (from a viewing or the offers acceptance flow).
+  // Idempotent: if a build already exists for this client, it is left as-is so
+  // we never create duplicate trackers. The pipeline links builds by client
+  // name (see Pipeline._buildsByName), so we match the same way here.
+  async ensureFromDeal({ client_id, client_name, client_email, lot_address, offer_amount, closing_date } = {}) {
+    if (!currentAgent?.id || !client_name) return null;
+    const { data: existing } = await db.from('new_builds')
+      .select('id').eq('agent_id', currentAgent.id)
+      .ilike('client_name', client_name).limit(1).maybeSingle();
+    if (existing?.id) return existing.id;
+
+    const payload = {
+      agent_id: currentAgent.id,
+      client_id: client_id || null,
+      client_name,
+      client_email: client_email || null,
+      lot_address: lot_address || null,
+      lot_price: offer_amount || null,
+      est_close_date: closing_date || null,
+      current_stage: NewBuilds.FIXED_STAGES[0].label,   // 'Deposit Paid'
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await db.from('new_builds').insert(payload).select('id').single();
+    if (error) { console.error('[NewBuilds.ensureFromDeal] insert failed:', error); return null; }
+    return data?.id || null;
+  },
+
   render(list) {
     const el = document.getElementById('newbuilds-list');
     if (!el) return;

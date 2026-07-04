@@ -94,6 +94,13 @@ const Viewings = {
         <label class="form-label">Property Address *</label>
         <input class="form-input" id="vf-address" placeholder="123 Main St, St. John's NL" value="${viewing?.property_address||''}">
       </div>
+      <div class="form-group">
+        <label class="form-label">Property Type</label>
+        <select class="form-input form-select" id="vf-ptype">
+          <option value="existing_home" ${viewing?.property_type!=='new_build'?'selected':''}>🏠 Existing Home</option>
+          <option value="new_build" ${viewing?.property_type==='new_build'?'selected':''}>🏗️ New Build / Lot</option>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">MLS Number</label>
@@ -192,6 +199,7 @@ const Viewings = {
     const payload = {
       client_id: clientId,
       property_address: address,
+      property_type: document.getElementById('vf-ptype')?.value || 'existing_home',
       mls_number: document.getElementById('vf-mls').value.trim(),
       list_price: document.getElementById('vf-price').value || null,
       viewing_date: document.getElementById('vf-date').value,
@@ -484,8 +492,9 @@ const Viewings = {
     App.openModal(`
       <div style="font-size:16px;font-weight:800;margin-bottom:4px;">📄 Log Offer Manually</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">
-        ${clientName} · ${v.property_address || '—'}
+        ${clientName} · ${v.property_address || '—'}${v.property_type === 'new_build' ? ' · 🏗️ New Build' : ''}
       </div>
+      <input type="hidden" id="mo-property-type" value="${v.property_type || 'existing_home'}">
 
       <div class="form-row">
         <div class="form-group">
@@ -590,6 +599,7 @@ const Viewings = {
     const closeDate  = document.getElementById('mo-close-date')?.value || null;
     const pipeStage  = document.getElementById('mo-pipeline-stage')?.value || 'In Offer';
     const notes      = document.getElementById('mo-notes')?.value?.trim() || null;
+    const propertyType = document.getElementById('mo-property-type')?.value || 'existing_home';
     const depositAmt  = parseFloat(document.getElementById('mo-deposit-amt')?.value) || null;
     const depositDue  = document.getElementById('mo-deposit-due')?.value
       ? new Date(document.getElementById('mo-deposit-due').value).toISOString()
@@ -615,6 +625,7 @@ const Viewings = {
       status: offerStatus,
       conditions: conditions,
       notes: notes,
+      property_type: propertyType,
     }).select().maybeSingle();
 
     if (offerErr) {
@@ -643,6 +654,7 @@ const Viewings = {
       deposit_due_date: depositDue,
       deposit_sent: depositSent,
       deposit_sent_at: depositSent ? new Date().toISOString() : null,
+      deal_type: propertyType,
       updated_at: new Date().toISOString(),
     };
 
@@ -659,6 +671,19 @@ const Viewings = {
     if (pipelineErr) {
       if (st) { st.textContent = '❌ Pipeline error: ' + pipelineErr.message; st.style.color = 'var(--red)'; }
       return;
+    }
+
+    // 2b. New build → auto-create the construction-stage tracker so the deal
+    // drops into the New Build sequence (idempotent — skips if one exists).
+    if (propertyType === 'new_build' && typeof NewBuilds !== 'undefined') {
+      await NewBuilds.ensureFromDeal({
+        client_id: clientId || null,
+        client_name: clientName,
+        client_email: clientEmail || null,
+        lot_address: propertyAddress,
+        offer_amount: offerAmt,
+        closing_date: closeDate,
+      });
     }
 
     // 3. Queue email(s) for approval

@@ -1225,7 +1225,8 @@ const Pipeline = {
       walkthrough_date: dates.walk || null,
       closing_date:    dates.close || null,
       stage: 'Accepted',
-      status: 'Active'
+      status: 'Active',
+      deal_type: offer.property_type === 'new_build' ? 'new_build' : 'existing_home'
     };
     let pipelineId = null;
     const { data: pipelineRow, error } = await db.from('pipeline').insert(_pInsert).select('id').single();
@@ -1260,6 +1261,19 @@ const Pipeline = {
       console.error('[createFromOfferWithDates] pipeline insert failed — skipping commission + checklist + notify to avoid orphans');
       App.toast('❌ Skipped commission + checklist (pipeline never inserted)', 'var(--red)');
       return;
+    }
+
+    // New build → auto-create the construction-stage tracker so the deal drops
+    // into the New Build sequence (idempotent — skips if one already exists).
+    if (offer.property_type === 'new_build' && typeof NewBuilds !== 'undefined') {
+      await NewBuilds.ensureFromDeal({
+        client_id: safeClientId,
+        client_name: client?.full_name || offer.client_name || 'Unknown',
+        client_email: client?.email || offer.client_email || '',
+        lot_address: offer.property_address || null,
+        offer_amount: safeOfferAmt,
+        closing_date: dates.close || null,
+      });
     }
 
     // Build & insert the Commission row (status=Pending, will flip on close/fell-through)
