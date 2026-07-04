@@ -236,7 +236,11 @@
                'Tap Mark my lane done at possession'],
         cta:'Mark build complete' },
     };
-    const roleCfg = STAKE_ROLES[d.role];
+    // Read-only portal: the stakeholder task lane ("Your part of this deal" +
+    // Mark-my-lane-done) is intentionally disabled — the portal is purely a
+    // live status view for lawyer / lender / inspector. Set to null so the
+    // block below never renders. (STAKE_ROLES kept for reference.)
+    const roleCfg = null;
     if (roleCfg) {
       const isDone = !!d.stakeholder_completed_at;
       html += '<div class="card" style="margin-bottom:14px;border:1.5px solid var(--accent);background:linear-gradient(180deg,rgba(204,120,92,.06),transparent);">';

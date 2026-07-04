@@ -804,7 +804,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached for your file.
 
 Property: ${deal.property_address}
-Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
 Financing Deadline: ${fmtDate(deal.financing_date)}
 
@@ -812,9 +812,6 @@ BUYER CONTACT
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
-   Pre-approval: ${client.preapproval || 'unknown'}
-   Budget: ${client.budget_max ? '$' + Number(client.budget_max).toLocaleString() : '—'}
-   Timeline: ${client.timeline || '—'}
 
 Attached:
 • Accepted Offer
@@ -883,7 +880,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.
 
 Property: ${deal.property_address}
-Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
 Financing Deadline: ${fmtDate(deal.financing_date)}
 

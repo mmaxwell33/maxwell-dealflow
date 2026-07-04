@@ -837,6 +837,16 @@ const Pipeline = {
       (rows || []).forEach(r => { Pipeline._acceptStakeholders[r.role] = r; });
     }
 
+    // Pre-tick the New Build box if we can detect it (explicit offer flag, or a
+    // New Build viewing for this client). The checkbox is the source of truth —
+    // Maxwell can always override it either way.
+    let defaultNewBuild = offer.property_type === 'new_build';
+    if (!defaultNewBuild && client?.id) {
+      const { data: vhit } = await db.from('viewings').select('id')
+        .eq('client_id', client.id).eq('property_type', 'new_build').limit(1).maybeSingle();
+      if (vhit) defaultNewBuild = true;
+    }
+
     const stakeRow = (role, label, icon, hint) => {
       const c = Pipeline._acceptStakeholders[role] || {};
       const hasOnFile = !!c.email;
@@ -877,6 +887,10 @@ const Pipeline = {
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
         ${App.esc(offer.property_address)} · ${App.fmtMoney(offer.offer_amount)} · ${App.esc(client?.full_name || offer.client_name || '—')}
       </div>
+      <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--accent);border-radius:8px;margin-bottom:14px;background:rgba(204,120,92,0.10);cursor:pointer;font-size:13px;font-weight:600;color:var(--text1);">
+        <input type="checkbox" id="ad-new-build" ${defaultNewBuild ? 'checked' : ''} style="width:18px;height:18px;flex-shrink:0;">
+        🏗️ This is a New Build — route this deal to the New Build pipeline
+      </label>
 
       <!-- Dates with skip toggles -->
       <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📅 Key dates</div>
@@ -963,6 +977,7 @@ const Pipeline = {
     const close = document.getElementById('ad-closing').value;
     const insSkip  = document.getElementById('ad-inspection-skip')?.checked;
     const walkSkip = document.getElementById('ad-walkthrough-skip')?.checked;
+    const newBuild = !!document.getElementById('ad-new-build')?.checked;
     const sel = document.getElementById('ad-comm-rate').value;
     let rate = sel === 'custom'
       ? parseFloat(document.getElementById('ad-comm-custom').value)
@@ -982,7 +997,7 @@ const Pipeline = {
     offer.walkthrough_skipped = !!walkSkip;
 
     // Create the pipeline row + commission row + fire client congrats email (single source)
-    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, rate, insSkip, walkSkip });
+    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, rate, insSkip, walkSkip, newBuild });
 
     // Look up the just-created pipeline row so we can attach stakeholders + docs to it.
     // Use auth.uid() for the agent_id filter — same as the insert — so RLS-aware SELECT matches.
@@ -1211,19 +1226,24 @@ const Pipeline = {
     const safeClientId = (offer.client_id && typeof offer.client_id === 'string' && offer.client_id.length > 30) ? offer.client_id : null;
     const safeOfferAmt = parseFloat(String(offer.offer_amount || '').replace(/[^0-9.-]/g, '')) || 0;
 
-    // Determine new-build routing. Prefer the explicit flag on the offer; if it's
-    // absent (offer created via the main Offers form, which has no type field),
-    // fall back to a matching "New Build" viewing — the true source of the flag.
-    // Match on address first (strongest signal), then client.
-    let isNewBuild = offer.property_type === 'new_build';
-    if (!isNewBuild) {
-      try {
-        let vq = db.from('viewings').select('id').eq('property_type', 'new_build').limit(1);
-        if (offer.property_address)   vq = vq.ilike('property_address', offer.property_address);
-        else if (safeClientId)        vq = vq.eq('client_id', safeClientId);
-        else                          vq = null;
-        if (vq) { const { data: vhit } = await vq.maybeSingle(); if (vhit) isNewBuild = true; }
-      } catch(e) { /* fallback is best-effort — never block acceptance */ }
+    // Determine new-build routing. The explicit "This is a New Build" checkbox in
+    // the acceptance modal is the SOURCE OF TRUTH (dates.newBuild). Only when the
+    // flag wasn't passed at all do we auto-detect (offer flag, then a matching
+    // New Build viewing — address first, then client).
+    let isNewBuild;
+    if (typeof dates.newBuild === 'boolean') {
+      isNewBuild = dates.newBuild;
+    } else {
+      isNewBuild = offer.property_type === 'new_build';
+      if (!isNewBuild) {
+        try {
+          let vq = db.from('viewings').select('id').eq('property_type', 'new_build').limit(1);
+          if (offer.property_address)   vq = vq.ilike('property_address', offer.property_address);
+          else if (safeClientId)        vq = vq.eq('client_id', safeClientId);
+          else                          vq = null;
+          if (vq) { const { data: vhit } = await vq.maybeSingle(); if (vhit) isNewBuild = true; }
+        } catch(e) { /* fallback is best-effort — never block acceptance */ }
+      }
     }
 
     const _pInsert = {
