@@ -13,6 +13,14 @@
     lawyer:'Lawyer', appraiser:'Appraiser', insurance:'Insurance Agent', other:'Stakeholder'
   };
 
+  // Construction stage order for new-build deals — mirrors NewBuilds.FIXED_STAGES
+  // (js/newbuilds.js) and the build_update email (js/notifications.js).
+  const BUILD_STAGES = [
+    'Deposit Paid','Purchase Agreement','Lot Identified','Lot Offer Accepted',
+    'Design Selections','Construction Started','Framing','Drywall',
+    'Finishes & Fixtures','Final Walkthrough','Closing / Possession'
+  ];
+
   let realtimeChannel = null;
   let refreshDebounce = null;
 
@@ -113,6 +121,17 @@
         ?'This link has expired or been revoked.':'Could not load deal.');
       return;
     }
+    // Additive: for new-build deals, pull the construction stages so the
+    // portal can show live build progress. Wrapped so it can never block
+    // the portal if the RPC is missing (pre-migration) or errors.
+    try {
+      const bp = await rpc('stakeholder_build_progress', { p_token: token });
+      if (bp && bp.ok && bp.is_new_build) {
+        data.is_new_build = true;
+        data.build_stage  = bp.current_stage || null;
+        data.build_history = bp.stage_history || [];
+      }
+    } catch(e) { /* build progress is additive — never block the portal */ }
     if(!isRefresh){
       rpc('stakeholder_log_access', { p_token: token, p_ua: navigator.userAgent });
       rpc('log_portal_view', { p_page_type: 'stakeholder-v2', p_token: token, p_user_agent: (navigator.userAgent || '').slice(0, 400), p_is_self: new URLSearchParams(location.search).get('self') === '1' });
@@ -302,6 +321,23 @@
     //   • future → 0% (empty)
     // Labels sit underneath each segment so the stakeholder/client can see exactly where the deal is.
     try {
+      if (d.is_new_build) {
+        // ── NEW BUILD: single construction-progress bar (11 fixed stages) ──
+        const bIdx = BUILD_STAGES.indexOf(d.build_stage);
+        const bCur = bIdx < 0 ? 0 : bIdx;
+        const bPct = Math.round(((bCur + 1) / BUILD_STAGES.length) * 100);
+        html += '<div style="margin-top:18px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">';
+        html += '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Build progress</div>';
+        html += '<div style="font-size:11px;color:var(--accent2);font-weight:700;">'+bPct+'%</div>';
+        html += '</div>';
+        html += '<div style="height:14px;background:var(--card2);border-radius:7px;overflow:hidden;">'
+             +    '<div style="width:'+bPct+'%;height:100%;background:var(--accent);transition:width 0.4s;"></div>'
+             +  '</div>';
+        html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);">Current stage: '
+             +    '<strong style="color:var(--text1);">'+(d.build_stage||'—')+'</strong></div>';
+        html += '</div>';
+      } else {
       const today = new Date();
       const stages = [
         { label: 'Accepted',    date: d.acceptance_date,      skipped: false },
@@ -380,6 +416,7 @@
       });
       html += '</div>';
       html += '</div>';
+      }
     } catch(e) { /* segmented bar is additive — never block the rest of the render */ }
 
     html += row('Financing deadline',  fmtDate(d.financing_deadline));
@@ -391,7 +428,25 @@
 
     // ============ PHASE 2: Vertical timeline ============
     html += '<div class="card" style="margin-bottom:14px"><h3>Your journey</h3>';
-    if(checklist.length === 0){
+    if(d.is_new_build){
+      // \u2500\u2500 NEW BUILD: construction stage timeline (11 fixed stages) \u2500\u2500
+      const doneLabels = (d.build_history||[]).map(function(h){ return h.label; });
+      const curIdx = BUILD_STAGES.indexOf(d.build_stage);
+      html += '<div class="timeline">';
+      BUILD_STAGES.forEach(function(label, i){
+        const isDone    = (curIdx >= 0 && i < curIdx) || doneLabels.indexOf(label) >= 0;
+        const isCurrent = label === d.build_stage;
+        const cls = isDone ? 'done' : (isCurrent ? 'current' : '');
+        const dot = isDone ? '\u2713' : (i+1);
+        html += '<div class="tl-item '+cls+'">';
+        html += '<div class="tl-dot">'+dot+'</div>';
+        html += '<div class="tl-content">';
+        html += '<div class="tl-label">'+label+'</div>';
+        html += '<div class="tl-meta">'+(isDone ? 'Complete' : (isCurrent ? 'In progress' : 'Upcoming'))+'</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    } else if(checklist.length === 0){
       html += '<div style="color:var(--text3);text-align:center;padding:20px">No milestones yet \u2014 Maxwell will add them shortly.</div>';
     } else {
       let currentIdx = checklist.findIndex(c => !c.completed);

@@ -314,11 +314,17 @@ const NewBuilds = {
         <textarea class="form-input" id="us-note" rows="2" placeholder="E.g. Framing is looking great — on schedule for possession!"></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Send Update Email to Client?</label>
-        <select class="form-input form-select" id="us-send-email">
-          <option value="yes">Yes — queue email for approval</option>
-          <option value="no">No — just update the record</option>
-        </select>
+        <label class="form-label">Send Update Email To</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;">
+          <input type="checkbox" id="us-notify-client" checked style="width:16px;height:16px;"> 🧑 Client
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;">
+          <input type="checkbox" id="us-notify-lawyer" style="width:16px;height:16px;"> ⚖️ Lawyer
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="us-notify-lender" style="width:16px;height:16px;"> 🏦 Lender
+        </label>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">Lawyer / Lender need a portal link from the "Offer Accepted" stakeholder step. Each email queues in Approvals.</div>
       </div>
       <button class="btn btn-primary btn-block" onclick="NewBuilds.saveStageUpdate('${id}')">✅ Save Stage Update</button>
       <div id="us-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
@@ -349,7 +355,10 @@ const NewBuilds = {
     }
 
     const stageDate = document.getElementById('us-date').value;
-    const sendEmail = document.getElementById('us-send-email').value === 'yes';
+    const notifyClient = !!document.getElementById('us-notify-client')?.checked;
+    const notifyLawyer = !!document.getElementById('us-notify-lawyer')?.checked;
+    const notifyLender = !!document.getElementById('us-notify-lender')?.checked;
+    const sendEmail = notifyClient;   // client email path (unchanged behaviour)
     if (msgEl) { msgEl.style.color='var(--text2)'; msgEl.textContent='Saving...'; }
 
     // Build payload — update the date field for this stage if it's a fixed stage
@@ -404,8 +413,47 @@ const NewBuilds = {
       }
     }
 
+    // ── Fan-out to lawyer / lender via their existing stakeholder portal ──
+    // Lawyer + lender ("mortgage_broker") get a link to the SAME stakeholder
+    // portal they received at Offer Accepted — now showing live build progress.
+    let stakeNotified = 0, stakeMissing = 0;
+    if ((notifyLawyer || notifyLender) && typeof Notify !== 'undefined' && b.client_id) {
+      const wantRoles = [];
+      if (notifyLawyer) wantRoles.push('lawyer');
+      if (notifyLender) wantRoles.push('mortgage_broker');
+      // Find the deal this build belongs to, then its saved stakeholders.
+      const { data: pipe } = await db.from('pipeline')
+        .select('id').eq('client_id', b.client_id).limit(1).maybeSingle();
+      if (pipe?.id) {
+        const { data: stakes } = await db.from('deal_stakeholders')
+          .select('role, name, email, token')
+          .eq('pipeline_id', pipe.id)
+          .is('revoked_at', null)
+          .in('role', wantRoles);
+        for (const role of wantRoles) {
+          const s = (stakes || []).find(x => x.role === role);
+          if (!s || !s.email || !s.token) { stakeMissing++; continue; }
+          const roleLabel = role === 'lawyer' ? 'Lawyer' : 'Lender';
+          const portalUrl = `https://maxwell-dealflow.vercel.app/portal?t=${s.token}`;
+          const tmpl = Notify.templates.build_update_stakeholder(
+            { name: s.name }, b.client_name, b, newStage, currentAgent, portalUrl, roleLabel
+          );
+          await Notify.queue('Build Update', null, s.name, s.email, tmpl.subject, tmpl.body, id, tmpl.html);
+          stakeNotified++;
+        }
+      } else {
+        stakeMissing += wantRoles.length;
+      }
+    }
+
     App.closeModal();
-    App.toast(`✅ Stage updated to "${newStage}"${sendEmail ? ' — email queued for approval' : ''}`);
+    const notifiedBits = [];
+    if (sendEmail) notifiedBits.push('client');
+    if (stakeNotified) notifiedBits.push(`${stakeNotified} stakeholder${stakeNotified>1?'s':''}`);
+    let toastMsg = `✅ Stage updated to "${newStage}"`;
+    if (notifiedBits.length) toastMsg += ` — email queued for ${notifiedBits.join(' + ')}`;
+    App.toast(toastMsg);
+    if (stakeMissing) App.toast(`⚠️ ${stakeMissing} stakeholder(s) had no portal link — add them via the Offer Accepted step`, 'var(--yellow)');
     await NewBuilds.load();
   },
 

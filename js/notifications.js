@@ -1147,6 +1147,46 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // Build update for a NON-client stakeholder (lawyer / lender). Same milestone
+    // content, but professional framing and a link to THEIR stakeholder portal
+    // (not the buyer tracker). recipient = { name }, buyerName = the buyer.
+    build_update_stakeholder: (recipient, buyerName, build, newStage, agent, portalUrl, roleLabel) => {
+      const firstName = (recipient?.name || '').split(' ')[0] || 'there';
+      const role = roleLabel || 'stakeholder';
+      const estClose = build.est_close_date || build.closing_date;
+      const estCloseStr = estClose ? new Date(estClose).toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : null;
+      const link = portalUrl || 'https://maxwell-dealflow.vercel.app/portal';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${firstName},</p>
+        <p>A quick construction update on <strong>${buyerName || 'your client'}</strong>'s new build at <strong>${build.lot_address || 'the property'}</strong>, for your file.</p>
+        <p><strong>Current Stage: ▶️ ${newStage}</strong></p>
+        ${estCloseStr ? `<p>📅 <strong>Estimated Possession:</strong> ${estCloseStr}</p>` : ''}
+        <br>
+        <a class="cal-btn" href="${link}">View live progress in your portal →</a>
+        <p style="font-size:12px;color:#999;margin:0 0 16px;">Your secure ${role} portal shows the full build timeline, closing details, and documents.</p>
+        <p>Best regards,</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
+      </body></html>`;
+      const body = `Hi ${firstName},
+
+A quick construction update on ${buyerName || 'your client'}'s new build at ${build.lot_address || 'the property'}, for your file.
+
+Current Stage: ${newStage}
+${estCloseStr ? `Estimated Possession: ${estCloseStr}` : ''}
+
+View live progress in your portal: ${link}
+
+Best regards,
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty`;
+      return {
+        subject: `🏗️ Build Update — ${newStage} | ${build.lot_address || ''} (${buyerName || ''})`,
+        body,
+        html
+      };
+    },
+
     // ── BRIEF RE-ENGAGEMENT TEMPLATES ─────────────────────────────────────────
     // Short, friendly nudges sent automatically when a client has no activity
     // in the last N days.  All four end with a soft CTA + the eXp signature.
