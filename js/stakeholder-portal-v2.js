@@ -74,7 +74,7 @@
 
     if(dClose && dClose < today){
       return { kind:'good', icon:'\ud83c\udf89',
-               title:'Congratulations \u2014 you closed!',
+               title:(d.role==='client' ? 'Congratulations \u2014 you closed!' : 'Deal closed'),
                sub:'Your deal closed on '+fmtDate(dClose)+'.' };
     }
     const closeIn = daysUntil(dClose);
@@ -163,6 +163,7 @@
     const total = checklist.length;
     const pct   = total ? Math.round(done*100/total) : 0;
     const rolePretty = ROLE_LABEL[d.role] || 'Stakeholder';
+    const isClient   = d.role === 'client';
     const greeting   = d.stakeholder_name ? 'Hi '+d.stakeholder_name.split(' ')[0] : 'Welcome';
     const fmtMoney   = d.offer_amount ? '$'+Number(d.offer_amount).toLocaleString() : null;
     const status     = deriveStatus(d);
@@ -172,8 +173,9 @@
     let html = '';
 
     // Lightweight title (no hero image in Variant B)
+    const portalHeader = 'Transaction Portal' + (isClient ? '' : ' \u00b7 ' + rolePretty);
     html += '<h1 class="page-title">'+(d.property||'Your property')+
-            '<span>'+rolePretty+' portal \u00b7 '+greeting+(fmtMoney?' \u00b7 '+fmtMoney:'')+'</span></h1>';
+            '<span>'+portalHeader+' \u00b7 '+greeting+(fmtMoney?' \u00b7 '+fmtMoney:'')+'</span></h1>';
 
     // ============ PHASE 1: Smart status banner ============
     html += '<div class="status-banner'+(status.kind==='warn'?' warn':'')+'">';
@@ -185,11 +187,20 @@
     // Reads from pipeline.stage (returned by stakeholder_resolve) and shows
     // a stage-appropriate, warmly worded message that loops continuously.
     var tickerMsg = (function(stage){
-      if (stage === 'Closed')        return '🎉 Deal complete — congratulations and welcome home!';
+      if (isClient) {
+        if (stage === 'Closed')        return '🎉 Deal complete — congratulations and welcome home!';
+        if (stage === 'Fell Through')  return '';
+        if (stage === 'Walkthrough')   return '🔑 Closing is around the corner — final walkthrough scheduled. You\'re almost home!';
+        if (stage === 'Conditions')    return '📑 We\'re in the active phase — inspection, paperwork, and approvals being processed. Your agent will reach out as items resolve.';
+        if (stage === 'Accepted')      return '📋 Your deal is officially in motion. Initial paperwork is being handled — your agent will keep you updated.';
+        return '';
+      }
+      // Professional wording for non-client roles (lawyer / lender / inspector)
+      if (stage === 'Closed')        return '✅ Deal closed.';
       if (stage === 'Fell Through')  return '';
-      if (stage === 'Walkthrough')   return '🔑 Closing is around the corner — final walkthrough scheduled. You\'re almost home!';
-      if (stage === 'Conditions')    return '📑 We\'re in the active phase — inspection, paperwork, and approvals being processed. Your agent will reach out as items resolve.';
-      if (stage === 'Accepted')      return '📋 Your deal is officially in motion. Initial paperwork is being handled — your agent will keep you updated.';
+      if (stage === 'Walkthrough')   return '🔑 Final walkthrough scheduled — closing is near.';
+      if (stage === 'Conditions')    return '📑 Active phase — inspection, paperwork, and approvals in progress.';
+      if (stage === 'Accepted')      return '📋 Deal in motion — initial paperwork underway.';
       return '';
     })(d.stage);
     if (tickerMsg) {
@@ -287,7 +298,7 @@
       html += '<div class="countdown-num"><strong id="cd-d">'+cd.days+'</strong><span>Days</span></div>';
       html += '<div class="countdown-num"><strong id="cd-h">'+String(cd.hours).padStart(2,'0')+'</strong><span>Hours</span></div>';
       html += '<div class="countdown-num"><strong id="cd-m">'+String(cd.mins).padStart(2,'0')+'</strong><span>Min</span></div>';
-      html += '<div class="countdown-label">Until you get your keys \ud83d\udd11</div>';
+      html += '<div class="countdown-label">'+(isClient?'Until you get your keys \ud83d\udd11':'Until closing')+'</div>';
       html += '</div>';
     }
 
@@ -427,7 +438,8 @@
     html += '</div>'; // /grid
 
     // ============ PHASE 2: Vertical timeline ============
-    html += '<div class="card" style="margin-bottom:14px"><h3>Your journey</h3>';
+    const journeyTitle = isClient ? 'Your journey' : (d.is_new_build ? 'Build timeline' : 'Deal timeline');
+    html += '<div class="card" style="margin-bottom:14px"><h3>'+journeyTitle+'</h3>';
     if(d.is_new_build){
       // \u2500\u2500 NEW BUILD: construction stage timeline (11 fixed stages) \u2500\u2500
       const doneLabels = (d.build_history||[]).map(function(h){ return h.label; });

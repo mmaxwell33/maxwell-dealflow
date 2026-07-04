@@ -803,12 +803,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
 ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached for your file.
 
-📍 Property: ${deal.property_address}
-💰 Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
-📅 Closing Date: ${fmtDate(deal.closing_date)}
-🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+Property: ${deal.property_address}
+Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+Closing Date: ${fmtDate(deal.closing_date)}
+Financing Deadline: ${fmtDate(deal.financing_date)}
 
-👤 BUYER CONTACT
+BUYER CONTACT
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
@@ -816,14 +816,14 @@ ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_
    Budget: ${client.budget_max ? '$' + Number(client.budget_max).toLocaleString() : '—'}
    Timeline: ${client.timeline || '—'}
 
-📑 Attached:
+Attached:
 • Accepted Offer
 • MLS Listing
 
 Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
 
 If it's easier to track on your end, I've set up a private portal for this deal where you can mark each step complete:
-   👉 ${portalUrl}` : ''}
+   ${portalUrl}` : ''}
 
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
@@ -845,21 +845,21 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
 I have a buyer with an accepted offer on ${deal.property_address}. I'd like to book an inspection — the MLS listing is attached for your reference.
 
-📍 Property: ${deal.property_address}
-📅 Proposed Inspection Date: ${fmtDate(deal.inspection_date)}
+Property: ${deal.property_address}
+Proposed Inspection Date: ${fmtDate(deal.inspection_date)}
 
-👤 BUYER CONTACT
+BUYER CONTACT
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
 
-📑 Attached:
+Attached:
 • MLS Listing
 
 Please confirm availability for the proposed date or send back a few options that work, and I'll coordinate access with the listing agent. Once the inspection is complete, please send me the report directly.${portalUrl ? `
 
 I've also set up a private portal where you can confirm completion when the inspection is done:
-   👉 ${portalUrl}` : ''}
+   ${portalUrl}` : ''}
 
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
@@ -882,24 +882,24 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
 ${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.
 
-📍 Property: ${deal.property_address}
-💰 Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
-📅 Closing Date: ${fmtDate(deal.closing_date)}
-🏦 Financing Deadline: ${fmtDate(deal.financing_date)}
+Property: ${deal.property_address}
+Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
+Closing Date: ${fmtDate(deal.closing_date)}
+Financing Deadline: ${fmtDate(deal.financing_date)}
 
-👤 BUYER CONTACT
+BUYER CONTACT
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
 
-📑 Attached:
+Attached:
 • Accepted Offer
 • MLS Listing
 
 I've cc'd ${clientFirst} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
 
 I've also set up a private portal where you can mark title search, funds-in-trust, and ready-to-close as each step completes:
-   👉 ${portalUrl}` : ''}
+   ${portalUrl}` : ''}
 
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty

@@ -1210,6 +1210,22 @@ const Pipeline = {
     const authAgentId = authUser?.id || currentAgent.id;
     const safeClientId = (offer.client_id && typeof offer.client_id === 'string' && offer.client_id.length > 30) ? offer.client_id : null;
     const safeOfferAmt = parseFloat(String(offer.offer_amount || '').replace(/[^0-9.-]/g, '')) || 0;
+
+    // Determine new-build routing. Prefer the explicit flag on the offer; if it's
+    // absent (offer created via the main Offers form, which has no type field),
+    // fall back to a matching "New Build" viewing — the true source of the flag.
+    // Match on address first (strongest signal), then client.
+    let isNewBuild = offer.property_type === 'new_build';
+    if (!isNewBuild) {
+      try {
+        let vq = db.from('viewings').select('id').eq('property_type', 'new_build').limit(1);
+        if (offer.property_address)   vq = vq.ilike('property_address', offer.property_address);
+        else if (safeClientId)        vq = vq.eq('client_id', safeClientId);
+        else                          vq = null;
+        if (vq) { const { data: vhit } = await vq.maybeSingle(); if (vhit) isNewBuild = true; }
+      } catch(e) { /* fallback is best-effort — never block acceptance */ }
+    }
+
     const _pInsert = {
       pipeline_id: crypto.randomUUID(),
       agent_id: authAgentId,
@@ -1226,7 +1242,7 @@ const Pipeline = {
       closing_date:    dates.close || null,
       stage: 'Accepted',
       status: 'Active',
-      deal_type: offer.property_type === 'new_build' ? 'new_build' : 'existing_home'
+      deal_type: isNewBuild ? 'new_build' : 'existing_home'
     };
     let pipelineId = null;
     const { data: pipelineRow, error } = await db.from('pipeline').insert(_pInsert).select('id').single();
@@ -1265,7 +1281,7 @@ const Pipeline = {
 
     // New build → auto-create the construction-stage tracker so the deal drops
     // into the New Build sequence (idempotent — skips if one already exists).
-    if (offer.property_type === 'new_build' && typeof NewBuilds !== 'undefined') {
+    if (isNewBuild && typeof NewBuilds !== 'undefined') {
       await NewBuilds.ensureFromDeal({
         client_id: safeClientId,
         client_name: client?.full_name || offer.client_name || 'Unknown',
