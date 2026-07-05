@@ -1954,7 +1954,12 @@ const Pipeline = {
     setTimeout(async () => {
       if (typeof NewBuilds === 'undefined') return;
       const norm = s => (s || '').trim().toLowerCase();
+      // Make sure the tracker list is loaded (the tab-switch load may still be in flight).
+      if (typeof NewBuilds.load === 'function' && !(NewBuilds.all || []).length) {
+        await NewBuilds.load();
+      }
       let build = (NewBuilds.all || []).find(b => norm(b.client_name) === norm(d.client_name));
+      // No tracker yet (deal flagged New Build after acceptance) — create one, then reload.
       if (!build && typeof NewBuilds.ensureFromDeal === 'function') {
         const newId = await NewBuilds.ensureFromDeal({
           client_id: d.client_id, client_name: d.client_name,
@@ -1966,11 +1971,21 @@ const Pipeline = {
           build = (NewBuilds.all || []).find(b => b.id === newId);
         }
       }
-      if (build && typeof NewBuilds.openDetail === 'function') {
-        NewBuilds.openDetail(build.id);
-      } else {
+      if (!build) {
         App.toast('⚠️ Could not open the build tracker for this deal', 'var(--yellow)');
+        return;
       }
+      // The live tracker renders every build as an inline card (there is no modal /
+      // openDetail method). Scroll to THIS deal's card and flash a highlight so it's
+      // obvious which one, instead of leaving whatever was on screen.
+      setTimeout(() => {
+        const el = document.getElementById('nb-card-' + build.id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.style.transition = 'box-shadow .3s';
+        el.style.boxShadow = '0 0 0 2px var(--accent)';
+        setTimeout(() => { el.style.boxShadow = ''; }, 1800);
+      }, 80);
     }, 250);
   },
 

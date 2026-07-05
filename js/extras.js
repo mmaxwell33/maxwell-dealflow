@@ -1918,7 +1918,7 @@ const NewBuilds = {
         </div>`;
       }).join('');
 
-      return `<div class="card" style="margin-bottom:14px;">
+      return `<div class="card" id="nb-card-${b.id}" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
           <div style="flex:1;">
             <div class="fw-800" style="font-size:15px;">${b.client_name||'—'}</div>
