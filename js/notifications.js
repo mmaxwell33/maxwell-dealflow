@@ -1545,11 +1545,28 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   // ── QUEUE EMAIL FOR APPROVAL ───────────────────────────────────────────────
 
+  // Make emails read like Maxwell wrote them, not AI: strip em/en dashes and
+  // replace them with natural punctuation. Keeps number ranges (24–48 → 24-48)
+  // and tidies "Day! — X" → "Day! X", "complete — just" → "complete, just".
+  deDash(s) {
+    if (!s || typeof s !== 'string') return s;
+    return s
+      .replace(/(\d)\s*[—–]\s*(\d)/g, '$1-$2')   // number ranges → hyphen
+      .replace(/([!?:.])\s*[—–]\s*/g, '$1 ')      // after end-punctuation → space
+      .replace(/\s*[—–]\s*/g, ', ')               // mid-sentence → comma
+      .replace(/[—–]/g, '-');                     // any leftover → hyphen
+  },
+
   async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
     const { data: { user } } = await db.auth.getUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
+
+    // Human tone: strip em/en dashes from every outgoing email before it's queued.
+    emailSubject = Notify.deDash(emailSubject);
+    emailBody    = Notify.deDash(emailBody);
+    htmlBody     = Notify.deDash(htmlBody);
 
     // Consistency net: if a template only supplied plain text (no HTML version),
     // auto-wrap it in the SAME branded shell every other email uses — so every

@@ -174,6 +174,13 @@ const Approvals = {
     const toEmail = item.client_email || ccEmail;
     const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
 
+    // Human tone: strip em/en dashes from the outgoing email no matter how it was
+    // queued (templates, manual composer, or AI all send through here).
+    const _dd = (typeof Notify !== 'undefined' && Notify.deDash) ? Notify.deDash : (x => x);
+    const cleanSubject = _dd(item.email_subject);
+    const cleanBody    = _dd(item.email_body || '');
+    htmlBody           = _dd(htmlBody);
+
     if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
@@ -191,8 +198,8 @@ const Approvals = {
           body: JSON.stringify({
             to: toEmail,
             cc: actualCc,
-            subject: item.email_subject,
-            body: item.email_body || '',
+            subject: cleanSubject,
+            body: cleanBody,
             html: htmlBody,
             ics: icsAttachment,
             attachments: fileAttachments || null,
