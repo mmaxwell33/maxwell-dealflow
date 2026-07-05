@@ -2629,16 +2629,31 @@ const NewBuilds = {
       App.toast('⚠️ Email templates not loaded', 'var(--red)'); return;
     }
     App.toast('Preparing builder details…', 'var(--accent2)');
-    // Find the deal this build belongs to, then its lawyer + lender stakeholders.
+    // Gather the lawyer + lender. Portal-holders (with a token) come from
+    // deal_stakeholders; supplement with client_contacts — which is saved even
+    // when you only ticked "Send email" (no portal) at acceptance. This way the
+    // button works whether or not portal links were sent.
     const { data: pipe } = await db.from('pipeline')
       .select('id').eq('client_id', b.client_id).limit(1).maybeSingle();
-    if (!pipe?.id) { App.toast('No accepted deal found for this client — accept the offer first', 'var(--yellow)'); return; }
-    const { data: stakes } = await db.from('deal_stakeholders')
-      .select('role, name, email, token')
-      .eq('pipeline_id', pipe.id)
-      .is('revoked_at', null)
+    let stakes = [];
+    if (pipe?.id) {
+      const { data } = await db.from('deal_stakeholders')
+        .select('role, name, email, token')
+        .eq('pipeline_id', pipe.id)
+        .is('revoked_at', null)
+        .in('role', ['lawyer', 'mortgage_broker']);
+      stakes = data || [];
+    }
+    const { data: contacts } = await db.from('client_contacts')
+      .select('role, name, email')
+      .eq('client_id', b.client_id)
       .in('role', ['lawyer', 'mortgage_broker']);
-    if (!stakes || !stakes.length) {
+    (contacts || []).forEach(c => {
+      if (c.email && !stakes.some(s => s.role === c.role)) {
+        stakes.push({ role: c.role, name: c.name, email: c.email, token: null });
+      }
+    });
+    if (!stakes.length) {
       App.toast('No lawyer or lender on this deal yet — add them at Offer Accepted (Stakeholder dispatch)', 'var(--yellow)');
       return;
     }
