@@ -1184,6 +1184,60 @@ REALTOR® | eXp Realty`;
       };
     },
 
+    // New-build handoff snapshot for a stakeholder (lawyer / lender). Sent from the
+    // New Build card so the recipient sees the builder, price, deposit, and
+    // purchase-agreement details in one place, plus their portal link.
+    build_details_stakeholder: (recipient, roleLabel, build, agent, portalUrl) => {
+      const first = (recipient?.name || '').split(' ')[0] || 'there';
+      const fmtD = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : String(d).slice(0,10)) : null;
+      const money = (n) => n ? '$' + Number(n).toLocaleString() : null;
+      const rows = [
+        build.builder_name        ? ['Builder', build.builder_name] : null,
+        build.builder_contact     ? ['Builder contact', build.builder_contact] : null,
+        build.builder_email       ? ['Builder email', build.builder_email] : null,
+        build.lot_address         ? ['Lot / property', build.lot_address] : null,
+        build.mls_number          ? ['MLS #', build.mls_number] : null,
+        money(build.purchase_price) ? ['Purchase price', money(build.purchase_price)] : null,
+        money(build.deposit_amount) ? ['Deposit', money(build.deposit_amount) + ' (' + (build.deposit_status || 'Pending') + ')'] : null,
+        fmtD(build.deposit_date)     ? ['Deposit date', fmtD(build.deposit_date)] : null,
+        fmtD(build.pa_submitted_date)? ['Purchase agreement submitted', fmtD(build.pa_submitted_date)] : null,
+        fmtD(build.pa_accepted_date) ? ['Purchase agreement signed', fmtD(build.pa_accepted_date)] : null,
+        fmtD(build.est_completion_date) ? ['Est. completion', fmtD(build.est_completion_date)] : null,
+        build.flooring_selection  ? ['Flooring / allowances', build.flooring_selection] : null,
+      ].filter(Boolean);
+      const buyer = build.client_name || 'my client';
+      const htmlRows = rows.map(([k, v]) =>
+        `<tr><td style="padding:6px 12px;color:#5f6368;font-size:13px;white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:6px 12px;color:#202124;font-size:13px;font-weight:500;">${v}</td></tr>`
+      ).join('');
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${first},</p>
+        <p>Here are the details for <strong>${buyer}</strong>'s new build at <strong>${build.lot_address || 'the property'}</strong>, for your file.</p>
+        <table style="border-collapse:collapse;margin:8px 0 16px;width:100%;border:1px solid #e8eaed;border-radius:8px;">${htmlRows}</table>
+        ${portalUrl ? `<a class="cal-btn" href="${portalUrl}">View live build progress in your portal →</a><p style="font-size:12px;color:#999;margin:0 0 16px;">Your secure ${roleLabel.toLowerCase()} portal shows the full build timeline and documents.</p>` : ''}
+        <p>Let me know if you need anything else on this file.</p>
+        <p>Best regards,</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
+      </body></html>`;
+      const body = `Hi ${first},
+
+Here are the details for ${buyer}'s new build at ${build.lot_address || 'the property'}, for your file.
+
+${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}
+${portalUrl ? `\nView live build progress in your portal: ${portalUrl}` : ''}
+
+Let me know if you need anything else on this file.
+
+Best regards,
+${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty`;
+      return {
+        subject: `New build file — ${buyer} · ${build.lot_address || ''}`,
+        body,
+        html
+      };
+    },
+
     // ── BRIEF RE-ENGAGEMENT TEMPLATES ─────────────────────────────────────────
     // Short, friendly nudges sent automatically when a client has no activity
     // in the last N days.  All four end with a soft CTA + the eXp signature.

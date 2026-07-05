@@ -1947,6 +1947,7 @@ const NewBuilds = {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.openEdit('${b.id}')">✏️ Edit Details</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyStakeholders('${b.id}')" style="color:var(--accent2);border-color:var(--accent2);">⚖️ Notify Lawyer + Lender</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
           ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Builder</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendClientLink('${b.id}')" style="color:var(--green);border-color:var(--green);">🔗 Send Buyer Portal</button>
@@ -2615,6 +2616,49 @@ const NewBuilds = {
       });
     }
     if (typeof Pipeline !== 'undefined') Pipeline.load();
+  },
+
+  // Email the deal's lawyer + lender a builder snapshot for this new build (name,
+  // company, price, deposit, purchase-agreement dates) plus their portal link.
+  // Pulls the stakeholders captured at Offer Accepted (deal_stakeholders).
+  async notifyStakeholders(id) {
+    const b = NewBuilds.all.find(x => x.id === id);
+    if (!b) { App.toast('⚠️ Build not found', 'var(--red)'); return; }
+    if (!b.client_id) { App.toast('This build has no linked client — open Edit Details and pick the client first', 'var(--yellow)'); return; }
+    if (typeof Notify === 'undefined' || !Notify.templates.build_details_stakeholder) {
+      App.toast('⚠️ Email templates not loaded', 'var(--red)'); return;
+    }
+    App.toast('Preparing builder details…', 'var(--accent2)');
+    // Find the deal this build belongs to, then its lawyer + lender stakeholders.
+    const { data: pipe } = await db.from('pipeline')
+      .select('id').eq('client_id', b.client_id).limit(1).maybeSingle();
+    if (!pipe?.id) { App.toast('No accepted deal found for this client — accept the offer first', 'var(--yellow)'); return; }
+    const { data: stakes } = await db.from('deal_stakeholders')
+      .select('role, name, email, token')
+      .eq('pipeline_id', pipe.id)
+      .is('revoked_at', null)
+      .in('role', ['lawyer', 'mortgage_broker']);
+    if (!stakes || !stakes.length) {
+      App.toast('No lawyer or lender on this deal yet — add them at Offer Accepted (Stakeholder dispatch)', 'var(--yellow)');
+      return;
+    }
+    let sent = 0;
+    for (const s of stakes) {
+      if (!s.email) continue;
+      const roleLabel = s.role === 'lawyer' ? 'Lawyer' : 'Lender';
+      const portalUrl = s.token ? `https://maxwell-dealflow.vercel.app/portal?t=${s.token}` : null;
+      const tmpl = Notify.templates.build_details_stakeholder({ name: s.name }, roleLabel, b, currentAgent, portalUrl);
+      await Notify.queue(
+        `New build details → ${roleLabel} 📨`,
+        b.client_id, s.name, s.email,
+        tmpl.subject, tmpl.body, b.id, tmpl.html
+      );
+      sent++;
+    }
+    App.toast(sent
+      ? `✅ Builder details queued for ${sent} stakeholder${sent === 1 ? '' : 's'} in Approvals`
+      : '⚠️ Those stakeholders have no email on file', sent ? 'var(--green)' : 'var(--yellow)');
+    App.pushNotify('⚖️ Build details queued', `${b.client_name || 'Client'} · ${b.lot_address || ''}`, 'approvals');
   },
 
   notifyClient(id) {

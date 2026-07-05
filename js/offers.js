@@ -1322,9 +1322,11 @@ const Pipeline = {
       return;
     }
 
-    // New build → auto-create the construction-stage tracker so the deal drops
-    // into the New Build sequence (idempotent — skips if one already exists).
-    if (isNewBuild && typeof NewBuilds !== 'undefined') {
+    // New build → the deal is already tagged deal_type='new_build' above (shows as
+    // a New Build card in the pipeline). The construction tracker is created by
+    // Maxwell via the rich New Build form. ensureFromDeal only runs if that helper
+    // exists on the live module — guarded so acceptance can never throw.
+    if (isNewBuild && typeof NewBuilds !== 'undefined' && typeof NewBuilds.ensureFromDeal === 'function') {
       await NewBuilds.ensureFromDeal({
         client_id: safeClientId,
         client_name: client?.full_name || offer.client_name || 'Unknown',

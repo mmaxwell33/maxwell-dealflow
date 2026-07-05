@@ -673,9 +673,10 @@ const Viewings = {
       return;
     }
 
-    // 2b. New build → auto-create the construction-stage tracker so the deal
-    // drops into the New Build sequence (idempotent — skips if one exists).
-    if (propertyType === 'new_build' && typeof NewBuilds !== 'undefined') {
+    // 2b. New build → the deal is tagged deal_type='new_build' on the pipeline row
+    // above. The construction tracker is created via the rich New Build form.
+    // Guarded so this can never throw if the helper isn't on the live module.
+    if (propertyType === 'new_build' && typeof NewBuilds !== 'undefined' && typeof NewBuilds.ensureFromDeal === 'function') {
       await NewBuilds.ensureFromDeal({
         client_id: clientId || null,
         client_name: clientName,
