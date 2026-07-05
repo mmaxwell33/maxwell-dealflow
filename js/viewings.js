@@ -395,7 +395,7 @@ const Viewings = {
     // "Good — keep searching" and "Pass" record the outcome SILENTLY — no email
     // ever goes to the client on keep-searching/pass (Maxwell's call).
     if (feedback === 'interested' && typeof Notify !== "undefined") {
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       const agentId = user?.id || currentAgent?.id;
       // Unique response token so the client can reply via the web page.
       const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -841,7 +841,7 @@ const Meetings = {
       ? { full_name: document.getElementById('mt-other-name')?.value.trim() || null,
           email:     document.getElementById('mt-other-email')?.value.trim() || null }
       : ((typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === clientId) || {});
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     const row = {
       agent_id: agentId,

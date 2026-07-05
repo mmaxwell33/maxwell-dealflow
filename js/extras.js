@@ -3,7 +3,7 @@ const Approvals = {
   async load() {
     const el = document.getElementById('approvals-list');
     // Always use auth.uid() to match RLS policy — same as what Notify.queue inserts
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) {
       setTimeout(() => Approvals.load(), 800);
@@ -2048,7 +2048,7 @@ const NewBuilds = {
     const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${builderName},</p><p>Maxwell Midodzi has set up a private builder portal for <strong>${property}</strong>.</p><p>Use the button below to update progress and request client visits:</p><p style="text-align:center;margin:28px 0;"><a href="${portalUrl}" style="background:#CC785C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">🔨 Open Builder Portal</a></p><p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="color:#CC785C;word-break:break-all;">${portalUrl}</a></p><p style="font-size:12px;color:#888;">This link is valid for 90 days. No login required — just save the link.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
 
     // Queue via Approvals like every other email
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
     const { error: qErr } = await db.from('approval_queue').insert({
@@ -2162,7 +2162,7 @@ const NewBuilds = {
     </body></html>`;
 
     // Queue via approval_queue exactly like sendBuilderLink
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
     const { error: qErr } = await db.from('approval_queue').insert({
@@ -2242,7 +2242,7 @@ const NewBuilds = {
     const icsB64 = btoa(unescape(encodeURIComponent(ics)));
     const htmlB64 = btoa(unescape(encodeURIComponent(htmlBody)));
 
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     const { data: appr, error: qErr } = await db.from('approval_queue').insert({
       agent_id: agentId,
@@ -2775,7 +2775,7 @@ const NewBuilds = {
     App.closeModal();
 
     // Direct insert — plain text body + base64 HTML in context_data
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     const { error: qErr } = await db.from('approval_queue').insert({
       agent_id: agentId,
@@ -4255,7 +4255,7 @@ const SystemTools = {
 
     // Auth check
     try {
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       setTile('ht-auth', user ? 'ok' : 'err', user ? 'Auth ✓' : 'Auth ✗');
     } catch { setTile('ht-auth', 'err', 'Auth ✗'); }
 
@@ -4305,7 +4305,7 @@ const SystemTools = {
 
     // 1. Auth
     try {
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       set('tr-auth', !!user, `Auth — ${user ? 'session valid (' + (user.email || user.id.slice(0,8)) + ')' : 'no session'}`);
     } catch(e) { set('tr-auth', false, `Auth — error: ${e.message}`); }
 

@@ -83,7 +83,7 @@ const App = {
     // Listen for auth changes
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) await App.onSignedIn(session.user);
-      if (event === 'SIGNED_OUT') App.showAuth();
+      if (event === 'SIGNED_OUT') { App._authUser = null; App.showAuth(); }
     });
   },
 
@@ -177,7 +177,21 @@ const App = {
     errEl.style.color = '#63b3ed';
   },
 
+  // Cached auth user. db.auth.getUser() hits the Supabase Auth server on EVERY
+  // call (a full network round-trip); getSession() reads the locally-stored
+  // session with no network. We cache the resolved user at sign-in so the many
+  // per-action callers (Notify.queue, badge updates, pipeline/build confirms)
+  // don't each pay a round trip — the #1 reason "everything felt slow".
+  _authUser: null,
+  async getAuthUser() {
+    if (App._authUser) return App._authUser;
+    const { data: { session } } = await db.auth.getSession();
+    App._authUser = session?.user || null;
+    return App._authUser;
+  },
+
   async onSignedIn(user) {
+    App._authUser = user;   // prime the cache — same auth uid every getAuthUser() returns
     // Load agent profile
     // Try by auth user ID first, then fall back to email match
     let { data: agent } = await db.from('agents').select('*').eq('id', user.id).single();
@@ -309,7 +323,7 @@ const App = {
         });
       }
       // Save subscription to Supabase so the edge function can reach this device
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       if (!user) return;
       const subJson = sub.toJSON();
       await db.from('push_subscriptions').upsert({
@@ -328,7 +342,7 @@ const App = {
   // Send a real Web Push to all of Maxwell's subscribed devices via edge function
   async sendWebPush(title, body, tab = 'approvals') {
     try {
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       if (!user) return;
       const { data: subs } = await db.from('push_subscriptions')
         .select('endpoint, p256dh, auth')

@@ -1613,7 +1613,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { console.error('Notify.queue: no auth user found'); return; }
 
@@ -1689,7 +1689,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   },
 
   async updateBadge() {
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) return;
     const { count } = await db.from('approval_queue')
@@ -1835,7 +1835,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const eligible = pa && !/need guidance|not yet/.test(pa) && !/cash/.test(pa);
     if (eligible && agent?.broker_email && client?.id) {
       try {
-        const { data: { user } } = await db.auth.getUser();
+        const user = await App.getAuthUser();
         const agentId = user?.id || agent.id;
         const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
         const { error } = await db.from('broker_referral_requests').insert({

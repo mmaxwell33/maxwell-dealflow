@@ -1001,7 +1001,7 @@ const Pipeline = {
 
     // Look up the just-created pipeline row so we can attach stakeholders + docs to it.
     // Use auth.uid() for the agent_id filter — same as the insert — so RLS-aware SELECT matches.
-    const { data: { user: _authU } } = await db.auth.getUser();
+    const _authU = await App.getAuthUser();
     const _authAgentId = _authU?.id || currentAgent.id;
     const { data: newPipe } = await db.from('pipeline')
       .select('id').eq('agent_id', _authAgentId)
@@ -1025,7 +1025,7 @@ const Pipeline = {
       if (!file || !pipelineId) return null;
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       // Use auth.uid() for the folder so storage RLS (which checks foldername[1] = auth.uid()) passes
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       const folderId = user?.id || currentAgent.id;
       const path = `${folderId}/${pipelineId}/${Date.now()}-${safe}`;
       const { error: upErr } = await db.storage.from('deal-docs').upload(path, file);
@@ -1244,7 +1244,7 @@ const Pipeline = {
     // Force offer_amount to numeric (forms can pass strings with $ signs / commas).
     // CRITICAL: agent_id MUST equal auth.uid() for RLS to pass on the pipeline insert.
     // currentAgent.id might not match auth.uid() in all cases — pull the auth user directly.
-    const { data: { user: authUser } } = await db.auth.getUser();
+    const authUser = await App.getAuthUser();
     const authAgentId = authUser?.id || currentAgent.id;
     const safeClientId = (offer.client_id && typeof offer.client_id === 'string' && offer.client_id.length > 30) ? offer.client_id : null;
     const safeOfferAmt = parseFloat(String(offer.offer_amount || '').replace(/[^0-9.-]/g, '')) || 0;
@@ -2176,7 +2176,7 @@ const Pipeline = {
     if (!rec) { App.toast('⚠️ Deal not found'); return; }
 
     const now = new Date().toISOString();
-    const { data: { user } } = await db.auth.getUser();
+    const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
     if (!agentId) { App.toast('⚠️ Auth required'); return; }
 
@@ -3456,7 +3456,7 @@ const Pipeline = {
       // tag context_data.is_resend = true. The Approvals dedup check at
       // js/extras.js will skip the 24h-block when this flag is present,
       // since a resend is intentional (Maxwell explicitly asked for it).
-      const { data: { user } } = await db.auth.getUser();
+      const user = await App.getAuthUser();
       const agentId = user?.id || (typeof currentAgent !== 'undefined' && currentAgent ? currentAgent.id : null);
       if (!agentId) { App.toast('Not signed in', 'var(--red)'); return; }
       const safeHtml = btoa(unescape(encodeURIComponent(html)));
