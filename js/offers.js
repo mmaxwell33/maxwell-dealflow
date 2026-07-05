@@ -1154,22 +1154,45 @@ const Pipeline = {
           if (mlsAtt)   attachments.push(mlsAtt);
         }
 
-        const tmpl = role === 'mortgage_broker'
-          ? Notify.templates.offer_accepted_broker(name, clientForT, dealForT, agent, portalUrl)
+        const buildTmpl = (pUrl) => role === 'mortgage_broker'
+          ? Notify.templates.offer_accepted_broker(name, clientForT, dealForT, agent, pUrl)
           : role === 'inspector'
-          ? Notify.templates.offer_accepted_inspector(name, clientForT, dealForT, agent, portalUrl)
-          : Notify.templates.offer_accepted_lawyer(name, clientForT, dealForT, agent, portalUrl);
+          ? Notify.templates.offer_accepted_inspector(name, clientForT, dealForT, agent, pUrl)
+          : Notify.templates.offer_accepted_lawyer(name, clientForT, dealForT, agent, pUrl);
+        const tmpl = buildTmpl(portalUrl);
 
         const ccClient = document.getElementById(`ad-${role}-cc`)?.checked;
-        const ccEmail = (ccClient && (client?.email || offer.client_email)) ? (client?.email || offer.client_email) : null;
+        const clientEmail = client?.email || offer.client_email;
 
-        await Notify.queue(
-          `Offer accepted → ${role.replace('_',' ')} 📨`,
-          client?.id, name, email,
-          tmpl.subject, tmpl.body, pipelineId,
-          null, null, ccEmail, attachments
-        );
-        queuedDispatch++;
+        if (ccClient && clientEmail && portalUrl) {
+          // Client is CC'd AND this email carries the stakeholder's PRIVATE portal
+          // link. A single CC'd email would expose that portal to the client, so we
+          // split it: the stakeholder gets the link; the client's copy is stripped
+          // (buildTmpl('') → the template omits the portal-link block).
+          await Notify.queue(
+            `Offer accepted → ${role.replace('_',' ')} 📨`,
+            client?.id, name, email,
+            tmpl.subject, tmpl.body, pipelineId,
+            null, null, null, attachments
+          );
+          const clientCopy = buildTmpl('');
+          await Notify.queue(
+            `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
+            client?.id, name, clientEmail,
+            clientCopy.subject, clientCopy.body, pipelineId,
+            null, null, null, attachments
+          );
+          queuedDispatch += 2;
+        } else {
+          const ccEmail = (ccClient && clientEmail) ? clientEmail : null;
+          await Notify.queue(
+            `Offer accepted → ${role.replace('_',' ')} 📨`,
+            client?.id, name, email,
+            tmpl.subject, tmpl.body, pipelineId,
+            null, null, ccEmail, attachments
+          );
+          queuedDispatch++;
+        }
       } else if (portalUrl) {
         // Portal-only path — collect the URL so we can show it after closing the modal
         portalsOnly++;
@@ -3946,21 +3969,41 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       }
 
       // Per-role template
-      const tmpl = role === 'mortgage_broker'
-        ? Notify.templates.offer_accepted_broker(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl)
+      const buildTmpl = (pUrl) => role === 'mortgage_broker'
+        ? Notify.templates.offer_accepted_broker(contact.name, clientForTemplate, dealForTemplate, agent, pUrl)
         : role === 'inspector'
-        ? Notify.templates.offer_accepted_inspector(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl)
-        : Notify.templates.offer_accepted_lawyer(contact.name, clientForTemplate, dealForTemplate, agent, portalUrl);
+        ? Notify.templates.offer_accepted_inspector(contact.name, clientForTemplate, dealForTemplate, agent, pUrl)
+        : Notify.templates.offer_accepted_lawyer(contact.name, clientForTemplate, dealForTemplate, agent, pUrl);
+      const tmpl = buildTmpl(portalUrl);
 
-      const ccEmail = (ccClient && d.client_email) ? d.client_email : null;
-
-      await Notify.queue(
-        `Offer accepted → ${role.replace('_',' ')} 📨`,
-        d.client_id, contact.name, contact.email,
-        tmpl.subject, tmpl.body, dealId,
-        null, null, ccEmail, attachments
-      );
-      queued++;
+      if (ccClient && d.client_email && portalUrl) {
+        // Client is CC'd AND this email carries the stakeholder's PRIVATE portal
+        // link. Split it so the client's copy has the link stripped (same fix as
+        // confirmAcceptance) — the client never reaches the stakeholder's portal.
+        await Notify.queue(
+          `Offer accepted → ${role.replace('_',' ')} 📨`,
+          d.client_id, contact.name, contact.email,
+          tmpl.subject, tmpl.body, dealId,
+          null, null, null, attachments
+        );
+        const clientCopy = buildTmpl('');
+        await Notify.queue(
+          `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
+          d.client_id, contact.name, d.client_email,
+          clientCopy.subject, clientCopy.body, dealId,
+          null, null, null, attachments
+        );
+        queued += 2;
+      } else {
+        const ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+        await Notify.queue(
+          `Offer accepted → ${role.replace('_',' ')} 📨`,
+          d.client_id, contact.name, contact.email,
+          tmpl.subject, tmpl.body, dealId,
+          null, null, ccEmail, attachments
+        );
+        queued++;
+      }
     }
 
     // 9. Client congratulations email — separate, no attachments, with portal link
