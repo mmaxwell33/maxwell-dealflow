@@ -828,6 +828,7 @@ const App = {
     if (tab === 'broadcast') Broadcast.load();
     if (tab === 'reviews') Reviews.load();
     if (tab === 'briefing') Briefing.load();
+    if (tab === 'pipeline') Pipeline.load();  // reload on visit — actions elsewhere no longer eagerly reload it
     if (tab === 'pipeline-archive') Pipeline.loadArchive();
   },
 

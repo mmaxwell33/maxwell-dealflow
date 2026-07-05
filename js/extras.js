@@ -9,8 +9,12 @@ const Approvals = {
       setTimeout(() => Approvals.load(), 800);
       return;
     }
+    // List view only needs the light columns — NOT context_data, which holds
+    // base64 email HTML + file attachments (often MBs). Pulling it here made the
+    // approvals query slow/hang. context_data is fetched per-row on openEdit/approve.
     const { data } = await db.from('approval_queue')
-      .select('*').eq('agent_id', agentId)
+      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at')
+      .eq('agent_id', agentId)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false }).limit(50);
     const pending = data || [];
@@ -2619,7 +2623,7 @@ const NewBuilds = {
     // Only refresh the Pipeline board if it's actually on screen. Ticking build
     // steps happens on the New Builds tab, where a full pipeline reload (3 chained
     // queries) is wasted work and made every tick feel slow.
-    if (typeof Pipeline !== 'undefined' && document.getElementById('pipeline-list')) Pipeline.load();
+    if (typeof Pipeline !== 'undefined' && currentTab === 'pipeline') Pipeline.load();
   },
 
   // Ensure a construction tracker exists for a pipeline deal — create a blank one
@@ -2666,7 +2670,7 @@ const NewBuilds = {
     if (error) { App.toast('⚠️ Delete failed: ' + (error.message || 'unknown'), 'var(--red)'); return; }
     App.toast('🗑️ Build tracker deleted', 'var(--green)');
     await NewBuilds.load();
-    if (typeof Pipeline !== 'undefined' && document.getElementById('pipeline-list')) Pipeline.load();
+    if (typeof Pipeline !== 'undefined' && currentTab === 'pipeline') Pipeline.load();
   },
 
   // Email the deal's lawyer + lender a builder snapshot for this new build (name,
