@@ -1952,6 +1952,7 @@ const NewBuilds = {
           ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Builder</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendClientLink('${b.id}')" style="color:var(--green);border-color:var(--green);">🔗 Send Buyer Portal</button>
           <button class="btn btn-outline btn-sm" onclick="Reviews.requestNewBuildProgress('${b.id}')" style="color:var(--accent);border-color:var(--accent);">⭐ Review</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.deleteBuild('${b.id}')" style="color:var(--red);border-color:var(--red);">🗑️ Delete Build</button>
         </div>
       </div>`;
     }).join('');
@@ -2618,6 +2619,53 @@ const NewBuilds = {
     // Only refresh the Pipeline board if it's actually on screen. Ticking build
     // steps happens on the New Builds tab, where a full pipeline reload (3 chained
     // queries) is wasted work and made every tick feel slow.
+    if (typeof Pipeline !== 'undefined' && document.getElementById('pipeline-list')) Pipeline.load();
+  },
+
+  // Ensure a construction tracker exists for a pipeline deal — create a blank one
+  // (empty milestone scaffold, same shape the New Build form makes) if none is
+  // found. Matched by client_id first, then name — the same keys syncPipeline
+  // uses. Returns the build id (existing or new), or null on failure. Called by
+  // Pipeline "Manage Build" so it always lands on a real tracker, never a dead end.
+  async ensureFromDeal({ client_id, client_name, client_email, lot_address, offer_amount, closing_date } = {}) {
+    if (!currentAgent?.id || !client_name) return null;
+    let q = db.from('new_builds').select('id').eq('agent_id', currentAgent.id);
+    q = client_id ? q.eq('client_id', client_id) : q.ilike('client_name', client_name);
+    const { data: existing } = await q.limit(1).maybeSingle();
+    if (existing?.id) return existing.id;
+    const milestones = {};
+    NewBuilds.STAGES.forEach(s => {
+      milestones[s.key] = { done: false, steps: {} };
+      s.steps.forEach(step => { milestones[s.key].steps[step.key] = false; });
+    });
+    const { data, error } = await db.from('new_builds').insert({
+      agent_id: currentAgent.id,
+      client_id: client_id || null,
+      client_name,
+      client_email: client_email || null,
+      lot_address: lot_address || null,
+      purchase_price: offer_amount || 0,
+      current_stage: 'Pre-Construction',
+      est_completion_date: closing_date || null,
+      status: 'Active',
+      pipeline_milestones: milestones,
+    }).select('id').single();
+    if (error) { console.error('[NewBuilds.ensureFromDeal] insert failed:', error); return null; }
+    return data?.id || null;
+  },
+
+  // Delete a build tracker (the new_builds row only). Does NOT touch the pipeline
+  // deal, commission, or client — deleting the deal from the Pipeline is the way
+  // to remove those. This is for clearing a stray or duplicate tracker.
+  async deleteBuild(id) {
+    const b = NewBuilds.all.find(x => x.id === id);
+    if (!b) return;
+    const who = b.clients?.full_name || b.client_name || b.lot_address || 'this build';
+    if (!confirm(`Delete the build tracker for ${who}?\n\nThis removes the construction tracker only — the pipeline deal, commission and client are left untouched.`)) return;
+    const { error } = await db.from('new_builds').delete().eq('id', id);
+    if (error) { App.toast('⚠️ Delete failed: ' + (error.message || 'unknown'), 'var(--red)'); return; }
+    App.toast('🗑️ Build tracker deleted', 'var(--green)');
+    await NewBuilds.load();
     if (typeof Pipeline !== 'undefined' && document.getElementById('pipeline-list')) Pipeline.load();
   },
 
