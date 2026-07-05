@@ -3422,25 +3422,23 @@ const Inbox = {
       const isHtml = rawBody.trim().startsWith('<') && rawBody.includes('<');
       const bodyContent = isHtml
         ? `<iframe srcdoc="${rawBody.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="width:100%;border:none;min-height:80px;background:#fff;" onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px'" sandbox="allow-same-origin"></iframe>`
-        : `<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);">${App.esc(rawBody).replace(/\n/g,'<br>')}</div>`;
+        : `<div style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:#202124;">${App.esc(rawBody).replace(/\n/g,'<br>')}</div>`;
       const isLast = idx === msgs.length - 1;
       const collapsed = !isLast && msgs.length > 2;
-      return `<div class="inbox-msg-card" style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card);overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;${collapsed ? '' : 'border-bottom:1px solid var(--border);'}" onclick="this.parentElement.querySelector('.inbox-msg-body').classList.toggle('hidden');this.querySelector('.inbox-msg-chevron').classList.toggle('rotated')">
-          <div style="width:32px;height:32px;border-radius:50%;background:${isSent ? 'var(--accent)' : 'var(--accent2)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${(senderLabel[0]||'?').toUpperCase()}</div>
+      return `<div class="inbox-msg-card" style="border:1px solid #e8eaed;border-radius:12px;margin-bottom:10px;background:#ffffff;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;${collapsed ? '' : 'border-bottom:1px solid #f1f3f4;'}" onclick="this.parentElement.querySelector('.inbox-msg-body').classList.toggle('hidden');this.querySelector('.inbox-msg-chevron').classList.toggle('rotated')">
+          <div style="width:36px;height:36px;border-radius:50%;background:${isSent ? 'var(--accent)' : 'var(--accent2)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${(senderLabel[0]||'?').toUpperCase()}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
-              <span class="fw-700" style="font-size:13px;">${senderLabel}</span>
-              <span style="font-size:11px;color:var(--text2);">&lt;${senderEmail}&gt;</span>
+              <span style="font-size:14px;font-weight:600;color:#202124;">${senderLabel}</span>
+              <span style="font-size:12px;color:#5f6368;">&lt;${senderEmail}&gt;</span>
             </div>
-            ${collapsed ? `<div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">${App.esc(rawBody.slice(0,80))}…</div>` : ''}
+            <div style="font-size:12px;color:#5f6368;margin-top:1px;">${isSent ? '' : 'to me · '}${time}</div>
+            ${collapsed ? `<div style="font-size:12px;color:#5f6368;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;margin-top:2px;">${App.esc(rawBody.slice(0,80))}…</div>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <span style="font-size:11px;color:var(--text2);">${time}</span>
-            <span class="inbox-msg-chevron" style="font-size:12px;color:var(--text2);transition:transform 0.2s;${collapsed ? '' : 'transform:rotate(180deg);'} display:inline-block;">▼</span>
-          </div>
+          <span class="inbox-msg-chevron" style="font-size:12px;color:#5f6368;transition:transform 0.2s;${collapsed ? '' : 'transform:rotate(180deg);'} display:inline-block;flex-shrink:0;margin-top:4px;">▼</span>
         </div>
-        <div class="inbox-msg-body${collapsed ? ' hidden' : ''}" style="padding:14px;">
+        <div class="inbox-msg-body${collapsed ? ' hidden' : ''}" style="padding:16px 18px;background:#ffffff;">
           ${bodyContent}
         </div>
       </div>`;
@@ -3461,15 +3459,12 @@ const Inbox = {
         .inbox-attach-chip { display:flex;align-items:center;gap:4px;background:var(--bg2,var(--bg));border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px; }
         .inbox-attach-chip button { background:none;border:none;cursor:pointer;font-size:11px;color:var(--text2);padding:0 2px; }
       </style>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <button class="btn btn-outline btn-sm" onclick="App.closeModal();Inbox.renderThreadList();" style="padding:4px 10px;font-size:12px;">← Back</button>
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">${initials}</div>
-        <div style="flex:1;min-width:0;">
-          <div class="fw-800" style="font-size:15px;">${App.esc(thread.contact)}</div>
-          <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(thread.subject)}</div>
-        </div>
+        <div style="flex:1;min-width:0;font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(thread.contact)}</div>
         <button class="btn btn-outline btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red);padding:3px 8px;" onclick="Inbox.deleteThread('${threadId}')">🗑</button>
       </div>
+      <h2 style="font-size:20px;font-weight:700;color:var(--text);margin:0 0 14px;line-height:1.3;">${App.esc(thread.subject)}</h2>
       <div id="inbox-thread-messages" style="max-height:56vh;overflow-y:auto;padding-right:2px;margin-bottom:12px;">
         ${emailCards}
       </div>
