@@ -1946,12 +1946,30 @@ const Pipeline = {
     if (typeof App !== 'undefined' && App.switchTab) {
       App.switchTab('newbuilds');
     }
-    // After tab switches, try to open the matching build's detail view
-    setTimeout(() => {
-      if (typeof NewBuilds === 'undefined' || !NewBuilds.all) return;
-      const build = NewBuilds.all.find(b => b.client_name === d.client_name);
+    // After tab switches, open THIS deal's build tracker. Match case/space-
+    // insensitively (exact === missed builds whose name differed by a space or
+    // capitalization). If no tracker exists yet — e.g. the deal was flagged
+    // New Build after acceptance — create one on the fly so we never silently
+    // leave whatever build happened to be open last on screen.
+    setTimeout(async () => {
+      if (typeof NewBuilds === 'undefined') return;
+      const norm = s => (s || '').trim().toLowerCase();
+      let build = (NewBuilds.all || []).find(b => norm(b.client_name) === norm(d.client_name));
+      if (!build && typeof NewBuilds.ensureFromDeal === 'function') {
+        const newId = await NewBuilds.ensureFromDeal({
+          client_id: d.client_id, client_name: d.client_name,
+          client_email: d.client_email, lot_address: d.property_address,
+          offer_amount: d.offer_amount, closing_date: d.closing_date,
+        });
+        if (newId && typeof NewBuilds.load === 'function') {
+          await NewBuilds.load();
+          build = (NewBuilds.all || []).find(b => b.id === newId);
+        }
+      }
       if (build && typeof NewBuilds.openDetail === 'function') {
         NewBuilds.openDetail(build.id);
+      } else {
+        App.toast('⚠️ Could not open the build tracker for this deal', 'var(--yellow)');
       }
     }, 250);
   },
@@ -2696,6 +2714,14 @@ const Pipeline = {
     ];
     for (const t of childTables) {
       await safe(t, () => db.from(t).delete().eq('pipeline_id', id));
+    }
+    // New-build construction tracker — lives in its OWN table (new_builds) and is
+    // linked to the pipeline row only by client name (no FK), so match the same
+    // way syncPipeline / ensureFromDeal do. Without this, deleting a new-build
+    // deal leaves an orphan tracker that still shows under "Manage Build".
+    if (rec.client_name) {
+      await safe('new_builds', () => db.from('new_builds').delete()
+        .eq('agent_id', currentAgent.id).ilike('client_name', rec.client_name));
     }
     // Commission — matched by agent + property address (same shape as closeDeal).
     if (rec.property_address) {

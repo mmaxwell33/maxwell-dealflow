@@ -2615,7 +2615,10 @@ const NewBuilds = {
         status: 'Active'
       });
     }
-    if (typeof Pipeline !== 'undefined') Pipeline.load();
+    // Only refresh the Pipeline board if it's actually on screen. Ticking build
+    // steps happens on the New Builds tab, where a full pipeline reload (3 chained
+    // queries) is wasted work and made every tick feel slow.
+    if (typeof Pipeline !== 'undefined' && document.getElementById('pipeline-list')) Pipeline.load();
   },
 
   // Email the deal's lawyer + lender a builder snapshot for this new build (name,
