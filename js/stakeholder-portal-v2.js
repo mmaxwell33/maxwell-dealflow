@@ -187,6 +187,27 @@
     // Reads from pipeline.stage (returned by stakeholder_resolve) and shows
     // a stage-appropriate, warmly worded message that loops continuously.
     var tickerMsg = (function(stage){
+      // NEW BUILD: use build-phase wording (pre-construction → financing →
+      // construction → walkthrough → possession), picked from the tracker's
+      // actual stage. Resale "inspection & paperwork" language doesn't fit a
+      // build, so new-build deals never fall through to the resale copy below.
+      if (d.is_new_build) {
+        if (stage === 'Fell Through') return '';
+        var bs = (d.build_stage || '').toLowerCase();
+        var phase = (bs.indexOf('complete') > -1 || bs.indexOf('possession') > -1 || bs.indexOf('closing') > -1) ? 'done'
+                  : (bs.indexOf('walkthrough') > -1)                                          ? 'walkthrough'
+                  : /construction|framing|drywall|finishes|foundation|roofing/.test(bs)       ? 'construction'
+                  : (bs.indexOf('financing') > -1)                                            ? 'financing'
+                  :                                                                             'preconstruction';
+        var NB = {
+          done:            isClient ? '🎉 Your build is complete — congratulations and welcome home!'                       : '🎉 Build complete — possession stage.',
+          walkthrough:     isClient ? '🔑 Final walkthrough scheduled — you\'re almost home!'                               : '🔑 Final walkthrough scheduled — possession is near.',
+          construction:    isClient ? '🏗️ Construction is underway — foundation, framing, and finishes are progressing.'    : '🏗️ Construction underway — foundation, framing, and finishes in progress.',
+          financing:       isClient ? '🏦 Financing is in progress — approvals are being finalized.'                        : '🏦 Financing in progress — approvals being finalized.',
+          preconstruction: isClient ? '📋 Pre-construction is underway — plans, permits, and design selections being finalized.' : '📋 Pre-construction — plans, permits, and design selections underway.'
+        };
+        return NB[phase];
+      }
       if (isClient) {
         if (stage === 'Closed')        return '🎉 Deal complete — congratulations and welcome home!';
         if (stage === 'Fell Through')  return '';
