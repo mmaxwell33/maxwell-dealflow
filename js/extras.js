@@ -922,6 +922,7 @@ const Commission = {
     const hst = active.reduce((s, c) => s + (c.hst_collected || 0), 0);
     const brokerFees = active.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
     const netEarnings = active.reduce((s, c) => s + (c.agent_net || 0), 0);
+    const beforeBrokerage = grossComm + hst;  // total received before the brokerage's cut is deducted
     const closedDeals = active.filter(c => Commission.statusFrom(c) === 'Paid').length;
 
     const banner = document.getElementById('comm-net-display');
@@ -931,6 +932,7 @@ const Commission = {
       <div class="stat2"><div class="stat2-lbl">Total Volume Sold</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(totalVolume)}</div></div>
       <div class="stat2"><div class="stat2-lbl">Gross Commission</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div></div>
       <div class="stat2"><div class="stat2-lbl">HST / Tax</div><div class="stat2-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div></div>
+      <div class="stat2"><div class="stat2-lbl">Before Brokerage Cut</div><div class="stat2-num" style="font-size:18px;color:var(--accent2);">${App.fmtMoney(beforeBrokerage)}</div></div>
       <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${App.fmtMoney(brokerFees)}</div></div>
       <div class="stat2" style="border-left:3px solid var(--green);"><div class="stat2-lbl">Closed Deals</div><div class="stat2-num" style="color:var(--green);">${closedDeals}</div></div>`;
   },
