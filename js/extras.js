@@ -3070,9 +3070,9 @@ const EmailSend = {
 
   async addFiles(files, type) {
     const arr = type === 'email' ? EmailSend._emailFiles : EmailSend._extFiles;
-    const MAX = 5 * 1024 * 1024; // 5 MB per file
+    const MAX = 20 * 1024 * 1024; // 20 MB per file (Gmail's 25 MB total is the real ceiling)
     for (const file of Array.from(files)) {
-      if (file.size > MAX) { App.toast(`⚠️ ${file.name} exceeds 5 MB — skipped`, 'var(--yellow)'); continue; }
+      if (file.size > MAX) { App.toast(`⚠️ ${file.name} exceeds 20 MB — too large to email, skipped`, 'var(--yellow)'); continue; }
       const data = await new Promise((res, rej) => {
         const reader = new FileReader();
         reader.onload = e => res(e.target.result.split(',')[1]);
