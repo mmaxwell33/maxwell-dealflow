@@ -2739,10 +2739,11 @@ const NewBuilds = {
         .select('doc_type, file_path, file_name, file_size_bytes').eq('pipeline_id', pipe.id);
       (docRows || []).forEach(d => { if (d.doc_type === 'accepted_offer') hasAps = true; });
       for (const doc of (docRows || [])) {
-        // 10 MB per file — a signed APS can be large; Gmail's 25 MB total is guarded downstream.
-        if ((doc.file_size_bytes || 0) > 10 * 1024 * 1024) {
+        // 20 MB per file — a signed APS can be large. Gmail's 25 MB total (across all
+        // attachments + body, base64-inflated) is the real ceiling, guarded in approve().
+        if ((doc.file_size_bytes || 0) > 20 * 1024 * 1024) {
           if (doc.doc_type === 'accepted_offer') apsSkipped = true;
-          App.toast(`⚠️ ${doc.file_name || 'A document'} is over 10 MB — not attached, send it manually`, 'var(--yellow)');
+          App.toast(`⚠️ ${doc.file_name || 'A document'} is over 20 MB — too large to email, send it manually`, 'var(--yellow)');
           continue;
         }
         try {
@@ -2764,7 +2765,7 @@ const NewBuilds = {
     if (!hasAps) {
       App.toast('⚠️ No APS (Agreement of Purchase & Sale) on this deal — upload it in 📄 Docs so it attaches, or send it manually.', 'var(--yellow)');
     } else if (apsSkipped) {
-      App.toast('⚠️ The APS is over 10 MB — it was NOT attached. Send that one manually.', 'var(--yellow)');
+      App.toast('⚠️ The APS is over 20 MB — too large to email. Send that one manually.', 'var(--yellow)');
     }
     // CC the client on the introduction so they're looped in. NOTE: this email
     // deliberately carries NO portal link (see the template) — a CC'd client must
