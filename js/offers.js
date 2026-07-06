@@ -1045,6 +1045,24 @@ const Pipeline = {
         console.error(`[deal_documents insert] ${docType} failed:`, insErr);
         App.toast(`❌ Doc metadata ${docType}: ${insErr.message}`, 'var(--red)');
       }
+      // Phase 2 auto-filing: also drop the accepted-offer + MLS into the CLIENT
+      // folder (private client-docs bucket) so they show up under the client, not
+      // just the deal. Best-effort — never blocks acceptance.
+      const _cid = (client && client.id) || offer.client_id || null;
+      if (_cid && typeof _cid === 'string' && _cid.length > 30) {
+        try {
+          const cfCat  = docType === 'accepted_offer' ? 'aps' : docType === 'mls_listing' ? 'mls' : 'other';
+          const cfPath = `${folderId}/${_cid}/${Date.now()}-${safe}`;
+          const { error: cfUp } = await db.storage.from('client-docs').upload(cfPath, file);
+          if (!cfUp) {
+            await db.from('client_documents').insert({
+              agent_id: folderId, client_id: _cid, category: cfCat, source: 'acceptance',
+              property_address: offer.property_address || null,
+              file_path: cfPath, file_name: file.name, file_size_bytes: file.size
+            });
+          }
+        } catch (e) { console.warn('[client folder] acceptance copy skipped:', e?.message || e); }
+      }
       return { name: file.name, path, file };
     };
     await uploadDoc(offerFile, 'accepted_offer');
