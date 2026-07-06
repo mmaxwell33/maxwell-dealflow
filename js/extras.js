@@ -1321,7 +1321,17 @@ const Reports = {
     // Stage progress bar — 6 canonical stages
     const stageOrder = ['Active Search','In Offer','Under Contract','Conditions','Financing','Closed'];
     const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5 };
-    const currentStageIdx = stageAliases[client.stage] ?? 0;
+    // Real-time stage: read the client's ACTUAL pipeline deal, not the stale
+    // clients.stage field. Pick the most-advanced live (non-archived) deal so the
+    // bar reflects where the deal really is right now (e.g. Conditions), not
+    // wherever the client record was last manually set.
+    const _rank = s => (stageAliases[s] ?? 0);
+    const _liveDeals = (pipelineDeals || []).filter(d => !d.archived_at);
+    const _dealClosed = _liveDeals.some(d => d.stage === 'Closed');
+    const _dealFell   = _liveDeals.some(d => d.stage === 'Fell Through');
+    const _primaryDeal = _liveDeals.slice().sort((a, b) => _rank(b.stage) - _rank(a.stage))[0];
+    const effStage = _dealClosed ? 'Closed' : _dealFell ? 'Fell Through' : (_primaryDeal?.stage || client.stage || 'Searching');
+    const currentStageIdx = stageAliases[effStage] ?? 0;
 
     // ── Headline status badge ──────────────────────────────────────────────
     // The client-facing status the report leads with. A Closed / Fell-Through
@@ -1342,10 +1352,7 @@ const Reports = {
       'Closed':         { label: 'Deal Closed',      icon: '✅' },
       'Fell Through':   { label: 'Deal Ended',       icon: '◾' }
     };
-    const dealClosed = (pipelineDeals || []).some(d => d.stage === 'Closed');
-    const dealFell   = (pipelineDeals || []).some(d => d.stage === 'Fell Through');
-    const effStage   = dealClosed ? 'Closed' : dealFell ? 'Fell Through' : (client.stage || 'Searching');
-    const sd         = stageDisplay[effStage] || { label: effStage, icon: '•' };
+    const sd = stageDisplay[effStage] || { label: effStage, icon: '•' };
     // Closed gets a solid white pill with green text so it really pops on the
     // terracotta header; everything else is a translucent white pill.
     const pillBg    = effStage === 'Closed' ? '#FFFFFF' : 'rgba(255,255,255,0.20)';
@@ -1507,7 +1514,7 @@ const Reports = {
         }).join('')}</tr>
       </table>`;
       html += `<div style="background:#FAFAF9;border:1px solid #E7E5E4;border-left:3px solid ${ACCENT};border-radius:10px;padding:16px 18px;">
-        <div style="font-family:${SERIF};font-size:17px;font-weight:600;color:#0A0A0A;margin-bottom:4px;">${client.stage||'Active Search'}${client.status?` · ${client.status}`:''}</div>
+        <div style="font-family:${SERIF};font-size:17px;font-weight:600;color:#0A0A0A;margin-bottom:4px;">${sd.label}${client.status?` · ${client.status}`:''}</div>
         ${client.notes?`<div style="font-size:13px;color:#6B7280;line-height:1.5;">${client.notes}</div>`:''}
       </div>`;
       html += sectionClose;
@@ -1522,7 +1529,7 @@ const Reports = {
         'Under Contract': ['Track all condition deadlines','Coordinate with lawyer & lender','Prepare for walkthrough & closing'],
         'Closed': ['Send post-closing follow-up','Request Google review or referral','Stay in touch for future needs']
       };
-      const steps = stageSteps[client.stage] || ['Follow up within 7 days','Keep client updated on market activity','Schedule next check-in call'];
+      const steps = stageSteps[effStage] || ['Follow up within 7 days','Keep client updated on market activity','Schedule next check-in call'];
       html += sectionOpen('Next Steps', 'What to expect in the next two weeks.');
       html += steps.map((s,i) => `<table role="presentation" style="width:100%;border-collapse:collapse;margin-bottom:10px;background:#FAFAF9;border:1px solid #E7E5E4;border-radius:10px;">
         <tr>
