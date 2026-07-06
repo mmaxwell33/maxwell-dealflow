@@ -1288,11 +1288,20 @@ const Reports = {
   async buildReport(clientId) {
     const { data: client } = await db.from('clients').select('*').eq('id', clientId).single();
     if (!client) return null;
-    const [{ data: viewings }, { data: offers }, { data: pipelineDeals }] = await Promise.all([
+    const [{ data: viewings }, { data: offers }, { data: _pipeById }] = await Promise.all([
       db.from('viewings').select('*').eq('client_id', clientId).order('viewing_date', { ascending: false }),
       db.from('offers').select('*').eq('client_id', clientId).order('offer_date', { ascending: false }),
       db.from('pipeline').select('*').eq('agent_id', currentAgent.id).eq('client_id', clientId)
     ]);
+    // Fall back to matching the deal by client NAME — new-build / older deals often
+    // aren't linked by client_id, so a client_id-only lookup finds nothing and the
+    // report would show the stale stage. Match the same way the rest of the app does.
+    let pipelineDeals = _pipeById || [];
+    if (!pipelineDeals.length && client.full_name) {
+      const { data: byName } = await db.from('pipeline')
+        .select('*').eq('agent_id', currentAgent.id).ilike('client_name', client.full_name);
+      pipelineDeals = byName || [];
+    }
     const clientOffers = offers || [];
     const sections = {
       info:      document.getElementById('rpt-sec-info')?.checked,
