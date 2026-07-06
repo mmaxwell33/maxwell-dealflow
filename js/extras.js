@@ -185,6 +185,18 @@ const Approvals = {
     const cleanBody    = _dd(item.email_body || '');
     htmlBody           = _dd(htmlBody);
 
+    // Safety net: guarantee the confidentiality disclaimer on EVERY outgoing email,
+    // including ad-hoc ones (build / builder portal links) that don't use the shared
+    // templates. Skip when it's already present so templated emails never double up.
+    let outBody = cleanBody, outHtml = htmlBody;
+    if (!/CONFIDENTIALITY NOTICE/i.test((outHtml || '') + (outBody || ''))) {
+      outBody = (outBody || '') + '\n\n---\n\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.';
+      if (outHtml) {
+        const disHtml = '<hr style="border:none;border-top:1px solid #eee;margin:20px 0 12px;"><p style="font-size:10.5px;color:#9ca3af;line-height:1.55;margin:0;"><strong style="color:#6b7280;">CONFIDENTIALITY NOTICE:</strong> This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>';
+        outHtml = outHtml.includes('</body>') ? outHtml.replace('</body>', disHtml + '</body>') : (outHtml + disHtml);
+      }
+    }
+
     if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
@@ -202,9 +214,10 @@ const Approvals = {
           body: JSON.stringify({
             to: toEmail,
             cc: actualCc,
+            bcc: (agent.email || null),   // always copy the agent on outgoing email (hidden from recipient)
             subject: cleanSubject,
-            body: cleanBody,
-            html: htmlBody,
+            body: outBody,
+            html: outHtml,
             ics: icsAttachment,
             attachments: fileAttachments || null,
             from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
