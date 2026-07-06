@@ -81,22 +81,23 @@ const EmailFormat = {
   signatureHTML(agent) {
     const a = EmailFormat._agent(agent);
     const tel = EmailFormat._phoneTel(a.phone);
+    // Plain "real email" signature (no icons / no big bold name / no table) so the
+    // rendered HTML matches the clean plain-text look, not a designed template block.
     return `
-      <hr class="sig-divider">
-      <table class="sig" cellpadding="0" cellspacing="0" border="0">
-        <tr><td class="sig-name">${a.name}</td></tr>
-        <tr><td class="sig-role">${a.role}</td></tr>
-        <tr><td class="sig-row"><span class="sig-icon">📞</span><a href="tel:${tel}">${a.phone}</a></td></tr>
-        <tr><td class="sig-row"><span class="sig-icon">✉️</span><a href="mailto:${a.email}">${a.email}</a></td></tr>
-        <tr><td class="sig-row"><span class="sig-icon">🌐</span><a href="https://${a.website}">${a.website}</a></td></tr>
-      </table>`;
+      <p style="margin:16px 0 0;font-size:14px;line-height:1.55;color:#202124;">
+        ${a.name}<br>
+        ${a.role}<br>
+        Phone: <a href="tel:${tel}" style="color:#1a73e8;text-decoration:none;">${a.phone}</a> | Email: <a href="mailto:${a.email}" style="color:#1a73e8;text-decoration:none;">${a.email}</a><br>
+        eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2<br>
+        <a href="https://${a.website}" style="color:#1a73e8;text-decoration:none;">${a.website}</a>
+      </p>`;
   },
 
-  // ── HTML disclaimer block — separator + confidentiality notice ──
+  // ── HTML disclaimer block — separator + confidentiality notice (plain, readable) ──
   disclaimerHTML() {
     return `
-      <hr class="dis-divider">
-      <p class="disclaimer"><strong>CONFIDENTIALITY NOTICE:</strong> This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>`;
+      <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0 10px;">
+      <p style="margin:0;font-size:12px;line-height:1.5;color:#5f6368;">CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>`;
   },
 
   // ── Plain-text signature (for Gmail's plain-text fallback) ──

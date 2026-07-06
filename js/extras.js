@@ -163,10 +163,12 @@ const Approvals = {
     // send path needs. Inline attachments (with .data) are used as-is. Staged paths
     // are collected so we can delete them once the email is sent.
     const stagedPaths = [];
+    let expectedAttach = 0, resolvedAttach = 0;
     if (fileAttachments?.length) {
       const resolved = [];
       for (const a of fileAttachments) {
-        if (a?.data) { resolved.push(a); continue; }
+        expectedAttach++;
+        if (a?.data) { resolved.push(a); resolvedAttach++; continue; }
         if (a?.path) {
           stagedPaths.push(a.path);
           try {
@@ -179,11 +181,19 @@ const Approvals = {
                 r.readAsDataURL(blob);
               });
               resolved.push({ filename: a.filename, mime_type: a.mime_type, data: b64 });
+              resolvedAttach++;
             }
           } catch (e) { console.warn('[approve] attachment download failed:', a.path, e?.message || e); }
         }
       }
       fileAttachments = resolved.length ? resolved : null;
+    }
+    // Never send silently missing an attachment: if some couldn't be loaded, stop and
+    // tell the agent (usually means the email-attachments bucket/migration isn't set up).
+    if (expectedAttach > resolvedAttach) {
+      App.toast(`❌ Couldn't load ${expectedAttach - resolvedAttach} attachment(s) — email NOT sent so it doesn't go out without them. Re-attach and try again, or check the email-attachments bucket.`, 'var(--red)');
+      Approvals._sending.delete(id);
+      return;
     }
     // ── PAYLOAD SIZE GUARD ───────────────────────────────────────────────────
     // The edge function's memory and Gmail's ~25 MB message cap can't handle an
