@@ -1327,20 +1327,43 @@ const Reports = {
     const daysActive = createdAt ? Math.max(1, Math.floor((Date.now() - createdAt.getTime())/(1000*60*60*24))) : 0;
     const reportId = `MX-${new Date().getFullYear()}-${String(client.id||'').replace(/-/g,'').slice(-4).toUpperCase() || '0000'}`;
 
-    // Stage progress bar — 6 canonical stages
-    const stageOrder = ['Active Search','In Offer','Under Contract','Conditions','Financing','Closed'];
+    // Stage progress bar — resale deals use the 6 canonical transaction stages.
+    let stageOrder = ['Active Search','In Offer','Under Contract','Conditions','Financing','Closed'];
     const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5 };
     // Real-time stage: read the client's ACTUAL pipeline deal, not the stale
     // clients.stage field. Pick the most-advanced live (non-archived) deal so the
-    // bar reflects where the deal really is right now (e.g. Conditions), not
-    // wherever the client record was last manually set.
+    // bar reflects where the deal really is right now, not wherever the client
+    // record was last manually set.
     const _rank = s => (stageAliases[s] ?? 0);
     const _liveDeals = (pipelineDeals || []).filter(d => !d.archived_at);
     const _dealClosed = _liveDeals.some(d => d.stage === 'Closed');
     const _dealFell   = _liveDeals.some(d => d.stage === 'Fell Through');
     const _primaryDeal = _liveDeals.slice().sort((a, b) => _rank(b.stage) - _rank(a.stage))[0];
-    const effStage = _dealClosed ? 'Closed' : _dealFell ? 'Fell Through' : (_primaryDeal?.stage || client.stage || 'Searching');
-    const currentStageIdx = stageAliases[effStage] ?? 0;
+    let effStage = _dealClosed ? 'Closed' : _dealFell ? 'Fell Through' : (_primaryDeal?.stage || client.stage || 'Searching');
+    let currentStageIdx = stageAliases[effStage] ?? 0;
+
+    // NEW BUILD: a construction deal follows a different lifecycle, so read the
+    // build tracker's real stage and swap the bar to build stages
+    // (Pre-Construction → Financing → Construction → Conditions → Possession).
+    // This makes the report match the New Build tracker instead of showing the
+    // generic resale "Under Contract" etc.
+    let isNewBuild = _primaryDeal?.deal_type === 'new_build';
+    if ((isNewBuild || !_primaryDeal) && !_dealClosed && !_dealFell) {
+      const { data: _nb } = await db.from('new_builds')
+        .select('current_stage').eq('agent_id', currentAgent.id)
+        .ilike('client_name', client.full_name || '___none___').limit(1).maybeSingle();
+      if (_nb) {
+        isNewBuild = true;
+        stageOrder = ['Pre-Construction','Financing','Construction','Conditions','Possession'];
+        const t = (_nb.current_stage || '').toLowerCase();
+        currentStageIdx = /possess|complete/.test(t)                                   ? 4
+                        : /condition|closing/.test(t)                                  ? 3
+                        : /construction|framing|drywall|finish|foundation|roof/.test(t)? 2
+                        : /financing/.test(t)                                          ? 1
+                        :                                                                0;
+        effStage = stageOrder[currentStageIdx];
+      }
+    }
 
     // ── Headline status badge ──────────────────────────────────────────────
     // The client-facing status the report leads with. A Closed / Fell-Through
@@ -1359,7 +1382,11 @@ const Reports = {
       'Financing':      { label: 'Financing',        icon: '🏦' },
       'Closing':        { label: 'Closing',          icon: '🔑' },
       'Closed':         { label: 'Deal Closed',      icon: '✅' },
-      'Fell Through':   { label: 'Deal Ended',       icon: '◾' }
+      'Fell Through':   { label: 'Deal Ended',       icon: '◾' },
+      // New-build lifecycle labels
+      'Pre-Construction': { label: 'Pre-Construction', icon: '📋' },
+      'Construction':     { label: 'Construction',     icon: '🏗️' },
+      'Possession':       { label: 'Possession',       icon: '🎉' }
     };
     const sd = stageDisplay[effStage] || { label: effStage, icon: '•' };
     // Closed gets a solid white pill with green text so it really pops on the
