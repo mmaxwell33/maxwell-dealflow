@@ -472,6 +472,10 @@ const Clients = {
       ${c.price_range ? `<div class="activity-row"><span style="font-size:18px;">💰</span><div><div class="activity-title">Budget</div><div class="activity-meta">${c.price_range}</div></div></div>` : ''}
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
+      <div class="card2" style="margin-top:12px;padding:12px;">
+        <div class="fw-800" style="font-size:14px;margin-bottom:8px;">📁 Client Folder</div>
+        <div id="client-folder-${c.id}"><div style="font-size:12px;color:var(--text2);">Loading…</div></div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Viewings.openAddForClient('${c.id}','${c.full_name}')">📅 Book Viewing</button>
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
@@ -484,6 +488,7 @@ const Clients = {
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
       </div>
     `);
+    if (typeof ClientDocs !== 'undefined') ClientDocs.load(id);
   },
 
   async openEdit(id) {
@@ -789,4 +794,104 @@ const Clients = {
   async delete(id, name) {
     return Clients.archive(id, name);
   }
+};
+
+// ── CLIENT FOLDER (Phase 1) ──────────────────────────────────────────────────
+// Per-client document folder. Files live in the private client-docs bucket;
+// metadata in client_documents. Rendered inside the client detail modal.
+const ClientDocs = {
+  _docsById: {},
+  CATEGORIES: [
+    { key: 'preapproval',    label: 'Pre-Approval' },
+    { key: 'offer_letter',   label: 'Offer Letter' },
+    { key: 'mls',            label: 'MLS Listing' },
+    { key: 'aps',            label: 'Agreement of Purchase & Sale' },
+    { key: 'rejected_offer', label: 'Rejected Offer' },
+    { key: 'id_kyc',         label: 'ID / KYC' },
+    { key: 'intake',         label: 'Intake / Info' },
+    { key: 'other',          label: 'Other' },
+  ],
+  catLabel(k) { return (ClientDocs.CATEGORIES.find(c => c.key === k) || {}).label || k; },
+
+  async load(clientId) {
+    const el = document.getElementById('client-folder-' + clientId);
+    if (!el) return;
+    const { data, error } = await db.from('client_documents')
+      .select('*').eq('client_id', clientId).order('created_at', { ascending: false });
+    if (error) {
+      // Table/bucket not created yet — guide the agent instead of a blank error.
+      el.innerHTML = `<div style="font-size:12px;color:var(--yellow);">⚠️ Client folder isn't set up yet — run migration 057 in Supabase. (${error.message || 'table missing'})</div>`;
+      return;
+    }
+    (data || []).forEach(d => { ClientDocs._docsById[d.id] = d; });
+    el.innerHTML = ClientDocs.renderList(clientId, data || []);
+  },
+
+  renderList(clientId, docs) {
+    const upload = `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+        <select id="cf-cat-${clientId}" class="form-input" style="flex:1;min-width:120px;font-size:12px;padding:6px;">
+          ${ClientDocs.CATEGORIES.map(c => `<option value="${c.key}">${c.label}</option>`).join('')}
+        </select>
+        <input type="file" id="cf-file-${clientId}" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style="font-size:12px;flex:2;min-width:140px;">
+        <button class="btn2 btn2-primary" style="padding:6px 12px;" onclick="ClientDocs.doUpload('${clientId}')">⬆︎ Upload</button>
+      </div>`;
+    if (!docs.length) {
+      return upload + `<div style="font-size:12px;color:var(--text2);padding:6px 0;">No documents yet. Upload the client's pre-approval, offers, or ID to start their folder.</div>`;
+    }
+    const rows = docs.map(d => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">${ClientDocs.catLabel(d.category)}${d.status ? ` · <span style="color:var(--coral);">${d.status}</span>` : ''}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;">${d.file_name || 'file'}${d.property_address ? ' · ' + d.property_address : ''} · ${App.fmtDate ? App.fmtDate(d.created_at) : String(d.created_at || '').slice(0, 10)}</div>
+        </div>
+        <button class="btn2 btn2-ghost" style="padding:4px 9px;" title="Download" onclick="ClientDocs.download('${d.id}')">⬇︎</button>
+        <button class="btn2 btn2-ghost" style="padding:4px 9px;color:var(--red);" title="Remove" onclick="ClientDocs.remove('${d.id}','${clientId}')">🗑</button>
+      </div>`).join('');
+    return upload + rows;
+  },
+
+  async doUpload(clientId) {
+    const fileInput = document.getElementById('cf-file-' + clientId);
+    const catSel    = document.getElementById('cf-cat-' + clientId);
+    const file = fileInput?.files?.[0];
+    if (!file) { App.toast('Pick a file first', 'var(--yellow)'); return; }
+    if (file.size > 20 * 1024 * 1024) { App.toast('⚠️ File is over 20 MB — too large to store', 'var(--red)'); return; }
+    const category = catSel?.value || 'other';
+    const user = await App.getAuthUser();
+    const uid = user?.id || currentAgent?.id;
+    if (!uid) { App.toast('Not signed in', 'var(--red)'); return; }
+    const safe = (file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${uid}/${clientId}/${Date.now()}-${safe}`;
+    App.toast('Uploading…', 'var(--accent2)');
+    const { error: upErr } = await db.storage.from('client-docs').upload(path, file);
+    if (upErr) { App.toast('⚠️ Upload failed: ' + (upErr.message || 'denied'), 'var(--red)'); return; }
+    const { error: insErr } = await db.from('client_documents').insert({
+      agent_id: uid, client_id: clientId, category, source: 'manual',
+      file_path: path, file_name: file.name, file_size_bytes: file.size,
+    });
+    if (insErr) { App.toast('⚠️ Save failed: ' + insErr.message, 'var(--red)'); return; }
+    App.toast('📁 Added to client folder', 'var(--green)');
+    ClientDocs.load(clientId);
+  },
+
+  async download(id) {
+    const doc = ClientDocs._docsById[id];
+    if (!doc) return;
+    const { data, error } = await db.storage.from('client-docs').createSignedUrl(doc.file_path, 300);
+    if (error || !data?.signedUrl) { App.toast('⚠️ Could not open file', 'var(--red)'); return; }
+    window.open(data.signedUrl, '_blank');
+  },
+
+  async remove(id, clientId) {
+    const doc = ClientDocs._docsById[id];
+    if (!doc) return;
+    if (!confirm(`Remove "${doc.file_name || 'this file'}" from the client folder?`)) return;
+    await db.storage.from('client-docs').remove([doc.file_path]).catch(() => {});
+    const { error } = await db.from('client_documents').delete().eq('id', id);
+    if (error) { App.toast('⚠️ Delete failed: ' + error.message, 'var(--red)'); return; }
+    delete ClientDocs._docsById[id];
+    App.toast('Removed from folder', 'var(--text2)');
+    ClientDocs.load(clientId);
+  },
 };
