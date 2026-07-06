@@ -214,7 +214,6 @@ const Approvals = {
           body: JSON.stringify({
             to: toEmail,
             cc: actualCc,
-            bcc: (agent.email || null),   // always copy the agent on outgoing email (hidden from recipient)
             subject: cleanSubject,
             body: outBody,
             html: outHtml,
@@ -1964,7 +1963,8 @@ const NewBuilds = {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.openEdit('${b.id}')">✏️ Edit Details</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyClient('${b.id}')">📧 Notify Client</button>
-          <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyStakeholders('${b.id}')" style="color:var(--accent2);border-color:var(--accent2);">⚖️ Notify Lawyer + Lender</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.notifyStakeholders('${b.id}')" style="color:var(--accent2);border-color:var(--accent2);">⚖️ Introduce to Lawyer + Lender</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendStakeholderPortalLinks('${b.id}')" style="color:var(--accent2);border-color:var(--accent2);">🔗 Send Lawyer/Lender Portal</button>
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendBuilderLink('${b.id}')">🔨 ${b.builder_token ? 'Re-send' : 'Send'} Builder Link</button>
           ${b.builder_token ? `<button class="btn btn-outline btn-sm" onclick="NewBuilds.revokeBuilderLink('${b.id}')" style="color:var(--red);border-color:var(--red);">✕ Revoke Builder</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="NewBuilds.sendClientLink('${b.id}')" style="color:var(--green);border-color:var(--green);">🔗 Send Buyer Portal</button>
@@ -2752,24 +2752,68 @@ const NewBuilds = {
         } catch (e) { console.warn('[notifyStakeholders] doc attach skipped:', e?.message || e); }
       }
     }
+    // CC the client on the introduction so they're looped in. NOTE: this email
+    // deliberately carries NO portal link (see the template) — a CC'd client must
+    // never receive the lawyer/lender's private portal link.
+    const clientEmail = b.clients?.email || b.client_email || null;
     let sent = 0;
     for (const s of stakes) {
       if (!s.email) continue;
       const roleLabel = s.role === 'lawyer' ? 'Lawyer' : 'Lender';
-      const portalUrl = s.token ? `https://maxwell-dealflow.vercel.app/portal?t=${s.token}` : null;
-      const tmpl = Notify.templates.build_details_stakeholder({ name: s.name }, roleLabel, b, currentAgent, portalUrl);
+      const tmpl = Notify.templates.build_details_stakeholder({ name: s.name }, roleLabel, b, currentAgent);
       await Notify.queue(
-        `New build details → ${roleLabel} 📨`,
+        `Client introduction → ${roleLabel} 📨`,
         b.client_id, s.name, s.email,
         tmpl.subject, tmpl.body, b.id, tmpl.html,
-        null, null, attachments.length ? attachments : null
+        null, clientEmail, attachments.length ? attachments : null
       );
       sent++;
     }
     App.toast(sent
-      ? `✅ Builder details${attachments.length ? ` + ${attachments.length} document${attachments.length === 1 ? '' : 's'}` : ''} queued for ${sent} stakeholder${sent === 1 ? '' : 's'} in Approvals`
+      ? `✅ Client introduction${attachments.length ? ` + ${attachments.length} document${attachments.length === 1 ? '' : 's'}` : ''} queued for ${sent} stakeholder${sent === 1 ? '' : 's'}${clientEmail ? ' (client CC\'d)' : ''} in Approvals`
       : '⚠️ Those stakeholders have no email on file', sent ? 'var(--green)' : 'var(--yellow)');
-    App.pushNotify('⚖️ Build details queued', `${b.client_name || 'Client'} · ${b.lot_address || ''}`, 'approvals');
+    App.pushNotify('⚖️ Client introduction queued', `${b.client_name || 'Client'} · ${b.lot_address || ''}`, 'approvals');
+  },
+
+  // Send each lawyer/lender their OWN private portal link — separate from the
+  // client introduction, and NEVER CC the client (the whole point is that the
+  // portal link stays with the stakeholder). Only sends to stakeholders that
+  // already have a portal token (set up at Offer Accepted); others are flagged.
+  async sendStakeholderPortalLinks(id) {
+    const b = NewBuilds.all.find(x => x.id === id);
+    if (!b) { App.toast('⚠️ Build not found', 'var(--red)'); return; }
+    if (!b.client_id) { App.toast('This build has no linked client — open Edit Details and pick the client first', 'var(--yellow)'); return; }
+    if (typeof Notify === 'undefined' || !Notify.templates.stakeholder_portal_link) {
+      App.toast('⚠️ Email templates not loaded', 'var(--red)'); return;
+    }
+    const { data: pipe } = await db.from('pipeline')
+      .select('id').eq('client_id', b.client_id).limit(1).maybeSingle();
+    if (!pipe?.id) { App.toast('No pipeline deal found for this build', 'var(--yellow)'); return; }
+    const { data: stakes } = await db.from('deal_stakeholders')
+      .select('role, name, email, token')
+      .eq('pipeline_id', pipe.id).is('revoked_at', null)
+      .in('role', ['lawyer', 'mortgage_broker']);
+    if (!stakes?.length) { App.toast('No lawyer or lender on this deal yet — add them at Offer Accepted', 'var(--yellow)'); return; }
+    let sent = 0, noToken = 0;
+    for (const s of stakes) {
+      if (!s.email) continue;
+      if (!s.token) { noToken++; continue; }  // portal was never set up for this one
+      const roleLabel = s.role === 'lawyer' ? 'Lawyer' : 'Lender';
+      const portalUrl = `${location.origin}/portal?t=${s.token}`;
+      const tmpl = Notify.templates.stakeholder_portal_link({ name: s.name }, roleLabel, b, currentAgent, portalUrl);
+      // No CC — portal link goes ONLY to the stakeholder.
+      await Notify.queue(
+        `Portal link → ${roleLabel} 🔗`,
+        b.client_id, s.name, s.email,
+        tmpl.subject, tmpl.body, b.id, tmpl.html
+      );
+      sent++;
+    }
+    App.toast(
+      sent ? `✅ Portal link queued for ${sent} stakeholder${sent === 1 ? '' : 's'} in Approvals${noToken ? ` · ${noToken} have no portal yet (set up at Offer Accepted)` : ''}`
+           : '⚠️ No active portal token for these stakeholders — set up their portal at Offer Accepted first',
+      sent ? 'var(--green)' : 'var(--yellow)');
+    if (sent) App.pushNotify('🔗 Portal links queued', `${b.client_name || 'Client'} · ${b.lot_address || ''}`, 'approvals');
   },
 
   notifyClient(id) {

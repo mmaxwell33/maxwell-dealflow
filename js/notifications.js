@@ -1187,55 +1187,73 @@ REALTOR® | eXp Realty`;
     // New-build handoff snapshot for a stakeholder (lawyer / lender). Sent from the
     // New Build card so the recipient sees the builder, price, deposit, and
     // purchase-agreement details in one place, plus their portal link.
-    build_details_stakeholder: (recipient, roleLabel, build, agent, portalUrl) => {
+    // Client introduction to the lawyer / lender. Introduces the buyer, states the
+    // accepted offer + purchase price, notes the attached MLS + APS, and hands off.
+    // NO portal link — the client is CC'd on this email (see notifyStakeholders), so
+    // a portal link here would give the client access to the stakeholder's portal.
+    build_details_stakeholder: (recipient, roleLabel, build, agent) => {
       const first = (recipient?.name || '').split(' ')[0] || 'there';
-      const fmtD = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : String(d).slice(0,10)) : null;
       const money = (n) => n ? '$' + Number(n).toLocaleString() : null;
-      const rows = [
-        build.builder_name        ? ['Builder', build.builder_name] : null,
-        build.builder_contact     ? ['Builder contact', build.builder_contact] : null,
-        build.builder_email       ? ['Builder email', build.builder_email] : null,
-        build.lot_address         ? ['Lot / property', build.lot_address] : null,
-        build.mls_number          ? ['MLS #', build.mls_number] : null,
-        money(build.purchase_price) ? ['Purchase price', money(build.purchase_price)] : null,
-        money(build.deposit_amount) ? ['Deposit', money(build.deposit_amount) + ' (' + (build.deposit_status || 'Pending') + ')'] : null,
-        fmtD(build.deposit_date)     ? ['Deposit date', fmtD(build.deposit_date)] : null,
-        fmtD(build.pa_submitted_date)? ['Purchase agreement submitted', fmtD(build.pa_submitted_date)] : null,
-        fmtD(build.pa_accepted_date) ? ['Purchase agreement signed', fmtD(build.pa_accepted_date)] : null,
-        fmtD(build.est_completion_date) ? ['Est. completion', fmtD(build.est_completion_date)] : null,
-        build.flooring_selection  ? ['Flooring / allowances', build.flooring_selection] : null,
-      ].filter(Boolean);
-      const buyer = build.client_name || 'my client';
-      const htmlRows = rows.map(([k, v]) =>
-        `<tr><td style="padding:6px 12px;color:#5f6368;font-size:13px;white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:6px 12px;color:#202124;font-size:13px;font-weight:500;">${v}</td></tr>`
-      ).join('');
+      const buyer = (build.clients && build.clients.full_name) || build.client_name || 'my client';
+      const buyerFirst = String(buyer).split(' ')[0] || 'the client';
+      const property = build.lot_address || 'the property';
+      const price = money(build.purchase_price) || money(build.lot_price);
+      const priceHtml = price ? ` at a purchase price of <strong>${price}</strong>` : '';
+      const priceTxt  = price ? ` at a purchase price of ${price}` : '';
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${first},</p>
-        <p>Here are the details for <strong>${buyer}</strong>'s new build at <strong>${build.lot_address || 'the property'}</strong>, for your file.</p>
-        <table style="border-collapse:collapse;margin:8px 0 16px;width:100%;border:1px solid #e8eaed;border-radius:8px;">${htmlRows}</table>
-        ${portalUrl ? `<a class="cal-btn" href="${portalUrl}">View live build progress in your portal →</a><p style="font-size:12px;color:#999;margin:0 0 16px;">Your secure ${roleLabel.toLowerCase()} portal shows the full build timeline and documents.</p>` : ''}
-        <p>Let me know if you need anything else on this file.</p>
+        <p>I hope you're doing well.</p>
+        <p>I'm pleased to introduce my client, <strong>${buyer}</strong>. They have an accepted offer in place for <strong>${property}</strong>${priceHtml}.</p>
+        <p>I've attached the <strong>MLS listing</strong> and the <strong>fully executed Agreement of Purchase &amp; Sale</strong> for your review. I'll leave you and ${buyerFirst} to connect directly on next steps, required documents, and closing details.</p>
+        <p>If anything further is needed from me in the meantime, please don't hesitate to reach out.</p>
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
       </body></html>`;
       const body = `Hi ${first},
 
-Here are the details for ${buyer}'s new build at ${build.lot_address || 'the property'}, for your file.
+I hope you're doing well.
 
-${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}
-${portalUrl ? `\nView live build progress in your portal: ${portalUrl}` : ''}
+I'm pleased to introduce my client, ${buyer}. They have an accepted offer in place for ${property}${priceTxt}.
 
-Let me know if you need anything else on this file.
+I've attached the MLS listing and the fully executed Agreement of Purchase & Sale for your review. I'll leave you and ${buyerFirst} to connect directly on next steps, required documents, and closing details.
+
+If anything further is needed from me in the meantime, please don't hesitate to reach out.
 
 Best regards,
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty`;
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
       return {
-        subject: `New build file — ${buyer} · ${build.lot_address || ''}`,
+        subject: `Introducing ${buyer} — ${property}`,
         body,
         html
       };
+    },
+
+    // Private portal link for a lawyer / lender — sent ONLY to that stakeholder
+    // (never CC the client, or they'd get access to the stakeholder's portal).
+    stakeholder_portal_link: (recipient, roleLabel, build, agent, portalUrl) => {
+      const first = (recipient?.name || '').split(' ')[0] || 'there';
+      const property = build.lot_address || 'this transaction';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${first},</p>
+        <p>Here is your secure ${roleLabel.toLowerCase()} portal for <strong>${property}</strong>. It shows the current status, key dates, and documents for this file.</p>
+        <p style="text-align:center;margin:24px 0;"><a class="cal-btn" href="${portalUrl}">Open your ${roleLabel} portal →</a></p>
+        <p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="word-break:break-all;">${portalUrl}</a></p>
+        <p style="font-size:12px;color:#999;">This link is private to you — please don't forward it.</p>
+        <p>Best regards,</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
+      </body></html>`;
+      const body = `Hi ${first},
+
+Here is your secure ${roleLabel.toLowerCase()} portal for ${property}:
+${portalUrl}
+
+It shows the current status, key dates, and documents for this file. This link is private to you — please don't forward it.
+
+Best regards,
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
+      return { subject: `Your ${roleLabel} portal — ${property}`, body, html };
     },
 
     // ── BRIEF RE-ENGAGEMENT TEMPLATES ─────────────────────────────────────────
