@@ -188,6 +188,17 @@ const Offers = {
         <input class="form-input" id="of-response-due" type="datetime-local">
         <div style="font-size:11px;color:var(--text2);margin-top:4px;">Optional — system will remind you at this time if no response is logged yet</div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">📄 Offer Letter <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+          <input type="file" class="form-input" id="of-file-letter" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🏦 Pre-Approval <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+          <input type="file" class="form-input" id="of-file-preapp" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">📁 Attached files are saved to this client's folder.</div>
       <button class="btn btn-primary btn-block" onclick="Offers.save()">Submit Offer</button>
       <div id="of-status-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
@@ -224,6 +235,32 @@ const Offers = {
     }).select().single();
 
     if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
+
+    // Phase 2b: file the offer letter + pre-approval into the client's folder,
+    // tagged with the property. If the offer is rejected later, the letter gets
+    // re-tagged "Offer Rejected" (see confirmRejection). Best-effort.
+    const _letter = document.getElementById('of-file-letter')?.files?.[0];
+    const _preapp = document.getElementById('of-file-preapp')?.files?.[0];
+    if (_letter || _preapp) {
+      const _u = await App.getAuthUser();
+      const _uid = _u?.id || currentAgent.id;
+      const letterStatus = status === 'Rejected' ? 'Offer Rejected' : status === 'Accepted' ? 'Accepted' : null;
+      const fileToFolder = async (file, category, docStatus) => {
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) { App.toast(`⚠️ ${file.name} over 20 MB — not saved to folder`, 'var(--yellow)'); return; }
+        const safe = (file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${_uid}/${clientId}/${Date.now()}-${safe}`;
+        const { error: upErr } = await db.storage.from('client-docs').upload(path, file);
+        if (upErr) { console.warn('[client folder] offer file skipped:', upErr.message || upErr); return; }
+        await db.from('client_documents').insert({
+          agent_id: _uid, client_id: clientId, category, source: 'offer',
+          property_address: address, status: docStatus || null,
+          file_path: path, file_name: file.name, file_size_bytes: file.size
+        });
+      };
+      await fileToFolder(_letter, 'offer_letter', letterStatus);
+      await fileToFolder(_preapp, 'preapproval', null);
+    }
 
     await App.logActivity('OFFER_SUBMITTED', client?.full_name, client?.email,
       `Offer submitted: ${App.fmtMoney(amount)} on ${address}`, clientId);
@@ -439,6 +476,15 @@ const Offers = {
     const client = Clients.all.find(c => c.id === o.client_id);
     await db.from('offers').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
     await db.from('clients').update({ stage: 'Searching' }).eq('id', o.client_id);
+    // Phase 2c: re-tag this property's offer letter in the client folder as rejected.
+    if (o?.client_id && o?.property_address) {
+      try {
+        await db.from('client_documents')
+          .update({ status: 'Offer Rejected' })
+          .eq('client_id', o.client_id).eq('category', 'offer_letter')
+          .eq('property_address', o.property_address);
+      } catch (e) { console.warn('[client folder] reject re-tag skipped:', e?.message || e); }
+    }
     if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg);
     App.closeModal();
     App.toast('📬 Rejection notification queued. Client stage reset to Searching.');
