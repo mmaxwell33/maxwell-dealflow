@@ -2712,6 +2712,33 @@ const NewBuilds = {
       App.toast('No lawyer or lender on this deal yet — add them at Offer Accepted (Stakeholder dispatch)', 'var(--yellow)');
       return;
     }
+    // Attach the deal's documents to the email so the lawyer/lender receive the
+    // actual files in their inbox — documents are no longer exposed via the
+    // portal. Downloaded from the deal-docs bucket and base64-encoded in the
+    // {filename,mime_type,data} shape the send path expects. Best-effort: a
+    // failed download or an oversized file is skipped, never blocks the notify.
+    let attachments = [];
+    if (pipe?.id) {
+      const { data: docRows } = await db.from('deal_documents')
+        .select('file_path, file_name, file_size_bytes').eq('pipeline_id', pipe.id);
+      for (const doc of (docRows || [])) {
+        if ((doc.file_size_bytes || 0) > 5 * 1024 * 1024) {
+          App.toast(`⚠️ ${doc.file_name || 'A document'} is over 5 MB — not attached`, 'var(--yellow)');
+          continue;
+        }
+        try {
+          const { data: blob, error: dlErr } = await db.storage.from('deal-docs').download(doc.file_path);
+          if (dlErr || !blob) continue;
+          const b64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = e => res(String(e.target.result).split(',')[1]);
+            r.onerror = rej;
+            r.readAsDataURL(blob);
+          });
+          attachments.push({ filename: doc.file_name || 'document', mime_type: blob.type || 'application/octet-stream', data: b64 });
+        } catch (e) { console.warn('[notifyStakeholders] doc attach skipped:', e?.message || e); }
+      }
+    }
     let sent = 0;
     for (const s of stakes) {
       if (!s.email) continue;
@@ -2721,12 +2748,13 @@ const NewBuilds = {
       await Notify.queue(
         `New build details → ${roleLabel} 📨`,
         b.client_id, s.name, s.email,
-        tmpl.subject, tmpl.body, b.id, tmpl.html
+        tmpl.subject, tmpl.body, b.id, tmpl.html,
+        null, null, attachments.length ? attachments : null
       );
       sent++;
     }
     App.toast(sent
-      ? `✅ Builder details queued for ${sent} stakeholder${sent === 1 ? '' : 's'} in Approvals`
+      ? `✅ Builder details${attachments.length ? ` + ${attachments.length} document${attachments.length === 1 ? '' : 's'}` : ''} queued for ${sent} stakeholder${sent === 1 ? '' : 's'} in Approvals`
       : '⚠️ Those stakeholders have no email on file', sent ? 'var(--green)' : 'var(--yellow)');
     App.pushNotify('⚖️ Build details queued', `${b.client_name || 'Client'} · ${b.lot_address || ''}`, 'approvals');
   },
