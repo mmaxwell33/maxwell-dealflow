@@ -1650,13 +1650,36 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       htmlBody = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>${EmailFormat.bodyHTML(emailBody)}</body></html>`;
     }
 
+    // Offload file attachments to storage so the approval row stays small. Storing
+    // base64 inline blows past the row/request size limit for anything but tiny files
+    // (that's why large attachments silently failed to queue). Each attachment is
+    // uploaded to the private email-attachments bucket and referenced by path;
+    // approve() downloads + attaches at send time, then deletes it. Falls back to
+    // inline base64 per-file if the upload fails (e.g. bucket not created yet).
+    let attachmentRefs = null;
+    if (fileAttachments?.length) {
+      attachmentRefs = [];
+      for (const f of fileAttachments) {
+        if (!f?.data) { attachmentRefs.push(f); continue; }  // already a ref, or nothing to store
+        try {
+          const bytes = Uint8Array.from(atob(f.data), c => c.charCodeAt(0));
+          const safe  = (f.filename || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const path  = `${agentId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await db.storage.from('email-attachments')
+            .upload(path, new Blob([bytes], { type: f.mime_type || 'application/octet-stream' }));
+          if (upErr) { attachmentRefs.push(f); }  // fall back to inline
+          else       { attachmentRefs.push({ filename: f.filename, mime_type: f.mime_type, path }); }
+        } catch (e) { attachmentRefs.push(f); }   // fall back to inline
+      }
+    }
+
     // Pack html + ics + real file attachments into context_data
     let contextData = null;
-    if (htmlBody || icsBase64 || ccEmail || fileAttachments?.length) {
+    if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length) {
       const safeHtml = htmlBody ? btoa(unescape(encodeURIComponent(htmlBody))) : null;
       contextData = {
         html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null,
-        attachments: fileAttachments?.length ? fileAttachments : null
+        attachments: attachmentRefs?.length ? attachmentRefs : null
       };
     }
     const insertRow = {

@@ -153,10 +153,37 @@ const Approvals = {
         }
         icsAttachment   = ctx.ics         || null;
         ccEmail         = ctx.cc          || null;
-        fileAttachments = ctx.attachments || null; // [{filename,mime_type,data}]
+        fileAttachments = ctx.attachments || null; // [{filename,mime_type,data}] or [{...,path}]
       } catch {
         htmlBody = item.context_data;
       }
+    }
+    // Resolve storage-backed attachments: download each staged file from the
+    // email-attachments bucket and turn it into the {filename,mime_type,data} the
+    // send path needs. Inline attachments (with .data) are used as-is. Staged paths
+    // are collected so we can delete them once the email is sent.
+    const stagedPaths = [];
+    if (fileAttachments?.length) {
+      const resolved = [];
+      for (const a of fileAttachments) {
+        if (a?.data) { resolved.push(a); continue; }
+        if (a?.path) {
+          stagedPaths.push(a.path);
+          try {
+            const { data: blob } = await db.storage.from('email-attachments').download(a.path);
+            if (blob) {
+              const b64 = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = e => res(String(e.target.result).split(',')[1]);
+                r.onerror = rej;
+                r.readAsDataURL(blob);
+              });
+              resolved.push({ filename: a.filename, mime_type: a.mime_type, data: b64 });
+            }
+          } catch (e) { console.warn('[approve] attachment download failed:', a.path, e?.message || e); }
+        }
+      }
+      fileAttachments = resolved.length ? resolved : null;
     }
     // ── PAYLOAD SIZE GUARD ───────────────────────────────────────────────────
     // The edge function's memory and Gmail's ~25 MB message cap can't handle an
@@ -232,6 +259,11 @@ const Approvals = {
           console.error('Email send error:', result);
           Approvals._sending.delete(id);
           return;
+        }
+        // Sent OK — delete any staged attachment files (best-effort; never blocks).
+        if (stagedPaths.length) {
+          db.storage.from('email-attachments').remove(stagedPaths)
+            .catch(e => console.warn('[approve] staged attachment cleanup skipped:', e?.message || e));
         }
         // Log sent email to inbox for threading
         try {
@@ -3259,10 +3291,20 @@ const EmailSend = {
     const { plainSig, fullBody: fb } = EmailSend.buildSignedBody(bodyText, '', cc);
     const htmlBody = EmailSend.wrapHtml(bodyText, plainSig, files?.map(f=>f.filename).join(', ') || '');
     st.style.color = 'var(--text2)'; st.textContent = 'Sending to Approvals...';
+    let ok = false;
     if (typeof Notify !== "undefined") {
-      await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody, null, cc || null, files);
+      ok = await Notify.queue('External Email', null, toName || toEmail, toEmail, subject, fb, null, htmlBody, null, cc || null, files);
     }
-    // Clear attachments after queuing
+    // Only report success if the queue insert actually succeeded. Previously this
+    // always said "Queued" even when the insert failed (a large attachment stored
+    // as base64 in the approval row is the usual cause) — so the email silently
+    // vanished. Keep the attachments on failure so the agent can retry.
+    if (!ok) {
+      st.style.color = 'var(--red)';
+      st.textContent = '⚠️ Could not queue this email — see the error above. A large attachment is the usual cause; try a smaller file, or send it straight from your Gmail.';
+      return;
+    }
+    // Clear attachments after a successful queue
     EmailSend._extFiles = [];
     EmailSend.renderFileChips('ext');
     st.style.color = 'var(--green)';
