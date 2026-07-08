@@ -839,7 +839,8 @@ const ClientDocs = {
     if (!docs.length) {
       return upload + `<div style="font-size:12px;color:var(--text2);padding:6px 0;">No documents yet. Upload the client's pre-approval, offers, or ID to start their folder.</div>`;
     }
-    const rows = docs.map(d => `
+    const zipBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><button class="btn2 btn2-ghost" style="padding:5px 11px;font-size:12px;" onclick="ClientDocs.downloadFolder('${clientId}')">⬇︎ Download Folder (ZIP)</button></div>`;
+    const rows = zipBtn + docs.map(d => `
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:600;">${ClientDocs.catLabel(d.category)}${d.status ? ` · <span style="color:var(--coral);">${d.status}</span>` : ''}</div>
@@ -893,5 +894,65 @@ const ClientDocs = {
     delete ClientDocs._docsById[id];
     App.toast('Removed from folder', 'var(--text2)');
     ClientDocs.load(clientId);
+  },
+
+  // ── ZIP export (Phase 3) — self-contained, no external library ──────────────
+  _crcTable: null,
+  _crc32(u8) {
+    if (!ClientDocs._crcTable) {
+      const t = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; }
+      ClientDocs._crcTable = t;
+    }
+    const t = ClientDocs._crcTable; let crc = 0xFFFFFFFF;
+    for (let i = 0; i < u8.length; i++) crc = (crc >>> 8) ^ t[(crc ^ u8[i]) & 0xFF];
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  },
+  // Build a valid STORE (uncompressed) ZIP from [{name, data:Uint8Array}].
+  // PDFs/images are already compressed, so STORE keeps it simple and dependency-free.
+  _makeZip(entries) {
+    const enc = new TextEncoder();
+    const u16 = n => { const a = new Uint8Array(2); a[0] = n & 255; a[1] = (n >>> 8) & 255; return a; };
+    const u32 = n => { const a = new Uint8Array(4); a[0] = n & 255; a[1] = (n >>> 8) & 255; a[2] = (n >>> 16) & 255; a[3] = (n >>> 24) & 255; return a; };
+    const local = [], cdir = []; let offset = 0;
+    for (const e of entries) {
+      const name = enc.encode(e.name), crc = ClientDocs._crc32(e.data), sz = e.data.length;
+      [u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(name.length), u16(0), name, e.data].forEach(p => local.push(p));
+      [u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name].forEach(p => cdir.push(p));
+      offset += 30 + name.length + sz;
+    }
+    const cdBytes = cdir.reduce((s, p) => s + p.length, 0);
+    const eocd = [u32(0x06054b50), u16(0), u16(0), u16(entries.length), u16(entries.length), u32(cdBytes), u32(offset), u16(0)];
+    const all = [...local, ...cdir, ...eocd];
+    const out = new Uint8Array(all.reduce((s, p) => s + p.length, 0));
+    let pos = 0; for (const p of all) { out.set(p, pos); pos += p.length; }
+    return new Blob([out], { type: 'application/zip' });
+  },
+
+  async downloadFolder(clientId) {
+    const { data: list } = await db.from('client_documents')
+      .select('*').eq('client_id', clientId).order('created_at', { ascending: true });
+    if (!list || !list.length) { App.toast('Folder is empty', 'var(--yellow)'); return; }
+    App.toast('Preparing ZIP…', 'var(--accent2)');
+    const entries = [], used = {};
+    for (const d of list) {
+      try {
+        const { data: blob, error } = await db.storage.from('client-docs').download(d.file_path);
+        if (error || !blob) continue;
+        const buf = new Uint8Array(await blob.arrayBuffer());
+        let name = `${ClientDocs.catLabel(d.category)} - ${d.file_name || 'file'}`.replace(/[\/\\]/g, '-');
+        if (used[name]) { const n = ++used[name]; const dot = name.lastIndexOf('.'); name = dot > 0 ? name.slice(0, dot) + ` (${n})` + name.slice(dot) : name + ` (${n})`; }
+        else used[name] = 1;
+        entries.push({ name, data: buf });
+      } catch (e) { console.warn('[zip] skipped', d.file_name, e?.message || e); }
+    }
+    if (!entries.length) { App.toast('⚠️ Could not read any files', 'var(--red)'); return; }
+    const client = (Clients.all || []).find(c => c.id === clientId);
+    const zipName = `${(client?.full_name || 'client').replace(/[^a-zA-Z0-9._-]/g, '_')}-folder.zip`;
+    const url = URL.createObjectURL(ClientDocs._makeZip(entries));
+    const a = document.createElement('a'); a.href = url; a.download = zipName;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    App.toast(`⬇︎ Downloaded ${entries.length} file${entries.length === 1 ? '' : 's'} as ZIP`, 'var(--green)');
   },
 };
