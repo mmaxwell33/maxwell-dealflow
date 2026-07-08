@@ -604,6 +604,36 @@ const FormResponses = {
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
     await App.logActivity('CLIENT_ADDED', r.full_name, r.email, `Added from intake form: ${r.full_name}`);
 
+    // Phase 4: initialize the client's folder with an intake summary the moment
+    // they're added from their form — so the folder starts populated on day one.
+    if (newClient?.id) {
+      try {
+        const _u = await App.getAuthUser();
+        const uid = _u?.id || currentAgent.id;
+        const submitted = r.created_at ? (App.fmtDate ? App.fmtDate(r.created_at) : String(r.created_at).slice(0, 10)) : new Date().toISOString().slice(0, 10);
+        const summary =
+          `CLIENT INTAKE SUMMARY\n=====================\n` +
+          `Name: ${r.full_name || ''}\n` +
+          `Email: ${r.email || ''}\n` +
+          (r.phone ? `Phone: ${r.phone}\n` : '') +
+          `Type: ${isSellerIntake ? 'Seller' : 'Buyer'}\n` +
+          `Submitted: ${submitted}\n` +
+          (!isSellerIntake && (r.budget_min || r.budget_max) ? `Budget: $${Number(r.budget_min || 0).toLocaleString()} - $${Number(r.budget_max || 0).toLocaleString()}\n` : '') +
+          (!isSellerIntake && r.preferred_areas ? `Preferred areas: ${r.preferred_areas}\n` : '') +
+          (!isSellerIntake && r.bedrooms ? `Bedrooms: ${r.bedrooms}\n` : '') +
+          (notes ? `\n${notes}\n` : '');
+        const blob = new Blob([summary], { type: 'text/plain' });
+        const path = `${uid}/${newClient.id}/${Date.now()}-Intake-Summary.txt`;
+        const { error: upErr } = await db.storage.from('client-docs').upload(path, blob, { contentType: 'text/plain' });
+        if (!upErr) {
+          await db.from('client_documents').insert({
+            agent_id: uid, client_id: newClient.id, category: 'intake', source: 'intake',
+            file_path: path, file_name: 'Intake Summary.txt', file_size_bytes: blob.size
+          });
+        }
+      } catch (e) { console.warn('[client folder] intake summary skipped:', e?.message || e); }
+    }
+
     // Seller-side feature: create a listings row so the seller's property
     // is tracked from day one. Non-fatal if the listings table isn't
     // migrated yet — we just log and carry on.
