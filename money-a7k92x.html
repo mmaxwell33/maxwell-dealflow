@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Financial Tracker</title>
+<style>
+  :root{
+    --bg:#0e1220; --card:#181d31; --card2:#1f2540; --line:#2a3152;
+    --accent:#5b5bd6; --accent2:#7c7cff; --text1:#f2f4ff; --text2:#9aa2c4;
+    --green:#33c78d; --red:#f0556d; --yellow:#f5b74e; --blue:#4ea8f5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+  body{background:var(--bg); color:var(--text1); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:0 0 60px; line-height:1.45}
+  header{padding:22px 18px 14px; position:sticky; top:0; background:linear-gradient(180deg,var(--bg) 70%,transparent); z-index:20}
+  h1{font-size:20px; font-weight:700; letter-spacing:-.3px}
+  .sub{color:var(--text2); font-size:12.5px; margin-top:3px}
+  .wrap{max-width:760px; margin:0 auto; padding:0 14px}
+
+  /* tabs */
+  .tabs{display:flex; gap:6px; overflow-x:auto; padding:4px 14px 10px; position:sticky; top:64px; background:var(--bg); z-index:19; scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto; padding:9px 14px; border-radius:11px; background:var(--card); color:var(--text2); font-size:13.5px; font-weight:600; border:1px solid transparent; cursor:pointer; white-space:nowrap}
+  .tab.active{background:var(--accent); color:#fff; border-color:var(--accent2)}
+
+  section{display:none}
+  section.active{display:block; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px}
+  .card h2{font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text2); margin-bottom:12px; font-weight:700}
+
+  /* big stat grid */
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .stat{background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .stat .lbl{font-size:11.5px; color:var(--text2); text-transform:uppercase; letter-spacing:.4px}
+  .stat .val{font-size:22px; font-weight:800; margin-top:6px; letter-spacing:-.5px}
+  .stat.wide{grid-column:1 / -1}
+  .val.green{color:var(--green)} .val.red{color:var(--red)} .val.blue{color:var(--blue)} .val.yellow{color:var(--yellow)} .val.acc{color:var(--accent2)}
+
+  /* rows */
+  .row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .name{flex:1; font-weight:600; font-size:14.5px}
+  .row .small{font-size:12px; color:var(--text2); font-weight:500}
+
+  label.field{display:block; margin-bottom:12px}
+  label.field .l{font-size:12px; color:var(--text2); margin-bottom:5px; display:block}
+  input,select{width:100%; background:var(--card2); border:1px solid var(--line); color:var(--text1); border-radius:10px; padding:11px 12px; font-size:15px; font-family:inherit}
+  input:focus,select:focus{outline:none; border-color:var(--accent)}
+  input.money{text-align:right}
+  .inline{display:flex; gap:8px; align-items:center}
+  .inline input{flex:1}
+
+  button{font-family:inherit; cursor:pointer; border:none}
+  .btn{background:var(--accent); color:#fff; padding:11px 14px; border-radius:11px; font-size:14px; font-weight:700; width:100%}
+  .btn.ghost{background:var(--card2); color:var(--text1); border:1px solid var(--line)}
+  .btn.sm{width:auto; padding:8px 12px; font-size:13px}
+  .del{background:transparent; color:var(--red); font-size:20px; line-height:1; padding:4px 8px; border-radius:8px; font-weight:700}
+  .add-row{display:grid; grid-template-columns:1fr 120px auto; gap:8px; align-items:end; margin-top:10px}
+  .add-row.three{grid-template-columns:1fr 1fr 110px auto}
+
+  .cc{background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px}
+  .cc .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px}
+  .cc .top .nm{font-size:16px; font-weight:800}
+  .cc .top .lim{font-size:12px; color:var(--text2)}
+  .bar{height:8px; background:#0c0f1c; border-radius:6px; overflow:hidden; margin:10px 0 8px}
+  .bar > i{display:block; height:100%; background:linear-gradient(90deg,var(--yellow),var(--red)); border-radius:6px}
+  .cc .foot{display:flex; justify-content:space-between; font-size:12.5px; color:var(--text2)}
+  .cc .foot b{color:var(--text1)}
+  .cc-input{display:flex; align-items:center; gap:8px; margin-top:6px}
+  .cc-input .l{font-size:12px; color:var(--text2); width:64px}
+
+  .hint{font-size:12px; color:var(--text2); margin-top:8px; line-height:1.5}
+  .empty{color:var(--text2); font-size:13.5px; padding:8px 0; text-align:center}
+  .pill{font-size:11px; padding:3px 8px; border-radius:20px; background:var(--card2); color:var(--text2); font-weight:600}
+  .saved{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--green); color:#052; padding:9px 18px; border-radius:30px; font-weight:700; font-size:13px; opacity:0; transition:.3s; pointer-events:none; z-index:50}
+  .saved.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  textarea{width:100%; background:var(--card2); border:1px solid var(--line); color:var(--text1); border-radius:10px; padding:10px; font-size:12px; font-family:monospace; min-height:120px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>💰 My Financial Tracker</h1>
+    <div class="sub">Tracking from July 1, 2026 · everything saves on this device only</div>
+  </div>
+</header>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-t="dash">Dashboard</div>
+  <div class="tab" data-t="income">Income</div>
+  <div class="tab" data-t="expected">Expecting</div>
+  <div class="tab" data-t="assets">Assets</div>
+  <div class="tab" data-t="cards">Credit Cards</div>
+  <div class="tab" data-t="expenses">Expenses</div>
+  <div class="tab" data-t="backup">Backup</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="dash" class="active">
+    <div class="grid">
+      <div class="stat wide"><div class="lbl">Net Position (assets − credit owed)</div><div class="val acc" id="d_net">$0</div></div>
+      <div class="stat"><div class="lbl">Total Earned (YTD)</div><div class="val green" id="d_earned">$0</div></div>
+      <div class="stat"><div class="lbl">Money Expecting</div><div class="val blue" id="d_expecting">$0</div></div>
+      <div class="stat"><div class="lbl">Cash + Assets</div><div class="val" id="d_assets">$0</div></div>
+      <div class="stat"><div class="lbl">Credit Owed</div><div class="val red" id="d_debt">$0</div></div>
+      <div class="stat"><div class="lbl">Available Credit</div><div class="val yellow" id="d_avail">$0</div></div>
+      <div class="stat"><div class="lbl">Total Expenses</div><div class="val" id="d_exp">$0</div></div>
+      <div class="stat wide"><div class="lbl">Projected Total (assets + expecting − expenses)</div><div class="val green" id="d_proj">$0</div></div>
+    </div>
+    <div class="card">
+      <h2>Snapshot</h2>
+      <div class="row"><span class="name">Regular job — Key Asset (Jan–Jun)</span><span id="s_job">$0</span></div>
+      <div class="row"><span class="name">Real estate side gig (gross so far)</span><span id="s_side">$0</span></div>
+      <div class="row"><span class="name">Money on hand (checking)</span><span id="s_cash">$0</span></div>
+      <div class="row"><span class="name">Investments</span><span id="s_inv">$0</span></div>
+      <div class="row"><span class="name">People owe you</span><span id="s_recv">$0</span></div>
+    </div>
+  </section>
+
+  <!-- ============ INCOME ============ -->
+  <section id="income">
+    <div class="card">
+      <h2>Regular Job — Key Asset</h2>
+      <label class="field"><span class="l">Earned Jan → June (YTD gross)</span><input class="money" id="job_ytd" inputmode="decimal"></label>
+      <label class="field"><span class="l">Monthly gross</span><input class="money" id="job_gross" inputmode="decimal"></label>
+      <label class="field"><span class="l">Net pay (bi-weekly)</span><input class="money" id="job_net" inputmode="decimal"></label>
+      <div class="hint">Net bi-weekly × 26 ≈ <b id="job_annual_net">$0</b>/yr take-home · monthly gross × 12 ≈ <b id="job_annual_gross">$0</b>/yr gross</div>
+    </div>
+    <div class="card">
+      <h2>Real Estate Side Gig</h2>
+      <label class="field"><span class="l">Gross earned so far</span><input class="money" id="side_gross" inputmode="decimal"></label>
+      <div class="hint">Deals you're still <b>expecting</b> to close (like Nov 2026) go in the <b>Expecting</b> tab so they add to your projection without inflating what you've actually earned.</div>
+    </div>
+  </section>
+
+  <!-- ============ EXPECTING ============ -->
+  <section id="expected">
+    <div class="card">
+      <h2>Money I'm Expecting</h2>
+      <div class="hint" style="margin-top:0;margin-bottom:6px">Every amount here is added to your <b>Projected Total</b> on the dashboard.</div>
+      <div id="expList"></div>
+      <div class="add-row three">
+        <input id="exp_label" placeholder="Source (e.g. Real estate)">
+        <input id="exp_when" placeholder="When (e.g. Nov 2026)">
+        <input id="exp_amt" class="money" inputmode="decimal" placeholder="0">
+        <button class="btn sm" onclick="addExpected()">Add</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ASSETS ============ -->
+  <section id="assets">
+    <div class="card">
+      <h2>Money On Hand (Checking)</h2>
+      <label class="field"><span class="l">Current balance — update anytime, totals recalc instantly</span><input class="money" id="cash" inputmode="decimal"></label>
+    </div>
+    <div class="card">
+      <h2>Investments</h2>
+      <div id="invList"></div>
+      <div class="add-row">
+        <input id="inv_label" placeholder="What (e.g. TFSA, stocks, crypto)">
+        <input id="inv_amt" class="money" inputmode="decimal" placeholder="0">
+        <button class="btn sm" onclick="addInv()">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>People Who Owe Me</h2>
+      <div id="recvList"></div>
+      <div class="add-row">
+        <input id="recv_who" placeholder="Name">
+        <input id="recv_amt" class="money" inputmode="decimal" placeholder="0">
+        <button class="btn sm" onclick="addRecv()">Add</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CREDIT CARDS ============ -->
+  <section id="cards">
+    <div class="card">
+      <h2>Credit Cards</h2>
+      <div class="grid" style="margin-bottom:14px">
+        <div class="stat"><div class="lbl">Total Owed</div><div class="val red" id="cc_owed">$0</div></div>
+        <div class="stat"><div class="lbl">Total Available</div><div class="val green" id="cc_avail">$0</div></div>
+      </div>
+      <div id="ccList"></div>
+      <div class="add-row three">
+        <input id="cc_name" placeholder="Card name">
+        <input id="cc_limit" class="money" inputmode="decimal" placeholder="Limit">
+        <input id="cc_bal" class="money" inputmode="decimal" placeholder="Owe">
+        <button class="btn sm" onclick="addCard()">Add</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EXPENSES ============ -->
+  <section id="expenses">
+    <div class="card">
+      <h2>Expenses</h2>
+      <div class="grid" style="margin-bottom:14px">
+        <div class="stat"><div class="lbl">Total Expenses</div><div class="val red" id="ex_total">$0</div></div>
+        <div class="stat"><div class="lbl"># of items</div><div class="val" id="ex_count">0</div></div>
+      </div>
+      <div id="exList"></div>
+      <div class="add-row three">
+        <input id="ex_label" placeholder="What (e.g. Rent, Car)">
+        <input id="ex_cat" placeholder="Category (optional)">
+        <input id="ex_amt" class="money" inputmode="decimal" placeholder="0">
+        <button class="btn sm" onclick="addExpense()">Add</button>
+      </div>
+      <div class="hint">Add recurring monthly bills or one-off costs — the total flows into your projection.</div>
+    </div>
+  </section>
+
+  <!-- ============ BACKUP ============ -->
+  <section id="backup">
+    <div class="card">
+      <h2>Backup & Restore</h2>
+      <div class="hint" style="margin-top:0">Your data lives only in this browser. Export a backup file to keep it safe or move it to another device.</div>
+      <div style="display:flex; gap:8px; margin:14px 0">
+        <button class="btn" onclick="exportData()">⬇ Export backup</button>
+        <button class="btn ghost" onclick="document.getElementById('importFile').click()">⬆ Import</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+      <button class="btn ghost" style="color:var(--red)" onclick="resetAll()">Reset everything</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="saved" id="savedToast">Saved ✓</div>
+
+<script>
+/* ---------- money helpers ---------- */
+const fmt = n => (n<0?'-$':'$') + Math.abs(+n||0).toLocaleString('en-CA',{minimumFractionDigits:2, maximumFractionDigits:2});
+const fmt0 = n => (n<0?'-$':'$') + Math.abs(Math.round(+n||0)).toLocaleString('en-CA');
+const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+
+/* ---------- default seed data (from what you told me) ---------- */
+const SEED = {
+  job:  { ytd:37771, gross:5692, net:1994.35 },
+  side: { gross:38719 },
+  cash: 280,
+  expected: [
+    { label:'Real estate deal', when:'Nov 2026', amt:38809 },
+    { label:'Key Asset pay',    when:'Bi-weekly', amt:1478 }
+  ],
+  investments: [],
+  receivables: [
+    { who:'Sika', amt:500 },
+    { who:'Ken', amt:1000 },
+    { who:'Franklyn', amt:500 }
+  ],
+  cards: [
+    { name:'MBNA',          limit:8000,  bal:0 },
+    { name:'Brim',          limit:8000,  bal:0 },
+    { name:'BMO',           limit:4300,  bal:0 },
+    { name:'RBC',           limit:6500,  bal:0 },
+    { name:'Canadian Tire', limit:20000, bal:0 }
+  ],
+  expenses: []
+};
+
+const KEY = 'maxwell_finance_v1';
+let S = load();
+
+function load(){
+  try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return JSON.parse(JSON.stringify(SEED));
+}
+let toastT;
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(S));
+  const t = document.getElementById('savedToast');
+  t.classList.add('show'); clearTimeout(toastT);
+  toastT = setTimeout(()=>t.classList.remove('show'), 900);
+}
+
+/* ---------- tabs ---------- */
+document.getElementById('tabs').addEventListener('click', e=>{
+  const tab = e.target.closest('.tab'); if(!tab) return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section').forEach(x=>x.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById(tab.dataset.t).classList.add('active');
+});
+
+/* ---------- bind simple inputs ---------- */
+function bind(id, getter, setter){
+  const el = document.getElementById(id);
+  el.value = getter();
+  el.addEventListener('input', ()=>{ setter(num(el.value)); save(); renderAll(); });
+  el.addEventListener('blur', ()=>{ el.value = getter(); });
+}
+bind('job_ytd',  ()=>S.job.ytd,   v=>S.job.ytd=v);
+bind('job_gross',()=>S.job.gross, v=>S.job.gross=v);
+bind('job_net',  ()=>S.job.net,   v=>S.job.net=v);
+bind('side_gross',()=>S.side.gross,v=>S.side.gross=v);
+bind('cash',     ()=>S.cash,      v=>S.cash=v);
+
+/* ---------- totals ---------- */
+const sum = (arr,f) => arr.reduce((a,x)=>a+num(f(x)),0);
+function totals(){
+  const earned   = num(S.job.ytd) + num(S.side.gross);
+  const expecting= sum(S.expected, x=>x.amt);
+  const invTot   = sum(S.investments, x=>x.amt);
+  const recvTot  = sum(S.receivables, x=>x.amt);
+  const assets   = num(S.cash) + invTot + recvTot;
+  const debt     = sum(S.cards, x=>x.bal);
+  const limit    = sum(S.cards, x=>x.limit);
+  const avail    = limit - debt;
+  const expenses = sum(S.expenses, x=>x.amt);
+  const net      = assets - debt;
+  const proj     = assets + expecting - expenses;
+  return {earned,expecting,invTot,recvTot,assets,debt,limit,avail,expenses,net,proj};
+}
+
+/* ---------- list renderers ---------- */
+function rowHTML(name, right, delFn){
+  return `<div class="row"><span class="name">${name}</span><span>${right}</span>
+    <button class="del" onclick="${delFn}">×</button></div>`;
+}
+function esc(s){ return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+function renderExpected(){
+  const el = document.getElementById('expList');
+  if(!S.expected.length){ el.innerHTML='<div class="empty">Nothing yet — add money you\'re expecting below.</div>'; return; }
+  el.innerHTML = S.expected.map((x,i)=>
+    rowHTML(`${esc(x.label)} <span class="pill">${esc(x.when||'—')}</span>`, fmt(x.amt), `delExpected(${i})`)
+  ).join('');
+}
+function renderInv(){
+  const el = document.getElementById('invList');
+  el.innerHTML = S.investments.length ? S.investments.map((x,i)=>
+    rowHTML(esc(x.label), fmt(x.amt), `delInv(${i})`)).join('')
+    : '<div class="empty">No investments logged yet.</div>';
+}
+function renderRecv(){
+  const el = document.getElementById('recvList');
+  el.innerHTML = S.receivables.length ? S.receivables.map((x,i)=>
+    rowHTML(esc(x.who), fmt(x.amt), `delRecv(${i})`)).join('')
+    : '<div class="empty">Nobody owes you right now.</div>';
+}
+function renderExpenses(){
+  const el = document.getElementById('exList');
+  el.innerHTML = S.expenses.length ? S.expenses.map((x,i)=>
+    rowHTML(`${esc(x.label)} ${x.cat?`<span class="pill">${esc(x.cat)}</span>`:''}`, fmt(x.amt), `delExpense(${i})`)).join('')
+    : '<div class="empty">No expenses logged yet.</div>';
+}
+function renderCards(){
+  const el = document.getElementById('ccList');
+  el.innerHTML = S.cards.map((c,i)=>{
+    const owe = num(c.bal), lim = num(c.limit), avail = lim-owe;
+    const pct = lim>0 ? Math.min(100, owe/lim*100) : 0;
+    return `<div class="cc">
+      <div class="top"><span class="nm">${esc(c.name)}</span><span class="lim">Limit ${fmt0(lim)} <button class="del" onclick="delCard(${i})">×</button></span></div>
+      <div class="cc-input"><span class="l">You owe</span><input class="money" inputmode="decimal" value="${owe}" oninput="setCardBal(${i}, this.value)"></div>
+      <div class="cc-input"><span class="l">Limit</span><input class="money" inputmode="decimal" value="${lim}" oninput="setCardLimit(${i}, this.value)"></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="foot"><span>Used <b>${pct.toFixed(0)}%</b></span><span>Available <b style="color:var(--green)">${fmt(avail)}</b></span></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- dashboard render ---------- */
+function renderDash(){
+  const t = totals();
+  document.getElementById('d_net').textContent      = fmt(t.net);
+  document.getElementById('d_earned').textContent   = fmt(t.earned);
+  document.getElementById('d_expecting').textContent= fmt(t.expecting);
+  document.getElementById('d_assets').textContent   = fmt(t.assets);
+  document.getElementById('d_debt').textContent     = fmt(t.debt);
+  document.getElementById('d_avail').textContent    = fmt(t.avail);
+  document.getElementById('d_exp').textContent      = fmt(t.expenses);
+  document.getElementById('d_proj').textContent     = fmt(t.proj);
+  document.getElementById('s_job').textContent  = fmt(S.job.ytd);
+  document.getElementById('s_side').textContent = fmt(S.side.gross);
+  document.getElementById('s_cash').textContent = fmt(S.cash);
+  document.getElementById('s_inv').textContent  = fmt(t.invTot);
+  document.getElementById('s_recv').textContent = fmt(t.recvTot);
+  document.getElementById('cc_owed').textContent = fmt(t.debt);
+  document.getElementById('cc_avail').textContent= fmt(t.avail);
+  document.getElementById('ex_total').textContent= fmt(t.expenses);
+  document.getElementById('ex_count').textContent= S.expenses.length;
+  document.getElementById('job_annual_net').textContent   = fmt0(num(S.job.net)*26);
+  document.getElementById('job_annual_gross').textContent = fmt0(num(S.job.gross)*12);
+}
+
+function renderAll(){ renderDash(); renderExpected(); renderInv(); renderRecv(); renderExpenses(); renderCards(); }
+
+/* ---------- add / delete actions ---------- */
+function grab(id){ const el=document.getElementById(id); const v=el.value; el.value=''; return v; }
+
+function addExpected(){
+  const label=grab('exp_label').trim(), when=grab('exp_when').trim(), amt=num(grab('exp_amt'));
+  if(!label && !amt) return;
+  S.expected.push({label:label||'Expected', when, amt}); save(); renderAll();
+}
+function delExpected(i){ S.expected.splice(i,1); save(); renderAll(); }
+
+function addInv(){
+  const label=grab('inv_label').trim(), amt=num(grab('inv_amt'));
+  if(!label && !amt) return;
+  S.investments.push({label:label||'Investment', amt}); save(); renderAll();
+}
+function delInv(i){ S.investments.splice(i,1); save(); renderAll(); }
+
+function addRecv(){
+  const who=grab('recv_who').trim(), amt=num(grab('recv_amt'));
+  if(!who && !amt) return;
+  S.receivables.push({who:who||'Someone', amt}); save(); renderAll();
+}
+function delRecv(i){ S.receivables.splice(i,1); save(); renderAll(); }
+
+function addExpense(){
+  const label=grab('ex_label').trim(), cat=grab('ex_cat').trim(), amt=num(grab('ex_amt'));
+  if(!label && !amt) return;
+  S.expenses.push({label:label||'Expense', cat, amt}); save(); renderAll();
+}
+function delExpense(i){ S.expenses.splice(i,1); save(); renderAll(); }
+
+function addCard(){
+  const name=grab('cc_name').trim(), limit=num(grab('cc_limit')), bal=num(grab('cc_bal'));
+  if(!name) return;
+  S.cards.push({name, limit, bal}); save(); renderAll();
+}
+function delCard(i){ if(confirm('Remove this card?')){ S.cards.splice(i,1); save(); renderAll(); } }
+function setCardBal(i,v){ S.cards[i].bal=num(v); save(); renderDash();
+  const c=S.cards[i], pct=c.limit>0?Math.min(100,c.bal/c.limit*100):0;
+  const cc=document.querySelectorAll('.cc')[i];
+  cc.querySelector('.bar>i').style.width=pct+'%';
+  cc.querySelectorAll('.foot b')[0].textContent=pct.toFixed(0)+'%';
+  cc.querySelectorAll('.foot b')[1].textContent=fmt(c.limit-c.bal);
+}
+function setCardLimit(i,v){ S.cards[i].limit=num(v); save(); renderDash();
+  const c=S.cards[i], pct=c.limit>0?Math.min(100,c.bal/c.limit*100):0;
+  const cc=document.querySelectorAll('.cc')[i];
+  cc.querySelector('.bar>i').style.width=pct+'%';
+  cc.querySelectorAll('.foot b')[0].textContent=pct.toFixed(0)+'%';
+  cc.querySelectorAll('.foot b')[1].textContent=fmt(c.limit-c.bal);
+}
+
+/* ---------- backup ---------- */
+function exportData(){
+  const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'finance-backup.json';
+  a.click();
+}
+function importData(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ S = JSON.parse(r.result); save(); syncInputs(); renderAll(); alert('Backup restored ✓'); }
+    catch(err){ alert('Could not read that file.'); } };
+  r.readAsText(f);
+}
+function resetAll(){
+  if(confirm('Erase everything and start over? This cannot be undone.')){
+    S = JSON.parse(JSON.stringify(SEED)); save(); syncInputs(); renderAll();
+  }
+}
+function syncInputs(){
+  document.getElementById('job_ytd').value  = S.job.ytd;
+  document.getElementById('job_gross').value= S.job.gross;
+  document.getElementById('job_net').value  = S.job.net;
+  document.getElementById('side_gross').value=S.side.gross;
+  document.getElementById('cash').value     = S.cash;
+}
+
+/* ---------- go ---------- */
+renderAll();
+</script>
+</body>
+</html>
