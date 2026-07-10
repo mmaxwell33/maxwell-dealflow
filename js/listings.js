@@ -112,7 +112,8 @@ const Listings = {
       }).join('');
     }
     const bidBtns = closed
-      ? `<button class="btn btn-outline btn-sm" onclick="Listings.reopenBidding('${l.id}')">↩︎ Reopen Bidding</button>`
+      ? `<button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Listings.sendSnapshot('${l.id}')">📊 Send Seller Snapshot</button>
+         <button class="btn btn-outline btn-sm" onclick="Listings.reopenBidding('${l.id}')">↩︎ Reopen Bidding</button>`
       : `<button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Listings.addOffer('${l.id}')">➕ Log Offer</button>
          ${offers.length ? `<button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Listings.endBidding('${l.id}')">🔨 End Bidding & Rank</button>` : ''}`;
     return `
@@ -283,5 +284,78 @@ const Listings = {
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.toast('↩︎ Bidding reopened', 'var(--text2)');
     Listings.load();
+  },
+
+  // ── Phase 3: Seller snapshot — branded email with ranked offers + bar chart ──
+  // Email-safe visualization: inline-styled divs only (no <script>, no external
+  // images), so the "chart" renders in Gmail/Outlook. Queued via Notify.queue →
+  // Approvals, same as every other email — nothing sends without Maxwell.
+  async sendSnapshot(listingId) {
+    const l = Listings.all.find(x => x.id === listingId);
+    if (!l) return;
+    const offers = (Listings._offers[listingId] || []).slice().sort((a, b) => Number(b.amount) - Number(a.amount));
+    if (!offers.length) { App.toast('No offers to send — log offers first', 'var(--yellow)'); return; }
+    const sellerName  = l.clients?.full_name || 'Seller';
+    const sellerEmail = l.clients?.email || null;
+    if (!sellerEmail) { App.toast('⚠️ This seller has no email on file — add it on their client record first', 'var(--red)'); return; }
+    if (typeof Notify === 'undefined' || !Notify.queue) { App.toast('⚠️ Email system not loaded — reload and retry', 'var(--red)'); return; }
+
+    const first  = sellerName.split(' ')[0];
+    const asking = Number(l.asking_price || l.list_price || 0);
+    const maxVal = Math.max(asking, Number(offers[0].amount));
+    const pctOf  = amt => asking ? ((Number(amt) - asking) / asking * 100) : null;
+    const barW   = amt => Math.max(8, Math.round(Number(amt) / maxVal * 100));
+
+    // Chart + table rows (inline styles only — email-safe)
+    const chartRows = offers.map((o, i) => {
+      const pct = pctOf(o.amount);
+      const top = i === 0;
+      const barColor = top ? '#157347' : '#8a8f98';
+      const pctTxt = pct === null ? '' :
+        ` <span style="font-weight:700;color:${pct >= 0 ? '#157347' : '#c0392b'};">(${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span>`;
+      return `
+        <div style="margin:0 0 10px;">
+          <div style="font-size:13px;color:#202124;margin-bottom:3px;">${top ? '🏆 ' : ''}<strong>Offer #${o.offer_no}</strong>${o.buyer_agent ? ' · via ' + Listings.esc(o.buyer_agent) : ''} — <strong>${Listings.money(o.amount)}</strong>${pctTxt}</div>
+          <div style="background:#eef0f3;border-radius:6px;height:18px;width:100%;"><div style="background:${barColor};border-radius:6px;height:18px;width:${barW(o.amount)}%;"></div></div>
+          ${o.conditions ? `<div style="font-size:11.5px;color:#5f6368;margin-top:2px;">Conditions: ${Listings.esc(o.conditions)}${o.deposit ? ' · Deposit: ' + Listings.money(o.deposit) : ''}</div>` : (o.deposit ? `<div style="font-size:11.5px;color:#5f6368;margin-top:2px;">Deposit: ${Listings.money(o.deposit)}</div>` : '')}
+        </div>`;
+    }).join('');
+    const askingBar = asking ? `
+        <div style="margin:0 0 14px;">
+          <div style="font-size:13px;color:#5f6368;margin-bottom:3px;">Asking price — <strong>${Listings.money(asking)}</strong></div>
+          <div style="background:#eef0f3;border-radius:6px;height:18px;width:100%;"><div style="background:#c9ced6;border:1px dashed #8a8f98;border-radius:6px;height:16px;width:${barW(asking)}%;"></div></div>
+        </div>` : '';
+
+    const sig = (typeof EmailFormat !== 'undefined') ? EmailFormat.signatureHTML(currentAgent) : '';
+    const dis = (typeof EmailFormat !== 'undefined') ? EmailFormat.disclaimerHTML() : '';
+    const styles = (typeof EmailFormat !== 'undefined' && EmailFormat.styles) ? EmailFormat.styles() : '';
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style></head><body>
+      <p>Hi ${Listings.esc(first)},</p>
+      <p>Bidding has closed on <strong>${Listings.esc(l.property_address)}</strong> — here's the full picture of every offer received, ranked against your asking price:</p>
+      ${askingBar}
+      ${chartRows}
+      <p style="font-size:13px;color:#5f6368;">The highest offer isn't always the strongest — conditions and deposits matter too. Nothing is decided without you: let's talk through these together and pick the one that's right for you.</p>
+      <p>Call me any time, or reply to this email.</p>
+      <p>Best regards,</p>
+      ${sig}
+      ${dis}
+    </body></html>`;
+
+    const plain = `Hi ${first},\n\nBidding has closed on ${l.property_address}. Here are all ${offers.length} offers, ranked against your asking price${asking ? ' of ' + Listings.money(asking) : ''}:\n\n` +
+      offers.map((o, i) => {
+        const pct = pctOf(o.amount);
+        return `${i === 0 ? '#1 (HIGHEST)' : '#' + (i + 1)}  Offer #${o.offer_no} — ${Listings.money(o.amount)}${pct !== null ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs asking)` : ''}${o.conditions ? ` · Conditions: ${o.conditions}` : ''}${o.deposit ? ` · Deposit: ${Listings.money(o.deposit)}` : ''}`;
+      }).join('\n') +
+      `\n\nThe highest offer isn't always the strongest — conditions and deposits matter too. Let's talk through these together and pick the one that's right for you.\n\nCall me any time, or reply to this email.`;
+
+    const subject = `📊 Offer Summary — ${l.property_address} (${offers.length} offer${offers.length === 1 ? '' : 's'})`;
+    App.toast('Preparing snapshot…', 'var(--accent2)');
+    const ok = await Notify.queue('Seller Offer Snapshot', l.client_id, sellerName, sellerEmail, subject, plain, l.id, html);
+    if (ok) {
+      App.toast('📊 Snapshot queued — check Approvals to review & send', 'var(--green)');
+      if (App.pushNotify) App.pushNotify('📊 Seller snapshot queued', `${sellerName} · ${l.property_address}`, 'approvals');
+    } else {
+      App.toast('⚠️ Could not queue the snapshot — see the error above', 'var(--red)');
+    }
   },
 };
