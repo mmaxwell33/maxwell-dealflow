@@ -426,7 +426,7 @@ const Listings = {
     // 3. Sell-side pipeline deal — agent_id MUST be auth.uid() for RLS (same as buy side)
     const user = await App.getAuthUser();
     const uid = user?.id || currentAgent.id;
-    const { error: e3 } = await db.from('pipeline').insert({
+    const { data: newDeal, error: e3 } = await db.from('pipeline').insert({
       pipeline_id: (crypto.randomUUID ? crypto.randomUUID() : 'SELL-' + Date.now()),
       agent_id: uid,
       client_id: l.client_id || null,
@@ -443,13 +443,31 @@ const Listings = {
       deal_type: 'existing_home',
       deal_side: 'sell',
       listing_id: listingId,
-    });
+    }).select('id').single();
     if (e3) {
       if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Deal not created: ' + e3.message + ' — the winner IS marked; add the deal manually in Pipeline.'; }
       console.error('[confirmWinner] pipeline insert failed:', e3);
       Listings.load();
       return;
     }
+
+    // Phase 5: dual-agency auto-link — if Maxwell ALSO represents the buyer on
+    // this same property (a live buy-side deal at the same address), link the
+    // two deals into one transaction so the Pipeline shows them as one
+    // colour-coded dual-agency group. Best-effort — never blocks the winner flow.
+    try {
+      const { data: buySide } = await db.from('pipeline')
+        .select('id').eq('agent_id', uid).eq('deal_side', 'buy')
+        .ilike('property_address', l.property_address)
+        .is('archived_at', null)
+        .not('stage', 'in', '("Closed","Fell Through")')
+        .limit(1).maybeSingle();
+      if (buySide?.id && newDeal?.id) {
+        const txn = crypto.randomUUID ? crypto.randomUUID() : 'txn-' + Date.now();
+        await db.from('pipeline').update({ transaction_id: txn, updated_at: new Date().toISOString() }).in('id', [buySide.id, newDeal.id]);
+        App.toast('🤝 Dual agency detected — buyer & seller deals linked in Pipeline', 'var(--accent2)');
+      }
+    } catch (e) { console.warn('[dual-agency auto-link] skipped:', e?.message || e); }
 
     if (typeof App.logActivity === 'function') {
       App.logActivity('OFFER_WON', l.clients?.full_name, l.clients?.email,

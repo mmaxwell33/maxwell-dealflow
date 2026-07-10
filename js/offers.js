@@ -1873,7 +1873,8 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
-          <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
+          ${!d.transaction_id ? `<button class="btn btn-outline btn-sm" style="border-color:var(--purple);color:var(--purple);" onclick="Pipeline.linkDual('${d.id}')">🤝 Dual</button>` : ''}
+        <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
         </div>
         ${Pipeline.renderDealStakeholders(d.id)}
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
@@ -1917,17 +1918,17 @@ const Pipeline = {
       // PR #28: Active Deals now gets a header matching the Closed / Fell Through ones.
       if (active.length) {
         html += sectionHeader('🔵', 'Active Deals', active.length);
-        html += `<div>${active.map(d => card(d)).join('')}</div>`;
+        html += `<div>${Pipeline._renderGroup(active, card)}</div>`;
       }
     }
 
     if (closed.length) {
       html += sectionHeader('🟢', 'Closed Deals', closed.length);
-      html += `<div>${closed.map(d => card(d)).join('')}</div>`;
+      html += `<div>${Pipeline._renderGroup(closed, card)}</div>`;
     }
     if (fell.length) {
       html += sectionHeader('🔴', 'Fell Through', fell.length);
-      html += `<div>${fell.map(d => card(d)).join('')}</div>`;
+      html += `<div>${Pipeline._renderGroup(fell, card)}</div>`;
     }
 
     el.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🚀</div><div class="empty-text">No active deals</div></div>`;
@@ -1940,6 +1941,87 @@ const Pipeline = {
     section.style.display = willHide ? 'none' : 'block';
     // PR #28: flip chevron via class (CSS handles the rotate)
     hdr.classList.toggle('pl-collapsed', willHide);
+  },
+
+  // ── DUAL AGENCY (Phase 5) ──────────────────────────────────────────────────
+  // Deals sharing a transaction_id are one dual-agency transaction: rendered as
+  // a single purple-bordered group — buyer side on top (indigo ribbon), seller
+  // side below (coral ribbon). Deals without a partner render exactly as before.
+  _renderGroup(list, card) {
+    const byTxn = {};
+    list.forEach(d => { if (d.transaction_id) (byTxn[d.transaction_id] = byTxn[d.transaction_id] || []).push(d); });
+    const ribbon = (d, inner) => {
+      const buy = (d.deal_side || 'buy') !== 'sell';
+      const color = buy ? 'var(--accent2)' : 'var(--coral)';
+      const label = buy ? '🟦 BUY SIDE — representing the buyer' : '🟧 SELL SIDE — representing the seller';
+      return `<div style="border-left:4px solid ${color};border-radius:4px 12px 12px 4px;padding-left:8px;">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.05em;color:${color};margin:0 0 4px;">${label}</div>${inner}</div>`;
+    };
+    const rendered = new Set();
+    let out = '';
+    list.forEach(d => {
+      if (rendered.has(d.id)) return;
+      const grp = d.transaction_id ? (byTxn[d.transaction_id] || []) : [];
+      if (grp.length >= 2) {
+        const pair = grp.slice().sort((a, b) => (((a.deal_side || 'buy') === 'sell') ? 1 : 0) - (((b.deal_side || 'buy') === 'sell') ? 1 : 0));
+        pair.forEach(x => rendered.add(x.id));
+        out += `
+          <div style="border:2px solid var(--purple);border-radius:16px;padding:10px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div style="font-size:12px;font-weight:800;color:var(--purple);">🤝 DUAL AGENCY — ${pair[0].property_address || ''}</div>
+              <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="Pipeline.unlinkDual('${d.transaction_id}')">Unlink</button>
+            </div>
+            ${pair.map(x => ribbon(x, card(x))).join('')}
+          </div>`;
+      } else {
+        rendered.add(d.id);
+        out += card(d);
+      }
+    });
+    return out;
+  },
+
+  linkDual(id) {
+    const d = Pipeline.all.find(x => x.id === id);
+    if (!d) return;
+    const mySide = (d.deal_side || 'buy') === 'sell' ? 'sell' : 'buy';
+    const otherSide = mySide === 'buy' ? 'sell' : 'buy';
+    const cands = Pipeline.all.filter(x => x.id !== id && ((x.deal_side || 'buy') === otherSide) && !x.transaction_id);
+    if (!cands.length) {
+      App.toast(`No unlinked ${otherSide}-side deals to pair with${otherSide === 'sell' ? ' — sell-side deals are created from Listings → Pick Winner' : ''}`, 'var(--yellow)');
+      return;
+    }
+    const norm = s => (s || '').trim().toLowerCase();
+    cands.sort((a, b) => (norm(b.property_address) === norm(d.property_address) ? 1 : 0) - (norm(a.property_address) === norm(d.property_address) ? 1 : 0));
+    App.openModal(`
+      <div class="modal-title">🤝 Link Dual Agency</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Linking the <strong>${mySide.toUpperCase()} side</strong> (${d.client_name} · ${d.property_address}) with its matching ${otherSide}-side deal. Both will show together in the Pipeline as one colour-coded transaction.</div>
+      <div class="form-group"><label class="form-label">${otherSide === 'sell' ? 'Seller' : 'Buyer'}-side deal</label>
+        <select class="form-input form-select" id="dual-other">
+          ${cands.map(x => `<option value="${x.id}">${x.client_name} — ${x.property_address}${norm(x.property_address) === norm(d.property_address) ? ' ✓ same property' : ''}</option>`).join('')}
+        </select></div>
+      <button class="btn btn-primary btn-block" onclick="Pipeline.confirmLinkDual('${id}')">🤝 Link as Dual Agency</button>
+    `);
+  },
+
+  async confirmLinkDual(idA) {
+    const idB = document.getElementById('dual-other')?.value;
+    if (!idB) return;
+    const txn = crypto.randomUUID ? crypto.randomUUID() : 'txn-' + Date.now();
+    const { error: eA } = await db.from('pipeline').update({ transaction_id: txn, updated_at: new Date().toISOString() }).eq('id', idA);
+    const { error: eB } = await db.from('pipeline').update({ transaction_id: txn, updated_at: new Date().toISOString() }).eq('id', idB);
+    if (eA || eB) { App.toast('⚠️ ' + (eA || eB).message, 'var(--red)'); return; }
+    App.closeModal();
+    App.toast('🤝 Dual agency linked — both sides now show as one transaction', 'var(--green)');
+    Pipeline.load();
+  },
+
+  async unlinkDual(txnId) {
+    if (!confirm('Unlink this dual-agency transaction?\n\nBoth deals stay — they just show separately again.')) return;
+    const { error } = await db.from('pipeline').update({ transaction_id: null, updated_at: new Date().toISOString() }).eq('transaction_id', txnId);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('Unlinked', 'var(--text2)');
+    Pipeline.load();
   },
 
   // ── NEW BUILD CARD — distinct rendering for deal_type='new_build' deals ──
@@ -1994,6 +2076,7 @@ const Pipeline = {
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
+        ${!d.transaction_id ? `<button class="btn btn-outline btn-sm" style="border-color:var(--purple);color:var(--purple);" onclick="Pipeline.linkDual('${d.id}')">🤝 Dual</button>` : ''}
         <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
       </div>
       ${Pipeline.renderDealStakeholders(d.id)}
