@@ -45,6 +45,7 @@
   <script defer src="js/clients.js"></script>
   <script defer src="js/viewings.js"></script>
   <script defer src="js/offers.js"></script>
+  <script defer src="js/listings.js"></script>
   <script defer src="js/notifications.js"></script>
   <script defer src="js/pendingoffers.js"></script>
   <script defer src="js/responses.js"></script>
@@ -211,6 +212,9 @@
             </button>
             <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
               <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
+            </button>
+            <button class="nav-item" data-tab="listings" onclick="App.switchTab('listings')">
+              <span class="nav-icon">🏷️</span><span class="nav-label">Listings</span>
             </button>
             <!-- New Builds tab removed from nav (Phase 3 of pipeline merge). -->
             <!-- The newbuilds screen still exists; reachable via Pipeline → "+ New Build" button -->
@@ -532,6 +536,15 @@
         </div>
       </div>
       <div id="pipeline-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+
+    <!-- LISTINGS SCREEN (Seller Pipeline) -->
+    <div id="screen-listings" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
+        <div style="font-size:20px;font-weight:800;">🏷️ Listings — Seller Pipeline</div>
+        <button class="btn btn-outline btn-sm" onclick="Listings.load()">Refresh</button>
+      </div>
+      <div id="listings-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
     <!-- PIPELINE ARCHIVE SCREEN -->
