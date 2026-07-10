@@ -97,23 +97,39 @@ const Listings = {
           <span class="fw-700">${Listings.money(o.amount)}</span>
         </div>`).join('');
     } else {
-      // Bidding closed — auto-rank highest → lowest with % vs asking
+      // Bidding closed — auto-rank highest → lowest with % vs asking.
+      // Phase 4: each offer gets a "Pick Winner" button; once picked, the winner
+      // is badged and the rest show as declined.
       const ranked = offers.slice().sort((a, b) => Number(b.amount) - Number(a.amount));
+      const winner = offers.find(o => o.status === 'winner');
       rows = ranked.map((o, i) => {
         const pct = asking ? ((Number(o.amount) - asking) / asking * 100) : null;
         const pctTxt = pct === null ? '' :
           `<span style="font-size:11px;font-weight:700;color:${pct >= 0 ? 'var(--green)' : 'var(--red)'};">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs asking</span>`;
-        const top = i === 0;
+        const isWin = o.status === 'winner';
+        const declined = !!winner && !isWin;
+        const style = isWin ? 'background:rgba(34,197,94,0.14);border:1px solid var(--green);'
+                    : (!winner && i === 0) ? 'background:rgba(34,197,94,0.08);border:1px solid var(--green);'
+                    : 'background:var(--bg);' + (declined ? 'opacity:0.55;' : '');
+        const tag = isWin ? '🏆 <strong style="color:var(--green);">WINNER</strong> · '
+                  : declined ? '<span style="font-size:10px;color:var(--text2);font-weight:700;">DECLINED</span> · '
+                  : `${i === 0 ? '🏆' : '#' + (i + 1)} `;
+        const pickBtn = !winner
+          ? `<button class="btn btn-sm" style="background:var(--green);color:#fff;padding:3px 9px;font-size:11px;flex-shrink:0;" onclick="Listings.pickWinner('${l.id}','${o.id}')">🏆 Pick</button>`
+          : '';
         return `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;border-radius:8px;font-size:13px;${top ? 'background:rgba(34,197,94,0.10);border:1px solid var(--green);' : 'background:var(--bg);'}">
-            <span>${top ? '🏆' : `#${i + 1}`} Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}</span>
-            <span style="text-align:right;"><span class="fw-800">${Listings.money(o.amount)}</span><br>${pctTxt}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;border-radius:8px;font-size:13px;${style}">
+            <span>${tag}Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}</span>
+            <span style="display:flex;align-items:center;gap:8px;"><span style="text-align:right;"><span class="fw-800">${Listings.money(o.amount)}</span><br>${pctTxt}</span>${pickBtn}</span>
           </div>`;
       }).join('');
     }
+    const hasWinner = offers.some(o => o.status === 'winner');
     const bidBtns = closed
       ? `<button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Listings.sendSnapshot('${l.id}')">📊 Send Seller Snapshot</button>
-         <button class="btn btn-outline btn-sm" onclick="Listings.reopenBidding('${l.id}')">↩︎ Reopen Bidding</button>`
+         ${hasWinner
+           ? `<span style="font-size:11px;color:var(--green);font-weight:700;align-self:center;">✅ Winner picked — sell-side deal in Pipeline</span>`
+           : `<button class="btn btn-outline btn-sm" onclick="Listings.reopenBidding('${l.id}')">↩︎ Reopen Bidding</button>`}`
       : `<button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Listings.addOffer('${l.id}')">➕ Log Offer</button>
          ${offers.length ? `<button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Listings.endBidding('${l.id}')">🔨 End Bidding & Rank</button>` : ''}`;
     return `
@@ -280,6 +296,9 @@ const Listings = {
   },
 
   async reopenBidding(listingId) {
+    if ((Listings._offers[listingId] || []).some(o => o.status === 'winner')) {
+      App.toast('A winner has already been picked — bidding can\'t be reopened', 'var(--yellow)'); return;
+    }
     const { error } = await db.from('listings').update({ bidding_closed_at: null, updated_at: new Date().toISOString() }).eq('id', listingId);
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.toast('↩︎ Bidding reopened', 'var(--text2)');
@@ -357,5 +376,89 @@ const Listings = {
     } else {
       App.toast('⚠️ Could not queue the snapshot — see the error above', 'var(--red)');
     }
+  },
+
+  // ── Phase 4: pick the winning offer → sell-side pipeline deal ──────────────
+  // Marks the chosen offer 'winner' (others 'declined'), moves the listing to
+  // Under Contract, and creates a SELL-side pipeline deal for the seller with
+  // the closing dates — so financing/conditions/closing/lawyer run through the
+  // same Pipeline + stakeholder flow as every other deal. Maxwell emails the
+  // winning buyer's side himself (their email isn't captured on logged offers).
+  pickWinner(listingId, offerId) {
+    const l = Listings.all.find(x => x.id === listingId);
+    const o = (Listings._offers[listingId] || []).find(x => x.id === offerId);
+    if (!l || !o) return;
+    const today = new Date().toISOString().slice(0, 10);
+    App.openModal(`
+      <div class="modal-title">🏆 Accept Offer #${o.offer_no} — ${Listings.money(o.amount)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${Listings.esc(l.property_address)} · Seller: ${Listings.esc(l.clients?.full_name || '—')}<br>All other offers will be marked <strong>Declined</strong>, the listing moves to <strong>Under Contract</strong>, and a sell-side deal is created in your Pipeline.</div>
+      <div class="form-group"><label class="form-label">Acceptance date</label>
+        <input class="form-input" type="date" id="pw-acc" value="${today}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Financing deadline (optional)</label>
+          <input class="form-input" type="date" id="pw-fin"></div>
+        <div class="form-group"><label class="form-label">Closing date (optional)</label>
+          <input class="form-input" type="date" id="pw-close" value="${l.target_sold_date || ''}"></div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="Listings.confirmWinner('${listingId}','${offerId}')">🏆 Accept & Create Pipeline Deal</button>
+      <div id="pw-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async confirmWinner(listingId, offerId) {
+    const l = Listings.all.find(x => x.id === listingId);
+    const o = (Listings._offers[listingId] || []).find(x => x.id === offerId);
+    const msg = document.getElementById('pw-msg');
+    if (!l || !o) return;
+    const acc   = document.getElementById('pw-acc')?.value || new Date().toISOString().slice(0, 10);
+    const fin   = document.getElementById('pw-fin')?.value || null;
+    const close = document.getElementById('pw-close')?.value || null;
+    if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Creating deal…'; }
+
+    // 1. Mark winner / decline the rest
+    const { error: e1 } = await db.from('listing_offers').update({ status: 'declined' }).eq('listing_id', listingId).neq('id', offerId);
+    const { error: e2 } = await db.from('listing_offers').update({ status: 'winner' }).eq('id', offerId);
+    if (e1 || e2) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + ((e1 || e2).message); } return; }
+
+    // 2. Listing → Under Contract
+    await db.from('listings').update({ listing_status: 'under_contract', updated_at: new Date().toISOString() }).eq('id', listingId);
+
+    // 3. Sell-side pipeline deal — agent_id MUST be auth.uid() for RLS (same as buy side)
+    const user = await App.getAuthUser();
+    const uid = user?.id || currentAgent.id;
+    const { error: e3 } = await db.from('pipeline').insert({
+      pipeline_id: (crypto.randomUUID ? crypto.randomUUID() : 'SELL-' + Date.now()),
+      agent_id: uid,
+      client_id: l.client_id || null,
+      client_name: l.clients?.full_name || 'Seller',
+      client_email: l.clients?.email || '',
+      property_address: l.property_address,
+      mls_number: l.mls_number || null,
+      offer_amount: Number(o.amount) || 0,
+      acceptance_date: acc,
+      financing_date: fin,
+      closing_date: close,
+      stage: 'Accepted',
+      status: 'Active',
+      deal_type: 'existing_home',
+      deal_side: 'sell',
+      listing_id: listingId,
+    });
+    if (e3) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Deal not created: ' + e3.message + ' — the winner IS marked; add the deal manually in Pipeline.'; }
+      console.error('[confirmWinner] pipeline insert failed:', e3);
+      Listings.load();
+      return;
+    }
+
+    if (typeof App.logActivity === 'function') {
+      App.logActivity('OFFER_WON', l.clients?.full_name, l.clients?.email,
+        `Accepted Offer #${o.offer_no} (${Listings.money(o.amount)}) on ${l.property_address} — sell-side deal created`, l.client_id);
+    }
+    App.closeModal();
+    App.toast(`🏆 Offer #${o.offer_no} accepted — sell-side deal created in Pipeline`, 'var(--green)');
+    if (App.pushNotify) App.pushNotify('🏆 Offer accepted', `${l.property_address} · ${Listings.money(o.amount)}`, 'approvals');
+    Listings.load();
+    if (typeof Pipeline !== 'undefined' && typeof currentTab !== 'undefined' && currentTab === 'pipeline') Pipeline.load();
   },
 };
