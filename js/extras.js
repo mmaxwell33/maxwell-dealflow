@@ -1005,7 +1005,7 @@ const Commission = {
             return `
             <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
               <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
-              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}</td>
+              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}${c.deal_side === 'sell' ? ' <span style="font-size:9px;font-weight:800;letter-spacing:0.04em;background:var(--coral-soft);color:var(--coral);padding:2px 6px;border-radius:6px;vertical-align:middle;">SELL</span>' : ''}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(c.property_address||'—')}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>

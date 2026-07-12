@@ -430,7 +430,9 @@ const Listings = {
         const pct = pctOf(o.amount);
         return `${i === 0 ? '#1 (HIGHEST)' : '#' + (i + 1)}  Offer #${o.offer_no} — ${Listings.money(o.amount)}${pct !== null ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs asking)` : ''}${o.conditions ? ` · Conditions: ${o.conditions}` : ''}${o.deposit ? ` · Deposit: ${Listings.money(o.deposit)}` : ''}`;
       }).join('\n') +
-      `\n\nThe highest offer isn't always the strongest — conditions and deposits matter too. Let's talk through these together and pick the one that's right for you.\n\nCall me any time, or reply to this email.`;
+      `\n\nThe highest offer isn't always the strongest — conditions and deposits matter too. Let's talk through these together and pick the one that's right for you.\n\nCall me any time, or reply to this email.\n\nBest regards,\n` +
+      ((typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain) ? EmailFormat.signaturePlain(currentAgent) : (currentAgent.full_name || currentAgent.name || 'Maxwell Delali Midodzi')) +
+      ((typeof EmailFormat !== 'undefined' && EmailFormat.disclaimerPlain) ? EmailFormat.disclaimerPlain() : '');
 
     const subject = `📊 Offer Summary — ${l.property_address} (${offers.length} offer${offers.length === 1 ? '' : 's'})`;
     App.toast('Preparing snapshot…', 'var(--accent2)');
@@ -464,6 +466,20 @@ const Listings = {
           <input class="form-input" type="date" id="pw-fin"></div>
         <div class="form-group"><label class="form-label">Closing date (optional)</label>
           <input class="form-input" type="date" id="pw-close" value="${l.target_sold_date || ''}"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your listing commission (%) — as agreed with the seller</label>
+        <select class="form-input form-select" id="pw-rate">
+          <option value="1">1%</option>
+          <option value="1.5">1.5%</option>
+          <option value="2">2%</option>
+          <option value="2.5" selected>2.5%</option>
+          <option value="3">3%</option>
+          <option value="3.5">3.5%</option>
+          <option value="4">4%</option>
+          <option value="5">5%</option>
+        </select>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Recorded in your Commissions section, marked <strong>SELL</strong> side. On a dual agency you'll have this plus the buy-side commission recorded at offer acceptance.</div>
       </div>
       <button class="btn btn-primary btn-block" onclick="Listings.confirmWinner('${listingId}','${offerId}')">🏆 Accept & Create Pipeline Deal</button>
       <div id="pw-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
@@ -516,6 +532,42 @@ const Listings = {
       return;
     }
 
+    // Record the SELL-side commission — mirrors the buy-side acceptance flow
+    // (20% brokerage fee, 15% HST, status Pending; flips on close/fell-through).
+    // Tagged deal_side='sell' so it shows a SELL badge in Commission history.
+    // On a dual agency this sits alongside the buy-side commission recorded at
+    // offer acceptance — the two agreed commissions, both counted in totals.
+    const rate = parseFloat(document.getElementById('pw-rate')?.value) || 2.5;
+    const sale = Number(o.amount) || 0;
+    const gross = sale * rate / 100;
+    const hst = gross * 0.15;
+    const brokerFee = gross * 0.20;
+    const commRow = {
+      agent_id: currentAgent.id,
+      client_name: l.clients?.full_name || 'Seller',
+      property_address: l.property_address,
+      sale_price: sale,
+      commission_rate: rate,
+      gross_commission: gross,
+      hst_collected: hst,
+      brokerage_fee_rate: 20,
+      brokerage_fees: brokerFee,
+      agent_net: (gross + hst) - brokerFee,
+      close_date: close || null,
+      status: 'Pending',
+      deal_side: 'sell',
+    };
+    let { error: cErr } = await db.from('commissions').insert(commRow);
+    if (cErr) {
+      // Older schema without deal_side (migration 059 not run) — record it anyway
+      delete commRow.deal_side;
+      ({ error: cErr } = await db.from('commissions').insert(commRow));
+    }
+    if (cErr) {
+      console.warn('[confirmWinner] commission insert failed:', cErr.message);
+      App.toast('⚠️ Deal created, but the commission could not be recorded — add it on the Commissions screen', 'var(--yellow)');
+    }
+
     // Phase 5: dual-agency auto-link — if Maxwell ALSO represents the buyer on
     // this same property (a live buy-side deal at the same address), link the
     // two deals into one transaction so the Pipeline shows them as one
@@ -539,7 +591,7 @@ const Listings = {
         `Accepted Offer #${o.offer_no} (${Listings.money(o.amount)}) on ${l.property_address} — sell-side deal created`, l.client_id);
     }
     App.closeModal();
-    App.toast(`🏆 Offer #${o.offer_no} accepted — sell-side deal created in Pipeline`, 'var(--green)');
+    App.toast(`🏆 Offer #${o.offer_no} accepted — deal in Pipeline${cErr ? '' : ` + ${rate}% commission recorded`}`, 'var(--green)');
     if (App.pushNotify) App.pushNotify('🏆 Offer accepted', `${l.property_address} · ${Listings.money(o.amount)}`, 'approvals');
     Listings.load();
     if (typeof Pipeline !== 'undefined' && typeof currentTab !== 'undefined' && currentTab === 'pipeline') Pipeline.load();
