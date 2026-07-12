@@ -168,6 +168,8 @@ const Listings = {
           ${preMls ? `<button class="btn btn-sm" style="background:var(--green);color:#fff;" onclick="Listings.markListed('${l.id}')">🏷️ Mark Listed on MLS</button>` : ''}
           ${l.listing_status !== 'sold' && l.listing_status !== 'withdrawn' ? `<button class="btn btn-outline btn-sm" onclick="Listings.advance('${l.id}')">➡️ Advance Stage</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Listings.setDates('${l.id}')">📅 Set Dates</button>
+          <button class="btn btn-outline btn-sm" onclick="Listings.editListing('${l.id}')">✏️ Edit</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Listings.deleteListing('${l.id}')">🗑 Delete</button>
         </div>
         ${Listings.offersSection(l)}
       </div>`;
@@ -231,6 +233,58 @@ const Listings = {
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.closeModal();
     App.toast('📅 Dates saved', 'var(--green)');
+    Listings.load();
+  },
+
+  // ── Edit listing basics (address / asking price / MLS) ──
+  // Needed because intake-created listings can arrive without an asking price
+  // (free-text intake didn't parse) — and ranking vs asking depends on it.
+  editListing(id) {
+    const l = Listings.all.find(x => x.id === id);
+    if (!l) return;
+    App.openModal(`
+      <div class="modal-title">✏️ Edit Listing</div>
+      <div class="form-group"><label class="form-label">Property Address *</label>
+        <input class="form-input" id="le-address" value="${Listings.esc(l.property_address || '')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Asking Price ($)</label>
+          <input class="form-input" type="number" id="le-asking" value="${l.asking_price || l.list_price || ''}" placeholder="575000"></div>
+        <div class="form-group"><label class="form-label">MLS Number</label>
+          <input class="form-input" id="le-mls" value="${Listings.esc(l.mls_number || '')}" placeholder="1299703"></div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="Listings.saveEditListing('${id}')">Save Listing</button>
+      <div id="le-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async saveEditListing(id) {
+    const address = document.getElementById('le-address')?.value.trim();
+    const msg = document.getElementById('le-msg');
+    if (!address) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Address is required'; } return; }
+    const asking = parseFloat(document.getElementById('le-asking')?.value) || null;
+    const { error } = await db.from('listings').update({
+      property_address: address,
+      asking_price: asking,
+      mls_number: document.getElementById('le-mls')?.value.trim() || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
+    App.closeModal();
+    App.toast('✏️ Listing updated', 'var(--green)');
+    Listings.load();
+  },
+
+  // ── Delete a listing (its logged offers cascade-delete with it) ──
+  // Does NOT touch the seller client or any pipeline deal — a sell-side deal
+  // created from Pick Winner stays; its listing link just clears.
+  async deleteListing(id) {
+    const l = Listings.all.find(x => x.id === id);
+    if (!l) return;
+    const nOffers = (Listings._offers[id] || []).length;
+    if (!confirm(`Delete the listing for ${l.property_address}?\n\n${nOffers ? nOffers + ' logged offer' + (nOffers === 1 ? '' : 's') + ' will be deleted with it. ' : ''}The seller client and any pipeline deal are NOT affected.`)) return;
+    const { error } = await db.from('listings').delete().eq('id', id);
+    if (error) { App.toast('⚠️ Delete failed: ' + error.message, 'var(--red)'); return; }
+    App.toast('🗑 Listing deleted', 'var(--green)');
     Listings.load();
   },
 
