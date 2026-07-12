@@ -60,23 +60,34 @@ const Listings = {
     el.innerHTML = Listings.all.map(l => Listings.card(l)).join('');
   },
 
-  // ── Lifecycle progress bar (7 fixed stages) ──
+  // ── Lifecycle progress bar (7 fixed stages, labelled) ──
+  // Reads as "Stage X of 7" with a name under every segment — NOT a % —
+  // because "Active on MLS" is stage 5/7 and a naked "71%" made a freshly
+  // listed property look almost sold.
+  STAGE_SHORT: ['Pre-List','CMA','Agreement','Prep','Active','Contract','Sold'],
   stageBar(l) {
     if (l.listing_status === 'withdrawn') {
       return `<div style="font-size:12px;color:var(--red);font-weight:700;margin:8px 0;">◾ Withdrawn</div>`;
     }
     const idx = Math.max(0, Listings.STATUS_FLOW.indexOf(l.listing_status));
-    const pct = Math.round(((idx + 1) / Listings.STATUS_FLOW.length) * 100);
     const segs = Listings.STATUS_FLOW.map((s, i) => {
-      const on = i <= idx;
-      return `<div style="flex:1;height:8px;border-radius:99px;background:${on ? 'var(--accent)' : 'var(--bg2)'};"></div>`;
-    }).join('<div style="width:3px;"></div>');
+      const done = i < idx, cur = i === idx;
+      const barBg = (done || cur) ? 'var(--accent)' : 'var(--bg2)';
+      const lblStyle = cur
+        ? 'color:var(--accent2);font-weight:800;'
+        : done ? 'color:var(--text2);font-weight:500;'
+               : 'color:var(--text2);opacity:0.45;font-weight:500;';
+      return `<div style="flex:1;min-width:0;text-align:center;">
+        <div style="height:8px;border-radius:99px;background:${barBg};margin:0 1.5px;"></div>
+        <div style="font-size:9.5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${lblStyle}">${cur ? '📍 ' : ''}${Listings.STAGE_SHORT[i]}</div>
+      </div>`;
+    }).join('');
     return `
       <div style="margin:10px 0 4px;">
-        <div style="display:flex;align-items:center;">${segs}</div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:4px;">
-          <span>📍 <strong style="color:var(--accent2);">${Listings.STATUS_LABEL[l.listing_status] || l.listing_status}</strong></span>
-          <span>${pct}%</span>
+        <div style="display:flex;align-items:flex-start;">${segs}</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:5px;">
+          <span><strong style="color:var(--accent2);">${Listings.STATUS_LABEL[l.listing_status] || l.listing_status}</strong></span>
+          <span>Stage ${idx + 1} of ${Listings.STATUS_FLOW.length}</span>
         </div>
       </div>`;
   },
