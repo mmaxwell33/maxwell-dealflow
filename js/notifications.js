@@ -111,6 +111,28 @@ const EmailFormat = {
     return `\n---\n\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
   },
 
+  // ── Map block — pin + address + "open map" button ──
+  // Emails can't embed a live zoomable map (they're static documents), so this
+  // deep-links to Google Maps: the client taps once and gets the full
+  // interactive map — zoom, street view, directions. No API key, renders in
+  // every email client. Skips itself when no address is available.
+  _mapUrl(address) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address || ''); },
+  mapBlockHTML(address) {
+    if (!address) return '';
+    return `
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:14px 0;border:1px solid #e0e0e0;border-radius:10px;">
+        <tr><td style="padding:14px 16px;">
+          <div style="font-size:12px;color:#5f6368;margin-bottom:2px;">📍 LOCATION</div>
+          <div style="font-size:14px;font-weight:600;color:#202124;margin-bottom:10px;">${address}</div>
+          <a href="${EmailFormat._mapUrl(address)}" target="_blank" style="display:inline-block;background:#1a73e8;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:9px 16px;border-radius:8px;">🗺️ Open Map — zoom in &amp; get directions</a>
+        </td></tr>
+      </table>`;
+  },
+  mapLinkPlain(address) {
+    if (!address) return '';
+    return `\n\n📍 Map & directions: ${EmailFormat._mapUrl(address)}`;
+  },
+
   // ── Convert user-typed body to HTML with proper paragraph spacing ──
   // Input may be plain text with \n\n paragraph breaks, OR already-rich HTML
   // (from a contenteditable editor). Detects which and produces a body
@@ -192,7 +214,7 @@ const Notify = {
       const introLine = isUpdate
         ? `Your viewing details have been updated. Here is the latest information:`
         : `Your property viewing has been confirmed.`;
-      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
       // ── HTML EMAIL ─────────────────────────────────────────────────────────
       const tableRows = [];
@@ -231,6 +253,7 @@ const Notify = {
         <table class="dt">${tableRows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
+        ${EmailFormat.mapBlockHTML(viewing.property_address)}
         <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to seeing you!</p>
         <p>Best regards,</p>
@@ -321,7 +344,7 @@ const Notify = {
 
       // Mirror the viewing-confirmation template exactly: same intro→table→
       // Add-to-Calendar→cal-note→reach-out line→sign-off→signature→disclaimer.
-      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.${EmailFormat.mapLinkPlain(meeting.location)}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
@@ -329,6 +352,7 @@ const Notify = {
         <table class="dt">${rows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this meeting to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
+        ${EmailFormat.mapBlockHTML(meeting.location)}
         <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to it!</p>
         <p>Best regards,</p>
