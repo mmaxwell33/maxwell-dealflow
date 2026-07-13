@@ -1175,3 +1175,23 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
   font-size: 11.5px; line-height: 1.55; color: var(--ink-4); max-width: none;
 }
 .compliance p { margin-bottom: 8px; }
+
+/* ── Featured listings — "coming soon" panel with the agent's name
+   (Hollett "Featured Listings" structure, honest version: no fake stock). */
+.listings-soon {
+  max-width: 520px; margin: 0 auto; text-align: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 40px 28px; box-shadow: var(--shadow-1);
+}
+.listings-soon-mark {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--brand);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+}
+.listings-soon-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
+}
+.listings-soon-role {
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-3); margin: 6px 0 22px;
+}
