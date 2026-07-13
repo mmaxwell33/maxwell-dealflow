@@ -1126,3 +1126,40 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
   .utility-links a.u-mail-short { display: inline; }
   .utility-links a.u-hide-mobile { display: none; }
 }
+
+/* ── Community guide pages ────────────────────────────────────────────
+   A shorter gradient hero strip (reuses .hero.hero-lean's gradient/overlay
+   without the 600px min-height), plus the price-band table. */
+.hero.hero--page { min-height: 0; padding: 84px 0 60px; }
+.hero.hero--page h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  max-width: 20ch; margin-bottom: 16px;
+}
+@media (max-width: 720px) { .hero.hero--page { padding: 60px 0 46px; } }
+
+.price-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+.price-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.price-table th, .price-table td {
+  text-align: left; padding: 14px 18px;
+  border-bottom: 1px solid var(--border); vertical-align: top;
+}
+.price-table thead th {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-3); font-weight: 600; white-space: nowrap;
+}
+.price-table tbody tr:last-child td { border-bottom: none; }
+.price-table td.pt-type { font-weight: 700; color: var(--ink); }
+.price-table td.pt-range { font-weight: 700; color: var(--brand-dark); white-space: nowrap; }
+.price-table td.pt-buys { color: var(--ink-2); font-size: 14.5px; }
+.price-note {
+  font-size: 12.5px; line-height: 1.55; color: var(--ink-3);
+  margin-top: 14px; font-style: italic; max-width: 70ch;
+}
+@media (max-width: 520px) {
+  .price-table th, .price-table td { padding: 12px 14px; }
+}
