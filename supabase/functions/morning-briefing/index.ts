@@ -7,10 +7,11 @@
  *
  *   1. Today's viewings — who, what property, what time
  *   2. Pending approvals — emails waiting for his review/send
- *   3. New intake forms — unreviewed client submissions
- *   4. Active pipeline deals — current stage snapshot
- *   5. Upcoming deadlines this week — financing, inspection, walkthrough, closing
- *   6. Stale deals — stuck > 14 days with no movement
+ *   3. Offers awaiting seller response — Submitted/Countered, with response-due
+ *   4. New intake forms — unreviewed client submissions
+ *   5. Active pipeline deals — current stage snapshot
+ *   6. Deadlines — overdue (last 7 days) and upcoming (next 7 days)
+ *   7. Stale deals — stuck > 14 days with no movement
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -45,6 +46,13 @@ const fmtStamp = (iso: string) =>
   new Date(iso).toLocaleDateString('en-CA', {
     weekday: 'short', month: 'short', day: 'numeric', timeZone: TZ,
   });
+
+// Mirror of app.js fmtMoney — whole dollars, CAD-style grouping
+const fmtMoney = (n: unknown): string => {
+  const num = Number(n);
+  if (!isFinite(num) || num === 0) return '—';
+  return '$' + Math.round(num).toLocaleString('en-CA');
+};
 
 const daysUntil = (dateStr: string, today: Date): number => {
   const d = new Date(dateStr.slice(0, 10) + 'T00:00:00Z');
@@ -205,6 +213,17 @@ serve(async (req) => {
     .order('created_at', { ascending: true });
   trackErr('approval_queue', apprErr);
 
+  // ── 2b. Failed sends — client emails that did NOT go out ───────────────────
+  // The silent-delivery guard: a send that errored is marked status 'Failed'
+  // (see js/extras.js Approvals._markFailed) instead of vanishing. Surface it
+  // loudly here so a dropped client email can't sit unnoticed.
+  const { data: failedSends, error: failedErr } = await supabase
+    .from('approval_queue')
+    .select('id, approval_type, client_name, email_subject, created_at')
+    .eq('status', 'Failed')
+    .order('created_at', { ascending: true });
+  trackErr('approval_queue(failed)', failedErr);
+
   // ── 3. New intake forms ────────────────────────────────────────────────────
   const { data: newIntakes, error: intakeErr } = await supabase
     .from('client_intake')
@@ -216,12 +235,22 @@ serve(async (req) => {
   // ── 4. Active pipeline deals ───────────────────────────────────────────────
   // NOTE: the deadline columns are financing_date / inspection_date (see
   // migration 013) — there are no *_deadline columns on pipeline.
+  // 'Done' and 'Sold' are legacy terminal stages (see clients.js getStage and
+  // notifications.js SKIP_STAGES) — exclude them or old deals show as active.
   const { data: activeDeals, error: pipeErr } = await supabase
     .from('pipeline')
     .select('id, client_name, property_address, stage, closing_date, financing_date, inspection_date, inspection_skipped, walkthrough_date, walkthrough_skipped, updated_at')
-    .not('stage', 'in', '("Closed","Fell Through","Withdrawn")')
+    .not('stage', 'in', '("Closed","Fell Through","Withdrawn","Done","Sold")')
     .order('updated_at', { ascending: false });
   trackErr('pipeline', pipeErr);
+
+  // ── 4b. Offers awaiting seller response ────────────────────────────────────
+  const { data: openOffers, error: offerErr } = await supabase
+    .from('offers')
+    .select('id, client_name, property_address, offer_amount, offer_date, seller_response_due, status')
+    .in('status', ['Submitted', 'Countered'])
+    .order('offer_date', { ascending: true });
+  trackErr('offers', offerErr);
 
   // ── 5. Upcoming deadlines this week ───────────────────────────────────────
   type Deadline = { label: string; client: string; address: string; daysLeft: number; date: string };
@@ -238,7 +267,9 @@ serve(async (req) => {
       const dateVal = (deal as any)[field];
       if (!dateVal) continue;
       const days = daysUntil(dateVal, today);
-      if (days >= 0 && days <= 7) {
+      // Include the last 7 days too — a missed deadline on an active deal is
+      // the most urgent thing in this email, not something to hide.
+      if (days >= -7 && days <= 7) {
         upcomingDeadlines.push({
           label,
           client: deal.client_name || '—',
@@ -267,6 +298,21 @@ serve(async (req) => {
   const badgeRed = 'display:inline-block;background:#fdecea;color:#b71c1c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;';
   // inline-block + margins instead of flex — flex is stripped by several email clients
   const chipStyle = 'display:inline-block;background:rgba(255,255,255,0.22);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin:0 8px 6px 0;';
+
+  // Section 0: Failed sends — client emails that did NOT go out (most urgent)
+  let failedHtml = '';
+  if (failedSends?.length) {
+    failedHtml = `<table style="${tableStyle}">
+      <tr><th style="${thStyle}">Type</th><th style="${thStyle}">Client</th><th style="${thStyle}">Subject</th><th style="${thStyle}">Queued</th></tr>
+      ${failedSends.map((a: any) => `
+        <tr>
+          <td style="${tdStyle}"><span style="${badgeRed}">${esc(a.approval_type)}</span></td>
+          <td style="${tdStyle}">${esc(a.client_name)}</td>
+          <td style="${tdStyle}">${esc(a.email_subject)}</td>
+          <td style="${tdStyle}">${fmtStamp(a.created_at)}</td>
+        </tr>`).join('')}
+    </table>`;
+  }
 
   // Section 1: Today's viewings
   let viewingsHtml = '';
@@ -318,6 +364,34 @@ serve(async (req) => {
     </table>`;
   }
 
+  // Section 3b: Offers awaiting seller response
+  let offersHtml = '';
+  if (!openOffers?.length) {
+    offersHtml = `<p style="color:#888;font-style:italic;margin:0;">No offers awaiting a response.</p>`;
+  } else {
+    offersHtml = `<table style="${tableStyle}">
+      <tr><th style="${thStyle}">Client</th><th style="${thStyle}">Property</th><th style="${thStyle}">Offer</th><th style="${thStyle}">Status</th><th style="${thStyle}">Response Due</th></tr>
+      ${openOffers.map((o: any) => {
+        // seller_response_due is a full timestamptz — resolve to its NT-local
+        // day first, or the UTC date flips the day for evening deadlines
+        const dueDays = o.seller_response_due
+          ? daysUntil(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(o.seller_response_due)), today)
+          : null;
+        const dueBadge = dueDays === null ? '' :
+          dueDays < 0 ? `<span style="${badgeRed}">OVERDUE</span>` :
+          dueDays === 0 ? `<span style="${badgeOrange}">TODAY</span>` :
+          `<span style="${badgeGreen}">${dueDays}d</span>`;
+        return `<tr>
+          <td style="${tdStyle}">${esc(o.client_name) || '—'}</td>
+          <td style="${tdStyle}">${esc(o.property_address) || '—'}</td>
+          <td style="${tdStyle}">${fmtMoney(o.offer_amount)}</td>
+          <td style="${tdStyle}"><span style="${o.status === 'Countered' ? badgeOrange : badgeGreen}">${esc(o.status)}</span></td>
+          <td style="${tdStyle}">${o.seller_response_due ? `${fmtStamp(o.seller_response_due)} ${dueBadge}` : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  }
+
   // Section 4: Active pipeline
   let pipelineHtml = '';
   if (!activeDeals?.length) {
@@ -343,8 +417,8 @@ serve(async (req) => {
     deadlinesHtml = `<table style="${tableStyle}">
       <tr><th style="${thStyle}">Type</th><th style="${thStyle}">Client</th><th style="${thStyle}">Property</th><th style="${thStyle}">Date</th><th style="${thStyle}">Days Left</th></tr>
       ${upcomingDeadlines.map((d) => {
-        const badge = d.daysLeft === 0 ? badgeRed : d.daysLeft <= 2 ? badgeOrange : badgeGreen;
-        const label = d.daysLeft === 0 ? 'TODAY' : `${d.daysLeft}d`;
+        const badge = d.daysLeft <= 0 ? badgeRed : d.daysLeft <= 2 ? badgeOrange : badgeGreen;
+        const label = d.daysLeft < 0 ? `OVERDUE ${-d.daysLeft}d` : d.daysLeft === 0 ? 'TODAY' : `${d.daysLeft}d`;
         return `<tr>
           <td style="${tdStyle}">${d.label}</td>
           <td style="${tdStyle}">${esc(d.client)}</td>
@@ -377,13 +451,17 @@ serve(async (req) => {
 
   // ── Assemble counts for subject line ──────────────────────────────────────
   const pendingCount = pendingApprovals?.length ?? 0;
+  const failedCount = failedSends?.length ?? 0;
   const intakeCount = newIntakes?.length ?? 0;
   const viewingCount = viewingsWithClients.length;
+  const offerCount = openOffers?.length ?? 0;
   const deadlineCount = upcomingDeadlines.filter(d => d.daysLeft <= 2).length;
 
   const alerts = [];
+  if (failedCount > 0) alerts.push(`⚠️ ${failedCount} FAILED send${failedCount > 1 ? 's' : ''}`);
   if (viewingCount > 0) alerts.push(`${viewingCount} viewing${viewingCount > 1 ? 's' : ''}`);
   if (pendingCount > 0) alerts.push(`${pendingCount} approval${pendingCount > 1 ? 's' : ''}`);
+  if (offerCount > 0) alerts.push(`${offerCount} open offer${offerCount > 1 ? 's' : ''}`);
   if (intakeCount > 0) alerts.push(`${intakeCount} new lead${intakeCount > 1 ? 's' : ''}`);
   if (deadlineCount > 0) alerts.push(`${deadlineCount} urgent deadline${deadlineCount > 1 ? 's' : ''}`);
 
@@ -401,8 +479,10 @@ serve(async (req) => {
       <div style="font-size:22px;font-weight:700;color:#fff;">☀️ Good Morning, Maxwell</div>
       <div style="font-size:13px;color:#FBE4D6;margin-top:4px;">${dayName}</div>
       <div style="margin-top:16px;">
+        ${failedCount > 0 ? `<span style="${chipStyle}">⚠️ ${failedCount} Failed Send${failedCount > 1 ? 's' : ''}</span>` : ''}
         ${viewingCount > 0 ? `<span style="${chipStyle}">📅 ${viewingCount} Viewing${viewingCount > 1 ? 's' : ''} Today</span>` : ''}
         ${pendingCount > 0 ? `<span style="${chipStyle}">📬 ${pendingCount} Pending Approval${pendingCount > 1 ? 's' : ''}</span>` : ''}
+        ${offerCount > 0 ? `<span style="${chipStyle}">📝 ${offerCount} Open Offer${offerCount > 1 ? 's' : ''}</span>` : ''}
         ${intakeCount > 0 ? `<span style="${chipStyle}">📋 ${intakeCount} New Lead${intakeCount > 1 ? 's' : ''}</span>` : ''}
         ${deadlineCount > 0 ? `<span style="${chipStyle}">⚠️ ${deadlineCount} Urgent Deadline${deadlineCount > 1 ? 's' : ''}</span>` : ''}
         ${alerts.length === 0 ? `<span style="${chipStyle}">✅ All clear — great day ahead!</span>` : ''}
@@ -412,6 +492,12 @@ serve(async (req) => {
     <!-- Content card -->
     <div style="background:#fff;border-radius:0 0 12px 12px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
 
+      ${failedCount > 0 ? `<div style="${sectionStyle}">
+        <div style="${headingStyle}">⚠️ Failed Sends — NOT Delivered</div>
+        <p style="color:#b71c1c;font-size:12px;margin:0 0 10px;">These client emails failed to send and are still sitting in Approvals. Open DealFlow and tap <strong>Retry send</strong>.</p>
+        ${failedHtml}
+      </div>` : ''}
+
       <div style="${sectionStyle}">
         <div style="${headingStyle}">📅 Today's Viewings</div>
         ${viewingsHtml}
@@ -420,6 +506,11 @@ serve(async (req) => {
       <div style="${sectionStyle}">
         <div style="${headingStyle}">📬 Pending Approvals</div>
         ${approvalsHtml}
+      </div>
+
+      <div style="${sectionStyle}">
+        <div style="${headingStyle}">📝 Offers Awaiting Response</div>
+        ${offersHtml}
       </div>
 
       <div style="${sectionStyle}">
@@ -442,6 +533,11 @@ serve(async (req) => {
         ${staleHtml}
       </div>
 
+      <!-- CTA -->
+      <div style="text-align:center;margin:4px 0 20px 0;">
+        <a href="https://maxwell-dealflow.vercel.app" style="display:inline-block;background:#CC785C;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 32px;border-radius:8px;">Open DealFlow →</a>
+      </div>
+
       <!-- Footer -->
       <div style="border-top:1px solid #eee;padding-top:16px;margin-top:8px;font-size:11px;color:#aaa;text-align:center;">
         Maxwell DealFlow CRM &nbsp;•&nbsp; Automated Morning Briefing &nbsp;•&nbsp; ${dayName}
@@ -453,12 +549,18 @@ serve(async (req) => {
 
   // Plain text version
   const plainBody = `GOOD MORNING, MAXWELL — ${dayName}
-
+${failedCount > 0 ? `
+⚠️ FAILED SENDS — NOT DELIVERED (${failedCount})
+${failedSends!.map((a: any) => `  • [${a.approval_type}] ${a.client_name} — ${a.email_subject}`).join('\n')}
+` : ''}
 TODAY'S VIEWINGS (${viewingCount})
 ${viewingsWithClients.length === 0 ? 'No viewings today.' : viewingsWithClients.map((v: any) => `  • ${fmtTime(v.viewing_time)} — ${v.client_name} @ ${v.property_address}`).join('\n')}
 
 PENDING APPROVALS (${pendingCount})
 ${!pendingApprovals?.length ? "You're all caught up!" : pendingApprovals.map((a: any) => `  • [${a.approval_type}] ${a.client_name} — ${a.email_subject}`).join('\n')}
+
+OFFERS AWAITING RESPONSE (${offerCount})
+${!openOffers?.length ? 'No offers awaiting a response.' : openOffers.map((o: any) => `  • ${o.client_name || '—'} — ${o.property_address || '—'} @ ${fmtMoney(o.offer_amount)} [${o.status}]`).join('\n')}
 
 NEW CLIENT LEADS (${intakeCount})
 ${!newIntakes?.length ? 'No new intakes.' : newIntakes.map((i: any) => `  • ${i.full_name || 'Unknown'} (${i.email || '—'})`).join('\n')}
@@ -467,7 +569,7 @@ ACTIVE PIPELINE (${activeDeals?.length ?? 0} deals)
 ${!activeDeals?.length ? 'No active deals.' : activeDeals.map((d: any) => `  • ${d.client_name} — ${d.property_address} [${d.stage}]`).join('\n')}
 
 UPCOMING DEADLINES THIS WEEK
-${upcomingDeadlines.length === 0 ? 'No deadlines in the next 7 days.' : upcomingDeadlines.map(d => `  • ${d.label} — ${d.client} @ ${d.address} (${d.date}, ${d.daysLeft === 0 ? 'TODAY' : d.daysLeft + 'd'})`).join('\n')}
+${upcomingDeadlines.length === 0 ? 'No deadlines in the next 7 days.' : upcomingDeadlines.map(d => `  • ${d.label} — ${d.client} @ ${d.address} (${d.date}, ${d.daysLeft < 0 ? 'OVERDUE ' + (-d.daysLeft) + 'd' : d.daysLeft === 0 ? 'TODAY' : d.daysLeft + 'd'})`).join('\n')}
 
 DEALS NEEDING ATTENTION
 ${staleDeals.length === 0 ? 'All deals have recent activity.' : staleDeals.map((d: any) => `  • ${d.client_name} — ${d.property_address} [${d.stage}]`).join('\n')}
@@ -483,6 +585,8 @@ Maxwell DealFlow CRM | Automated Morning Briefing`;
       subject,
       viewings: viewingCount,
       pendingApprovals: pendingCount,
+      failedSends: failedCount,
+      openOffers: offerCount,
       newIntakes: intakeCount,
       upcomingDeadlines: upcomingDeadlines.length,
       staleDeals: staleDeals.length,
@@ -534,6 +638,8 @@ Maxwell DealFlow CRM | Automated Morning Briefing`;
     subject,
     viewings: viewingCount,
     pendingApprovals: pendingCount,
+    failedSends: failedCount,
+    openOffers: offerCount,
     newIntakes: intakeCount,
     upcomingDeadlines: upcomingDeadlines.length,
     staleDeals: staleDeals.length,

@@ -13,9 +13,9 @@ const Approvals = {
     // base64 email HTML + file attachments (often MBs). Pulling it here made the
     // approvals query slow/hang. context_data is fetched per-row on openEdit/approve.
     const { data } = await db.from('approval_queue')
-      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at')
+      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at, updated_at')
       .eq('agent_id', agentId)
-      .eq('status', 'Pending')
+      .in('status', ['Pending', 'Failed'])
       .order('created_at', { ascending: false }).limit(50);
     const pending = data || [];
     const badge = document.getElementById('approvals-badge');
@@ -48,6 +48,12 @@ const Approvals = {
         ${a.status === 'Pending' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Preview & Edit</button>
+            <button class="btn btn-sm" style="background:var(--text2);color:#fff;" onclick="Approvals.skip('${a.id}')">⏭ Skip (client aware)</button>
+          </div>` : a.status === 'Failed' ? `
+          <div style="font-size:11px;color:var(--red);font-weight:600;margin-bottom:8px;">❌ Send failed — this email did NOT reach the client${a.updated_at ? ' · ' + App.fmtDate(a.updated_at) : ''}. Retry when ready.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+            <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">🔁 Retry send</button>
             <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Preview & Edit</button>
             <button class="btn btn-sm" style="background:var(--text2);color:#fff;" onclick="Approvals.skip('${a.id}')">⏭ Skip (client aware)</button>
           </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '⏭ Skipped — client already aware'} · ${App.fmtDate(a.updated_at)}</div>`}
@@ -85,6 +91,29 @@ const Approvals = {
   _data: [],
 
   _sending: new Set(), // in-memory lock — prevents double-tapping Approve
+
+  // Persist a durable failure marker so a failed send — especially an auto-approve
+  // fire-and-forget one — never vanishes silently. Sets status 'Failed' so the row
+  // stays visible + retryable in Approvals and the morning briefing can alert on it.
+  // Stashes the error into context_data (MERGED — never clobbers the html/ics/cc/
+  // attachments a retry still needs). Best-effort: never throws back into the caller.
+  async _markFailed(id, item, errMsg) {
+    try {
+      let ctx = {};
+      if (item?.context_data) {
+        try { ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : (item.context_data || {}); }
+        catch { ctx = {}; }
+      }
+      ctx.send_error = String(errMsg || 'Unknown error').slice(0, 500);
+      ctx.failed_at  = new Date().toISOString();
+      await db.from('approval_queue')
+        .update({ status: 'Failed', context_data: ctx, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (typeof Notify !== 'undefined') Notify.updateBadge();
+    } catch (e) {
+      console.error('[approve] could not persist failure marker:', e?.message || e);
+    }
+  },
 
   async approve(id) {
     // ── SEND LOCK — block if already in flight ──────────────────────────────
@@ -267,6 +296,7 @@ const Approvals = {
           const sizeHint = /compute resources|too large|payload|memory/i.test(errMsg) ? ` (payload ~${payloadMB.toFixed(1)} MB)` : '';
           App.toast(`❌ Email failed: ${errMsg}${sizeHint}`, 'var(--red)');
           console.error('Email send error:', result);
+          await Approvals._markFailed(id, item, `${errMsg}${sizeHint}`);
           Approvals._sending.delete(id);
           return;
         }
@@ -321,6 +351,7 @@ const Approvals = {
         App.toast(`✅ Email sent to ${item.client_name}!`, 'var(--green)');
       } catch (err) {
         App.toast(`❌ Error: ${err.message}`, 'var(--red)');
+        await Approvals._markFailed(id, item, err?.message || err);
       } finally {
         Approvals._sending.delete(id);
       }

@@ -1761,7 +1761,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     const { count } = await db.from('approval_queue')
       .select('*', { count: 'exact', head: true })
       .eq('agent_id', agentId)
-      .eq('status', 'Pending');
+      .in('status', ['Pending', 'Failed']);
     const badge = document.getElementById('approvals-badge');
     if (badge) {
       badge.textContent = count || 0;
