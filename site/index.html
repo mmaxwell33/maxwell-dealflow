@@ -41,7 +41,7 @@
  radial-gradient(circle at 22% 78%, rgba(204, 120, 92, 0.16) 0%, transparent 55%);}
  /* Montage crossfade, video is invisible until a clip is actually playing,
  and fades out/in between scenes. */
- .hero.hero-lean .hero-video{opacity:0;transition:opacity 1400ms ease;}
+ .hero.hero-lean .hero-video{opacity:0;transition:opacity 650ms ease;}
  .hero.hero-lean .hero-video.on{opacity:1;}
  .hero-ctas .btn-text{display:inline-flex;align-items:center;color:rgba(255, 255, 255, 0.9);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255, 255, 255, 0.4);font-weight:600;font-size:15px;padding:14px 4px;}
  .hero-ctas .btn-text:hover{color:#fff;text-decoration-color:var(--brand-light);}
@@ -120,11 +120,12 @@
  <span>Maxwell Midodzi</span>
  </a>
  <div class="nav-links">
+ <a href="/site/">Home</a>
+ <a href="/site/communities/st-johns/">St. John's</a>
+ <a href="/site/process/#buying">Buying</a>
+ <a href="/site/process/#selling">Selling</a>
  <a href="/site/about/">About</a>
- <a href="/site/process/">How it works</a>
- <a href="#guides">Free guides</a>
- <a href="#faq">FAQ</a>
- <a href="#contact">Contact</a>
+ <a href="/site/#contact">Contact</a>
  </div>
  <div class="nav-right">
  <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
@@ -135,11 +136,12 @@
  </div>
  <div class="nav-panel" id="navPanel">
  <div class="nav-panel-inner">
+ <a href="/site/">Home</a>
+ <a href="/site/communities/st-johns/">St. John's</a>
+ <a href="/site/process/#buying">Buying</a>
+ <a href="/site/process/#selling">Selling</a>
  <a href="/site/about/">About</a>
- <a href="/site/process/">How it works</a>
- <a href="#guides">Free guides</a>
- <a href="#faq">FAQ</a>
- <a href="#contact">Contact</a>
+ <a href="/site/#contact">Contact</a>
  <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
  </div>
  </div>
@@ -430,49 +432,65 @@
 <!-- Homepage-only JS: the hero montage. No libraries, no build step. -->
 <script>
 
- /* ── Hero montage, five St. John's / Newfoundland scenes, crossfaded ──
- Sources (Pexels, "Free to use" licence, hotlinked like the old Mixkit hero):
- 1. pexels.com/video/9139014, SUMMER postcard: downtown + harbour + the
- Narrows + Signal Hill w/ Cabot Tower
- 2. pexels.com/video/9083498, downtown St. John's at dusk (jellybean rows)
- 3. pexels.com/video/29499252, wide summer wildflower meadow swaying in the breeze
- 4. pexels.com/video/12712363, NL coastal village, sea + green landscape
- 5. pexels.com/video/30822225, misty coastal village at dawn
- Behaviour: gradient paints first; a clip fades in when it can play,
- fades out at its end, and the next scene fades in. Any error removes
- the video and leaves the gradient, never a blank hero. Reduced-motion
- users never see the video (CSS). */
- (function(){
- var SCENES = [
- 'https://videos.pexels.com/video-files/9139014/9139014-hd_1280_720_30fps.mp4',
- 'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',
- 'https://videos.pexels.com/video-files/29499252/12698287_1280_720_30fps.mp4',
- 'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4',
- 'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'
- ];
- var v = document.getElementById('heroVid');
- if (!v || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
- var i = 0, fails = 0;
- function play(n, delay){
- setTimeout(function(){
- v.src = SCENES[n];
- var p = v.play();
- if (p && p.then) p.then(function(){ v.classList.add('on'); }).catch(function(){ /* autoplay refused → gradient stays */ });
- }, delay);
- }
- v.addEventListener('ended', function(){
- v.classList.remove('on');
- i = (i + 1) % SCENES.length;
- play(i, 900); /* let the fade-out finish before swapping scenes */
- });
- v.addEventListener('error', function(){
- if (++fails >= SCENES.length) { v.remove(); return; } /* all dead → gradient forever */
- v.classList.remove('on');
- i = (i + 1) % SCENES.length;
- play(i, 300);
- });
- play(0, 0);
- })();
+ /* ── Hero montage — a St. John's day compressed into ~25s ─────────────
+     Two stacked <video> elements (A/B) crossfade so it's a real overlap
+     fade, not a hard cut. A single tracked timer marches through the
+     scenes on a ~4s dwell (day → warm afternoon → dusk → cool blue hour),
+     so it "moves fast" and reads as daylight turning toward night. Only
+     ~2 clips are ever in flight (never all 5 up front), it pauses when the
+     tab is hidden, and if a clip fails it skips; if all fail the navy
+     gradient just stays. Reduced-motion users never see the video.
+     Clips: Pexels — Free to use (Pexels License), no attribution required. */
+  (function(){
+    var host = document.querySelector('.hero-media');
+    if (!host) return;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var SCENES = [
+      'https://videos.pexels.com/video-files/9139014/9139014-hd_1280_720_30fps.mp4',   // summer harbour + Signal Hill (bright day)
+      'https://videos.pexels.com/video-files/29499252/12698287_1280_720_30fps.mp4',    // wildflower meadow (warm afternoon)
+      'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4', // coastal village (late afternoon)
+      'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',   // downtown St. John's at dusk (jellybean rows)
+      'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'     // misty village, cool blue hour (toward night)
+    ];
+    var DWELL = 4200, RATE = 1.12;
+    var timer = null, stopped = false, i = 0, dead = 0, front = 0;
+
+    var a = document.getElementById('heroVid');
+    if (!a) return;
+    var b = a.cloneNode(false); b.removeAttribute('id'); host.appendChild(b);
+    var pair = [a, b];
+    [a, b].forEach(function(el){
+      el.muted = true; el.setAttribute('playsinline',''); el.preload = 'auto';
+      el.addEventListener('error', onError);
+    });
+
+    function schedule(fn, ms){ clearTimeout(timer); timer = setTimeout(function(){ if(!stopped) fn(); }, ms); }
+    function stop(){ stopped = true; clearTimeout(timer); a.remove(); b.remove(); }
+    function onError(){ if(stopped) return; if(++dead >= SCENES.length) return stop(); advance(); }
+    function show(idx){
+      if (stopped) return;
+      var next = pair[front ^ 1], cur = pair[front];
+      next.src = SCENES[idx];               // lazy: src set only now — never all 5 at once
+      var p = next.play();
+      var go = function(){
+        try { next.playbackRate = RATE; } catch(e){}   // re-applied each scene (resets on src change)
+        next.classList.add('on'); cur.classList.remove('on');   // 650ms crossfade
+        front ^= 1;
+        schedule(advance, DWELL);            // the ONLY advance — no 'ended' listener (kills the race)
+      };
+      if (p && p.then) p.then(go).catch(function(){ /* autoplay refused → gradient stays */ });
+      else go();
+    }
+    function advance(){ if(stopped) return; i = (i + 1) % SCENES.length; show(i); }
+
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) clearTimeout(timer);           // don't burn data/scenes in a hidden tab
+      else if (!stopped) schedule(advance, DWELL);
+    });
+
+    show(0);
+  })();
 </script>
 <!-- Contact form → same submit_intake RPC the intake pages use, via a light
      fetch (no supabase-js library). Messages land in DealFlow. Anon key is
