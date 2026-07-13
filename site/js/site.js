@@ -19,7 +19,28 @@
   var yr = document.getElementById('yr');
   if (yr) yr.textContent = new Date().getFullYear();
 
+  // ── Flat-nav mobile hamburger (shared by every page) ────────────────
+  var nav = document.getElementById('nav');
+  var toggle = document.getElementById('navToggle');
+  if (nav && toggle) {
+    toggle.addEventListener('click', function () {
+      var open = nav.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    var panel = document.getElementById('navPanel');
+    if (panel) {
+      panel.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') {
+          nav.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+  }
+
   // ── Mega-menu click + keyboard support ─────────────────────────────
+  //    (kept for the upcoming Communities dropdown; no-ops on pages
+  //     without .mega-menu items)
   var items = document.querySelectorAll('.mega-menu .mega-item');
   if (!items.length) return;
 
