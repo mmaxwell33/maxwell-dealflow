@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Maxwell Midodzi — REALTOR® in St. John's, NL | eXp Realty</title>
-<meta name="description" content="Patient, plain-English real estate help for first-time buyers, families, and sellers across St. John's and the Avalon Peninsula. Free 15-minute call, no pressure. Maxwell Midodzi, REALTOR® — brokered by eXp Realty.">
+<title>Maxwell Midodzi, REALTOR® in St. John's, NL | eXp Realty</title>
+<meta name="description" content="Patient, plain-English real estate help for first-time buyers, families, and sellers across St. John's and the Avalon Peninsula. Free 15-minute call, no pressure. Maxwell Midodzi, REALTOR®, brokered by eXp Realty.">
 <link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Maxwell Midodzi — REALTOR® in St. John's, NL">
+<meta property="og:title" content="Maxwell Midodzi, REALTOR® in St. John's, NL">
 <meta property="og:description" content="Patient, plain-English real estate help across St. John's and the Avalon. Free 15-minute call, no pressure.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&h=630&q=80&fm=jpg&auto=format&fit=crop">
 <meta property="og:image:width" content="1200">
@@ -21,79 +21,79 @@
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 
-<!-- Shared stylesheet — unchanged -->
+<!-- Shared stylesheet, unchanged -->
 <link rel="stylesheet" href="/site/css/site.css">
 
-<!-- Preconnect to the Pexels video CDN — the hero montage clips start
-     their TLS handshake before the montage script requests them. -->
+<!-- Preconnect to the Pexels video CDN, the hero montage clips start
+ their TLS handshake before the montage script requests them. -->
 <link rel="preconnect" href="https://videos.pexels.com" crossorigin>
 
 <!-- ── Supplemental styles (homepage-only) ──────────────────────────────
-     The shared nav/hamburger styles now live in /site/css/site.css (used
-     by every page). This block keeps only homepage-specific pieces: the
-     video hero, "Meet Maxwell", credibility strip, and free-guide cards. -->
+ The shared nav/hamburger styles now live in /site/css/site.css (used
+ by every page). This block keeps only homepage-specific pieces: the
+ video hero, "Meet Maxwell", credibility strip, and free-guide cards. -->
 <style>
-  .hero.hero-lean{background:linear-gradient(160deg,#0A1220 0%,#16233b 60%,#0A1220 100%);}
-  /* Dark scrim + warm glow — keeps the white headline readable whether the
-     backdrop is the gradient or a bright daytime video frame. */
-  .hero.hero-lean .hero-overlay{background:
-    linear-gradient(135deg,rgba(10,18,32,0.72) 0%,rgba(15,26,42,0.55) 50%,rgba(10,18,32,0.78) 100%),
-    radial-gradient(circle at 22% 78%,rgba(204,120,92,0.16) 0%,transparent 55%);}
-  /* Montage crossfade — video is invisible until a clip is actually playing,
-     and fades out/in between scenes. */
-  .hero.hero-lean .hero-video{opacity:0;transition:opacity 1400ms ease;}
-  .hero.hero-lean .hero-video.on{opacity:1;}
-  .hero-ctas .btn-text{display:inline-flex;align-items:center;color:rgba(255,255,255,0.9);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255,255,255,0.4);font-weight:600;font-size:15px;padding:14px 4px;}
-  .hero-ctas .btn-text:hover{color:#fff;text-decoration-color:var(--brand-light);}
-  .meet-grid{display:grid;gap:40px;align-items:center;}
-  @media(min-width:720px){.meet-grid{grid-template-columns:5fr 7fr;gap:56px;}}
-  .meet-photo{width:100%;max-width:340px;aspect-ratio:4/5;border-radius:var(--r-md);background:linear-gradient(160deg,var(--ink) 0%,#1E293B 100%);display:flex;align-items:center;justify-content:center;color:var(--bg);font-size:88px;font-weight:600;letter-spacing:-0.04em;margin:0 auto;box-shadow:var(--shadow-3);overflow:hidden;}
-  .meet-photo img{width:100%;height:100%;object-fit:cover;}
-  .meet-body h2{font-size:clamp(26px,3.4vw,38px);font-weight:700;letter-spacing:-0.025em;line-height:1.15;margin-bottom:18px;text-wrap:balance;}
-  .meet-body p{font-size:17px;line-height:1.65;color:var(--ink-2);margin-bottom:16px;max-width:56ch;}
-  .meet-body p strong{color:var(--ink);font-weight:600;}
-  .cred-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;}
-  @media(max-width:720px){.cred-strip{grid-template-columns:repeat(2,1fr);}}
-  .cred-cell{background:var(--bg);padding:26px 22px;text-align:center;}
-  .cred-cell .cred-big{font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-0.01em;line-height:1.25;}
-  .cred-cell .cred-small{font-size:12.5px;color:var(--ink-3);margin-top:6px;line-height:1.4;}
-  .guide-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--brand-dark);margin-bottom:12px;}
-  .guide-card{display:flex;flex-direction:column;height:100%;}
-  .guide-card .guide-link{margin-top:auto;padding-top:18px;font-weight:700;font-size:14px;color:var(--ink);text-decoration:none;}
-  .guide-card .guide-link:hover{color:var(--brand-dark);}
-  .compliance{border-top:1px solid var(--border);margin-top:24px;padding-top:20px;font-size:11.5px;line-height:1.55;color:var(--ink-4);max-width:none;}
-  .compliance p{margin-bottom:8px;}
+ .hero.hero-lean{background:linear-gradient(160deg, #0A1220 0%, #16233b 60%, #0A1220 100%);}
+ /* Dark scrim + warm glow, keeps the white headline readable whether the
+ backdrop is the gradient or a bright daytime video frame. */
+ .hero.hero-lean .hero-overlay{background:
+ linear-gradient(135deg, rgba(10, 18, 32, 0.72) 0%, rgba(15, 26, 42, 0.55) 50%, rgba(10, 18, 32, 0.78) 100%),
+ radial-gradient(circle at 22% 78%, rgba(204, 120, 92, 0.16) 0%, transparent 55%);}
+ /* Montage crossfade, video is invisible until a clip is actually playing,
+ and fades out/in between scenes. */
+ .hero.hero-lean .hero-video{opacity:0;transition:opacity 1400ms ease;}
+ .hero.hero-lean .hero-video.on{opacity:1;}
+ .hero-ctas .btn-text{display:inline-flex;align-items:center;color:rgba(255, 255, 255, 0.9);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255, 255, 255, 0.4);font-weight:600;font-size:15px;padding:14px 4px;}
+ .hero-ctas .btn-text:hover{color:#fff;text-decoration-color:var(--brand-light);}
+ .meet-grid{display:grid;gap:40px;align-items:center;}
+ @media(min-width:720px){.meet-grid{grid-template-columns:5fr 7fr;gap:56px;}}
+ .meet-photo{width:100%;max-width:340px;aspect-ratio:4/5;border-radius:var(--r-md);background:linear-gradient(160deg, var(--ink) 0%, #1E293B 100%);display:flex;align-items:center;justify-content:center;color:var(--bg);font-size:88px;font-weight:600;letter-spacing:-0.04em;margin:0 auto;box-shadow:var(--shadow-3);overflow:hidden;}
+ .meet-photo img{width:100%;height:100%;object-fit:cover;}
+ .meet-body h2{font-size:clamp(26px, 3.4vw, 38px);font-weight:700;letter-spacing:-0.025em;line-height:1.15;margin-bottom:18px;text-wrap:balance;}
+ .meet-body p{font-size:17px;line-height:1.65;color:var(--ink-2);margin-bottom:16px;max-width:56ch;}
+ .meet-body p strong{color:var(--ink);font-weight:600;}
+ .cred-strip{display:grid;grid-template-columns:repeat(4, 1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;}
+ @media(max-width:720px){.cred-strip{grid-template-columns:repeat(2, 1fr);}}
+ .cred-cell{background:var(--bg);padding:26px 22px;text-align:center;}
+ .cred-cell .cred-big{font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-0.01em;line-height:1.25;}
+ .cred-cell .cred-small{font-size:12.5px;color:var(--ink-3);margin-top:6px;line-height:1.4;}
+ .guide-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--brand-dark);margin-bottom:12px;}
+ .guide-card{display:flex;flex-direction:column;height:100%;}
+ .guide-card .guide-link{margin-top:auto;padding-top:18px;font-weight:700;font-size:14px;color:var(--ink);text-decoration:none;}
+ .guide-card .guide-link:hover{color:var(--brand-dark);}
+ .compliance{border-top:1px solid var(--border);margin-top:24px;padding-top:20px;font-size:11.5px;line-height:1.55;color:var(--ink-4);max-width:none;}
+ .compliance p{margin-bottom:8px;}
 </style>
 
-<!-- Structured data — RealEstateAgent (jobTitle corrected: REALTOR® is a
-     membership designation, not a job title). -->
+<!-- Structured data, RealEstateAgent (jobTitle corrected: REALTOR® is a
+ membership designation, not a job title). -->
 <script type="application/ld+json">
 {
-  "@context":"https://schema.org",
-  "@type":"RealEstateAgent",
-  "name":"Maxwell Midodzi",
-  "jobTitle":"Real Estate Agent",
-  "description":"Real estate agent serving St. John's and the Avalon Peninsula, Newfoundland. Brokered by eXp Realty.",
-  "areaServed":"St. John's, Newfoundland and Labrador, Canada",
-  "url":"https://maxwell-dealflow.vercel.app/site/",
-  "email":"Maxwell.Midodzi@exprealty.com",
-  "telephone":"+1-709-325-0545",
-  "memberOf":{"@type":"Organization","name":"eXp Realty"}
+ "@context":"https://schema.org",
+ "@type":"RealEstateAgent",
+ "name":"Maxwell Midodzi",
+ "jobTitle":"Real Estate Agent",
+ "description":"Real estate agent serving St. John's and the Avalon Peninsula, Newfoundland. Brokered by eXp Realty.",
+ "areaServed":"St. John's, Newfoundland and Labrador, Canada",
+ "url":"https://maxwell-dealflow.vercel.app/site/",
+ "email":"Maxwell.Midodzi@exprealty.com",
+ "telephone":"+1-709-325-0545",
+ "memberOf":{"@type":"Organization", "name":"eXp Realty"}
 }
 </script>
-<!-- Structured data — FAQPage (mirrors the visible FAQ below for Google rich results) -->
+<!-- Structured data, FAQPage (mirrors the visible FAQ below for Google rich results) -->
 <script type="application/ld+json">
 {
-  "@context":"https://schema.org",
-  "@type":"FAQPage",
-  "mainEntity":[
-    {"@type":"Question","name":"Do you charge for an initial consultation?","acceptedAnswer":{"@type":"Answer","text":"No. The first conversation — in person, on the phone, or over video — is always free, even if you're 12 months away from being ready to buy or sell."}},
-    {"@type":"Question","name":"How much do I need saved before I start looking?","acceptedAnswer":{"@type":"Answer","text":"As an estimate, for a typical Newfoundland home around $350K you'd want a minimum 5% down payment plus closing costs of roughly 1.5–2%. Below 20% down you'll also pay CMHC insurance. Your lender runs your exact numbers at pre-approval."}},
-    {"@type":"Question","name":"What does pre-approval actually mean — and do I need it?","acceptedAnswer":{"@type":"Answer","text":"A pre-approval is a lender's written commitment to lend you up to a specific amount based on your income, credit, and debts. It's not a guarantee, but it tells you and any seller what you can credibly offer. Yes, get pre-approved before touring anything serious."}},
-    {"@type":"Question","name":"How do you decide what to list my home for?","acceptedAnswer":{"@type":"Answer","text":"A Comparable Market Analysis: recent sales within a reasonable radius, adjusted for condition, lot, finishes, and market direction, giving an honest low/likely/high range. I won't list a property I think is overpriced just to win the listing."}},
-    {"@type":"Question","name":"Who pays the real estate commission when I'm selling?","acceptedAnswer":{"@type":"Answer","text":"In Newfoundland the standard convention is that the seller's proceeds cover both the listing agent's and the buyer's agent's commission. You'll see the full breakdown before signing anything."}},
-    {"@type":"Question","name":"What if I don't end up buying or selling?","acceptedAnswer":{"@type":"Answer","text":"Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. About a third of the people who reach out aren't ready yet, and most come back when they are."}}
-  ]
+ "@context":"https://schema.org",
+ "@type":"FAQPage",
+ "mainEntity":[
+ {"@type":"Question", "name":"Do you charge for an initial consultation?", "acceptedAnswer":{"@type":"Answer", "text":"No. The first conversation, in person, on the phone, or over video, is always free, even if you're 12 months away from being ready to buy or sell."}},
+ {"@type":"Question", "name":"How much do I need saved before I start looking?", "acceptedAnswer":{"@type":"Answer", "text":"As an estimate, for a typical Newfoundland home around $350K you'd want a minimum 5% down payment plus closing costs of roughly 1.5 to 2%. Below 20% down you'll also pay CMHC insurance. Your lender runs your exact numbers at pre-approval."}},
+ {"@type":"Question", "name":"What does pre-approval actually mean, and do I need it?", "acceptedAnswer":{"@type":"Answer", "text":"A pre-approval is a lender's written commitment to lend you up to a specific amount based on your income, credit, and debts. It's not a guarantee, but it tells you and any seller what you can credibly offer. Yes, get pre-approved before touring anything serious."}},
+ {"@type":"Question", "name":"How do you decide what to list my home for?", "acceptedAnswer":{"@type":"Answer", "text":"A Comparable Market Analysis: recent sales within a reasonable radius, adjusted for condition, lot, finishes, and market direction, giving an honest low/likely/high range. I won't list a property I think is overpriced just to win the listing."}},
+ {"@type":"Question", "name":"Who pays the real estate commission when I'm selling?", "acceptedAnswer":{"@type":"Answer", "text":"In Newfoundland the seller's proceeds usually cover both the listing agent's and the buyer's agent's commission. Commission is always negotiable and isn't set by law or by any real-estate board. You'll see the full breakdown before you sign anything."}},
+ {"@type":"Question", "name":"What if I don't end up buying or selling?", "acceptedAnswer":{"@type":"Answer", "text":"Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. A lot of people who reach out aren't ready yet, and that's completely normal."}}
+ ]
 }
 </script>
 </head>
@@ -101,337 +101,337 @@
 
 <!-- ── TOP UTILITY BAR ─── (public "Agent Login" link removed) -->
 <div class="utility-bar" aria-label="Secondary">
-  <div class="utility-inner">
-    <span class="utility-affiliation">eXp Realty · St. John's, NL · Avalon Peninsula</span>
-    <div class="utility-links">
-      <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
-      <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
-      <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
-      <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
-    </div>
-  </div>
+ <div class="utility-inner">
+ <span class="utility-affiliation">eXp Realty · St. John's, NL · Avalon Peninsula</span>
+ <div class="utility-links">
+ <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
+ <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+ <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
+ <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
+ </div>
+ </div>
 </div>
 
-<!-- ── MAIN NAV — flat links + working mobile hamburger ─── -->
+<!-- ── MAIN NAV, flat links + working mobile hamburger ─── -->
 <nav class="nav" id="nav" aria-label="Primary">
-  <div class="nav-inner">
-    <a class="nav-brand" href="/site/">
-      <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
-      <span>Maxwell Midodzi</span>
-    </a>
-    <div class="nav-links">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="#guides">Free guides</a>
-      <a href="#faq">FAQ</a>
-    </div>
-    <div class="nav-right">
-      <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
-      <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </div>
-  <div class="nav-panel" id="navPanel">
-    <div class="nav-panel-inner">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="#guides">Free guides</a>
-      <a href="#faq">FAQ</a>
-      <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
-    </div>
-  </div>
+ <div class="nav-inner">
+ <a class="nav-brand" href="/site/">
+ <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
+ <span>Maxwell Midodzi</span>
+ </a>
+ <div class="nav-links">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="#guides">Free guides</a>
+ <a href="#faq">FAQ</a>
+ </div>
+ <div class="nav-right">
+ <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
+ <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
+ <span></span><span></span><span></span>
+ </button>
+ </div>
+ </div>
+ <div class="nav-panel" id="navPanel">
+ <div class="nav-panel-inner">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="#guides">Free guides</a>
+ <a href="#faq">FAQ</a>
+ <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
+ </div>
+ </div>
 </nav>
 
-<!-- ── HERO — cinematic St. John's montage (Hollett-style), gradient-first ───
-     The navy gradient paints INSTANTLY; the video montage fades in on top
-     once the first clip is ready, then crossfades through three real
-     Newfoundland scenes (downtown St. John's at dusk → coastal village by
-     the sea → misty village at dawn). All clips are Pexels "Free to use"
-     (commercial OK, no attribution), hotlinked from the Pexels CDN — same
-     pattern as the original Mixkit hero. If a clip fails to load, the
-     gradient simply stays: no blank hero, ever.
-     prefers-reduced-motion hides the video entirely (site.css rule). -->
+<!-- ── HERO, cinematic St. John's montage (Hollett-style), gradient-first ───
+ The navy gradient paints INSTANTLY; the video montage fades in on top
+ once the first clip is ready, then crossfades through three real
+ Newfoundland scenes (downtown St. John's at dusk → coastal village by
+ the sea → misty village at dawn). All clips are Pexels "Free to use"
+ (commercial OK, no attribution), hotlinked from the Pexels CDN, same
+ pattern as the original Mixkit hero. If a clip fails to load, the
+ gradient simply stays: no blank hero, ever.
+ prefers-reduced-motion hides the video entirely (site.css rule). -->
 <section class="hero hero-lean">
-  <div class="hero-media" aria-hidden="true">
-    <video id="heroVid" class="hero-video" muted playsinline preload="auto"></video>
-  </div>
-  <div class="hero-overlay" aria-hidden="true"></div>
-  <div class="wrap">
-    <span class="eyebrow accent"><span class="eyebrow-divider"></span>REALTOR® · eXp Realty · St. John's, NL</span>
-    <h1>St. John's real estate, <span class="accent">handled with the patience it deserves.</span></h1>
-    <p class="lead">
-      I help first-time buyers, growing families, and homeowners ready to list make confident decisions about the biggest purchase of their lives — without the pressure or the runaround.
-    </p>
-    <div class="hero-ctas">
-      <a class="btn btn-primary" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
-      <a class="btn-text" href="#guides">or grab a free buying &amp; selling guide →</a>
-    </div>
-  </div>
+ <div class="hero-media" aria-hidden="true">
+ <video id="heroVid" class="hero-video" muted playsinline preload="auto"></video>
+ </div>
+ <div class="hero-overlay" aria-hidden="true"></div>
+ <div class="wrap">
+ <span class="eyebrow accent"><span class="eyebrow-divider"></span>REALTOR® · eXp Realty · St. John's, NL</span>
+ <h1>St. John's real estate, <span class="accent">handled with the patience it deserves.</span></h1>
+ <p class="lead">
+ I help first-time buyers and people selling a home they've lived in for years make a clear, confident decision, without the pressure or the sales games.
+ </p>
+ <div class="hero-ctas">
+ <a class="btn btn-primary" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
+ <a class="btn-text" href="#guides">or grab a free buying &amp; selling guide →</a>
+ </div>
+ </div>
 </section>
 
 <!-- ── MEET MAXWELL ─── -->
 <section class="tight">
-  <div class="wrap">
-    <div class="meet-grid">
-      <div class="meet-photo" aria-hidden="true">
-        <!-- Real headshot goes here: <img src="/site/img/maxwell.jpg" alt="Maxwell Midodzi"> -->
-        <img src="/site/img/mm-mark.svg" alt="" width="120" height="120" style="width:120px;height:120px;object-fit:contain;">
-      </div>
-      <div class="meet-body">
-        <div class="eyebrow">Hi, I'm Maxwell</div>
-        <h2>A local agent who'd rather teach you the market than rush you through it.</h2>
-        <p>I'm a REALTOR® with <strong>eXp Realty</strong>, working across St. John's and the Avalon Peninsula. Most of the people I help are buying their first home or selling one they've lived in for years — and both deserve someone who explains the whole thing in plain English before anyone signs anything.</p>
-        <p><strong>Less theatre. More homework.</strong> The first conversation is always free, even if you're a year away from being ready. If we're not the right fit, I'll tell you that too.</p>
-        <p><a href="/site/about/">More about how I work →</a></p>
-      </div>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="meet-grid">
+ <div class="meet-photo" aria-hidden="true">
+ <!-- Real headshot goes here: <img src="/site/img/maxwell.jpg" alt="Maxwell Midodzi"> -->
+ <img src="/site/img/mm-mark.svg" alt="" width="120" height="120" style="width:120px;height:120px;object-fit:contain;">
+ </div>
+ <div class="meet-body">
+ <div class="eyebrow">Hi, I'm Maxwell</div>
+ <h2>A local agent who'd rather teach you the market than rush you through it.</h2>
+ <p>I'm a REALTOR® with <strong>eXp Realty</strong>, working across St. John's and the Avalon Peninsula. Most of the people I help are buying their first home or selling one they've lived in for years, and both deserve someone who explains the whole thing in plain English before anyone signs anything.</p>
+ <p><strong>Less theatre. More homework.</strong> The first conversation is always free, even if you're a year away from being ready. If we're not the right fit, I'll tell you that too.</p>
+ <p><a href="/site/about/">More about how I work →</a></p>
+ </div>
+ </div>
+ </div>
 </section>
 
-<!-- ── CREDIBILITY STRIP — honest facts, not fabricated testimonials ─── -->
+<!-- ── CREDIBILITY STRIP, honest facts, not fabricated testimonials ─── -->
 <section class="tight alt">
-  <div class="wrap">
-    <div class="cred-strip">
-      <div class="cred-cell"><div class="cred-big">REALTOR®</div><div class="cred-small">Licensed &amp; brokered by eXp Realty</div></div>
-      <div class="cred-cell"><div class="cred-big">The Avalon</div><div class="cred-small">St. John's, Mount Pearl, Paradise, CBS &amp; beyond</div></div>
-      <div class="cred-cell"><div class="cred-big">Within 48 hrs</div><div class="cred-small">You'll always hear back — usually same day</div></div>
-      <div class="cred-cell"><div class="cred-big">No pressure</div><div class="cred-small">Free first conversation, no obligation</div></div>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="cred-strip">
+ <div class="cred-cell"><div class="cred-big">REALTOR®</div><div class="cred-small">Licensed &amp; brokered by eXp Realty</div></div>
+ <div class="cred-cell"><div class="cred-big">The Avalon</div><div class="cred-small">St. John's, Mount Pearl, Paradise, CBS &amp; beyond</div></div>
+ <div class="cred-cell"><div class="cred-big">Same day</div><div class="cred-small">Usually a reply the same business day</div></div>
+ <div class="cred-cell"><div class="cred-big">No pressure</div><div class="cred-small">Free first conversation, no obligation</div></div>
+ </div>
+ </div>
 </section>
 
-<!-- ── WHAT YOU CAN EXPECT — the three real promises (incl. deal portal) ─── -->
+<!-- ── WHAT YOU CAN EXPECT, the three real promises (incl. deal portal) ─── -->
 <section>
-  <div class="wrap">
-    <div class="eyebrow">What you can expect</div>
-    <h2 class="section-title">Specific promises, not slogans.</h2>
-    <p class="section-sub">Anyone can claim "local expertise" and "great communication." Here's what those actually look like with me — things you can hold me to from our first conversation.</p>
-    <div class="row cols-3">
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">📍</div>
-        <h3>I'll match you to neighbourhoods, not listings.</h3>
-        <p>On our first call I'll name three Avalon neighbourhoods that fit your life — schools, commute, resale, the works — and three that won't. Before we look at a single listing.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">📊</div>
-        <h3>You'll know the comps before you walk in.</h3>
-        <p>Every property we view, I'll send you the recent comparable sales the morning before. You walk in informed about what it's actually worth — not guessing from the listing price.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">🔗</div>
-        <h3>You'll have a private deal-progress link.</h3>
-        <p>Every milestone, document, deadline, and decision is visible to you 24/7 in your own deal portal. No "any updates?" calls — you can see exactly where we are at any time.</p>
-      </article>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="eyebrow">What you can expect</div>
+ <h2 class="section-title">Specific promises, not slogans.</h2>
+ <p class="section-sub">Anyone can claim "local expertise" and "great communication." Here's what those actually look like with me, things you can hold me to from our first conversation.</p>
+ <div class="row cols-3">
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">📍</div>
+ <h3>I'll match you to neighbourhoods, not listings.</h3>
+ <p>On our first call I'll name three Avalon neighbourhoods that fit your life, schools, commute, resale, the works, and three that won't. Before we look at a single listing.</p>
+ </article>
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">📊</div>
+ <h3>You'll know the comps before you walk in.</h3>
+ <p>Every property we view, I'll send you the recent comparable sales the morning before. You walk in informed about what it's actually worth, not guessing from the listing price.</p>
+ </article>
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">🔗</div>
+ <h3>You'll have a private deal-progress link.</h3>
+ <p>Every milestone, document, deadline, and decision is visible to you 24/7 in your own deal portal. No "any updates?" calls, you can see exactly where we are at any time.</p>
+ </article>
+ </div>
+ </div>
 </section>
 
-<!-- ── HOW I WORK — 3 steps ─── -->
+<!-- ── HOW I WORK, 3 steps ─── -->
 <section class="alt">
-  <div class="wrap">
-    <div class="eyebrow">What working together looks like</div>
-    <h2 class="section-title">Three steps, no surprises.</h2>
-    <p class="section-sub">Same process whether you're buying or selling. Quick start, clear plan, real partnership. <a href="/site/process/">See the full step-by-step →</a></p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num" aria-hidden="true"></div>
-        <div class="step-body">
-          <h4>We start with a free conversation</h4>
-          <p>A quick call or coffee — no sign-up, no pressure. You tell me what you're looking for or thinking of selling, and I tell you what's realistic in this market.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num" aria-hidden="true"></div>
-        <div class="step-body">
-          <h4>I build you a plan</h4>
-          <p>Neighbourhoods, budget, timeline, comparable sales — whatever fits your situation. You'll always hear back within 48 hours, by your preferred method.</p>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num" aria-hidden="true"></div>
-        <div class="step-body">
-          <h4>We get to work</h4>
-          <p>Showings, listings, offers, paperwork — I handle the logistics so you can focus on your life, and you track every step in your private deal portal.</p>
-        </div>
-      </div>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="eyebrow">What working together looks like</div>
+ <h2 class="section-title">Three steps, no surprises.</h2>
+ <p class="section-sub">Same process whether you're buying or selling. Quick start, clear plan, real partnership. <a href="/site/process/">See the full step-by-step →</a></p>
+ <div class="steps">
+ <div class="step">
+ <div class="step-num" aria-hidden="true"></div>
+ <div class="step-body">
+ <h4>We start with a free conversation</h4>
+ <p>A quick call or coffee, no sign-up, no pressure. You tell me what you're looking for or thinking of selling, and I tell you what's realistic in this market.</p>
+ </div>
+ </div>
+ <div class="step">
+ <div class="step-num" aria-hidden="true"></div>
+ <div class="step-body">
+ <h4>I build you a plan</h4>
+ <p>Neighbourhoods, budget, timeline, and comparable sales, whatever fits your situation. You'll hear back the same business day, usually within one business day, by whichever method you prefer.</p>
+ </div>
+ </div>
+ <div class="step">
+ <div class="step-num" aria-hidden="true"></div>
+ <div class="step-body">
+ <h4>We get to work</h4>
+ <p>Showings, listings, offers, paperwork, I handle the logistics so you can focus on your life, and you track every step in your private deal portal.</p>
+ </div>
+ </div>
+ </div>
+ </div>
 </section>
 
 <!-- ── FREE GUIDES ─── -->
 <section id="guides">
-  <div class="wrap">
-    <div class="eyebrow accent">Free · no email required</div>
-    <h2 class="section-title">Free Newfoundland guides.</h2>
-    <p class="section-sub">Plain-English, NL-specific, and genuinely useful whether or not we ever work together. Start here.</p>
-    <div class="row cols-3">
-      <article class="card guide-card">
-        <span class="guide-tag">For buyers</span>
-        <h3>First-Time Buyer Checklist</h3>
-        <p>A printable step-by-step from "thinking about it" to keys in your hand — with the Newfoundland-specific costs, programs, and timelines nobody tells you about.</p>
-        <a class="guide-link" href="/site/buyer-checklist/">Open the buyer checklist →</a>
-      </article>
-      <article class="card guide-card">
-        <span class="guide-tag">For sellers</span>
-        <h3>Seller Prep Checklist</h3>
-        <p>Every move to make in the 30 days before your listing goes live, ranked by return on effort — so you spend money only where it actually moves the sale price.</p>
-        <a class="guide-link" href="/site/seller-checklist/">Open the seller checklist →</a>
-      </article>
-      <article class="card guide-card">
-        <span class="guide-tag">For everyone</span>
-        <h3>NL Resources &amp; Tools</h3>
-        <p>Mortgage calculators, first-time-buyer government programs, and the professionals I trust — everything I send clients, in one place.</p>
-        <a class="guide-link" href="/site/resources/">See all resources →</a>
-      </article>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="eyebrow accent">Free · no email required</div>
+ <h2 class="section-title">Free Newfoundland guides.</h2>
+ <p class="section-sub">Plain-English, NL-specific, and genuinely useful whether or not we ever work together. Start here.</p>
+ <div class="row cols-3">
+ <article class="card guide-card">
+ <span class="guide-tag">For buyers</span>
+ <h3>First-Time Buyer Checklist</h3>
+ <p>A printable step-by-step from "thinking about it" to keys in your hand, with the Newfoundland-specific costs, programs, and timelines nobody tells you about.</p>
+ <a class="guide-link" href="/site/buyer-checklist/">Open the buyer checklist →</a>
+ </article>
+ <article class="card guide-card">
+ <span class="guide-tag">For sellers</span>
+ <h3>Seller Prep Checklist</h3>
+ <p>Every move to make in the 30 days before your listing goes live, ranked by return on effort, so you spend money only where it actually moves the sale price.</p>
+ <a class="guide-link" href="/site/seller-checklist/">Open the seller checklist →</a>
+ </article>
+ <article class="card guide-card">
+ <span class="guide-tag">For everyone</span>
+ <h3>NL Resources &amp; Tools</h3>
+ <p>Mortgage calculators, first-time-buyer government programs, and the professionals I trust, everything I send clients, in one place.</p>
+ <a class="guide-link" href="/site/resources/">See all resources →</a>
+ </article>
+ </div>
+ </div>
 </section>
 
 <!-- ── FAQ ─── -->
 <section class="alt" id="faq">
-  <div class="wrap">
-    <div class="eyebrow">Common questions</div>
-    <h2 class="section-title">The stuff people ask before they call.</h2>
-    <p class="section-sub">If your question isn't here, just <a href="mailto:Maxwell.Midodzi@exprealty.com">email me</a> — happy to talk through anything.</p>
-    <div class="faq-list">
-      <details class="faq-item">
-        <summary>Do you charge for an initial consultation?</summary>
-        <div class="faq-body"><p>No. The first conversation — in person, on the phone, or over video — is always free. Even if you're 12 months away from being ready to buy or sell, that conversation costs you nothing and helps both of us know whether we're a good fit.</p></div>
-      </details>
-      <details class="faq-item">
-        <summary>How much do I need saved before I start looking?</summary>
-        <div class="faq-body">
-          <p>As an estimate: for a typical Newfoundland home around $350K, you'd want a minimum 5% down payment — roughly $17,500 in that example — plus closing costs of around 1.5–2% of the purchase price. These are rough working numbers to plan around.</p>
-          <p>Below 20% down, you'll also pay CMHC insurance, which gets rolled into your mortgage. <strong>Your lender will run your exact numbers</strong> when you go for pre-approval — these vary by income, credit, and the specific property.</p>
-        </div>
-      </details>
-      <details class="faq-item">
-        <summary>What does "pre-approval" actually mean — and do I need it?</summary>
-        <div class="faq-body">
-          <p>A pre-approval is a lender's written commitment to lend you up to a specific amount, based on your income, credit, and debts. It's <strong>not</strong> a guarantee — the lender still has to approve the specific property — but it tells you (and any seller) what you can credibly offer.</p>
-          <p>Yes, I'd want you pre-approved before we tour anything serious. It keeps us from falling in love with a house we can't actually finance.</p>
-        </div>
-      </details>
-      <details class="faq-item">
-        <summary>How do you decide what to list my home for?</summary>
-        <div class="faq-body">
-          <p>A Comparable Market Analysis (CMA). I pull every recent sale within a reasonable radius and adjust for condition, lot, finishes, and current market direction. Then I give you an honest range — usually a low/likely/high — and explain the tradeoffs at each price point.</p>
-          <p>If your number and my number disagree by a lot, I'll tell you why. I won't list a property I think is overpriced just to win the listing.</p>
-        </div>
-      </details>
-      <details class="faq-item">
-        <summary>Who pays the real estate commission when I'm selling?</summary>
-        <div class="faq-body"><p>In Newfoundland the standard convention is that the seller's proceeds cover both the listing agent's and the buyer's agent's commission. I'll show you the full breakdown before you sign anything — no surprises at closing.</p></div>
-      </details>
-      <details class="faq-item">
-        <summary>What if I don't end up buying or selling?</summary>
-        <div class="faq-body"><p>Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. About a third of the people who reach out aren't ready yet — and most of them come back when they are.</p></div>
-      </details>
-    </div>
-  </div>
+ <div class="wrap">
+ <div class="eyebrow">Common questions</div>
+ <h2 class="section-title">The stuff people ask before they call.</h2>
+ <p class="section-sub">If your question isn't here, just <a href="mailto:Maxwell.Midodzi@exprealty.com">email me</a>, happy to talk through anything.</p>
+ <div class="faq-list">
+ <details class="faq-item">
+ <summary>Do you charge for an initial consultation?</summary>
+ <div class="faq-body"><p>No. The first conversation, in person, on the phone, or over video, is always free. Even if you're 12 months away from being ready to buy or sell, that conversation costs you nothing and helps both of us know whether we're a good fit.</p></div>
+ </details>
+ <details class="faq-item">
+ <summary>How much do I need saved before I start looking?</summary>
+ <div class="faq-body">
+ <p>As an estimate: for a typical Newfoundland home around $350K, you'd want a minimum 5% down payment, roughly $17, 500 in that example, plus closing costs of around 1.5 to 2% of the purchase price. These are rough working numbers to plan around.</p>
+ <p>Below 20% down, you'll also pay CMHC insurance, which gets rolled into your mortgage. <strong>Your lender will run your exact numbers</strong> when you go for pre-approval, these vary by income, credit, and the specific property.</p>
+ </div>
+ </details>
+ <details class="faq-item">
+ <summary>What does "pre-approval" actually mean, and do I need it?</summary>
+ <div class="faq-body">
+ <p>A pre-approval is a lender's written commitment to lend you up to a specific amount, based on your income, credit, and debts. It's <strong>not</strong> a guarantee, the lender still has to approve the specific property, but it tells you (and any seller) what you can credibly offer.</p>
+ <p>Yes, I'd want you pre-approved before we tour anything serious. It keeps us from falling in love with a house we can't actually finance.</p>
+ </div>
+ </details>
+ <details class="faq-item">
+ <summary>How do you decide what to list my home for?</summary>
+ <div class="faq-body">
+ <p>A Comparable Market Analysis (CMA). I pull every recent sale within a reasonable radius and adjust for condition, lot, finishes, and current market direction. Then I give you an honest range, usually a low/likely/high, and explain the tradeoffs at each price point.</p>
+ <p>If your number and my number disagree by a lot, I'll tell you why. I won't list a property I think is overpriced just to win the listing.</p>
+ </div>
+ </details>
+ <details class="faq-item">
+ <summary>Who pays the real estate commission when I'm selling?</summary>
+ <div class="faq-body"><p>In Newfoundland the seller's proceeds usually cover both the listing agent's and the buyer's agent's commission. Commission is always negotiable and isn't set by law or by any real-estate board. I'll show you the full breakdown before you sign anything.</p></div>
+ </details>
+ <details class="faq-item">
+ <summary>What if I don't end up buying or selling?</summary>
+ <div class="faq-body"><p>Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. A lot of people who reach out aren't ready yet, and that's completely normal.</p></div>
+ </details>
+ </div>
+ </div>
 </section>
 
 <!-- ── CTA BAND ─── -->
 <div class="cta-band">
-  <div class="wrap">
-    <h2>Still deciding? Let's just talk.</h2>
-    <p>Whether you're months away from listing or just kicking tires, a 15-minute conversation costs nothing and usually saves a lot of guesswork. No pitch, no follow-up sales emails.</p>
-    <div class="hero-ctas" style="justify-content:center;">
-      <a class="btn btn-primary" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
-    </div>
-  </div>
+ <div class="wrap">
+ <h2>Still deciding? Let's just talk.</h2>
+ <p>Whether you're months away from listing or just kicking tires, a 15-minute conversation costs nothing and usually saves a lot of guesswork. No pitch, no follow-up sales emails.</p>
+ <div class="hero-ctas" style="justify-content:center;">
+ <a class="btn btn-primary" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
+ </div>
+ </div>
 </div>
 
-<!-- ── FOOTER — with the compliance block ─── -->
+<!-- ── FOOTER, with the compliance block ─── -->
 <footer>
-  <div class="wrap">
-    <div>
-      <h4>Maxwell Midodzi</h4>
-      <p style="color:var(--ink-3);">REALTOR® · Brokered by eXp Realty</p>
-      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
-    </div>
-    <div>
-      <h4>Get in touch</h4>
-      <ul>
-        <li><a href="tel:+17093250545">709-325-0545</a></li>
-        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
-        <li style="color:var(--ink-3);margin-top:8px;">Replies the same business day — always Maxwell, never a bot.</li>
-      </ul>
-    </div>
-    <div>
-      <h4>More</h4>
-      <ul>
-        <li><a href="/site/about/">About Maxwell</a></li>
-        <li><a href="/site/process/">How it works</a></li>
-        <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
-        <li><a href="/site/seller-checklist/">Seller checklist</a></li>
-        <li><a href="/site/resources/">Resources</a></li>
-        <li><a href="/site/privacy/">Privacy</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="wrap">
-    <!-- COMPLIANCE BLOCK — verify office address + registration status before
-         removing the site password gate (see board report № 1, P0 items). -->
-    <div class="compliance">
-      <p><strong>Maxwell Midodzi is a real estate agent licensed in Newfoundland &amp; Labrador, brokered by eXp Realty.</strong> Office: eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2. <!-- TODO: confirm exact registered brokerage name + office address --></p>
-      <p>REALTOR®, MLS® and the associated logos are trademarks owned by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. Used under licence.</p>
-      <p>The information on this site is general in nature and provided for convenience only — it is not legal, financial, or tax advice. Verify any figure with the appropriate professional. Opinions expressed here are Maxwell's own and not those of eXp Realty.</p>
-      <p style="margin-top:10px;">© <span id="yr"></span> Maxwell Midodzi · REALTOR® · Brokered by eXp Realty.</p>
-    </div>
-  </div>
+ <div class="wrap">
+ <div>
+ <h4>Maxwell Midodzi</h4>
+ <p style="color:var(--ink-3);">REALTOR® · Brokered by eXp Realty</p>
+ <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+ </div>
+ <div>
+ <h4>Get in touch</h4>
+ <ul>
+ <li><a href="tel:+17093250545">709-325-0545</a></li>
+ <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+ <li style="color:var(--ink-3);margin-top:8px;">Replies from Maxwell himself, usually the same business day.</li>
+ </ul>
+ </div>
+ <div>
+ <h4>More</h4>
+ <ul>
+ <li><a href="/site/about/">About Maxwell</a></li>
+ <li><a href="/site/process/">How it works</a></li>
+ <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
+ <li><a href="/site/seller-checklist/">Seller checklist</a></li>
+ <li><a href="/site/resources/">Resources</a></li>
+ <li><a href="/site/privacy/">Privacy</a></li>
+ </ul>
+ </div>
+ </div>
+ <div class="wrap">
+ <!-- COMPLIANCE BLOCK, verify office address + registration status before
+ removing the site password gate (see board report № 1, P0 items). -->
+ <div class="compliance">
+ <p><strong>Maxwell Midodzi is a real estate agent licensed in Newfoundland &amp; Labrador, brokered by eXp Realty.</strong> Office: eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2. <!-- TODO: confirm exact registered brokerage name + office address --></p>
+ <p>REALTOR®, MLS® and the associated logos are trademarks owned by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. Used under licence.</p>
+ <p>The information on this site is general in nature and provided for convenience only, it is not legal, financial, or tax advice. Verify any figure with the appropriate professional. Opinions expressed here are Maxwell's own and not those of eXp Realty.</p>
+ <p style="margin-top:10px;">© <span id="yr"></span> Maxwell Midodzi · REALTOR® · Brokered by eXp Realty.</p>
+ </div>
+ </div>
 </footer>
 
-<!-- Shared site JS — footer year + hamburger toggle (same file as every page) -->
+<!-- Shared site JS, footer year + hamburger toggle (same file as every page) -->
 <script src="/site/js/site.js" defer></script>
 
 <!-- Homepage-only JS: the hero montage. No libraries, no build step. -->
 <script>
 
-  /* ── Hero montage — five St. John's / Newfoundland scenes, crossfaded ──
-     Sources (Pexels, "Free to use" licence, hotlinked like the old Mixkit hero):
-       1. pexels.com/video/9139014  — SUMMER postcard: downtown + harbour + the
-                                      Narrows + Signal Hill w/ Cabot Tower
-       2. pexels.com/video/9083498  — downtown St. John's at dusk (jellybean rows)
-       3. pexels.com/video/29499252 — wide summer wildflower meadow swaying in the breeze
-       4. pexels.com/video/12712363 — NL coastal village, sea + green landscape
-       5. pexels.com/video/30822225 — misty coastal village at dawn
-     Behaviour: gradient paints first; a clip fades in when it can play,
-     fades out at its end, and the next scene fades in. Any error removes
-     the video and leaves the gradient — never a blank hero. Reduced-motion
-     users never see the video (CSS). */
-  (function(){
-    var SCENES = [
-      'https://videos.pexels.com/video-files/9139014/9139014-hd_1280_720_30fps.mp4',
-      'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',
-      'https://videos.pexels.com/video-files/29499252/12698287_1280_720_30fps.mp4',
-      'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4',
-      'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'
-    ];
-    var v = document.getElementById('heroVid');
-    if (!v || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
-    var i = 0, fails = 0;
-    function play(n, delay){
-      setTimeout(function(){
-        v.src = SCENES[n];
-        var p = v.play();
-        if (p && p.then) p.then(function(){ v.classList.add('on'); }).catch(function(){ /* autoplay refused → gradient stays */ });
-      }, delay);
-    }
-    v.addEventListener('ended', function(){
-      v.classList.remove('on');
-      i = (i + 1) % SCENES.length;
-      play(i, 900); /* let the fade-out finish before swapping scenes */
-    });
-    v.addEventListener('error', function(){
-      if (++fails >= SCENES.length) { v.remove(); return; } /* all dead → gradient forever */
-      v.classList.remove('on');
-      i = (i + 1) % SCENES.length;
-      play(i, 300);
-    });
-    play(0, 0);
-  })();
+ /* ── Hero montage, five St. John's / Newfoundland scenes, crossfaded ──
+ Sources (Pexels, "Free to use" licence, hotlinked like the old Mixkit hero):
+ 1. pexels.com/video/9139014, SUMMER postcard: downtown + harbour + the
+ Narrows + Signal Hill w/ Cabot Tower
+ 2. pexels.com/video/9083498, downtown St. John's at dusk (jellybean rows)
+ 3. pexels.com/video/29499252, wide summer wildflower meadow swaying in the breeze
+ 4. pexels.com/video/12712363, NL coastal village, sea + green landscape
+ 5. pexels.com/video/30822225, misty coastal village at dawn
+ Behaviour: gradient paints first; a clip fades in when it can play,
+ fades out at its end, and the next scene fades in. Any error removes
+ the video and leaves the gradient, never a blank hero. Reduced-motion
+ users never see the video (CSS). */
+ (function(){
+ var SCENES = [
+ 'https://videos.pexels.com/video-files/9139014/9139014-hd_1280_720_30fps.mp4',
+ 'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',
+ 'https://videos.pexels.com/video-files/29499252/12698287_1280_720_30fps.mp4',
+ 'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4',
+ 'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'
+ ];
+ var v = document.getElementById('heroVid');
+ if (!v || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+ var i = 0, fails = 0;
+ function play(n, delay){
+ setTimeout(function(){
+ v.src = SCENES[n];
+ var p = v.play();
+ if (p && p.then) p.then(function(){ v.classList.add('on'); }).catch(function(){ /* autoplay refused → gradient stays */ });
+ }, delay);
+ }
+ v.addEventListener('ended', function(){
+ v.classList.remove('on');
+ i = (i + 1) % SCENES.length;
+ play(i, 900); /* let the fade-out finish before swapping scenes */
+ });
+ v.addEventListener('error', function(){
+ if (++fails >= SCENES.length) { v.remove(); return; } /* all dead → gradient forever */
+ v.classList.remove('on');
+ i = (i + 1) % SCENES.length;
+ play(i, 300);
+ });
+ play(0, 0);
+ })();
 </script>
 </body>
 </html>

@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About Maxwell Midodzi — REALTOR® in St. John's, NL</title>
-<meta name="description" content="Get to know Maxwell Midodzi — REALTOR® with eXp Realty in St. John's, Newfoundland. Local knowledge, honest service, no high-pressure tactics. The story behind the practice.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About Maxwell Midodzi, REALTOR® in St. John's, NL</title>
+<meta name="description" content="Get to know Maxwell Midodzi, REALTOR® with eXp Realty in St. John's, Newfoundland. Local knowledge, honest service, no high-pressure tactics. The story behind the practice.">
 
 <!-- Open Graph -->
 <meta property="og:type" content="profile">
-<meta property="og:title" content="About Maxwell Midodzi — REALTOR®">
+<meta property="og:title" content="About Maxwell Midodzi, REALTOR®">
 <meta property="og:description" content="Real estate without the runaround. Get to know the agent behind the practice.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&h=630&q=80&fm=jpg&auto=format&fit=crop">
 <meta property="og:image:width" content="1200">
@@ -20,7 +20,7 @@
 <!-- Canonical URL -->
 <link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/about/">
 
-<!-- Favicons — SVG primary, PNG fallback -->
+<!-- Favicons, SVG primary, PNG fallback -->
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -29,154 +29,154 @@
 <link rel="stylesheet" href="/site/css/site.css">
 
 <style>
-  /* ── MEET MAXWELL section — Hollet-inspired "Meet the agent" hero
-     Two-column layout: photo on the left, dark editorial bio panel on
-     the right. Inline here (not in site.css) because it's specific to
-     the About page; if we add a "Meet" page for additional team members
-     later, lift these styles to shared. */
+ /* ── MEET MAXWELL section, Hollet-inspired "Meet the agent" hero
+ Two-column layout: photo on the left, dark editorial bio panel on
+ the right. Inline here (not in site.css) because it's specific to
+ the About page; if we add a "Meet" page for additional team members
+ later, lift these styles to shared. */
 
-  .meet-section {
-    background: var(--bg);
-    padding: 72px 0 64px;
-  }
-  .meet-wrap {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-  .meet-grid {
-    display: grid;
-    grid-template-columns: minmax(280px, 380px) 1fr;
-    gap: 0;
-    align-items: stretch;
-    border-radius: var(--r-lg);
-    overflow: hidden;
-    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.10);
-  }
+ .meet-section {
+ background: var(--bg);
+ padding: 72px 0 64px;
+ }
+ .meet-wrap {
+ max-width: 1180px;
+ margin: 0 auto;
+ padding: 0 24px;
+ }
+ .meet-grid {
+ display: grid;
+ grid-template-columns: minmax(280px, 380px) 1fr;
+ gap: 0;
+ align-items: stretch;
+ border-radius: var(--r-lg);
+ overflow: hidden;
+ box-shadow: 0 14px 40px rgba(15, 23, 42, 0.10);
+ }
 
-  /* Photo column — placeholder gradient with initials until a real
-     headshot lands. When a photo is added, the <div> becomes an <img>
-     and these styles still apply (object-fit: cover handles aspect). */
-  .meet-photo {
-    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 72px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    min-height: 480px;
-  }
-  .meet-photo img,
-  img.meet-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 25%;
-  }
+ /* Photo column, placeholder gradient with initials until a real
+ headshot lands. When a photo is added, the <div> becomes an <img>
+ and these styles still apply (object-fit: cover handles aspect). */
+ .meet-photo {
+ background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ color: #fff;
+ font-size: 72px;
+ font-weight: 700;
+ letter-spacing: -0.02em;
+ min-height: 480px;
+ }
+ .meet-photo img,
+ img.meet-photo {
+ width: 100%;
+ height: 100%;
+ object-fit: cover;
+ object-position: center 25%;
+ }
 
-  /* Bio column — dark ink panel. Hollet uses near-black with white text
-     to make the bio feel weighty and editorial. We follow the same
-     pattern but tinted slightly warmer (the ink colour from our palette
-     rather than pure black) so it reads as confident, not stark. */
-  .meet-bio {
-    background: var(--ink);
-    color: #ffffff;
-    padding: 56px 48px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  .meet-name {
-    font-size: clamp(34px, 4.5vw, 44px);
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    line-height: 1.05;
-    color: #ffffff;
-    margin: 0 0 8px;
-  }
-  .meet-role {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--brand-light);
-    margin: 0 0 26px;
-  }
-  .meet-bio p {
-    font-size: 15.5px;
-    line-height: 1.65;
-    color: rgba(255, 255, 255, 0.86);
-    margin: 0 0 16px;
-    text-wrap: pretty;
-  }
-  .meet-bio p strong {
-    color: #ffffff;
-    font-weight: 600;
-  }
-  .meet-cta-line {
-    color: rgba(255, 255, 255, 0.95) !important;
-    font-style: italic;
-    border-left: 3px solid var(--brand);
-    padding-left: 16px;
-    margin-top: 22px !important;
-  }
-  .meet-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 28px;
-  }
-  .meet-actions .btn-primary {
-    background: var(--brand);
-    color: #ffffff;
-    border-color: var(--brand);
-  }
-  .meet-actions .btn-primary:hover {
-    background: var(--brand-dark);
-    border-color: var(--brand-dark);
-  }
-  .meet-actions .btn-outline {
-    border-color: rgba(255, 255, 255, 0.4);
-    color: #ffffff;
-  }
-  .meet-actions .btn-outline:hover {
-    border-color: #ffffff;
-    background: rgba(255, 255, 255, 0.06);
-  }
+ /* Bio column, dark ink panel. Hollet uses near-black with white text
+ to make the bio feel weighty and editorial. We follow the same
+ pattern but tinted slightly warmer (the ink colour from our palette
+ rather than pure black) so it reads as confident, not stark. */
+ .meet-bio {
+ background: var(--ink);
+ color: #ffffff;
+ padding: 56px 48px;
+ display: flex;
+ flex-direction: column;
+ justify-content: center;
+ }
+ .meet-name {
+ font-size: clamp(34px, 4.5vw, 44px);
+ font-weight: 700;
+ letter-spacing: -0.025em;
+ line-height: 1.05;
+ color: #ffffff;
+ margin: 0 0 8px;
+ }
+ .meet-role {
+ font-size: 13px;
+ font-weight: 600;
+ letter-spacing: 0.06em;
+ text-transform: uppercase;
+ color: var(--brand-light);
+ margin: 0 0 26px;
+ }
+ .meet-bio p {
+ font-size: 15.5px;
+ line-height: 1.65;
+ color: rgba(255, 255, 255, 0.86);
+ margin: 0 0 16px;
+ text-wrap: pretty;
+ }
+ .meet-bio p strong {
+ color: #ffffff;
+ font-weight: 600;
+ }
+ .meet-cta-line {
+ color: rgba(255, 255, 255, 0.95) !important;
+ font-style: italic;
+ border-left: 3px solid var(--brand);
+ padding-left: 16px;
+ margin-top: 22px !important;
+ }
+ .meet-actions {
+ display: flex;
+ gap: 12px;
+ flex-wrap: wrap;
+ margin-top: 28px;
+ }
+ .meet-actions .btn-primary {
+ background: var(--brand);
+ color: #ffffff;
+ border-color: var(--brand);
+ }
+ .meet-actions .btn-primary:hover {
+ background: var(--brand-dark);
+ border-color: var(--brand-dark);
+ }
+ .meet-actions .btn-outline {
+ border-color: rgba(255, 255, 255, 0.4);
+ color: #ffffff;
+ }
+ .meet-actions .btn-outline:hover {
+ border-color: #ffffff;
+ background: rgba(255, 255, 255, 0.06);
+ }
 
-  /* Mobile — stack vertically, photo on top, bio below */
-  @media (max-width: 840px) {
-    .meet-section { padding: 48px 0 40px; }
-    .meet-grid {
-      grid-template-columns: 1fr;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    }
-    .meet-photo {
-      min-height: 320px;
-      font-size: 56px;
-    }
-    .meet-bio {
-      padding: 36px 28px;
-    }
-    .meet-name {
-      font-size: 30px;
-    }
-  }
+ /* Mobile, stack vertically, photo on top, bio below */
+ @media (max-width: 840px) {
+ .meet-section { padding: 48px 0 40px; }
+ .meet-grid {
+ grid-template-columns: 1fr;
+ box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+ }
+ .meet-photo {
+ min-height: 320px;
+ font-size: 56px;
+ }
+ .meet-bio {
+ padding: 36px 28px;
+ }
+ .meet-name {
+ font-size: 30px;
+ }
+ }
 </style>
 
 <!-- Schema.org Person -->
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
-  "@type": "Person",
-  "name": "Maxwell Midodzi",
-  "jobTitle": "REALTOR®",
-  "worksFor": { "@type": "Organization", "name": "eXp Realty" },
-  "email": "Maxwell.Midodzi@exprealty.com",
-  "url": "https://maxwell-dealflow.vercel.app/site/about/",
-  "workLocation": { "@type": "City", "name": "St. John's, NL" }
+ "@context": "https://schema.org",
+ "@type": "Person",
+ "name": "Maxwell Midodzi",
+ "jobTitle": "Real Estate Agent",
+ "worksFor": { "@type": "Organization", "name": "eXp Realty" },
+ "email": "Maxwell.Midodzi@exprealty.com",
+ "url": "https://maxwell-dealflow.vercel.app/site/about/",
+ "workLocation": { "@type": "City", "name": "St. John's, NL" }
 }
 </script>
 </head>
@@ -184,257 +184,258 @@
 
 <!-- ── TOP UTILITY BAR ───────────────────────────────────────────── -->
 <div class="utility-bar" aria-label="Secondary">
-  <div class="utility-inner">
-    <span class="utility-affiliation">eXp Realty &middot; St. John's, NL &middot; Avalon Peninsula</span>
-    <div class="utility-links">
-      <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
-      <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
-      <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
-      <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
-    </div>
-  </div>
+ <div class="utility-inner">
+ <span class="utility-affiliation">eXp Realty &middot; St. John's, NL &middot; Avalon Peninsula</span>
+ <div class="utility-links">
+ <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
+ <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+ <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
+ <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
+ </div>
+ </div>
 </div>
 
-<!-- ── MAIN NAV — shared flat nav + mobile hamburger (styles in site.css,
-     toggle in site.js). Standardized across every /site page. -->
+<!-- ── MAIN NAV, shared flat nav + mobile hamburger (styles in site.css,
+ toggle in site.js). Standardized across every /site page. -->
 <nav class="nav" id="nav" aria-label="Primary">
-  <div class="nav-inner">
-    <a class="nav-brand" href="/site/">
-      <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
-      <span>Maxwell Midodzi</span>
-    </a>
-    <div class="nav-links">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="/site/#guides">Free guides</a>
-      <a href="/site/#faq">FAQ</a>
-    </div>
-    <div class="nav-right">
-      <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
-      <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </div>
-  <div class="nav-panel" id="navPanel">
-    <div class="nav-panel-inner">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="/site/#guides">Free guides</a>
-      <a href="/site/#faq">FAQ</a>
-      <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
-    </div>
-  </div>
+ <div class="nav-inner">
+ <a class="nav-brand" href="/site/">
+ <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
+ <span>Maxwell Midodzi</span>
+ </a>
+ <div class="nav-links">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="/site/#guides">Free guides</a>
+ <a href="/site/#faq">FAQ</a>
+ </div>
+ <div class="nav-right">
+ <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
+ <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
+ <span></span><span></span><span></span>
+ </button>
+ </div>
+ </div>
+ <div class="nav-panel" id="navPanel">
+ <div class="nav-panel-inner">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="/site/#guides">Free guides</a>
+ <a href="/site/#faq">FAQ</a>
+ <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
+ </div>
+ </div>
 </nav>
 
-<!-- ── MEET MAXWELL — Hollet-inspired "Meet the agent" hero ─────────
-     Two-column layout, photo on the left, third-person professional
-     bio on a dark ink-coloured panel on the right. The dark panel
-     gives the bio editorial weight (mirroring Hollet's pattern) so
-     the agent reads as established and intentional, not introductory. -->
+<!-- ── MEET MAXWELL, Hollet-inspired "Meet the agent" hero ─────────
+ Two-column layout, photo on the left, third-person professional
+ bio on a dark ink-coloured panel on the right. The dark panel
+ gives the bio editorial weight (mirroring Hollet's pattern) so
+ the agent reads as established and intentional, not introductory. -->
 <section class="meet-section">
-  <div class="meet-wrap">
-    <div class="meet-grid">
+ <div class="meet-wrap">
+ <div class="meet-grid">
 
-      <!-- Photo column. Placeholder gradient with "MD" initials until a
-           real headshot is uploaded. Replace the <div class="meet-photo">
-           with <img src="/site/img/maxwell.jpg" alt="..."> when ready. -->
-      <div class="meet-photo" aria-label="Maxwell Midodzi headshot placeholder"><img src="/site/img/mm-mark.svg" alt="" width="120" height="120" style="width:120px;height:120px;object-fit:contain;"></div>
+ <!-- Photo column. Placeholder gradient with "MD" initials until a
+ real headshot is uploaded. Replace the <div class="meet-photo">
+ with <img src="/site/img/maxwell.jpg" alt="..."> when ready. -->
+ <div class="meet-photo" aria-label="Maxwell Midodzi headshot placeholder"><img src="/site/img/mm-mark.svg" alt="" width="120" height="120" style="width:120px;height:120px;object-fit:contain;"></div>
 
-      <!-- Bio column — dark ink-coloured panel, editorial typography -->
-      <div class="meet-bio">
-        <h1 class="meet-name">Meet Maxwell</h1>
-        <p class="meet-role">REALTOR® · eXp Realty</p>
+ <!-- Bio column, dark ink-coloured panel, editorial typography -->
+ <div class="meet-bio">
+ <h1 class="meet-name">Meet Maxwell</h1>
+ <p class="meet-role">REALTOR® · eXp Realty</p>
 
-        <p>
-          Maxwell Midodzi is a REALTOR® with eXp Realty serving St. John's, Newfoundland and Labrador, and the Avalon Peninsula. While newer to the real-estate industry, Maxwell brings a different kind of edge to the work: the discipline of someone who reads every page of the inspection report, the operating mindset of a builder, and an unshakeable belief that every client deserves the same level of care &mdash; whether they are purchasing their first home or listing the family property they have lived in for thirty years.
-        </p>
+ <p>
+ I'm a REALTOR® with eXp Realty, working across St. John's and the Avalon Peninsula. I'm newer to real estate, and I work like it matters. I read the whole inspection report. I do the homework before the showing. And I give every client the same care, whether it's your first home or one you've lived in for thirty years.
+ </p>
 
-        <p>
-          What sets Maxwell apart is what he has built behind the scenes. Most agents juggle their pipeline with sticky notes, spreadsheets, and the hope that nothing important slips through the cracks. Maxwell built a custom client-management platform from the ground up &mdash; an end-to-end system that automates intake, viewing confirmations, offer tracking, deadline reminders, document checklists, and client communication. Clients can see live deal progress through a private link, receive automatic email confirmations the moment a viewing is booked, and never have to ask &ldquo;any updates?&rdquo; &mdash; because the answer is always one tap away.
-        </p>
+ <p>
+ I also built my own tools to keep your deal organized. A lot of agents run their pipeline on sticky notes and hope nothing slips. I built a system that tracks the bookings, offers, deadlines, and documents for me, so nothing gets lost. You get a private link to watch your deal progress in real time, and your booking confirmations arrive automatically. You won't have to chase me for an update.
+ </p>
 
-        <p>
-          Maxwell&rsquo;s market is the Avalon Peninsula and its surrounding communities: St. John&rsquo;s, Mount Pearl, Paradise, Conception Bay South, Torbay, Portugal Cove&ndash;St. Philip&rsquo;s, Pouch Cove, Flatrock, Goulds, Kilbride, and the Southern Shore. He does not recommend a neighbourhood from a map; he recommends one because he has walked its streets, watched the market shift in it, and knows what a fair price looks like in it.
-        </p>
+ <p>
+ I work across St. John's, Mount Pearl, Paradise, Conception Bay South, Torbay, and the smaller communities around the Avalon. I don't recommend a neighbourhood off a map. I recommend one because I've walked it and done the research on what a fair price looks like there.
+ </p>
 
-        <p>
-          His philosophy refuses to compromise on three principles: <strong>do the homework before the showing</strong>, <strong>tell clients what he actually sees</strong> &mdash; even when it costs the deal &mdash; and <strong>stay in touch through the whole journey</strong>, not just until the listing is signed. He works primarily with first-time buyers, growing families, and homeowners ready to list &mdash; clients for whom this is the largest financial decision of their lives, and who deserve an agent who treats it that way.
-        </p>
+ <p class="meet-cta-line">
+ Whether you're months from your first showing or a year out from listing, I'm happy to talk through the market, the process, or what's realistic for you. No pressure.
+ </p>
 
-        <p class="meet-cta-line">
-          Whether you are three months from your first showing or a year out from listing, Maxwell is happy to have a no-pressure conversation about the market, the process, or what is realistic in your situation.
-        </p>
+ <div class="meet-actions">
+ <a class="btn btn-primary" href="/intake.html">Start with a free intake</a>
+ <a class="btn btn-outline" href="mailto:Maxwell.Midodzi@exprealty.com">Email Maxwell</a>
+ </div>
+ </div>
 
-        <div class="meet-actions">
-          <a class="btn btn-primary" href="/intake.html">Start with a free intake</a>
-          <a class="btn btn-outline" href="mailto:Maxwell.Midodzi@exprealty.com">Email Maxwell</a>
-        </div>
-      </div>
-
-    </div>
-  </div>
+ </div>
+ </div>
 </section>
 
 <!-- ── MY APPROACH ────────────────────────────────────────────────── -->
 <section class="alt">
-  <div class="wrap">
-    <div class="eyebrow">My approach</div>
-    <h2 class="section-title">Less theatre. More homework.</h2>
-    <p class="section-sub">Three principles I refuse to compromise on, no matter how much the market changes.</p>
+ <div class="wrap">
+ <div class="eyebrow">My approach</div>
+ <h2 class="section-title">Less theatre. More homework.</h2>
+ <p class="section-sub">Three things I stick to.</p>
 
-    <div class="row cols-3">
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">🔍</div>
-        <h3>Do the homework first</h3>
-        <p>Before any showing, I pull the comps, the days-on-market history, and the neighbourhood trend lines. You'll walk in knowing what the place is actually worth.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">🗣️</div>
-        <h3>Tell you what I see</h3>
-        <p>If the foundation looks suspect, I'll say so. If the asking price is fair, I'll say so. Real estate is too expensive for polite half-truths.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon" aria-hidden="true">📱</div>
-        <h3>Stay in touch</h3>
-        <p>You'll hear from me by your preferred method — text, email, phone, or in person. No "ghosting" after the listing is signed. Weekly updates, minimum.</p>
-      </article>
-    </div>
-  </div>
+ <div class="row cols-3">
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">🔍</div>
+ <h3>Do the homework first</h3>
+ <p>Before any showing, I pull the comps, the days-on-market history, and the neighbourhood trend lines. You'll walk in knowing what the place is actually worth.</p>
+ </article>
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">🗣️</div>
+ <h3>Tell you what I see</h3>
+ <p>If the foundation looks suspect, I'll say so. If the asking price is fair, I'll say so. Real estate is too expensive for polite half-truths.</p>
+ </article>
+ <article class="card">
+ <div class="card-icon" aria-hidden="true">📱</div>
+ <h3>Stay in touch</h3>
+ <p>You'll hear from me by whatever method you prefer: text, email, phone, or in person. I don't go quiet after the listing is signed. Weekly updates at least.</p>
+ </article>
+ </div>
+ </div>
 </section>
 
-<!-- ── EXPERTISE — service strip (PR #46) ──────────────────────────── -->
+<!-- ── EXPERTISE, service strip (PR #46) ──────────────────────────── -->
 <section>
-  <div class="wrap">
-    <div class="eyebrow">What I specialise in</div>
-    <h2 class="section-title">Newfoundland-grade real estate, end-to-end.</h2>
-    <p class="section-sub">Whether you're new to the Avalon or have lived here your whole life, here's what I can help with.</p>
+ <div class="wrap">
+ <div class="eyebrow">What I specialise in</div>
+ <h2 class="section-title">What I can help you with.</h2>
+ <p class="section-sub">New to the Avalon or born here, here's where I can help.</p>
 
-    <div class="svc-list">
-      <article class="svc-row">
-        <div class="svc-icon" aria-hidden="true">🏠</div>
-        <div class="svc-body">
-          <h3>First-time buyers</h3>
-          <p>The mortgage paperwork, the inspection report, the negotiation back-and-forth — I'll walk you through every step so it's never the first time you've heard the word.</p>
-          <div class="svc-tags">
-            <span>Mortgage pre-approval guidance</span><span class="sep">·</span>
-            <span>School and neighbourhood matching</span><span class="sep">·</span>
-            <span>Inspection coordination</span><span class="sep">·</span>
-            <span>Closing paperwork end-to-end</span>
-          </div>
-        </div>
-      </article>
+ <div class="svc-list">
+ <article class="svc-row">
+ <div class="svc-icon" aria-hidden="true">🏠</div>
+ <div class="svc-body">
+ <h3>First-time buyers</h3>
+ <p>The mortgage paperwork, the inspection, the back-and-forth of an offer. I'll walk you through each step so none of it catches you off guard.</p>
+ <div class="svc-tags">
+ <span>Mortgage pre-approval guidance</span><span class="sep">·</span>
+ <span>School and neighbourhood matching</span><span class="sep">·</span>
+ <span>Inspection coordination</span><span class="sep">·</span>
+ <span>Closing paperwork end-to-end</span>
+ </div>
+ </div>
+ </article>
 
-      <article class="svc-row">
-        <div class="svc-icon" aria-hidden="true">🏗️</div>
-        <div class="svc-body">
-          <h3>New builds</h3>
-          <p>Buying off a plan or mid-construction is its own game. I work directly with local builders and track every milestone so you're never the last to know.</p>
-          <div class="svc-tags">
-            <span>Builder reputation and contract review</span><span class="sep">·</span>
-            <span>Lot selection and floor-plan trade-offs</span><span class="sep">·</span>
-            <span>Construction-progress monitoring</span><span class="sep">·</span>
-            <span>Walkthrough and deficiency lists</span>
-          </div>
-        </div>
-      </article>
+ <article class="svc-row">
+ <div class="svc-icon" aria-hidden="true">🏗️</div>
+ <div class="svc-body">
+ <h3>New builds</h3>
+ <p>Buying off a plan or mid-construction is its own game. I'll coordinate with the builder on your behalf and track every milestone, so you're never the last to know.</p>
+ <div class="svc-tags">
+ <span>Builder reputation and contract review</span><span class="sep">·</span>
+ <span>Lot selection and floor-plan trade-offs</span><span class="sep">·</span>
+ <span>Construction-progress monitoring</span><span class="sep">·</span>
+ <span>Walkthrough and deficiency lists</span>
+ </div>
+ </div>
+ </article>
 
-      <article class="svc-row">
-        <div class="svc-icon" aria-hidden="true">🏷</div>
-        <div class="svc-body">
-          <h3>Sellers</h3>
-          <p>I'll value your home using current Avalon comparables, prep the listing the right way, and market it where actual buyers look — not just on MLS and hope.</p>
-          <div class="svc-tags">
-            <span>Comparable market analysis (CMA)</span><span class="sep">·</span>
-            <span>Pre-listing prep and staging advice</span><span class="sep">·</span>
-            <span>Professional photography</span><span class="sep">·</span>
-            <span>MLS + social + partner-network marketing</span>
-          </div>
-        </div>
-      </article>
+ <article class="svc-row">
+ <div class="svc-icon" aria-hidden="true">🏷</div>
+ <div class="svc-body">
+ <h3>Sellers</h3>
+ <p>I'll value your home using current Avalon comparables, prep the listing properly, and market it where buyers actually look, not just post it on the MLS® System and wait.</p>
+ <div class="svc-tags">
+ <span>Comparable market analysis (CMA)</span><span class="sep">·</span>
+ <span>Pre-listing prep and staging advice</span><span class="sep">·</span>
+ <span>Professional photography</span><span class="sep">·</span>
+ <span>MLS® System, social, and the eXp agent network</span>
+ </div>
+ </div>
+ </article>
 
-      <article class="svc-row">
-        <div class="svc-icon" aria-hidden="true">🔄</div>
-        <div class="svc-body">
-          <h3>Move-up & relocation</h3>
-          <p>Selling your current place and buying the next one at the same time is a coordination puzzle. I run both sides so the timeline doesn't trap you between two mortgages.</p>
-          <div class="svc-tags">
-            <span>Coordinated buy + sell timelines</span><span class="sep">·</span>
-            <span>Bridge financing guidance</span><span class="sep">·</span>
-            <span>Out-of-province relocations</span><span class="sep">·</span>
-            <span>Rental-to-ownership transitions</span>
-          </div>
-        </div>
-      </article>
-    </div>
-  </div>
+ <article class="svc-row">
+ <div class="svc-icon" aria-hidden="true">🔄</div>
+ <div class="svc-body">
+ <h3>Move-up & relocation</h3>
+ <p>Selling your current place and buying the next one at the same time is a coordination puzzle. I run both sides so the timeline doesn't trap you between two mortgages.</p>
+ <div class="svc-tags">
+ <span>Coordinated buy + sell timelines</span><span class="sep">·</span>
+ <span>Bridge financing guidance</span><span class="sep">·</span>
+ <span>Out-of-province relocations</span><span class="sep">·</span>
+ <span>Rental-to-ownership transitions</span>
+ </div>
+ </div>
+ </article>
+ </div>
+ </div>
 </section>
 
 <!-- ── CREDENTIALS ────────────────────────────────────────────────── -->
 <section class="alt">
-  <div class="wrap">
-    <div class="eyebrow">Credentials</div>
-    <h2 class="section-title">The boring stuff that matters.</h2>
-    <p class="section-sub">Licensed, insured, and continuously trained. The professional bona fides.</p>
+ <div class="wrap">
+ <div class="eyebrow">Credentials</div>
+ <h2 class="section-title">The boring stuff that matters.</h2>
+ <p class="section-sub">Licensed, insured, and a member in good standing.</p>
 
-    <!-- TODO: Maxwell — replace these pills with your real certifications, awards,
-         and memberships. Add or remove freely. -->
-    <div class="creds" aria-label="Professional credentials">
-      <span class="cred-pill">Licensed REALTOR® (NLAR)</span>
-      <span class="cred-pill">eXp Realty Brokerage</span>
-      <span class="cred-pill">CREA Member</span>
-      <span class="cred-pill">NLAR — Newfoundland & Labrador Assoc. of REALTORS®</span>
-      <span class="cred-pill">Errors & Omissions Insured</span>
-    </div>
-  </div>
+ <!-- TODO: Maxwell, replace these pills with your real certifications, awards,
+ and memberships. Add or remove freely. -->
+ <div class="creds" aria-label="Professional credentials">
+ <span class="cred-pill">Licensed REALTOR®</span>
+ <span class="cred-pill">eXp Realty Brokerage</span>
+ <span class="cred-pill">CREA Member</span>
+ <span class="cred-pill">NLAR member</span>
+ <span class="cred-pill">Errors & Omissions Insured</span>
+ </div>
+ </div>
 </section>
 
 <!-- ── CTA BAND ───────────────────────────────────────────────────── -->
 <div class="cta-band">
-  <div class="wrap">
-    <h2>Get in touch.</h2>
-    <p>Five-minute intake form, mobile-friendly. I'll be in touch with a real plan — not a sales pitch.</p>
-    <div class="hero-ctas" style="justify-content:center;">
-      <a class="btn btn-primary" href="/intake.html">Buyer intake</a>
-      <a class="btn btn-outline" href="/seller-intake.html">Seller intake</a>
-    </div>
-  </div>
+ <div class="wrap">
+ <h2>Get in touch.</h2>
+ <p>Five-minute intake form, mobile-friendly. I'll be in touch with a real plan, not a sales pitch.</p>
+ <div class="hero-ctas" style="justify-content:center;">
+ <a class="btn btn-primary" href="/intake.html">Buyer intake</a>
+ <a class="btn btn-outline" href="/seller-intake.html">Seller intake</a>
+ </div>
+ </div>
 </div>
 
 <!-- ── FOOTER ─────────────────────────────────────────────────────── -->
 <footer>
-  <div class="wrap">
-    <div>
-      <h4>Maxwell Midodzi</h4>
-      <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
-      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+ <div class="wrap">
+ <div>
+ <h4>Maxwell Midodzi</h4>
+ <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
+ <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+ </div>
+ <div>
+ <h4>Get in touch</h4>
+ <ul>
+ <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+ <li style="color:var(--ink-3);margin-top:8px;">Typically replies within one business day.</li>
+ </ul>
+ </div>
+ <div>
+ <h4>More</h4>
+ <ul>
+ <li><a href="/site/">Home</a></li>
+ <li><a href="/site/process/">How it works</a></li>
+ <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
+ <li><a href="/site/seller-checklist/">Seller checklist</a></li>
+ <li><a href="/site/resources/">Resources</a></li>
+ <li><a href="/site/privacy/">Privacy</a></li>
+ <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
+ </ul>
+ </div>
+ </div>
+ <div class="wrap">
+    <div class="compliance">
+      <p><strong>Maxwell Midodzi is a real estate agent licensed in Newfoundland &amp; Labrador, brokered by eXp Realty.</strong> Office: eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2.</p>
+      <p>REALTOR&#174;, MLS&#174; and the associated logos are trademarks owned by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. Used under licence.</p>
+      <p>The information on this site is general in nature and provided for convenience only. It is not legal, financial, or tax advice. Verify any figure with the appropriate professional. Opinions expressed here are Maxwell's own and not those of eXp Realty.</p>
+      <p style="margin-top:10px;">&#169; <span id="yr"></span> Maxwell Midodzi &middot; REALTOR&#174; &middot; Brokered by eXp Realty.</p>
     </div>
-    <div>
-      <h4>Get in touch</h4>
-      <ul>
-        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
-        <li style="color:var(--ink-3);margin-top:8px;">Typically responds within 48 business hours.</li>
-      </ul>
-    </div>
-    <div>
-      <h4>More</h4>
-      <ul>
-        <li><a href="/site/">Home</a></li>
-        <li><a href="/site/process/">How it works</a></li>
-        <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
-        <li><a href="/site/seller-checklist/">Seller checklist</a></li>
-        <li><a href="/site/resources/">Resources</a></li>
-        <li><a href="/site/privacy/">Privacy</a></li>
-        <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
-      </ul>
-    </div>
-  </div>
-  <div class="wrap footer-bot">
-    <span>© <span id="yr"></span> Maxwell Midodzi · REALTOR® at eXp Realty.</span>
   </div>
 </footer>
 
-<!-- Shared site JS — footer year + mega-menu support -->
+<!-- Shared site JS, footer year + mega-menu support -->
 <script src="/site/js/site.js" defer></script>
 
 </body>

@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>How buying and selling actually works — Maxwell Midodzi REALTOR® at eXp Realty in St. John's, NL</title>
-<meta name="description" content="Step-by-step walkthrough of buying or selling a home in St. John's, NL with Maxwell Midodzi — real timelines, real costs, what to expect at every stage.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How buying and selling actually works, Maxwell Midodzi REALTOR® at eXp Realty in St. John's, NL</title>
+<meta name="description" content="Step-by-step walkthrough of buying or selling a home in St. John's, NL with Maxwell Midodzi, real timelines, real costs, what to expect at every stage.">
 
 <!-- Canonical -->
 <link rel="canonical" href="https://maxwell-dealflow.vercel.app/site/process/">
 
 <!-- Open Graph -->
 <meta property="og:type" content="article">
-<meta property="og:title" content="How buying and selling actually works — Maxwell Midodzi">
+<meta property="og:title" content="How buying and selling actually works, Maxwell Midodzi">
 <meta property="og:description" content="Step-by-step walkthrough of buying or selling a home in St. John's. Real timelines, real costs.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&h=630&q=80&fm=jpg&auto=format&fit=crop">
 <meta property="og:image:width" content="1200">
@@ -20,7 +20,7 @@
 <meta property="og:url" content="https://maxwell-dealflow.vercel.app/site/process/">
 <meta name="twitter:card" content="summary_large_image">
 
-<!-- Favicons — SVG primary, PNG fallback -->
+<!-- Favicons, SVG primary, PNG fallback -->
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -29,415 +29,420 @@
 <link rel="stylesheet" href="/site/css/site.css">
 
 <style>
-  /* Process-page specifics — small additions on top of shared CSS */
-  .process-hero {
-    padding: 88px 0 56px;
-    border-bottom: 1px solid var(--border);
-  }
-  .process-hero h1 {
-    font-size: clamp(34px, 5.5vw, 52px);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-    margin-bottom: 18px;
-    color: var(--ink);
-    max-width: 18ch;
-    text-wrap: balance;
-  }
-  .process-hero p.lead {
-    font-size: clamp(17px, 2vw, 19px);
-    color: var(--ink-2);
-    max-width: 60ch;
-    line-height: 1.55;
-  }
-  .process-toc {
-    display: flex;
-    gap: 24px;
-    margin-top: 28px;
-    flex-wrap: wrap;
-  }
-  .process-toc a {
-    font-size: 14px;
-    color: var(--ink-2);
-    font-weight: 500;
-    border-bottom: 1px solid transparent;
-    padding-bottom: 2px;
-    transition: color 120ms, border-color 120ms;
-  }
-  .process-toc a:hover {
-    color: var(--brand-dark);
-    border-bottom-color: var(--brand);
-  }
+ /* Process-page specifics, small additions on top of shared CSS */
+ .process-hero {
+ padding: 88px 0 56px;
+ border-bottom: 1px solid var(--border);
+ }
+ .process-hero h1 {
+ font-size: clamp(34px, 5.5vw, 52px);
+ font-weight: 700;
+ letter-spacing: -0.03em;
+ line-height: 1.05;
+ margin-bottom: 18px;
+ color: var(--ink);
+ max-width: 18ch;
+ text-wrap: balance;
+ }
+ .process-hero p.lead {
+ font-size: clamp(17px, 2vw, 19px);
+ color: var(--ink-2);
+ max-width: 60ch;
+ line-height: 1.55;
+ }
+ .process-toc {
+ display: flex;
+ gap: 24px;
+ margin-top: 28px;
+ flex-wrap: wrap;
+ }
+ .process-toc a {
+ font-size: 14px;
+ color: var(--ink-2);
+ font-weight: 500;
+ border-bottom: 1px solid transparent;
+ padding-bottom: 2px;
+ transition: color 120ms, border-color 120ms;
+ }
+ .process-toc a:hover {
+ color: var(--brand-dark);
+ border-bottom-color: var(--brand);
+ }
 
-  /* Each process phase block */
-  .phase-header {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin-bottom: 8px;
-  }
-  .phase-tag {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--brand-dark);
-    background: var(--brand-soft);
-    padding: 4px 10px;
-    border-radius: var(--r-xs);
-  }
-  .phase-title {
-    font-size: clamp(26px, 3.5vw, 34px);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    line-height: 1.15;
-  }
-  .phase-intro {
-    font-size: 16px;
-    line-height: 1.6;
-    color: var(--ink-2);
-    max-width: 60ch;
-    margin: 0 0 32px;
-  }
+ /* Each process phase block */
+ .phase-header {
+ display: flex;
+ align-items: baseline;
+ gap: 14px;
+ margin-bottom: 8px;
+ }
+ .phase-tag {
+ font-size: 11px;
+ font-weight: 700;
+ letter-spacing: 0.18em;
+ text-transform: uppercase;
+ color: var(--brand-dark);
+ background: var(--brand-soft);
+ padding: 4px 10px;
+ border-radius: var(--r-xs);
+ }
+ .phase-title {
+ font-size: clamp(26px, 3.5vw, 34px);
+ font-weight: 700;
+ letter-spacing: -0.02em;
+ color: var(--ink);
+ line-height: 1.15;
+ }
+ .phase-intro {
+ font-size: 16px;
+ line-height: 1.6;
+ color: var(--ink-2);
+ max-width: 60ch;
+ margin: 0 0 32px;
+ }
 
-  /* Refined step blocks for the process page — numbered, timeline pill */
-  .proc-steps { counter-reset: pstep; }
-  .proc-step {
-    display: grid;
-    grid-template-columns: 56px 1fr;
-    gap: 28px;
-    padding: 28px 0;
-    border-top: 1px solid var(--border);
-    align-items: start;
-  }
-  .proc-step:last-child {
-    border-bottom: 1px solid var(--border);
-  }
-  .proc-step-num {
-    counter-increment: pstep;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--brand-dark);
-    padding-top: 2px;
-  }
-  .proc-step-num::before { content: counter(pstep, decimal-leading-zero); }
-  .proc-step-body h3 {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    margin-bottom: 4px;
-    color: var(--ink);
-    line-height: 1.2;
-  }
-  .proc-step-time {
-    display: inline-block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink-3);
-    letter-spacing: 0.04em;
-    margin-bottom: 12px;
-  }
-  .proc-step-body p {
-    font-size: 16px;
-    line-height: 1.6;
-    color: var(--ink-2);
-    margin-bottom: 12px;
-    max-width: 62ch;
-  }
-  .proc-step-body p:last-child { margin-bottom: 0; }
-  .proc-step-body strong { color: var(--ink); font-weight: 600; }
+ /* Refined step blocks for the process page, numbered, timeline pill */
+ .proc-steps { counter-reset: pstep; }
+ .proc-step {
+ display: grid;
+ grid-template-columns: 56px 1fr;
+ gap: 28px;
+ padding: 28px 0;
+ border-top: 1px solid var(--border);
+ align-items: start;
+ }
+ .proc-step:last-child {
+ border-bottom: 1px solid var(--border);
+ }
+ .proc-step-num {
+ counter-increment: pstep;
+ font-size: 22px;
+ font-weight: 700;
+ letter-spacing: -0.02em;
+ color: var(--brand-dark);
+ padding-top: 2px;
+ }
+ .proc-step-num::before { content: counter(pstep, decimal-leading-zero); }
+ .proc-step-body h3 {
+ font-size: 20px;
+ font-weight: 700;
+ letter-spacing: -0.015em;
+ margin-bottom: 4px;
+ color: var(--ink);
+ line-height: 1.2;
+ }
+ .proc-step-time {
+ display: inline-block;
+ font-size: 12px;
+ font-weight: 600;
+ color: var(--ink-3);
+ letter-spacing: 0.04em;
+ margin-bottom: 12px;
+ }
+ .proc-step-body p {
+ font-size: 16px;
+ line-height: 1.6;
+ color: var(--ink-2);
+ margin-bottom: 12px;
+ max-width: 62ch;
+ }
+ .proc-step-body p:last-child { margin-bottom: 0; }
+ .proc-step-body strong { color: var(--ink); font-weight: 600; }
 
-  @media (max-width: 520px) {
-    .process-hero { padding: 64px 0 40px; }
-    .proc-step { grid-template-columns: 1fr; gap: 8px; padding: 22px 0; }
-    .proc-step-num { font-size: 18px; }
-    .proc-step-body h3 { font-size: 18px; }
-    .proc-step-body p { font-size: 15.5px; }
-  }
+ @media (max-width: 520px) {
+ .process-hero { padding: 64px 0 40px; }
+ .proc-step { grid-template-columns: 1fr; gap: 8px; padding: 22px 0; }
+ .proc-step-num { font-size: 18px; }
+ .proc-step-body h3 { font-size: 18px; }
+ .proc-step-body p { font-size: 15.5px; }
+ }
 </style>
 </head>
 <body>
 
 <!-- ── TOP UTILITY BAR ───────────────────────────────────────────── -->
 <div class="utility-bar" aria-label="Secondary">
-  <div class="utility-inner">
-    <span class="utility-affiliation">eXp Realty &middot; St. John's, NL &middot; Avalon Peninsula</span>
-    <div class="utility-links">
-      <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
-      <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
-      <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
-      <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
-    </div>
-  </div>
+ <div class="utility-inner">
+ <span class="utility-affiliation">eXp Realty &middot; St. John's, NL &middot; Avalon Peninsula</span>
+ <div class="utility-links">
+ <a class="u-contact" href="tel:+17093250545">709-325-0545</a>
+ <a class="u-contact u-mail-full" href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+ <a class="u-contact u-mail-short" href="mailto:Maxwell.Midodzi@exprealty.com">Email</a>
+ <a class="u-hide-mobile" href="/site/privacy/">Privacy</a>
+ </div>
+ </div>
 </div>
 
-<!-- ── MAIN NAV — shared flat nav + mobile hamburger (styles in site.css,
-     toggle in site.js). Standardized across every /site page. -->
+<!-- ── MAIN NAV, shared flat nav + mobile hamburger (styles in site.css,
+ toggle in site.js). Standardized across every /site page. -->
 <nav class="nav" id="nav" aria-label="Primary">
-  <div class="nav-inner">
-    <a class="nav-brand" href="/site/">
-      <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
-      <span>Maxwell Midodzi</span>
-    </a>
-    <div class="nav-links">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="/site/#guides">Free guides</a>
-      <a href="/site/#faq">FAQ</a>
-    </div>
-    <div class="nav-right">
-      <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
-      <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </div>
-  <div class="nav-panel" id="navPanel">
-    <div class="nav-panel-inner">
-      <a href="/site/about/">About</a>
-      <a href="/site/process/">How it works</a>
-      <a href="/site/#guides">Free guides</a>
-      <a href="/site/#faq">FAQ</a>
-      <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
-    </div>
-  </div>
+ <div class="nav-inner">
+ <a class="nav-brand" href="/site/">
+ <span class="nav-avatar" aria-hidden="true"><img src="/site/img/mm-mark.svg" alt="" width="18" height="18"></span>
+ <span>Maxwell Midodzi</span>
+ </a>
+ <div class="nav-links">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="/site/#guides">Free guides</a>
+ <a href="/site/#faq">FAQ</a>
+ </div>
+ <div class="nav-right">
+ <a class="nav-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a call</a>
+ <button class="nav-toggle" id="navToggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navPanel">
+ <span></span><span></span><span></span>
+ </button>
+ </div>
+ </div>
+ <div class="nav-panel" id="navPanel">
+ <div class="nav-panel-inner">
+ <a href="/site/about/">About</a>
+ <a href="/site/process/">How it works</a>
+ <a href="/site/#guides">Free guides</a>
+ <a href="/site/#faq">FAQ</a>
+ <a class="nav-panel-cta" href="mailto:Maxwell.Midodzi@exprealty.com?subject=Free%2015-minute%20call">Book a free 15-minute call</a>
+ </div>
+ </div>
 </nav>
 
 <!-- ── HERO ───────────────────────────────────────────────────────── -->
 <section class="process-hero">
-  <div class="wrap">
-    <span class="eyebrow accent"><span class="eyebrow-divider"></span>The process</span>
-    <h1>How buying and selling actually works.</h1>
-    <p class="lead">
-      Step by step, with real timelines and real costs. No glossy marketing version — this is the order of operations and the parts most people don't see until they're in it. Buyers, scroll down. Sellers, jump ahead.
-    </p>
-    <div class="process-toc">
-      <a href="#buying">→ Buying a home</a>
-      <a href="#selling">→ Selling a home</a>
-    </div>
-  </div>
+ <div class="wrap">
+ <span class="eyebrow accent"><span class="eyebrow-divider"></span>The process</span>
+ <h1>How buying and selling actually works.</h1>
+ <p class="lead">
+ Step by step, with real timelines and real costs. No glossy marketing version, this is the order of operations and the parts most people don't see until they're in it. Buyers, scroll down. Sellers, jump ahead.
+ </p>
+ <div class="process-toc">
+ <a href="#buying">→ Buying a home</a>
+ <a href="#selling">→ Selling a home</a>
+ </div>
+ </div>
 </section>
 
 <!-- ── BUYING ─────────────────────────────────────────────────────── -->
 <section id="buying">
-  <div class="wrap">
-    <div class="phase-header">
-      <span class="phase-tag">For buyers</span>
-    </div>
-    <h2 class="phase-title">Buying a home in Newfoundland.</h2>
-    <p class="phase-intro">From the first conversation to keys in your hand. Most timelines below run 60–90 days end to end, though it depends on your readiness and what we find along the way. <a href="/site/buyer-checklist/">Want a printable checklist? →</a></p>
+ <div class="wrap">
+ <div class="phase-header">
+ <span class="phase-tag">For buyers</span>
+ </div>
+ <h2 class="phase-title">Buying a home in Newfoundland.</h2>
+ <p class="phase-intro">From the first conversation to keys in your hand. Most timelines below run 60 to 90 days end to end, though it depends on your readiness and what we find along the way. <a href="/site/buyer-checklist/">Want a printable checklist? →</a></p>
 
-    <div class="proc-steps">
+ <div class="proc-steps">
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Initial consultation</h3>
-          <div class="proc-step-time">30–45 minutes · Free · Phone, video, or in-person</div>
-          <p>We talk through your timeline, budget range, must-haves, and dealbreakers. I'll explain how I work and what to expect; you ask anything that's been bugging you. If we're a fit, we move on — if not, no hard feelings.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Initial consultation</h3>
+ <div class="proc-step-time">30 to 45 minutes · Free · Phone, video, or in-person</div>
+ <p>We talk through your timeline, budget range, must-haves, and dealbreakers. I'll explain how I work and what to expect; you ask anything that's been bugging you. If we're a fit, we move on, if not, no hard feelings.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Mortgage pre-approval</h3>
-          <div class="proc-step-time">1–3 days · Done with your lender of choice</div>
-          <p>Before we look at houses, you talk to a lender. They check income, credit, and debts, then give you a written commitment for how much they'll lend. This number — minus what you've saved — sets your real shopping ceiling.</p>
-          <p>I can recommend lenders if you don't have one. <strong>Don't skip this step.</strong> Sellers take pre-approved offers seriously and dismiss un-pre-approved ones.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Mortgage pre-approval</h3>
+ <div class="proc-step-time">1 to 3 days · Done with your lender of choice</div>
+ <p>Before we look at houses, you talk to a lender. They check income, credit, and debts, then give you a written commitment for how much they'll lend. This number, minus what you've saved, sets your real shopping ceiling.</p>
+ <p>I can recommend lenders if you don't have one. <strong>Don't skip this step.</strong> Sellers take pre-approved offers more seriously, and often won't consider one without it.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Search and showings</h3>
-          <div class="proc-step-time">2 weeks – 6 months · Depends on inventory + your criteria</div>
-          <p>I set up real-time alerts on MLS for properties matching your criteria. When something looks right, I send it to you with the recent comparable sales already attached — you see what it should be worth before you walk in.</p>
-          <p>We book showings around your schedule. After each one I'll give you my honest take, including the structural concerns most buyers miss.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Search and showings</h3>
+ <div class="proc-step-time">2 weeks to 6 months · Depends on inventory + your criteria</div>
+ <p>I set up real-time alerts on MLS for properties matching your criteria. When something looks right, I send it to you with the recent comparable sales already attached, you see what it should be worth before you walk in.</p>
+ <p>We book showings around your schedule. After each one I'll give you my honest take, including the structural concerns most buyers miss.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Making an offer</h3>
-          <div class="proc-step-time">1–3 days from "let's offer" to signed</div>
-          <p>I prepare a Comparable Market Analysis (CMA) that shows what the property is actually worth. We discuss strategy — price, conditions, closing date, deposit. I draft the Agreement of Purchase and Sale and walk you through every clause.</p>
-          <p>Once you're happy, I submit. The seller's agent typically responds within 24–48 hours: accept, reject, or counter. We go back and forth as needed until both sides agree (or walk away).</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Making an offer</h3>
+ <div class="proc-step-time">1 to 3 days from "let's offer" to signed</div>
+ <p>I prepare a Comparable Market Analysis (CMA) that shows what the property is actually worth. We discuss strategy, price, conditions, closing date, deposit. I draft the Agreement of Purchase and Sale and walk you through every clause.</p>
+ <p>Once you're happy, I submit. The seller's agent typically responds within 24 to 48 hours: accept, reject, or counter. We go back and forth as needed until both sides agree (or walk away).</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Conditions period</h3>
-          <div class="proc-step-time">5–14 days from accepted offer</div>
-          <p>This is when due diligence happens. Typical conditions:</p>
-          <p><strong>Home inspection</strong> (typically $500–800 depending on home size and complexity — speak to your inspector for their exact quote) — a licensed inspector reviews the roof, foundation, electrical, plumbing, mechanical. Findings either reassure us or give us grounds to renegotiate or walk away.</p>
-          <p><strong>Financing</strong> — your lender confirms the specific property meets their criteria.</p>
-          <p><strong>Lawyer review</strong> — a real-estate lawyer reviews the title, taxes, and any covenants or easements. Legal closing costs in Newfoundland typically work out to around <strong>1.5% of the purchase price</strong> all-in (lawyer's fee plus disbursements like land-transfer registration and title insurance). Every firm prices differently, so it's worth getting a quote from two or three before you commit — your lawyer will give you their exact number for your purchase amount.</p>
-          <p>If anything significant shows up, we renegotiate. If everything checks out, conditions are removed and the deal is firm.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Conditions period</h3>
+ <div class="proc-step-time">5 to 14 days from accepted offer</div>
+ <p>This is when due diligence happens. Typical conditions:</p>
+ <p><strong>Home inspection</strong> (typically $500 to 800 depending on home size and complexity, speak to your inspector for their exact quote), a licensed inspector reviews the roof, foundation, electrical, plumbing, mechanical. Findings either reassure us or give us grounds to renegotiate or walk away.</p>
+ <p><strong>Financing</strong>, your lender confirms the specific property meets their criteria.</p>
+ <p><strong>Lawyer review.</strong> A real-estate lawyer reviews the title, taxes, and any covenants or easements. Legal fees in Newfoundland usually run around <strong>1.5% of the purchase price</strong> (the lawyer's fee plus disbursements like land-transfer registration and title insurance). That is the largest single line item within your total closing costs. Every firm prices differently, so get a quote from two or three before you commit.</p>
+ <p>If anything significant shows up, we renegotiate. If everything checks out, conditions are removed and the deal is firm.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Between conditions removal and closing</h3>
-          <div class="proc-step-time">3–8 weeks · Quiet period for you, busy period for me + your lawyer</div>
-          <p>Your lawyer prepares closing documents and coordinates with the seller's lawyer. Your lender finalizes the mortgage paperwork. You arrange home insurance (closing requires proof of it).</p>
-          <p>You also start packing, schedule movers, and book your utility transfers. I'll keep you posted on any blockers.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Between conditions removal and closing</h3>
+ <div class="proc-step-time">3 to 8 weeks · Quiet period for you, busy period for me + your lawyer</div>
+ <p>Your lawyer prepares closing documents and coordinates with the seller's lawyer. Your lender finalizes the mortgage paperwork. You arrange home insurance (closing requires proof of it).</p>
+ <p>You also start packing, schedule movers, and book your utility transfers. I'll keep you posted on any blockers.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Closing day</h3>
-          <div class="proc-step-time">The day you get the keys</div>
-          <p>Funds transfer between lawyers. Title transfers to you. You sign final documents at your lawyer's office (usually 30 minutes). I do a final walkthrough with you to confirm the property is in the condition you agreed to.</p>
-          <p>Keys are in your hand by mid-to-late afternoon. The house is yours.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Closing day</h3>
+ <div class="proc-step-time">The day you get the keys</div>
+ <p>Funds transfer between lawyers. Title transfers to you. You sign final documents at your lawyer's office (usually 30 minutes). I do a final walkthrough with you to confirm the property is in the condition you agreed to.</p>
+ <p>Keys are usually in your hand the same afternoon, once the lawyers confirm the money has moved. The house is yours.</p>
+ </div>
+ </div>
 
-    </div>
-  </div>
+ </div>
+ </div>
 </section>
 
 <!-- ── SELLING ────────────────────────────────────────────────────── -->
 <section id="selling" class="alt">
-  <div class="wrap">
-    <div class="phase-header">
-      <span class="phase-tag">For sellers</span>
-    </div>
-    <h2 class="phase-title">Selling a home in Newfoundland.</h2>
-    <p class="phase-intro">From the first conversation to the day someone else owns your house. Most timelines run 60–120 days from listing to closing, depending on the market and how the property's priced. <a href="/site/seller-checklist/">Want a printable prep checklist? →</a></p>
+ <div class="wrap">
+ <div class="phase-header">
+ <span class="phase-tag">For sellers</span>
+ </div>
+ <h2 class="phase-title">Selling a home in Newfoundland.</h2>
+ <p class="phase-intro">From the first conversation to the day someone else owns your house. Most timelines run 60 to 120 days from listing to closing, depending on the market and how the property's priced. <a href="/site/seller-checklist/">Want a printable prep checklist? →</a></p>
 
-    <div class="proc-steps">
+ <div class="proc-steps">
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Initial consultation + property tour</h3>
-          <div class="proc-step-time">60–90 minutes · Free · In-person at your property</div>
-          <p>I walk through your home, note what works in your favour, and flag what might give buyers pause. We talk timeline, motivation, and the price you have in mind. No pricing commitments yet — that comes next.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Initial consultation + property tour</h3>
+ <div class="proc-step-time">60 to 90 minutes · Free · In-person at your property</div>
+ <p>I walk through your home, note what works in your favour, and flag what might give buyers pause. We talk timeline, motivation, and the price you have in mind. No pricing commitments yet, that comes next.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Comparable Market Analysis (CMA)</h3>
-          <div class="proc-step-time">2–4 days after tour · Free</div>
-          <p>I pull every recent comparable sale in your area, adjust for your home's specific features and condition, and arrive at a defensible price range. You get a written CMA with three numbers: <strong>conservative</strong>, <strong>most likely</strong>, and <strong>ambitious</strong>, with the tradeoffs explained.</p>
-          <p>If your number and my number disagree by a lot, I'll tell you why. I won't take a listing I think is overpriced just to win the engagement.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Comparable Market Analysis (CMA)</h3>
+ <div class="proc-step-time">2 to 4 days after tour · Free</div>
+ <p>I pull every recent comparable sale in your area, adjust for your home's specific features and condition, and arrive at a defensible price range. You get a written CMA with three numbers: <strong>conservative</strong>, <strong>most likely</strong>, and <strong>ambitious</strong>, with the tradeoffs explained.</p>
+ <p>If your number and my number disagree by a lot, I'll tell you why. I won't take a listing I think is overpriced just to win the engagement.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Pre-listing prep</h3>
-          <div class="proc-step-time">1–3 weeks · Cost varies</div>
-          <p>Most homes need light prep before going on market: declutter, deep clean, minor paint touch-ups, a few specific staging tweaks. I'll give you a prioritized list focused on the items that actually move the needle on offer price.</p>
-          <p>For homes above a certain price band, professional photography is non-negotiable. We schedule it after prep is done.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Pre-listing prep</h3>
+ <div class="proc-step-time">1 to 3 weeks · Cost varies</div>
+ <p>Most homes need light prep before going on market: declutter, deep clean, minor paint touch-ups, a few specific staging tweaks. I'll give you a prioritized list focused on the items that actually move the needle on offer price.</p>
+ <p>For homes above a certain price band, professional photography is non-negotiable. We schedule it after prep is done.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Listing goes live</h3>
-          <div class="proc-step-time">Day 0 of marketing</div>
-          <p>I list on MLS with the photography, the listing copy I've written, and the full feature sheet. The listing also gets distributed to Realtor.ca, my own buyer database, partner agents, and targeted social media.</p>
-          <p>The first 7–14 days drive the most attention — most strong offers come from buyers who see it in that window.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Listing goes live</h3>
+ <div class="proc-step-time">Day 0 of marketing</div>
+ <p>I list on MLS with the photography, the listing copy I've written, and the full feature sheet. The listing also gets distributed to Realtor.ca, my own buyer database, partner agents, and targeted social media.</p>
+ <p>The first 7 to 14 days drive the most attention, most strong offers come from buyers who see it in that window.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Showings + offer negotiation</h3>
-          <div class="proc-step-time">Days to weeks, depending on price + market</div>
-          <p>Buyers' agents request showings; I coordinate around your schedule. After each one, I report back what the agent and buyer said. When an offer comes in, I walk you through every clause and we discuss strategy — accept, reject, counter.</p>
-          <p>Multiple offers happen on well-priced listings. I'll explain how to evaluate competing offers fairly.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Showings + offer negotiation</h3>
+ <div class="proc-step-time">Days to weeks, depending on price + market</div>
+ <p>Buyers' agents request showings; I coordinate around your schedule. After each one, I report back what the agent and buyer said. When an offer comes in, I walk you through every clause and we discuss strategy, accept, reject, counter.</p>
+ <p>Multiple offers happen on well-priced listings. I'll explain how to evaluate competing offers fairly.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Conditions period</h3>
-          <div class="proc-step-time">5–14 days from accepted offer</div>
-          <p>The buyer does their due diligence: inspection, financing approval, lawyer review. Some inspections turn up items that prompt the buyer to renegotiate; we strategize how to respond.</p>
-          <p>Once their conditions are removed, the deal is firm and the property is effectively sold.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Conditions period</h3>
+ <div class="proc-step-time">5 to 14 days from accepted offer</div>
+ <p>The buyer does their due diligence: inspection, financing approval, lawyer review. Some inspections turn up items that prompt the buyer to renegotiate; we strategize how to respond.</p>
+ <p>Once their conditions are removed, the deal is firm and the property is effectively sold.</p>
+ </div>
+ </div>
 
-      <div class="proc-step">
-        <div class="proc-step-num" aria-hidden="true"></div>
-        <div class="proc-step-body">
-          <h3>Closing day</h3>
-          <div class="proc-step-time">The day the property changes hands</div>
-          <p>Your lawyer wires the funds (minus commissions and any payoffs) to your account. You hand over keys. Title transfers to the buyer. The sale is done.</p>
-          <p>I typically meet you at the property for the final walkthrough with the buyer and do the key handover in person.</p>
-        </div>
-      </div>
+ <div class="proc-step">
+ <div class="proc-step-num" aria-hidden="true"></div>
+ <div class="proc-step-body">
+ <h3>Closing day</h3>
+ <div class="proc-step-time">The day the property changes hands</div>
+ <p>Your lawyer wires the funds (minus commissions and any payoffs) to your account. You hand over keys. Title transfers to the buyer. The sale is done.</p>
+ <p>I typically meet you at the property for the final walkthrough with the buyer and do the key handover in person.</p>
+ </div>
+ </div>
 
-    </div>
-  </div>
+ </div>
+ </div>
 </section>
 
 <!-- ── CTA BAND ───────────────────────────────────────────────────── -->
 <div class="cta-band">
-  <div class="wrap">
-    <h2>Ready to start?</h2>
-    <p>Five-minute intake form, no pressure. I'll be in touch with a real plan.</p>
-    <div class="hero-ctas" style="justify-content:center;">
-      <a class="btn btn-primary" href="/intake.html">Buyer intake</a>
-      <a class="btn btn-outline" href="/seller-intake.html">Seller intake</a>
-    </div>
-  </div>
+ <div class="wrap">
+ <h2>Ready to start?</h2>
+ <p>Five-minute intake form, no pressure. I'll be in touch with a real plan.</p>
+ <div class="hero-ctas" style="justify-content:center;">
+ <a class="btn btn-primary" href="/intake.html">Buyer intake</a>
+ <a class="btn btn-outline" href="/seller-intake.html">Seller intake</a>
+ </div>
+ </div>
 </div>
 
 <!-- ── FOOTER ─────────────────────────────────────────────────────── -->
 <footer>
-  <div class="wrap">
-    <div>
-      <h4>Maxwell Midodzi</h4>
-      <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
-      <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+ <div class="wrap">
+ <div>
+ <h4>Maxwell Midodzi</h4>
+ <p style="color:var(--ink-3);">REALTOR® · eXp Realty</p>
+ <p style="color:var(--ink-3);margin-top:6px;">Serving St. John's, NL and the Avalon Peninsula.</p>
+ </div>
+ <div>
+ <h4>Get in touch</h4>
+ <ul>
+ <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
+ <li style="color:var(--ink-3);margin-top:8px;">Typically replies within one business day.</li>
+ </ul>
+ </div>
+ <div>
+ <h4>More</h4>
+ <ul>
+ <li><a href="/site/">Home</a></li>
+ <li><a href="/site/about/">About Maxwell</a></li>
+ <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
+ <li><a href="/site/seller-checklist/">Seller checklist</a></li>
+ <li><a href="/site/resources/">Resources</a></li>
+ <li><a href="/site/privacy/">Privacy</a></li>
+ <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
+ </ul>
+ </div>
+ </div>
+ <div class="wrap">
+    <div class="compliance">
+      <p><strong>Maxwell Midodzi is a real estate agent licensed in Newfoundland &amp; Labrador, brokered by eXp Realty.</strong> Office: eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2.</p>
+      <p>REALTOR&#174;, MLS&#174; and the associated logos are trademarks owned by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. Used under licence.</p>
+      <p>The information on this site is general in nature and provided for convenience only. It is not legal, financial, or tax advice. Verify any figure with the appropriate professional. Opinions expressed here are Maxwell's own and not those of eXp Realty.</p>
+      <p style="margin-top:10px;">&#169; <span id="yr"></span> Maxwell Midodzi &middot; REALTOR&#174; &middot; Brokered by eXp Realty.</p>
     </div>
-    <div>
-      <h4>Get in touch</h4>
-      <ul>
-        <li><a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a></li>
-        <li style="color:var(--ink-3);margin-top:8px;">Typically responds within 48 business hours.</li>
-      </ul>
-    </div>
-    <div>
-      <h4>More</h4>
-      <ul>
-        <li><a href="/site/">Home</a></li>
-        <li><a href="/site/about/">About Maxwell</a></li>
-        <li><a href="/site/buyer-checklist/">Buyer checklist</a></li>
-        <li><a href="/site/seller-checklist/">Seller checklist</a></li>
-        <li><a href="/site/resources/">Resources</a></li>
-        <li><a href="/site/privacy/">Privacy</a></li>
-        <li style="margin-top:8px;color:var(--ink-3);">eXp Realty · St. John's, NL</li>
-      </ul>
-    </div>
-  </div>
-  <div class="wrap footer-bot">
-    <span>© <span id="yr"></span> Maxwell Midodzi · REALTOR® at eXp Realty.</span>
   </div>
 </footer>
 
 
-<!-- Shared site JS — footer year + mega-menu support -->
+<!-- Shared site JS, footer year + mega-menu support -->
 <script src="/site/js/site.js" defer></script>
 </body>
 </html>
