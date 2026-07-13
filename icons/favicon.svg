@@ -1,27 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Favicon — Maxwell Delali Midodzi, REALTOR® at eXp Realty.
+  Favicon — Maxwell Midodzi, REALTOR® at eXp Realty.
   Used in browser tabs, bookmarks, and the address bar across all site pages.
 
-  Design: brand-coral rounded square with white "MD" initials. Matches the
-  .nav-avatar pill used in the site navigation so users see one consistent
-  identity mark in the tab and the page.
+  Design: brand-coral rounded square with the white "Gable M" mark — the
+  MM monogram whose outer strokes form a house (peaked roof, walls, doorway
+  in the negative space). Chair-approved in board report #4. Matches the
+  .nav-avatar mark used in the site navigation so users see one consistent
+  identity in the tab and on the page. Paths only (no <text>) so it renders
+  identically in every browser tab.
 
-  Why SVG: vector scales crisply at every size (16x16 in tabs, 180x180 on
-  Apple touch icon), works for dark/light mode, and is ~500 bytes vs ~1KB
-  for a PNG equivalent. No raster files to swap out when we eventually
-  refresh the brand colour.
+  NOTE: this SVG is safe to change — it is NOT referenced by manifest.json
+  or precached by the service worker. The PNG icons in this folder belong
+  to the installed DealFlow PWA and must not be replaced in place.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Maxwell Midodzi">
   <rect width="32" height="32" rx="7" ry="7" fill="#CC785C"/>
-  <text
-    x="16"
-    y="16"
-    fill="#ffffff"
-    font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif"
-    font-size="14"
-    font-weight="700"
-    letter-spacing="-0.04em"
-    text-anchor="middle"
-    dominant-baseline="central">MD</text>
+  <g fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linejoin="miter">
+    <path d="M8.5 25.5 L8.5 11 L16 6.5 L23.5 11 L23.5 25.5"/>
+    <path d="M8.5 11 L16 18 L23.5 11"/>
+  </g>
 </svg>

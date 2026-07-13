@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The "Gable M" — Maxwell Midodzi's mark (board report #4, Chair-approved).
+       One M whose outer strokes form a house: peaked roof, two walls, and a
+       doorway in the negative space under the peak. White, transparent
+       background — drop onto any coloured container (coral nav circle,
+       navy IG tile). Paths only, no text/fonts. -->
+  <g fill="none" stroke="#ffffff" stroke-width="52" stroke-linejoin="miter">
+    <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
+    <path d="M112 168 L256 296 L400 168"/>
+  </g>
+</svg>
