@@ -415,18 +415,23 @@
     });
   })();
 
-  /* ── Hero montage — three St. John's / Newfoundland scenes, crossfaded ──
+  /* ── Hero montage — five St. John's / Newfoundland scenes, crossfaded ──
      Sources (Pexels, "Free to use" licence, hotlinked like the old Mixkit hero):
-       1. pexels.com/video/9083498  — downtown St. John's at dusk (jellybean rows + harbour)
-       2. pexels.com/video/12712363 — NL coastal village, sea + green landscape
-       3. pexels.com/video/30822225 — misty coastal village at dawn
+       1. pexels.com/video/9139014  — SUMMER postcard: downtown + harbour + the
+                                      Narrows + Signal Hill w/ Cabot Tower
+       2. pexels.com/video/9083498  — downtown St. John's at dusk (jellybean rows)
+       3. pexels.com/video/1186911  — pink summer wildflowers in a meadow
+       4. pexels.com/video/12712363 — NL coastal village, sea + green landscape
+       5. pexels.com/video/30822225 — misty coastal village at dawn
      Behaviour: gradient paints first; a clip fades in when it can play,
      fades out at its end, and the next scene fades in. Any error removes
      the video and leaves the gradient — never a blank hero. Reduced-motion
      users never see the video (CSS). */
   (function(){
     var SCENES = [
+      'https://videos.pexels.com/video-files/9139014/9139014-hd_1280_720_30fps.mp4',
       'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',
+      'https://videos.pexels.com/video-files/1186911/1186911-hd_1280_720_30fps.mp4',
       'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4',
       'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'
     ];
