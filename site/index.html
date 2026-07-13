@@ -24,6 +24,10 @@
 <!-- Shared stylesheet — unchanged -->
 <link rel="stylesheet" href="/site/css/site.css">
 
+<!-- Preconnect to the Pexels video CDN — the hero montage clips start
+     their TLS handshake before the montage script requests them. -->
+<link rel="preconnect" href="https://videos.pexels.com" crossorigin>
+
 <!-- ── Supplemental styles (redesign) ───────────────────────────────────
      Small additions on top of the shared stylesheet: a working mobile
      hamburger (the old mega-menu had none below 900px), the "Meet Maxwell"
@@ -50,7 +54,15 @@
     .nav.is-open .nav-toggle span:nth-child(3){transform:translateY(-6px) rotate(-45deg);}
   }
   .hero.hero-lean{background:linear-gradient(160deg,#0A1220 0%,#16233b 60%,#0A1220 100%);}
-  .hero.hero-lean .hero-overlay{background:radial-gradient(circle at 22% 78%,rgba(204,120,92,0.18) 0%,transparent 55%);}
+  /* Dark scrim + warm glow — keeps the white headline readable whether the
+     backdrop is the gradient or a bright daytime video frame. */
+  .hero.hero-lean .hero-overlay{background:
+    linear-gradient(135deg,rgba(10,18,32,0.72) 0%,rgba(15,26,42,0.55) 50%,rgba(10,18,32,0.78) 100%),
+    radial-gradient(circle at 22% 78%,rgba(204,120,92,0.16) 0%,transparent 55%);}
+  /* Montage crossfade — video is invisible until a clip is actually playing,
+     and fades out/in between scenes. */
+  .hero.hero-lean .hero-video{opacity:0;transition:opacity 1400ms ease;}
+  .hero.hero-lean .hero-video.on{opacity:1;}
   .hero-ctas .btn-text{display:inline-flex;align-items:center;color:rgba(255,255,255,0.9);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255,255,255,0.4);font-weight:600;font-size:15px;padding:14px 4px;}
   .hero-ctas .btn-text:hover{color:#fff;text-decoration-color:var(--brand-light);}
   .meet-grid{display:grid;gap:40px;align-items:center;}
@@ -149,8 +161,19 @@
   </div>
 </nav>
 
-<!-- ── HERO — one instant background, ONE primary CTA ─── -->
+<!-- ── HERO — cinematic St. John's montage (Hollett-style), gradient-first ───
+     The navy gradient paints INSTANTLY; the video montage fades in on top
+     once the first clip is ready, then crossfades through three real
+     Newfoundland scenes (downtown St. John's at dusk → coastal village by
+     the sea → misty village at dawn). All clips are Pexels "Free to use"
+     (commercial OK, no attribution), hotlinked from the Pexels CDN — same
+     pattern as the original Mixkit hero. If a clip fails to load, the
+     gradient simply stays: no blank hero, ever.
+     prefers-reduced-motion hides the video entirely (site.css rule). -->
 <section class="hero hero-lean">
+  <div class="hero-media" aria-hidden="true">
+    <video id="heroVid" class="hero-video" muted playsinline preload="auto"></video>
+  </div>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="wrap">
     <span class="eyebrow accent"><span class="eyebrow-divider"></span>Maxwell Midodzi · REALTOR® · eXp Realty</span>
@@ -390,6 +413,45 @@
     document.getElementById('navPanel').addEventListener('click', function(e){
       if(e.target.tagName === 'A'){ nav.classList.remove('is-open'); btn.setAttribute('aria-expanded','false'); }
     });
+  })();
+
+  /* ── Hero montage — three St. John's / Newfoundland scenes, crossfaded ──
+     Sources (Pexels, "Free to use" licence, hotlinked like the old Mixkit hero):
+       1. pexels.com/video/9083498  — downtown St. John's at dusk (jellybean rows + harbour)
+       2. pexels.com/video/12712363 — NL coastal village, sea + green landscape
+       3. pexels.com/video/30822225 — misty coastal village at dawn
+     Behaviour: gradient paints first; a clip fades in when it can play,
+     fades out at its end, and the next scene fades in. Any error removes
+     the video and leaves the gradient — never a blank hero. Reduced-motion
+     users never see the video (CSS). */
+  (function(){
+    var SCENES = [
+      'https://videos.pexels.com/video-files/9083498/9083498-hd_1280_720_30fps.mp4',
+      'https://videos.pexels.com/video-files/12712363/12712363-hd_1280_720_30fps.mp4',
+      'https://videos.pexels.com/video-files/30822225/13182335_1280_720_25fps.mp4'
+    ];
+    var v = document.getElementById('heroVid');
+    if (!v || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    var i = 0, fails = 0;
+    function play(n, delay){
+      setTimeout(function(){
+        v.src = SCENES[n];
+        var p = v.play();
+        if (p && p.then) p.then(function(){ v.classList.add('on'); }).catch(function(){ /* autoplay refused → gradient stays */ });
+      }, delay);
+    }
+    v.addEventListener('ended', function(){
+      v.classList.remove('on');
+      i = (i + 1) % SCENES.length;
+      play(i, 900); /* let the fade-out finish before swapping scenes */
+    });
+    v.addEventListener('error', function(){
+      if (++fails >= SCENES.length) { v.remove(); return; } /* all dead → gradient forever */
+      v.classList.remove('on');
+      i = (i + 1) % SCENES.length;
+      play(i, 300);
+    });
+    play(0, 0);
   })();
 </script>
 </body>
