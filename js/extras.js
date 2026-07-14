@@ -468,8 +468,8 @@ const FormResponses = {
       </div>
       <div class="card" style="margin-top:16px;padding:16px;">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📋 Your Intake Form Link</div>
-        <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwell-dealflow.vercel.app/intake.html</div>
-        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
+        <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwellmidodzi.com/intake</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>`;
       return;
     }
@@ -488,8 +488,8 @@ const FormResponses = {
     el.innerHTML = `
       <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
-        <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwell-dealflow.vercel.app/intake.html</div>
-        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwell-dealflow.vercel.app/intake.html').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
+        <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwellmidodzi.com/intake</div>
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${data.length} submission${data.length!==1?'s':''} received</div>
       ${data.map(r => {
@@ -2708,7 +2708,7 @@ const NewBuilds = {
     const agentName    = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
     const agentPhone   = agent.phone    || '(709) 325-0545';
     const agentEmail   = agent.email    || 'Maxwell.Midodzi@exprealty.com';
-    const agentWebsite = agent.website_url || 'maxwellmidodzi.exprealty.com';
+    const agentWebsite = agent.website_url || 'maxwellmidodzi.com';
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -3060,7 +3060,7 @@ const NewBuilds = {
     const agentName  = agent.full_name || 'Maxwell Delali Midodzi';
     const agentPhone = agent.phone    || '(709) 325-0545';
     const agentEmail = agent.email    || 'Maxwell.Midodzi@exprealty.com';
-    const agentWeb   = agent.website_url || 'maxwellmidodzi.exprealty.com';
+    const agentWeb   = agent.website_url || 'maxwellmidodzi.com';
     const stageRowsHtml = NewBuilds.STAGES.map(s => {
       const isDone = pm[s.key]?.done;
       const lbl = s.label.replace(/[^\x20-\x7E]/g,'').trim();

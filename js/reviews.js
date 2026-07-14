@@ -123,7 +123,7 @@ ${agentName}
 REALTOR® | eXp Realty
 Phone: ${agentPhone} | Email: ${agentEmail}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com`
+maxwellmidodzi.com`
     };
   },
 
