@@ -21,6 +21,7 @@
     { "source": "/build",   "destination": "/build.html" },
     { "source": "/portal",  "destination": "/portal.html" },
     { "source": "/intake",  "destination": "/intake.html" },
+    { "source": "/site/(.*)", "destination": "/site/404.html" },
     { "source": "/(.*)",    "destination": "/index.html" }
   ],
   "headers": [
