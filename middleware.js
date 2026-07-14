@@ -92,8 +92,8 @@ function promptHTML(returnTo, showError) {
 <title>Preview access — Maxwell Midodzi</title>
 <style>
   :root {
-    --brand: #c44d36;
-    --brand-dark: #a83a26;
+    --brand: #0F172A;
+    --brand-dark: #1E293B;
     --ink: #1a1a1a;
     --ink-2: #555;
     --ink-3: #888;
@@ -141,18 +141,18 @@ function promptHTML(returnTo, showError) {
   }
   .gate input[type="password"]:focus {
     outline: none; border-color: var(--brand);
-    box-shadow: 0 0 0 3px rgba(196, 77, 54, 0.15);
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
   }
   .gate button {
     width: 100%; padding: 13px;
-    margin-top: 10px; background: var(--ink); color: #fff;
+    margin-top: 10px; background: var(--brand); color: #fff;
     border: 0; border-radius: 9px;
     font-size: 15px; font-weight: 600; cursor: pointer;
     font-family: inherit;
     transition: background 120ms;
   }
-  .gate button:hover { background: var(--brand); }
-  .gate button:active { background: var(--brand-dark); }
+  .gate button:hover { background: var(--brand-dark); }
+  .gate button:active { background: #334155; }
   .footnote {
     color: var(--ink-3); font-size: 12.5px;
     margin-top: 32px; line-height: 1.55;
