@@ -177,15 +177,29 @@ const Marketing = {
     ly += 40;
     dot(60, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, 82, ly);
 
-    // right: eXp Realty + location
-    ctx.textAlign = 'right';
-    ctx.fillStyle = Marketing.WHITE;
-    ctx.font = '800 46px -apple-system, system-ui, sans-serif';
-    ctx.fillText('eXp Realty', 1020, by + 68);
-    ctx.fillStyle = Marketing.GREY;
-    ctx.font = '600 20px -apple-system, system-ui, sans-serif';
-    ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
-    ctx.textAlign = 'left';
+    // right: official eXp logo (flipped to white for the navy footer) + location
+    const logo = Marketing._expLogo;
+    if (logo && logo.complete && logo.naturalWidth) {
+      const lw = 200, lh = lw * (logo.naturalHeight / logo.naturalWidth);
+      ctx.save();
+      ctx.filter = 'invert(1)';   // solid-black logo -> white; transparent stays transparent
+      ctx.drawImage(logo, 1020 - lw, by + 28, lw, lh);
+      ctx.restore();
+      ctx.textAlign = 'right';
+      ctx.fillStyle = Marketing.GREY;
+      ctx.font = '600 20px -apple-system, system-ui, sans-serif';
+      ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 28 + lh + 30);
+      ctx.textAlign = 'left';
+    } else {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = Marketing.WHITE;
+      ctx.font = '800 46px -apple-system, system-ui, sans-serif';
+      ctx.fillText('eXp Realty', 1020, by + 68);
+      ctx.fillStyle = Marketing.GREY;
+      ctx.font = '600 20px -apple-system, system-ui, sans-serif';
+      ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
+      ctx.textAlign = 'left';
+    }
 
     return canvas;
   },
@@ -193,6 +207,9 @@ const Marketing = {
   render() {
     const host = document.getElementById('mk-preview');
     if (!host) return;
+    if (Marketing._expLogo && !Marketing._expLogo.complete) {
+      Marketing._expLogo.addEventListener('load', () => Marketing.render(), { once: true });
+    }
     const doDraw = () => {
       const canvas = Marketing._draw();
       host.innerHTML = '';
@@ -358,5 +375,9 @@ const Marketing = {
     setTimeout(() => Marketing.genCaption(), 100);
   },
 };
+
+// Preload the official eXp logo once so it's ready when a card is drawn.
+Marketing._expLogo = new Image();
+Marketing._expLogo.src = '/icons/exp-logo.png';
 
 window.Marketing = Marketing;
