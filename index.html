@@ -25,11 +25,11 @@
   <link rel="manifest" href="manifest.json">
 
   <!-- Favicon + Apple touch icons -->
-  <link rel="icon" type="image/png" sizes="96x96"  href="icons/icon-96.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
-  <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+  <link rel="icon" type="image/png" sizes="96x96"  href="icons/icon-96-v2.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192-v2.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v2.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152-v2.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167-v2.png">
 
   <link rel="stylesheet" href="css/app.css?v=2">
 
@@ -127,7 +127,7 @@
     <!-- Avatar — opens profile dropdown in sidebar -->
     <div class="tb-avatar" id="topbar-avatar" onclick="App.toggleProfileMenu()" style="cursor:pointer;overflow:hidden;" title="Profile & Account">
       <img id="topbar-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
-      <span id="topbar-initials">MD</span>
+      <span id="topbar-initials">MM</span>
     </div>
   </div>
 
@@ -316,7 +316,7 @@
         <div class="sb-profile-card" id="sb-profile-card" onclick="App.toggleProfileMenu()">
           <div class="sb-profile-avatar" id="sb-profile-avatar-wrap">
             <img id="sb-profile-photo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
-            <span id="sb-profile-initials">MD</span>
+            <span id="sb-profile-initials">MM</span>
           </div>
           <div class="sb-profile-info">
             <div class="sb-profile-name" id="sb-profile-name">Maxwell Delali</div>
@@ -1474,7 +1474,7 @@
             <div style="position:relative;flex-shrink:0;">
               <div id="settings-avatar" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;overflow:hidden;cursor:pointer;" onclick="document.getElementById('photo-upload').click()" title="Click to upload photo">
                 <img id="settings-photo-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;">
-                <span id="settings-avatar-initials">MD</span>
+                <span id="settings-avatar-initials">MM</span>
               </div>
               <div onclick="document.getElementById('photo-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;border:2px solid var(--card);" title="Upload photo">📷</div>
               <input type="file" id="photo-upload" accept="image/*" style="display:none;" onchange="Settings.uploadPhoto(this)">

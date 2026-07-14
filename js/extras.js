@@ -498,7 +498,7 @@ const FormResponses = {
         // Seller-side feature: render seller-specific fields when intake_type === 'seller'
         const isSeller = r.intake_type === 'seller';
         const typeBadge = isSeller
-          ? `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(204,120,92,.15);color:var(--accent2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">🏷 Seller</span>`
+          ? `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(15,23,42,.15);color:var(--accent2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">🏷 Seller</span>`
           : `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(59,130,246,.12);color:#3b82f6;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">🏠 Buyer</span>`;
         const fmtPrice = (v) => {
           if (!v) return null;
@@ -1461,8 +1461,8 @@ const Reports = {
     // Font stack (serif fallback for Fraunces so email clients without Google Fonts still look OK)
     const SERIF = "'Fraunces', Georgia, 'Times New Roman', serif";
     const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
-    const ACCENT = '#CC785C';
-    const ACCENT2 = '#B3654A';
+    const ACCENT = '#0F172A';
+    const ACCENT2 = '#1E293B';
 
     let html = `<div style="font-family:${SANS};max-width:680px;margin:0 auto;background:#fff;color:#0A0A0A;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.08);">`;
 
@@ -1523,7 +1523,7 @@ const Reports = {
       </table>`;
       if (areaChips.length) {
         html += `<div style="margin-top:16px;font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Preferred Areas</div>
-          <div>${areaChips.map(a => `<span style="display:inline-block;background:rgba(204,120,92,0.12);color:${ACCENT};font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;margin:0 6px 6px 0;">${a}</span>`).join('')}</div>`;
+          <div>${areaChips.map(a => `<span style="display:inline-block;background:rgba(15,23,42,0.12);color:${ACCENT};font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;margin:0 6px 6px 0;">${a}</span>`).join('')}</div>`;
       }
       html += sectionClose;
     }
@@ -1538,12 +1538,12 @@ const Reports = {
           const liked = /(accept|like|interested|offer)/i.test(v.viewing_status||'');
           const passed = /(pass|reject|no)/i.test(v.viewing_status||'');
           const dotColor = liked ? ACCENT : (passed ? '#9CA3AF' : ACCENT);
-          const tag = liked ? `<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;margin-left:6px;background:rgba(204,120,92,0.15);color:${ACCENT};vertical-align:middle;">${v.viewing_status}</span>` :
+          const tag = liked ? `<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;margin-left:6px;background:rgba(15,23,42,0.15);color:${ACCENT};vertical-align:middle;">${v.viewing_status}</span>` :
                       passed ? `<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:4px;margin-left:6px;background:#F3F1EC;color:#6B7280;vertical-align:middle;">${v.viewing_status}</span>` : '';
           return `<table role="presentation" style="width:100%;border-collapse:collapse;${isLast?'':'margin-bottom:4px;'}">
             <tr>
               <td style="width:24px;vertical-align:top;padding-top:14px;">
-                <div style="width:12px;height:12px;border-radius:50%;background:${dotColor};${passed?'':`box-shadow:0 0 0 3px rgba(204,120,92,0.15);`}"></div>
+                <div style="width:12px;height:12px;border-radius:50%;background:${dotColor};${passed?'':`box-shadow:0 0 0 3px rgba(15,23,42,0.15);`}"></div>
                 ${isLast?'':`<div style="width:2px;height:calc(100% + 8px);background:#E7E5E4;margin:6px 0 0 5px;"></div>`}
               </td>
               <td style="padding:10px 0 14px 8px;">
@@ -1569,9 +1569,9 @@ const Reports = {
           const isCountered = /counter/.test(st);
           const isRejected = /reject|decline/.test(st);
           const cardStyle = isAccepted
-            ? `border:1px solid ${ACCENT};background:linear-gradient(135deg,rgba(204,120,92,0.06),rgba(204,120,92,0.02));`
+            ? `border:1px solid ${ACCENT};background:linear-gradient(135deg,rgba(15,23,42,0.06),rgba(15,23,42,0.02));`
             : `border:1px solid #E7E5E4;background:#FAFAF9;`;
-          const badgeStyle = isAccepted ? `background:rgba(204,120,92,0.15);color:${ACCENT};`
+          const badgeStyle = isAccepted ? `background:rgba(15,23,42,0.15);color:${ACCENT};`
             : isCountered ? `background:#FEF3C7;color:#92400E;`
             : isRejected ? `background:rgba(185,28,28,0.12);color:#B91C1C;`
             : `background:#F3F1EC;color:#6B7280;`;
@@ -1601,7 +1601,7 @@ const Reports = {
           const done = i < currentStageIdx;
           const active = i === currentStageIdx;
           const bg = (done||active) ? ACCENT : '#E7E5E4';
-          return `<td style="height:6px;border-radius:3px;background:${bg};${active?`box-shadow:0 0 0 3px rgba(204,120,92,0.22);`:''}"></td>`;
+          return `<td style="height:6px;border-radius:3px;background:${bg};${active?`box-shadow:0 0 0 3px rgba(15,23,42,0.22);`:''}"></td>`;
         }).join('')}</tr>
       </table>`;
       html += `<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:3px 0;margin-bottom:18px;">
@@ -2212,7 +2212,7 @@ const NewBuilds = {
     const builderName = (b.builder_name || 'there').split(' ')[0];
     const subject = `Builder Portal — ${property}`;
     const plainBody = `Hi ${builderName},\n\nMaxwell Midodzi has set up a private builder portal for ${property}.\n\nUse the link below to update progress and request client visits:\n${portalUrl}\n\nThis link is valid for 90 days. No login required — just save the link.\n\nIf you have any questions, reply to this email or call (709) 325-0545.\n\nMaxwell Delali Midodzi\neXp Realty`;
-    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${builderName},</p><p>Maxwell Midodzi has set up a private builder portal for <strong>${property}</strong>.</p><p>Use the button below to update progress and request client visits:</p><p style="text-align:center;margin:28px 0;"><a href="${portalUrl}" style="background:#CC785C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">🔨 Open Builder Portal</a></p><p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="color:#CC785C;word-break:break-all;">${portalUrl}</a></p><p style="font-size:12px;color:#888;">This link is valid for 90 days. No login required — just save the link.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${builderName},</p><p>Maxwell Midodzi has set up a private builder portal for <strong>${property}</strong>.</p><p>Use the button below to update progress and request client visits:</p><p style="text-align:center;margin:28px 0;"><a href="${portalUrl}" style="background:#0F172A;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">🔨 Open Builder Portal</a></p><p style="font-size:13px;color:#666;">Or copy this link:<br><a href="${portalUrl}" style="color:#0F172A;word-break:break-all;">${portalUrl}</a></p><p style="font-size:12px;color:#888;">This link is valid for 90 days. No login required — just save the link.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
 
     // Queue via Approvals like every other email
     const user = await App.getAuthUser();
@@ -2399,7 +2399,7 @@ const NewBuilds = {
     const clientFirst = (b.client_name || 'there').split(' ')[0];
     const subject = `Builder walk-through scheduled — ${property}`;
     const plainBody = `Hi ${clientFirst},\n\nGreat news — the builder has a milestone ready for you to see at ${property}:\n\n  ${req.stage_item_label}\n\nProposed: ${when}\n\n${req.builder_note ? 'Builder note: ' + req.builder_note + '\n\n' : ''}Please reply with a thumbs-up if this time works, or suggest another.\n\nMaxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
-    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${clientFirst},</p><p>Great news — the builder has a milestone ready for you to see at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #CC785C;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p>${req.builder_note ? `<p style="font-style:italic;color:#666;">"${req.builder_note}"</p>` : ''}<p>Please reply with a thumbs-up if this time works, or suggest another.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${clientFirst},</p><p>Great news — the builder has a milestone ready for you to see at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #0F172A;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p>${req.builder_note ? `<p style="font-style:italic;color:#666;">"${req.builder_note}"</p>` : ''}<p>Please reply with a thumbs-up if this time works, or suggest another.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
 
     // Build a simple .ics calendar invite
     const icsDate = (req.proposed_date || '').replace(/-/g,'');
@@ -2434,7 +2434,7 @@ const NewBuilds = {
     if (b.builder_email) {
       try {
         const bSubject = `Visit confirmed — ${property} · ${when}`;
-        const bHtml = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${b.builder_contact ? b.builder_contact.split(' ')[0] : 'there'},</p><p>Confirming the client visit at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #CC785C;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p><p>Calendar invite attached — tap to add it to your phone. If anything changes, reply to this email or log back into your portal.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
+        const bHtml = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#222;line-height:1.6;"><p>Hi ${b.builder_contact ? b.builder_contact.split(' ')[0] : 'there'},</p><p>Confirming the client visit at <strong>${property}</strong>:</p><p style="background:#fff9f4;border-left:3px solid #0F172A;padding:12px;margin:16px 0;"><strong>${req.stage_item_label}</strong><br>📅 ${when}</p><p>Calendar invite attached — tap to add it to your phone. If anything changes, reply to this email or log back into your portal.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"><p style="font-size:14px;">Maxwell Delali Midodzi<br>REALTOR® · eXp Realty<br>(709) 325-0545</p></body></html>`;
         await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },

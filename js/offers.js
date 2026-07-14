@@ -897,7 +897,7 @@ const Pipeline = {
       const c = Pipeline._acceptStakeholders[role] || {};
       const hasOnFile = !!c.email;
       return `
-        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(204,120,92,0.04);">
+        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
           <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">
             ${icon} ${label.toUpperCase()}
             ${hasOnFile ? '<span style="font-size:10px;color:var(--green);font-weight:500;margin-left:6px;">✓ on file</span>' : ''}
@@ -933,7 +933,7 @@ const Pipeline = {
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
         ${App.esc(offer.property_address)} · ${App.fmtMoney(offer.offer_amount)} · ${App.esc(client?.full_name || offer.client_name || '—')}
       </div>
-      <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--accent);border-radius:8px;margin-bottom:14px;background:rgba(204,120,92,0.10);cursor:pointer;font-size:13px;font-weight:600;color:var(--text1);">
+      <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--accent);border-radius:8px;margin-bottom:14px;background:rgba(15,23,42,0.10);cursor:pointer;font-size:13px;font-weight:600;color:var(--text1);">
         <input type="checkbox" id="ad-new-build" ${defaultNewBuild ? 'checked' : ''} style="width:18px;height:18px;flex-shrink:0;">
         🏗️ This is a New Build — route this deal to the New Build pipeline
       </label>
@@ -980,7 +980,7 @@ const Pipeline = {
 
       <!-- Documents -->
       <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📑 Documents to dispatch</div>
-      <div style="background:rgba(204,120,92,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
+      <div style="background:rgba(15,23,42,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
         <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Accepted offer (PDF) — sent to broker + lawyer</div>
         <input type="file" id="ad-file-offer" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;margin-bottom:8px;color:var(--text2);">
         <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">MLS listing (PDF) — sent to everyone (broker, inspector, lawyer)</div>
@@ -2038,7 +2038,7 @@ const Pipeline = {
                      : 'var(--accent)';
     const badgeBg = isClosed ? 'rgba(34,197,94,.12)'
                   : isFell   ? 'rgba(220,38,38,.12)'
-                  : 'rgba(204,120,92,.12)';
+                  : 'rgba(15,23,42,.12)';
     const updatedAt = d.updated_at ? new Date(d.updated_at) : null;
     const updatedStr = updatedAt ? updatedAt.toLocaleString() : '—';
 
@@ -3246,17 +3246,17 @@ const Pipeline = {
       `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
     const html =
       '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
-        '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+        '<div style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
           '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">' + App.esc(rolePretty) + ' Portal</div>' +
           '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal is ready</h1>' +
           '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
         '</div>' +
         '<p>Hi ' + App.esc(p.name.split(' ')[0]) + ',</p>' +
         '<p>I have set up a private progress portal so you can follow this deal in real time — milestones, dates, key documents, all in one place.</p>' +
-        '<p style="text-align:center;margin:26px 0;"><a href="' + portalUrl + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+        '<p style="text-align:center;margin:26px 0;"><a href="' + portalUrl + '" style="background:#0F172A;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
         '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
         '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
-        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#0F172A;">(709) 325-0545</a></p>' +
       '</div>';
 
     await Notify.queue(
@@ -3493,17 +3493,17 @@ const Pipeline = {
         `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
       const html =
         '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
-          '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+          '<div style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
             '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">Client Portal</div>' +
             '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal is ready</h1>' +
             '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
           '</div>' +
           '<p>Hi ' + App.esc(clientFirst) + ',</p>' +
           '<p>I have set up a private progress portal so you can follow this deal in real time — milestones, dates, key documents, all in one place.</p>' +
-          '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+          '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#0F172A;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
           '<p style="font-size:13px;color:#6b6b6b;">🔒 This link is private to you and expires in 90 days. It auto-extends every time you visit. You can revoke it any time from the portal itself.</p>' +
           '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
-          '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+          '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#0F172A;">(709) 325-0545</a></p>' +
         '</div>';
 
       if (hasEmail && typeof Notify !== 'undefined' && Notify.queue) {
@@ -3600,17 +3600,17 @@ const Pipeline = {
       `— Maxwell Delali Midodzi\neXp Realty · (709) 325-0545`;
     const html =
       '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1b1b;">' +
-        '<div style="background:linear-gradient(135deg,#CC785C 0%,#B3654A 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
+        '<div style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);color:#fff;padding:24px;border-radius:14px;margin-bottom:18px;">' +
           '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-bottom:6px;">Client Portal</div>' +
           '<h1 style="margin:0 0 4px;font-size:22px;">Your deal portal — reminder</h1>' +
           '<p style="margin:0;opacity:.92;font-size:14px;">' + App.esc(d.property_address || '') + '</p>' +
         '</div>' +
         '<p>Hi ' + App.esc(clientFirst) + ',</p>' +
         '<p>Just resending the link to your private progress portal. This is the same link as before — no new login.</p>' +
-        '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#CC785C;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
+        '<p style="text-align:center;margin:26px 0;"><a href="' + url + '" style="background:#0F172A;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;">View your deal portal →</a></p>' +
         '<p style="font-size:13px;color:#6b6b6b;">🔒 This is the same private link issued earlier. It auto-extends every time you visit.</p>' +
         '<hr style="border:none;border-top:1px solid #e5e1da;margin:24px 0;">' +
-        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#CC785C;">(709) 325-0545</a></p>' +
+        '<p style="font-size:13px;color:#6b6b6b;">— Maxwell Delali Midodzi<br>eXp Realty · <a href="tel:7093250545" style="color:#0F172A;">(709) 325-0545</a></p>' +
       '</div>';
 
     try {
@@ -3946,7 +3946,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
           <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px;">No ${label.toLowerCase()} on file — skip · save in Edit Client to auto-include next deal</div>
         </div>`;
       return `
-        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(204,120,92,0.04);">
+        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div>
               <div style="font-size:11px;font-weight:700;color:var(--accent);">${icon} ${label.toUpperCase()}</div>
@@ -3979,7 +3979,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
 
       <!-- Documents -->
       <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📑 Documents</div>
-      <div style="background:rgba(204,120,92,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
+      <div style="background:rgba(15,23,42,0.04);border:1px dashed var(--accent);border-radius:8px;padding:10px;margin-bottom:14px;">
         <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Accepted offer (PDF)</div>
         ${hasOffer
           ? `<div style="font-size:12px;color:var(--green);margin-bottom:8px;">✓ Already uploaded — will be re-used</div>`
@@ -4270,7 +4270,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
         Upload to <strong>${App.esc(d.client_name||'this deal')}</strong>. Stakeholders see only what their role allows.
       </div>
 
-      <div style="background:rgba(204,120,92,0.06);border:1px dashed var(--accent);border-radius:10px;padding:12px;margin-bottom:14px;">
+      <div style="background:rgba(15,23,42,0.06);border:1px dashed var(--accent);border-radius:10px;padding:12px;margin-bottom:14px;">
         <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add a document</div>
         <div class="form-group" style="margin-bottom:8px;">
           <label class="form-label" style="font-size:11px;">DOCUMENT TYPE</label>
@@ -4376,7 +4376,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
         <span>${status}</span>
       </div>`;
     }).join('');
-    return `<div style="margin:6px 0 8px;padding:6px 8px;border-left:2px solid var(--accent);background:rgba(204,120,92,0.04);">
+    return `<div style="margin:6px 0 8px;padding:6px 8px;border-left:2px solid var(--accent);background:rgba(15,23,42,0.04);">
       <div style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:4px;">STAKEHOLDERS</div>
       ${rows}
     </div>`;

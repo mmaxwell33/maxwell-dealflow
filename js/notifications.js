@@ -1478,9 +1478,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <div>${criteriaHTML}</div>` : ''}
         <p style="margin-top:20px;">Feel free to reach out anytime — I'm here to help!</p>
         ${opts.referralToken ? `
-        <div style="margin-top:18px;padding:14px 16px;background:#FAFAF9;border-left:3px solid #CC785C;border-radius:8px;">
+        <div style="margin-top:18px;padding:14px 16px;background:#FAFAF9;border-left:3px solid #0F172A;border-radius:8px;">
           <p style="margin:0 0 10px;font-size:13px;font-style:italic;color:#555;">One more thing — I work with a great mortgage broker here in Newfoundland day to day. If you'd ever like a second opinion or a smoother financing process, I'm happy to introduce you — no pressure at all.</p>
-          <a href="https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#CC785C;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
+          <a href="https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#0F172A;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
         </div>` : ''}
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}

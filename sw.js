@@ -1,16 +1,16 @@
-const CACHE = 'dealflow-v152';
-const ICON_CACHE = 'dealflow-icons-v2';
+const CACHE = 'dealflow-v153';
+const ICON_CACHE = 'dealflow-icons-v3';
 
 const ICONS = [
-  '/icons/icon-48.png',
-  '/icons/icon-72.png',
-  '/icons/icon-96.png',
-  '/icons/icon-144.png',
-  '/icons/icon-152.png',
-  '/icons/icon-167.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png'
+  '/icons/icon-48-v2.png',
+  '/icons/icon-72-v2.png',
+  '/icons/icon-96-v2.png',
+  '/icons/icon-144-v2.png',
+  '/icons/icon-152-v2.png',
+  '/icons/icon-167-v2.png',
+  '/icons/icon-192-v2.png',
+  '/icons/icon-512-v2.png',
+  '/icons/apple-touch-icon-v2.png'
 ];
 
 // ── INSTALL: pre-cache only icons (they never change) ────────────────────────
@@ -92,8 +92,8 @@ self.addEventListener('push', e => {
   const title = data.title || 'Maxwell DealFlow';
   const options = {
     body: data.body || 'You have a new notification.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-96.png',
+    icon: '/icons/icon-192-v2.png',
+    badge: '/icons/icon-96-v2.png',
     data: { tab: data.tab || 'approvals' },
     vibrate: [200, 100, 200]
   };

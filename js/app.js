@@ -206,7 +206,8 @@ const App = {
       if (cached) Object.assign(currentAgent, cached);
     } catch(e) {}
     // Update topbar with full agent info
-    const initials = (currentAgent.full_name || currentAgent.name || 'M').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+    const _nmParts = (currentAgent.full_name || currentAgent.name || 'M').trim().split(/\s+/).filter(Boolean);
+    const initials = (_nmParts[0][0] + (_nmParts.length > 1 ? _nmParts[_nmParts.length - 1][0] : '')).toUpperCase();
     const initialsEl = document.getElementById('topbar-initials');
     if (initialsEl) initialsEl.textContent = initials;
     // Sidebar profile card sync
