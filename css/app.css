@@ -131,6 +131,7 @@ textarea:focus-visible{
 .tb-avatar{
   width:36px;height:36px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(135deg,var(--accent),var(--purple));
+  color:#fff;
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:12px;
   box-shadow:0 0 0 2px var(--bg2),0 0 0 3px rgba(91,91,214,0.4);
