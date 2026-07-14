@@ -828,6 +828,7 @@ const App = {
     if (tab === 'mileage') Mileage.load();
     if (tab === 'broadcast') Broadcast.load();
     if (tab === 'reviews') Reviews.load();
+    if (tab === 'marketing') Marketing.loadFolder();
     if (tab === 'briefing') Briefing.load();
     if (tab === 'pipeline') Pipeline.load();  // reload on visit — actions elsewhere no longer eagerly reload it
     if (tab === 'listings') Listings.load();

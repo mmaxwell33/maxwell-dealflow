@@ -271,6 +271,9 @@
             <button class="nav-item" data-tab="broadcast" onclick="App.switchTab('broadcast')">
               <span class="nav-icon">📣</span><span class="nav-label">Broadcast</span>
             </button>
+            <button class="nav-item" data-tab="marketing" onclick="App.switchTab('marketing')">
+              <span class="nav-icon">📣</span><span class="nav-label">Marketing</span>
+            </button>
             <button class="nav-item" data-tab="reviews" onclick="App.switchTab('reviews')">
               <span class="nav-icon">📝</span><span class="nav-label">Reviews</span>
             </button>
@@ -1028,6 +1031,20 @@
     </div>
 
     <!-- REVIEWS SCREEN -->
+    <div id="screen-marketing" class="screen" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;">📣 Marketing</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Your accepted &amp; sold deals, ready to turn into a post. You always review &amp; edit before sharing.</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="Marketing.openComposer()">＋ New post</button>
+          <button class="btn btn-outline btn-sm" onclick="Marketing.loadFolder()">🔄 Refresh</button>
+        </div>
+      </div>
+      <div id="marketing-folder" style="margin-top:14px;"></div>
+    </div>
+
     <div id="screen-reviews" class="screen" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
         <div>

@@ -306,6 +306,90 @@ const Marketing = {
       if (App?.logActivity) App.logActivity('marketing', '', '', `Created a ${Marketing.TEMPLATES[Marketing.current].label} post`);
     } catch (e) {}
   },
+
+  // Known Avalon towns — used to pull a neighbourhood off a full address so a
+  // civic street number never lands on a post.
+  TOWNS: ["St. John's","St John's","Mount Pearl","Paradise","Conception Bay South",
+          "CBS","Torbay","Portugal Cove","Bay Roberts","Holyrood","Logy Bay",
+          "Pouch Cove","Flatrock","Witless Bay","Bauline","Petty Harbour"],
+
+  _area(addr) {
+    if (!addr) return '';
+    const hit = Marketing.TOWNS.find(t => addr.toLowerCase().includes(t.toLowerCase()));
+    if (hit) return hit === "St John's" ? "St. John's" : (hit === 'CBS' ? 'Conception Bay South' : hit);
+    // fall back to the segment after the last comma (usually the town), never the civic number
+    const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts[parts.length - 1].replace(/\b(NL|Newfoundland|A\d[A-Z]\s?\d[A-Z]\d)\b/gi,'').trim() : '';
+  },
+
+  // The "folder": auto-lists accepted + sold deals as ready-to-post drafts.
+  async loadFolder() {
+    const host = document.getElementById('marketing-folder');
+    if (!host) return;
+    host.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:20px 0;">Loading your deals…</div>';
+    const items = [];
+    try {
+      // Accepted / under-contract offers → "Offer Accepted" drafts
+      const { data: offers } = await db.from('offers')
+        .select('id, property_address, status, mls_number, clients(full_name)')
+        .in('status', ['Accepted','Conditions','Closing']);
+      (offers || []).forEach(o => items.push({
+        template: 'accepted', address: o.property_address || '', mls: o.mls_number || '',
+        client: o.clients?.full_name || '', tag: o.status,
+      }));
+    } catch (e) {}
+    try {
+      // Closed pipeline deals → "Just Sold" drafts (defensive on column names)
+      const { data: pipe } = await db.from('pipeline').select('*');
+      (pipe || []).forEach(p => {
+        const stage = (p.current_stage || p.stage || p.status || '').toString();
+        if (/clos(ed|ing)|sold|complete/i.test(stage)) {
+          // if a closed deal shares an address with an accepted one, upgrade it to sold
+          const addr = (p.property_address || '').trim();
+          const existing = items.find(i => i.address.trim().toLowerCase() === addr.toLowerCase());
+          if (existing) { existing.template = 'sold'; existing.tag = 'Closed'; }
+          else items.push({ template: 'sold', address: addr, mls: p.mls_number || '', client: '', tag: 'Closed' });
+        }
+      });
+    } catch (e) {}
+
+    if (!items.length) {
+      host.innerHTML = `<div style="text-align:center;color:var(--text2);padding:40px 20px;border:1px dashed var(--border);border-radius:12px;">
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">No posts waiting yet</div>
+        <div style="font-size:13px;max-width:44ch;margin:0 auto 16px;">When you mark an offer <b>Accepted</b> or close a deal, it shows up here ready to post. Or make one now.</div>
+        <button class="btn btn-primary btn-sm" onclick="Marketing.openComposer()">＋ New post</button>
+      </div>`;
+      return;
+    }
+
+    // sold first, then accepted
+    items.sort((a, b) => (a.template === 'sold' ? 0 : 1) - (b.template === 'sold' ? 0 : 1));
+    host.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">` +
+      items.map((it, i) => {
+        const badge = it.template === 'sold' ? 'SOLD' : 'ACCEPTED';
+        const badgeBg = it.template === 'sold' ? 'var(--green-soft)' : 'var(--accent-soft)';
+        const badgeCol = it.template === 'sold' ? 'var(--green)' : 'var(--accent)';
+        Marketing._drafts = Marketing._drafts || {};
+        Marketing._drafts[i] = it;
+        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 9px;border-radius:20px;background:${badgeBg};color:${badgeCol};">${badge}</span>
+            ${it.mls ? `<span style="font-size:11px;color:var(--text3);">MLS# ${App.esc(it.mls)}</span>` : ''}
+          </div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;">${App.esc(it.address || '—')}</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:14px;">${it.client ? 'Client: ' + App.esc(it.client) + ' · ' : ''}Area on post: ${App.esc(Marketing._area(it.address)) || '—'}</div>
+          <button class="btn btn-primary btn-sm" style="width:100%;" onclick="Marketing.prepareFromDraft(${i})">Prepare post →</button>
+        </div>`;
+      }).join('') + `</div>`;
+  },
+
+  prepareFromDraft(i) {
+    const it = (Marketing._drafts || {})[i];
+    if (!it) return Marketing.openComposer();
+    Marketing.openComposer({ template: it.template, area: Marketing._area(it.address) });
+    // auto-write the caption so it's genuinely "ready"
+    setTimeout(() => Marketing.genCaption(), 100);
+  },
 };
 
 window.Marketing = Marketing;
