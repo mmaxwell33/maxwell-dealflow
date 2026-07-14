@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Sitemap — Maxwell Midodzi marketing site
-  https://maxwell-dealflow.vercel.app/
+  https://maxwellmidodzi.com/
 
   Only public, indexable pages live here. The agent CRM and token-protected
   pages (respond, portal, review, builder) are excluded — robots.txt
@@ -14,56 +14,63 @@
 
   <!-- Marketing landing — primary entry point for organic traffic -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/</loc>
+    <loc>https://maxwellmidodzi.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <!-- About page — high authority signal for "who is maxwell midodzi realtor" -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/about/</loc>
+    <loc>https://maxwellmidodzi.com/site/about/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <!-- Process page — long-form buyer/seller walkthrough, high-value SEO surface -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/process/</loc>
+    <loc>https://maxwellmidodzi.com/site/process/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <!-- Buyer checklist — high-intent SEO target ("first time home buyer checklist newfoundland") -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/buyer-checklist/</loc>
+    <loc>https://maxwellmidodzi.com/site/buyer-checklist/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Seller checklist — high-intent SEO target ("how to prepare home for sale newfoundland") -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/seller-checklist/</loc>
+    <loc>https://maxwellmidodzi.com/site/seller-checklist/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- St. John's community guide — local SEO surface ("living in st john's nl") -->
+  <url>
+    <loc>https://maxwellmidodzi.com/site/communities/st-johns/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Resources — link directory of NL real-estate tools, government programs, associations -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/site/resources/</loc>
+    <loc>https://maxwellmidodzi.com/site/resources/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
 
   <!-- Buyer intake form — direct-entry conversion target -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/intake.html</loc>
+    <loc>https://maxwellmidodzi.com/intake.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Seller intake form — direct-entry conversion target -->
   <url>
-    <loc>https://maxwell-dealflow.vercel.app/seller-intake.html</loc>
+    <loc>https://maxwellmidodzi.com/seller-intake.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

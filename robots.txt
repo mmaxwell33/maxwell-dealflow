@@ -1,5 +1,5 @@
 # Maxwell Midodzi — REALTOR® at eXp Realty
-# https://maxwell-dealflow.vercel.app/
+# https://maxwellmidodzi.com/
 
 User-agent: *
 
@@ -35,9 +35,5 @@ Disallow: /supabase/
 # These are historical artifacts kept for context, not for public discovery.
 Disallow: /docs/
 
-# Treating the bare domain as the CRM entry — keep crawlers off it for now.
-# When we eventually point the root to /site/ that disallow can go.
-Disallow: /$
-
 # Point crawlers at the sitemap
-Sitemap: https://maxwell-dealflow.vercel.app/sitemap.xml
+Sitemap: https://maxwellmidodzi.com/sitemap.xml
