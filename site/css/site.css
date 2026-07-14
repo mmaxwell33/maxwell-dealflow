@@ -1237,3 +1237,11 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
 .cf-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .cf-status { font-size: 14px; min-height: 1.2em; color: var(--ink-2); }
 .contact-form .btn-primary { align-self: flex-start; }
+
+/* ── Cookie notice (honest: essential-only, no tracking) ─────────────── */
+.cookie-bar{position:fixed;left:16px;right:16px;bottom:16px;z-index:9000;max-width:720px;margin:0 auto;background:var(--ink);color:#fff;border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:16px;box-shadow:0 10px 34px rgba(15,23,42,.30);font-size:13.5px;line-height:1.5;}
+.cookie-bar p{margin:0;flex:1;color:rgba(255,255,255,.9);}
+.cookie-bar a{color:#fff;text-decoration:underline;text-underline-offset:2px;}
+.cookie-bar .cookie-ok{flex:none;background:#fff;color:var(--ink);border:0;border-radius:6px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;}
+.cookie-bar .cookie-ok:hover{background:var(--bg-2);}
+@media(max-width:520px){.cookie-bar{flex-direction:column;align-items:stretch;text-align:center;}.cookie-bar .cookie-ok{width:100%;}}

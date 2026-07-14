@@ -81,3 +81,18 @@
     if (e.key === 'Escape') closeAll(null);
   });
 }());
+
+/* ── Cookie notice — honest, essential-only, remembers the choice ─────── */
+(function () {
+  try { if (localStorage.getItem('mm-cookie-ok')) return; } catch (e) {}
+  var bar = document.createElement('div');
+  bar.className = 'cookie-bar';
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-label', 'Cookie notice');
+  bar.innerHTML = '<p>This site uses only the essential cookies it needs to work — no ads and no third-party tracking. <a href="/site/privacy/">Privacy policy</a>.</p><button type="button" class="cookie-ok">Got it</button>';
+  document.body.appendChild(bar);
+  bar.querySelector('.cookie-ok').addEventListener('click', function () {
+    try { localStorage.setItem('mm-cookie-ok', '1'); } catch (e) {}
+    bar.remove();
+  });
+}());
