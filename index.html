@@ -1959,23 +1959,28 @@
 
       <!-- fields -->
       <div style="display:flex;flex-direction:column;gap:12px;">
-        <label style="font-size:12px;font-weight:600;color:var(--text2);">Area / neighbourhood <span style="font-weight:400;color:var(--text3);">(never a street number)</span>
-          <input id="mk-area" type="text" placeholder="e.g. Paradise, NL" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">Listing photo <span style="font-weight:400;color:var(--text3);">(upload — fills the middle, just like your posts)</span>
+          <input id="mk-photo" type="file" accept="image/*" onchange="Marketing.onPhoto(this)" style="width:100%;margin-top:4px;font-size:12px;color:var(--text2);">
         </label>
         <div style="display:flex;gap:10px;">
+          <label style="flex:1.4;font-size:12px;font-weight:600;color:var(--text2);">Sq ft
+            <input id="mk-sqft" type="text" placeholder="3178" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Beds
-            <input id="mk-beds" type="text" placeholder="3" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-beds" type="text" placeholder="5" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Baths
-            <input id="mk-baths" type="text" placeholder="2" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-baths" type="text" placeholder="3" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
         </div>
-        <label style="font-size:12px;font-weight:600;color:var(--text2);">Highlight line <span style="font-weight:400;color:var(--text3);">(optional)</span>
-          <input id="mk-highlight" type="text" placeholder="e.g. Helped a first-time buyer" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
-        </label>
-        <label style="font-size:12px;font-weight:600;color:var(--text2);">Photo <span style="font-weight:400;color:var(--text3);">(optional — your own listing photo)</span>
-          <input type="file" accept="image/*" onchange="Marketing.onPhoto(this)" style="width:100%;margin-top:4px;font-size:12px;color:var(--text2);">
-        </label>
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">MLS® #
+            <input id="mk-mls" type="text" placeholder="1295896" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
+          <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Area <span style="font-weight:400;color:var(--text3);">(only if no photo)</span>
+            <input id="mk-area" type="text" placeholder="Paradise, NL" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
+        </div>
 
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
