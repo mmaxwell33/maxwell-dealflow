@@ -58,6 +58,7 @@
   <script defer src="js/ai.js"></script>
   <script defer src="js/calendar.js"></script>
   <script defer src="js/reviews.js"></script>
+  <script defer src="js/marketing.js"></script>
   <script defer src="js/briefing.js"></script>
 </head>
 <body>
@@ -400,6 +401,11 @@
           <div class="qa-icon">🤖</div>
           <div class="qa-label">Ask Claude AI</div>
           <div class="qa-sub">Smart assistant</div>
+        </div>
+        <div class="quick-action qa-blue" onclick="Marketing.openComposer()">
+          <div class="qa-icon">📣</div>
+          <div class="qa-label">Create a post</div>
+          <div class="qa-sub">Just Sold / Accepted</div>
         </div>
       </div>
 
@@ -1909,6 +1915,75 @@
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- SCRIPTS moved to <head> in PR #11 — see above. -->
+
+<!-- Marketing composer — turns a deal into a branded Instagram post. Never
+     auto-posts; consent-gated; no sold price; area only (see js/marketing.js). -->
+<div id="marketing-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:880px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);margin:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="font-size:18px;font-weight:800;color:var(--text);">Create a post</div>
+      <span onclick="Marketing.close()" style="cursor:pointer;color:var(--text2);font-size:24px;line-height:1;">×</span>
+    </div>
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:16px;">Make a branded graphic for a deal. You'll download it and post it yourself — Instagram doesn't allow apps to post for you.</div>
+
+    <!-- template picker -->
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <button class="mk-tab btn btn-outline btn-sm active" data-tpl="sold" onclick="Marketing.setTemplate('sold')">Just Sold</button>
+      <button class="mk-tab btn btn-outline btn-sm" data-tpl="accepted" onclick="Marketing.setTemplate('accepted')">Offer Accepted</button>
+    </div>
+    <div id="mk-tpl-hint" style="font-size:11.5px;color:var(--text3);margin-bottom:16px;"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;">
+      <!-- live preview -->
+      <div>
+        <div id="mk-preview" style="width:100%;aspect-ratio:1/1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;">Instagram square · 1080×1080</div>
+      </div>
+
+      <!-- fields -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">Area / neighbourhood <span style="font-weight:400;color:var(--text3);">(never a street number)</span>
+          <input id="mk-area" type="text" placeholder="e.g. Paradise, NL" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+        </label>
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Beds
+            <input id="mk-beds" type="text" placeholder="3" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
+          <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Baths
+            <input id="mk-baths" type="text" placeholder="2" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
+        </div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">Highlight line <span style="font-weight:400;color:var(--text3);">(optional)</span>
+          <input id="mk-highlight" type="text" placeholder="e.g. Helped a first-time buyer" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+        </label>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">Photo <span style="font-weight:400;color:var(--text3);">(optional — your own listing photo)</span>
+          <input type="file" accept="image/*" onchange="Marketing.onPhoto(this)" style="width:100%;margin-top:4px;font-size:12px;color:var(--text2);">
+        </label>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;font-weight:600;color:var(--text2);">Caption</span>
+            <button id="mk-regen" class="btn btn-outline btn-sm" onclick="Marketing.genCaption()">↻ Regenerate caption</button>
+          </div>
+          <textarea id="mk-caption" rows="6" placeholder="Tap “Regenerate caption” for an AI draft, then edit it." style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;"></textarea>
+        </div>
+
+        <!-- consent gate -->
+        <label style="display:flex;gap:10px;align-items:flex-start;background:var(--accent-soft);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--text2);cursor:pointer;">
+          <input id="mk-consent" type="checkbox" onchange="Marketing._syncConsent()" style="margin-top:2px;flex-shrink:0;">
+          <span>I have this client's permission to share this deal publicly. <span style="color:var(--text3);">(Required — no names or price appear, but Canadian privacy rules still need their OK.)</span></span>
+        </label>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="mk-download" class="btn btn-primary" onclick="Marketing.download()">⬇ Download image</button>
+          <button id="mk-copy" class="btn btn-outline" onclick="Marketing.copyCaption()">Copy caption</button>
+          <button id="mk-share" class="btn btn-outline" onclick="Marketing.share()">Share…</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);">Then open Instagram, add the image, and paste the caption. About 20 seconds.</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Share-to-socials modal (post-close reviews only) -->
 <div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
