@@ -902,8 +902,8 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
 }
 .svc-row {
   display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 6px;
   padding: 28px 0;
   border-bottom: 1px solid var(--border);
   align-items: start;
