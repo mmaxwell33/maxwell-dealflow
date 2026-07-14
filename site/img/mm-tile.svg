@@ -1,16 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Maxwell Midodzi">
-  <!-- The Gable Tile — Maxwell Midodzi's primary logo lockup container.
+  <!-- The Rowhouse-MM Tile — Maxwell Midodzi's primary logo lockup container.
        Deep-navy square (sharp corners: editorial, not app-icon) holding the
-       white Gable M — the MM monogram whose outer strokes form a house.
-       Navy + white two-colour brand, Chair-approved July 2026 (brand board
-       session). The bare mark lives in mm-mark.svg; this tile is for
-       avatars, Instagram profile, and any square placement. Export at
-       1080x1080 for the Instagram tile — do NOT reuse the old navy+gold
-       tile in site-redesign/ (pre-decision scratch, wrong palette). -->
+       white Rowhouse MM — two gabled M-houses sharing a party wall (M·M =
+       Maxwell Midodzi = two joined St. John's homes). Navy + white two-colour
+       brand, Chair-approved July 2026. The bare mark lives in mm-mark.svg;
+       this tile is for avatars, Instagram profile, and any square placement.
+       Export at 1080x1080 for the Instagram tile — do NOT reuse the old
+       navy+gold tile in site-redesign/ (pre-decision scratch, wrong palette). -->
   <rect width="512" height="512" fill="#0F172A"/>
-  <g fill="none" stroke="#FAFAF7" stroke-width="52" stroke-linejoin="miter"
-     transform="translate(256 268) scale(0.72) translate(-256 -256)">
-    <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
-    <path d="M112 168 L256 296 L400 168"/>
+  <g fill="none" stroke="#FAFAF7" stroke-width="34" stroke-linejoin="miter"
+     transform="translate(256 256) scale(0.86) translate(-256 -256)">
+    <path d="M62 383 L62 191 L159 129 L256 191 L256 383"/>
+    <path d="M62 191 L159 245 L256 191"/>
+    <path d="M256 191 L353 129 L450 191 L450 383"/>
+    <path d="M256 191 L353 245 L450 191"/>
   </g>
 </svg>

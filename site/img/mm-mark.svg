@@ -1,11 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- The "Gable M" — Maxwell Midodzi's mark (board report #4, Chair-approved).
-       One M whose outer strokes form a house: peaked roof, two walls, and a
-       doorway in the negative space under the peak. White, transparent
-       background — drop onto any coloured container (coral nav circle,
-       navy IG tile). Paths only, no text/fonts. -->
-  <g fill="none" stroke="#ffffff" stroke-width="52" stroke-linejoin="miter">
-    <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
-    <path d="M112 168 L256 296 L400 168"/>
+  <!-- The "Rowhouse MM" — Maxwell Midodzi's mark (Chair-approved, brand board
+       session July 2026). Two gabled "M" houses sharing one party wall, the way
+       St. John's rowhouses attach: reads as BOTH initials (M·M) AND two joined
+       homes. Evolves the earlier single-M "Gable M" into a true MM monogram.
+       White strokes, transparent background — drop onto any coloured container
+       (navy nav tile, navy IG tile). Paths only, no text/fonts. -->
+  <g fill="none" stroke="#ffffff" stroke-width="40" stroke-linejoin="miter" stroke-linecap="butt">
+    <!-- left house: left wall, roof, shared wall -->
+    <path d="M62 383 L62 191 L159 129 L256 191 L256 383"/>
+    <!-- left house inner V (the M valley) -->
+    <path d="M62 191 L159 245 L256 191"/>
+    <!-- right house: shared wall top, roof, right wall -->
+    <path d="M256 191 L353 129 L450 191 L450 383"/>
+    <!-- right house inner V -->
+    <path d="M256 191 L353 245 L450 191"/>
   </g>
 </svg>
