@@ -37,8 +37,7 @@
  /* Dark scrim + warm glow, keeps the white headline readable whether the
  backdrop is the gradient or a bright daytime video frame. */
  .hero.hero-lean .hero-overlay{background:
- linear-gradient(135deg, rgba(10, 18, 32, 0.72) 0%, rgba(15, 26, 42, 0.55) 50%, rgba(10, 18, 32, 0.78) 100%),
- radial-gradient(circle at 22% 78%, rgba(204, 120, 92, 0.16) 0%, transparent 55%);}
+ linear-gradient(135deg, rgba(10, 18, 32, 0.72) 0%, rgba(15, 26, 42, 0.55) 50%, rgba(10, 18, 32, 0.78) 100%);}
  /* Montage crossfade, video is invisible until a clip is actually playing,
  and fades out/in between scenes. */
  .hero.hero-lean .hero-video{opacity:0;transition:opacity 650ms ease;}
@@ -506,12 +505,12 @@
     e.preventDefault();
     if (document.getElementById('cf-company').value) return; // honeypot: bot filled it
     if (!document.getElementById('cf-consent').checked) {
-      st.style.color = '#C1502E'; st.textContent = 'Please check the consent box so I can reply.'; return;
+      st.style.color = 'var(--error)'; st.textContent = 'Please check the consent box so I can reply.'; return;
     }
     var name = document.getElementById('cf-name').value.trim();
     var email = document.getElementById('cf-email').value.trim();
     var msg = document.getElementById('cf-message').value.trim();
-    if (!name || !email || !msg) { st.style.color = '#C1502E'; st.textContent = 'Please add your name, email, and a message.'; return; }
+    if (!name || !email || !msg) { st.style.color = 'var(--error)'; st.textContent = 'Please add your name, email, and a message.'; return; }
     var btn = document.getElementById('cf-submit'), orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Sending…'; st.style.color = ''; st.textContent = 'Sending securely…';
     var parts = name.split(/\s+/), first = parts.shift() || name, last = parts.join(' ') || null;
@@ -533,7 +532,7 @@
       f.reset(); btn.textContent = 'Sent ✓';
       st.style.color = ''; st.textContent = "Thanks, your message is in. I'll reply the same business day.";
     } catch (err) {
-      btn.disabled = false; btn.textContent = orig; st.style.color = '#C1502E';
+      btn.disabled = false; btn.textContent = orig; st.style.color = 'var(--error)';
       st.innerHTML = 'Something went wrong. Please email me directly at <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>.';
     }
   });

@@ -8,9 +8,9 @@
    widens dramatically — headlines are big and confident, body breathes.
    Geometry tightens — smaller radii, sharper edges, less shadow.
 
-   Aligned with /css/app.css coral (#CC785C) so the CRM and the marketing
-   site share a brand thread, but the marketing site stops apologizing
-   for its design choices. */
+   Brand update (board session, July 2026): strict two-colour theme —
+   warm white + deep navy #0F172A. The CRM (/css/app.css) keeps its coral;
+   the internal tool and the public site are deliberately separate brands. */
 
 :root {
   /* Ink (text + sharp ui) — deep navy charcoal, more "real estate" than slate */
@@ -29,11 +29,18 @@
   --border-strong: rgba(15, 23, 42, 0.16);
   --border-ink:    rgba(15, 23, 42, 0.92);
 
-  /* Accent — coral, kept identical to CRM brand but used sparingly */
-  --brand:       #CC785C;
-  --brand-dark:  #B3654A;
-  --brand-light: #E0A48E;
-  --brand-soft:  rgba(204, 120, 92, 0.08);
+  /* Brand — deep navy. Strict two-colour theme (warm white + navy), board
+     brand session July 2026. The CRM keeps its coral (css/app.css) — the
+     internal tool and the public site are deliberately separate brands.
+     --brand-light is the "accent ON dark surfaces" role and must stay
+     light (warm-white tint), or hero/footer accents vanish into navy. */
+  --brand:       #0F172A;
+  --brand-dark:  #1E293B;
+  --brand-light: #E8E5DB;
+  --brand-soft:  rgba(15, 23, 42, 0.06);
+
+  /* Functional red — form errors ONLY, never decorative (board ruling) */
+  --error:       #B42318;
 
   /* Geometry — tighter, more confident. 4–8px radii max, not 12–20px. */
   --r-xs: 3px;
@@ -74,6 +81,10 @@ a:hover { text-decoration-color: var(--brand); }
   outline: 2px solid var(--brand);
   outline-offset: 3px;
   border-radius: var(--r-xs);
+}
+/* On dark sections a navy focus ring is invisible — use white there */
+.hero :focus-visible, .cta-band :focus-visible {
+  outline-color: #ffffff;
 }
 
 /* ── Layout ──────────────────────────────────────────────────────── */
@@ -184,7 +195,7 @@ html { scroll-padding-top: 110px; }
 .nav-brand:hover { text-decoration: none; }
 .nav-avatar {
   width: 32px; height: 32px;
-  border-radius: 50%;
+  border-radius: var(--r-xs);
   background: var(--brand);
   display: inline-flex; align-items: center; justify-content: center;
   color: #ffffff; font-weight: 700; font-size: 12px;
@@ -330,7 +341,7 @@ html { scroll-padding-top: 110px; }
 }
 .mega-feature:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(204, 120, 92, 0.35);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
   text-decoration: none;
 }
 .mega-feature-eyebrow {
@@ -494,8 +505,7 @@ html { scroll-padding-top: 110px; }
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(135deg, rgba(10,18,32,0.70) 0%, rgba(15,26,42,0.58) 50%, rgba(10,18,32,0.78) 100%),
-    radial-gradient(circle at 20% 80%, rgba(204,120,92,0.15) 0%, transparent 55%);
+    linear-gradient(135deg, rgba(10,18,32,0.70) 0%, rgba(15,26,42,0.58) 50%, rgba(10,18,32,0.78) 100%);
   pointer-events: none;
 }
 
@@ -529,15 +539,17 @@ html { scroll-padding-top: 110px; }
 }
 .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
 
-/* Hero buttons restyled for dark background — primary = coral, outline = white */
+/* Hero buttons restyled for dark background — primary = white (navy-on-navy
+   would be invisible over the dusk video; inverted per board brand session) */
 .hero .btn-primary {
-  background: var(--brand);
-  color: #ffffff;
-  border-color: var(--brand);
+  background: #ffffff;
+  color: var(--ink);
+  border-color: #ffffff;
 }
 .hero .btn-primary:hover {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
+  background: var(--bg-2);
+  border-color: var(--bg-2);
+  color: var(--ink);
 }
 .hero .btn-outline {
   background: transparent;
@@ -762,7 +774,7 @@ h1, h2, h3, h4, p, li, a, td { overflow-wrap: break-word; word-wrap: break-word;
   background: var(--bg); color: var(--ink);
   border-color: var(--bg);
 }
-.cta-band .btn-primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); color: #fff; }
+.cta-band .btn-primary:hover { background: var(--bg-2); border-color: var(--bg-2); color: var(--ink); }
 .cta-band .btn-outline {
   color: var(--bg);
   border-color: rgba(250, 250, 247, 0.32);

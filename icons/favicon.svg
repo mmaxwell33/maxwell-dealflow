@@ -3,19 +3,20 @@
   Favicon — Maxwell Midodzi, REALTOR® at eXp Realty.
   Used in browser tabs, bookmarks, and the address bar across all site pages.
 
-  Design: brand-coral rounded square with the white "Gable M" mark — the
-  MM monogram whose outer strokes form a house (peaked roof, walls, doorway
-  in the negative space). Chair-approved in board report #4. Matches the
-  .nav-avatar mark used in the site navigation so users see one consistent
-  identity in the tab and on the page. Paths only (no <text>) so it renders
-  identically in every browser tab.
+  Design: deep-navy tile with the white "Gable M" mark — the MM monogram
+  whose outer strokes form a house (peaked roof, walls, doorway in the
+  negative space). Navy + white two-colour brand, Chair-approved July 2026
+  (brand board session). Matches the .nav-avatar tile used in the site
+  navigation so users see one consistent identity in the tab and on the
+  page. Paths only (no <text>) so it renders identically in every browser
+  tab. Sharp corners on purpose — editorial, not app-icon.
 
   NOTE: this SVG is safe to change — it is NOT referenced by manifest.json
   or precached by the service worker. The PNG icons in this folder belong
   to the installed DealFlow PWA and must not be replaced in place.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Maxwell Midodzi">
-  <rect width="32" height="32" rx="7" ry="7" fill="#CC785C"/>
+  <rect width="32" height="32" rx="1.5" ry="1.5" fill="#0F172A"/>
   <g fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linejoin="miter">
     <path d="M8.5 25.5 L8.5 11 L16 6.5 L23.5 11 L23.5 25.5"/>
     <path d="M8.5 11 L16 18 L23.5 11"/>
