@@ -63,7 +63,7 @@ const sig = (agent: Agent) =>
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com
+maxwellmidodzi.com
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
@@ -506,7 +506,7 @@ ${sig(agent)}`;
     .is('completed_at', null)
     .neq('role', 'client');
 
-  const PORTAL_BASE = 'https://maxwell-dealflow.vercel.app/stakeholder.html';
+  const PORTAL_BASE = 'https://maxwellmidodzi.com/stakeholder.html';
   let nudgesQueued = 0, alertsLogged = 0;
 
   for (const s of (pendingStakes ?? [])) {
@@ -541,7 +541,7 @@ Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: (709) 325-0545 | Email: Maxwell.Midodzi@exprealty.com
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.exprealty.com
+maxwellmidodzi.com
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
