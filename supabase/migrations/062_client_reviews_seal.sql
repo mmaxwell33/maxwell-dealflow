@@ -24,10 +24,14 @@ returns jsonb
 language sql security definer set search_path = public, pg_temp
 as $$
   select jsonb_build_object(
-    'id',          r.id,
-    'status',      r.status,
-    'review_type', r.review_type,
-    'first_name',  split_part(coalesce(c.full_name, ''), ' ', 1)
+    'id',           r.id,
+    'status',       r.status,
+    'review_type',  r.review_type,
+    'first_name',   split_part(coalesce(c.full_name, ''), ' ', 1),
+    -- public display name the client will see + consent to ("Sarah M.")
+    'display_name', trim(split_part(coalesce(c.full_name,''),' ',1) || ' ' ||
+      case when split_part(coalesce(c.full_name,''),' ',2) <> ''
+           then left(split_part(c.full_name,' ',2),1) || '.' else '' end)
   )
   from public.client_reviews r
   left join public.clients c on c.id = r.client_id
@@ -42,7 +46,11 @@ create or replace function public.submit_review(p_token text, p_payload jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
 as $$
-declare r public.client_reviews;
+declare
+  r        public.client_reviews;
+  cli_name text;
+  disp     text;
+  want_pub boolean := coalesce((p_payload->>'consent_to_publish')::boolean, false);
 begin
   select * into r from public.client_reviews where token = p_token;
   if not found then raise exception 'invalid token'; end if;
@@ -62,13 +70,27 @@ begin
     'feedback_improve',   p_payload->'feedback_improve'
   ));
 
+  -- server-computed public display name (first + last initial); never trust the client
+  select c.full_name into cli_name from public.clients c where c.id = r.client_id;
+  disp := trim(split_part(coalesce(cli_name,''),' ',1) || ' ' ||
+    case when split_part(coalesce(cli_name,''),' ',2) <> ''
+         then left(split_part(cli_name,' ',2),1) || '.' else '' end);
+
   update public.client_reviews set
     communication = r.communication, knowledge = r.knowledge,
     negotiation = r.negotiation, would_refer = r.would_refer,
     overall_stars = r.overall_stars, comments = r.comments,
     homes_match = r.homes_match, next_steps_clarity = r.next_steps_clarity,
     feedback_improve = r.feedback_improve,
-    status = 'Submitted', submitted_at = now()
+    status = 'Submitted', submitted_at = now(),
+    -- consent to publish (post_close carries it; other types send false). The
+    -- payload can set ONLY these consent fields — never `published` (Maxwell
+    -- controls that in the CRM) or the display name (computed above).
+    consent_to_publish = want_pub,
+    consent_at         = case when want_pub then now() else null end,
+    consent_version    = case when want_pub then 'v1'  else null end,
+    consent_text       = case when want_pub then nullif(p_payload->>'consent_text','') else null end,
+    display_name       = case when want_pub then disp  else null end
   where token = p_token;
 
   return jsonb_build_object('ok', true);

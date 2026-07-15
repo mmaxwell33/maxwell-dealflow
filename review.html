@@ -272,6 +272,12 @@
   let reviewRow = null;
   let reviewType = 'post_close';   // default
 
+  // Exact public-sharing consent wording (stored verbatim when the client opts in)
+  function consentWording(name){
+    return "You're welcome to share this review publicly — shown as " + (name || 'my first name and last initial')
+      + " — on Maxwell's website and social media, to help future clients. Optional; you can ask to have it removed anytime.";
+  }
+
   // Look up the review row + agent's first name for greeting + dispatch by type
   (async () => {
     if (!token) {
@@ -376,6 +382,13 @@
       if (answers.comments) {
         html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;font-style:italic;color:#1a1a2e;">"${answers.comments.replace(/</g,'&lt;')}"</div>`;
       }
+      // Public-sharing consent (post-close only) — unchecked opt-in
+      const dispName = (reviewRow && reviewRow.display_name) || 'your first name and last initial';
+      html += `<div style="margin-top:18px;padding:14px 16px;background:#f4f7fb;border:1px solid #dbe3f0;border-radius:8px;">
+        <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13.5px;line-height:1.5;color:#2c3a52;">
+          <input type="checkbox" id="pub-consent" style="margin-top:2px;flex:none;width:18px;height:18px;">
+          <span>You're welcome to share this review publicly — shown as <b>${dispName}</b> — on Maxwell's website and social media, to help future clients. Optional; you can ask to have it removed anytime.</span>
+        </label></div>`;
     } else if (reviewType === 'search') {
       answers.comments = document.getElementById('search-helpful').value.trim();
       answers.feedback_improve = document.getElementById('search-improve').value.trim();
@@ -444,6 +457,11 @@
       payload.negotiation = answers.negotiation;
       payload.would_refer = answers.would_refer;
       payload.overall_stars = answers.overall_stars;
+      const pc = document.getElementById('pub-consent');
+      payload.consent_to_publish = !!(pc && pc.checked);
+      if (payload.consent_to_publish) {
+        payload.consent_text = consentWording((reviewRow && reviewRow.display_name) || '');
+      }
     } else if (reviewType === 'search') {
       payload.homes_match = answers.homes_match;
       payload.feedback_improve = answers.feedback_improve || null;
