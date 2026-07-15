@@ -21,7 +21,11 @@
     { "source": "/build",   "destination": "/build.html" },
     { "source": "/portal",  "destination": "/portal.html" },
     { "source": "/intake",  "destination": "/intake.html" },
+    { "source": "/site-redesign", "destination": "/site/404.html" },
+    { "source": "/site-redesign/(.*)", "destination": "/site/404.html" },
     { "source": "/site/(.*)", "destination": "/site/404.html" },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "maxwellmidodzi.com" }], "destination": "/site/404.html" },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "www.maxwellmidodzi.com" }], "destination": "/site/404.html" },
     { "source": "/(.*)",    "destination": "/index.html" }
   ],
   "headers": [
