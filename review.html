@@ -279,10 +279,7 @@
       showStage('stage-error');
       return;
     }
-    const { data, error } = await db.from('client_reviews')
-      .select('id, status, review_type, clients(full_name)')
-      .eq('token', token)
-      .maybeSingle();
+    const { data, error } = await db.rpc('get_review_by_token', { p_token: token });
     if (error || !data) {
       document.getElementById('error-msg').textContent = 'This link is invalid or expired.';
       showStage('stage-error');
@@ -295,7 +292,7 @@
       showStage('stage-error');
       return;
     }
-    const first = (data.clients?.full_name || '').split(' ')[0];
+    const first = data.first_name || '';
     if (first) document.getElementById('greeting').textContent = `Hi ${first}!`;
 
     // Swap the right question set + tweak header copy for the type
@@ -459,7 +456,7 @@
       payload.overall_stars = answers.overall_stars;
     }
 
-    const { error } = await db.from('client_reviews').update(payload).eq('token', token);
+    const { error } = await db.rpc('submit_review', { p_token: token, p_payload: payload });
     if (error) {
       document.getElementById('error-msg').textContent = error.message;
       showStage('stage-error');
