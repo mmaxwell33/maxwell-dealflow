@@ -1245,3 +1245,12 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
 .cookie-bar .cookie-ok{flex:none;background:#fff;color:var(--ink);border:0;border-radius:6px;padding:9px 20px;font-weight:700;font-size:13px;cursor:pointer;}
 .cookie-bar .cookie-ok:hover{background:var(--bg-2);}
 @media(max-width:520px){.cookie-bar{flex-direction:column;align-items:stretch;text-align:center;}.cookie-bar .cookie-ok{width:100%;}}
+
+/* ── Photo band — real imagery breaking up text-heavy pages. A dark scrim is
+   baked into each band's inline background so overlaid white text stays legible
+   regardless of the photo. Used on the homepage + process page. */
+.photo-band{position:relative;min-height:320px;display:flex;align-items:flex-end;background-size:cover;background-position:center;background-repeat:no-repeat;}
+.photo-band .wrap{padding-top:54px;padding-bottom:38px;}
+.photo-band .pb-eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#d3ddf0;margin-bottom:10px;}
+.photo-band .pb-line{color:#fff;font-size:clamp(20px,2.6vw,28px);font-weight:700;max-width:26ch;margin:0;line-height:1.2;text-wrap:balance;}
+@media(max-width:520px){.photo-band{min-height:240px;}}
