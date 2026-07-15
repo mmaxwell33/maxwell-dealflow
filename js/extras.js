@@ -3441,11 +3441,32 @@ const Broadcast = {
   _clients:  [],
   _selected: new Set(),
 
+  _excludedCount: 0,
+
   async load() {
-    const { data } = await db.from('clients')
-      .select('id, full_name, email, status, label')
+    // Try to read the consent columns (migration 061). If they don't exist yet
+    // (migration not deployed), fall back to the pre-consent behaviour so
+    // Broadcast never breaks during the deploy window.
+    let gated = true;
+    let res = await db.from('clients')
+      .select('id, full_name, email, status, label, email_consent, consent_expires_at')
       .order('full_name', { ascending: true });
-    Broadcast._clients = (data || []).filter(c => c.email);
+    if (res.error) {
+      gated = false;
+      res = await db.from('clients')
+        .select('id, full_name, email, status, label')
+        .order('full_name', { ascending: true });
+    }
+    const withEmail = (res.data || []).filter(c => c.email);
+    // CASL gate: only include people we're allowed to bulk-email — express
+    // consent, or implied consent that hasn't expired. (Reply-only / expired /
+    // opted-out contacts are hidden so a broadcast can't reach them.)
+    const now = Date.now();
+    Broadcast._clients = gated ? withEmail.filter(c =>
+      c.email_consent === 'express' ||
+      (c.email_consent === 'implied' && c.consent_expires_at && new Date(c.consent_expires_at).getTime() > now)
+    ) : withEmail;
+    Broadcast._excludedCount = withEmail.length - Broadcast._clients.length;
     Broadcast._selected.clear();
     Broadcast.renderList();
     Broadcast.updateCount();
@@ -3459,11 +3480,14 @@ const Broadcast = {
     if (filter === 'buyers')  list = list.filter(c => (c.label||'').toLowerCase().includes('buyer')  || (c.status||'').toLowerCase().includes('buyer'));
     if (filter === 'sellers') list = list.filter(c => (c.label||'').toLowerCase().includes('seller') || (c.status||'').toLowerCase().includes('seller'));
     if (filter === 'active')  list = list.filter(c => c.status && !['Inactive','Closed'].includes(c.status));
+    const note = Broadcast._excludedCount > 0
+      ? `<div style="padding:9px 12px;font-size:12px;color:var(--text2);background:var(--bg2,rgba(127,127,127,.08));border-radius:8px;margin-bottom:8px;">${Broadcast._excludedCount} contact${Broadcast._excludedCount===1?'':'s'} hidden — no current email consent (CASL). Mark a client's consent to include them.</div>`
+      : '';
     if (!list.length) {
-      el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No clients with email addresses match this filter.</div>`;
+      el.innerHTML = note + `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No clients with email consent match this filter.</div>`;
       return;
     }
-    el.innerHTML = list.map(c => {
+    el.innerHTML = note + list.map(c => {
       const on = Broadcast._selected.has(c.id);
       return `<div class="bc-row${on?' bc-row-on':''}" onclick="Broadcast.toggle('${c.id}')">
         <div class="bc-chk${on?' bc-chk-on':''}">${on?'✓':''}</div>
