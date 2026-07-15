@@ -10,7 +10,7 @@
   When new /site/* pages ship (sold, testimonials, blog), add an entry
   here so search engines pick them up promptly.
 -->
-<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
   <!-- Marketing landing — primary entry point for organic traffic -->
   <url>
