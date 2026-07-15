@@ -88,7 +88,7 @@ const EmailFormat = {
         ${a.name}<br>
         ${a.role}<br>
         Phone: <a href="tel:${tel}" style="color:#1a73e8;text-decoration:none;">${a.phone}</a> | Email: <a href="mailto:${a.email}" style="color:#1a73e8;text-decoration:none;">${a.email}</a><br>
-        eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2<br>
+        eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2<br>
         <a href="https://${a.website}" style="color:#1a73e8;text-decoration:none;">${a.website}</a>
       </p>`;
   },
@@ -214,7 +214,7 @@ const Notify = {
       const introLine = isUpdate
         ? `Your viewing details have been updated. Here is the latest information:`
         : `Your property viewing has been confirmed.`;
-      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2`;
 
       // ── HTML EMAIL ─────────────────────────────────────────────────────────
       const tableRows = [];
@@ -344,7 +344,7 @@ const Notify = {
 
       // Mirror the viewing-confirmation template exactly: same intro→table→
       // Add-to-Calendar→cal-note→reach-out line→sign-off→signature→disclaimer.
-      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.${EmailFormat.mapLinkPlain(meeting.location)}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.${EmailFormat.mapLinkPlain(meeting.location)}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
@@ -405,7 +405,7 @@ Let me know your thoughts!
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -429,7 +429,7 @@ Stay tuned — I'll be in touch!
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -455,7 +455,7 @@ I'll be guiding you every step of the way. Please don't hesitate to call or mess
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -570,7 +570,7 @@ Best regards,
 ${agentName}
 REALTOR® | eXp Realty
 ${agentPhone} | ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 ${agentWebsite}
 
 ──────────────────────────────────────────
@@ -599,7 +599,7 @@ Time is of the essence — please reach out right away if anything needs attenti
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -634,7 +634,7 @@ ${daysLeft <= 3 ? `✅ Final Closing Checklist:
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -664,7 +664,7 @@ Thank you again,
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -717,7 +717,7 @@ Best regards,
 ${agentName}
 REALTOR® | eXp Realty
 ${agentPhone} | ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -747,7 +747,7 @@ Please reply or call me as soon as possible — counter offers are time-sensitiv
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -772,7 +772,7 @@ I'll be in touch shortly with some new options. Please don't hesitate to reach o
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -810,7 +810,7 @@ Take a moment to celebrate — this is a big milestone. I'll keep you updated as
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -850,7 +850,7 @@ If it's easier to track on your end, I've set up a private portal for this deal 
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -886,7 +886,7 @@ I've also set up a private portal where you can confirm completion when the insp
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -926,7 +926,7 @@ I've also set up a private portal where you can mark title search, funds-in-trus
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -959,7 +959,7 @@ I'll keep you in mind for the next file. If you have a moment, please feel free 
 Maxwell Delali Midodzi
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -991,7 +991,7 @@ If you have any questions or concerns, please call or text me anytime.
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -1021,7 +1021,7 @@ I'll be there with you. See you tomorrow!
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -1047,7 +1047,7 @@ We WILL find your perfect home. 💪
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -1076,7 +1076,7 @@ Warmly,
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────
@@ -1157,7 +1157,7 @@ If you have any questions, please don't hesitate to reach out.
 ${agentName}
 REALTOR® | eXp Realty
 Phone: ${agentPhone} | Email: ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.`;
@@ -1376,7 +1376,7 @@ Would you like to schedule a viewing? Just reply to this email or give me a call
 ${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 304, St. John's, NL A1B 3X2
+eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
 maxwellmidodzi.com
 
 ──────────────────────────────────────────

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maxwell's Logo — Two Options on Real Surfaces</title>
+<style>
+  :root{--navy:#0a1628;--gold:#c9a961;--gold-warm:#e8c888;--coral:#CC785C;--ink:#0F172A;--bg:#FAFAF7;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);padding:40px 20px 80px;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-family:Georgia,serif;font-size:clamp(26px,4vw,40px);letter-spacing:-0.02em;margin-bottom:8px;}
+  .sub{color:#64748B;margin-bottom:36px;max-width:60ch;}
+  h2{font-family:Georgia,serif;font-size:22px;margin:40px 0 6px;}
+  .rec{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:rgba(47,125,83,.12);color:#2F7D53;padding:3px 10px;border-radius:99px;margin-left:8px;vertical-align:middle;}
+  .note{color:#64748B;font-size:14px;margin-bottom:18px;max-width:70ch;}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:12px;}
+  .cell{background:#fff;border:1px solid rgba(15,23,42,.1);border-radius:12px;padding:18px 12px;text-align:center;}
+  .cell .lab{font-size:11px;color:#64748B;margin-top:12px;letter-spacing:0.04em;text-transform:uppercase;}
+  .surface{display:flex;align-items:center;justify-content:center;margin:0 auto;}
+  .navy-tile{width:120px;height:120px;border-radius:16px;background:var(--navy);}
+  .coral-circle{width:64px;height:64px;border-radius:50%;background:var(--coral);}
+  .coral-circle.small{width:32px;height:32px;}
+  .fav{width:32px;height:32px;border-radius:7px;background:var(--coral);}
+  .white-lg{width:150px;height:150px;}
+  .nav-demo{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid rgba(15,23,42,.1);border-radius:10px;padding:14px 18px;width:max-content;margin:0 auto;}
+  .nav-demo .nm{font-weight:700;font-size:15px;}
+  .lockup{background:var(--navy);border-radius:16px;padding:30px 34px;display:flex;align-items:center;gap:22px;width:max-content;margin:10px auto 0;}
+  .lockup .lk-name{font-family:Georgia,serif;color:#fff;font-size:24px;font-weight:700;letter-spacing:0.04em;}
+  .lockup .lk-bar{height:3px;background:var(--gold);width:130px;margin:8px 0 7px;border-radius:2px;}
+  .lockup .lk-tag{color:var(--gold-warm);font-size:11px;letter-spacing:0.22em;text-transform:uppercase;}
+  .divider{border:none;border-top:1px solid rgba(15,23,42,.12);margin:46px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Your logo — two real options</h1>
+  <p class="sub">Both drawn as clean vectors, shown on your actual surfaces: the site's nav circle (unchanged coral), the favicon tile, and the navy+gold Instagram/print world. The board's vote is Option 1 — <strong>your pick decides.</strong></p>
+
+  <!-- ══════════ OPTION 1 — GABLE M ══════════ -->
+  <h2>Option 1 — The "Gable M" <span class="rec">Board's pick</span></h2>
+  <p class="note">One M whose outer strokes form a house: peaked roof, two walls, and a doorway in the negative space under the peak. Reads as an M first, a home second — real estate without the clip-art house.</p>
+
+  <div class="row">
+    <div class="cell">
+      <div class="surface white-lg">
+        <svg viewBox="0 0 512 512" width="150" height="150" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#0F172A" stroke-width="40" stroke-linejoin="miter" stroke-miterlimit="4">
+            <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
+            <path d="M112 168 L256 296 L400 168"/>
+          </g>
+        </svg>
+      </div>
+      <div class="lab">Large · ink on white</div>
+    </div>
+    <div class="cell">
+      <div class="surface navy-tile">
+        <svg viewBox="0 0 512 512" width="78" height="78" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke-width="40" stroke-linejoin="miter">
+            <path d="M112 420 L112 168 L256 88 L400 168 L400 420" stroke="#c9a961"/>
+            <path d="M112 168 L256 296 L400 168" stroke="#c9a961"/>
+          </g>
+        </svg>
+      </div>
+      <div class="lab">Instagram / print · gold on navy</div>
+    </div>
+    <div class="cell">
+      <div class="surface coral-circle">
+        <svg viewBox="0 0 512 512" width="38" height="38" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#fff" stroke-width="48" stroke-linejoin="miter">
+            <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
+            <path d="M112 168 L256 296 L400 168"/>
+          </g>
+        </svg>
+      </div>
+      <div class="lab">Site nav circle · 64px</div>
+    </div>
+    <div class="cell">
+      <div class="surface fav">
+        <svg viewBox="0 0 512 512" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#fff" stroke-width="56" stroke-linejoin="miter">
+            <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
+            <path d="M112 168 L256 296 L400 168"/>
+          </g>
+        </svg>
+      </div>
+      <div class="lab">Favicon · 32px</div>
+    </div>
+  </div>
+
+  <div class="nav-demo">
+    <span class="surface coral-circle small">
+      <svg viewBox="0 0 512 512" width="19" height="19" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#fff" stroke-width="56" stroke-linejoin="miter">
+          <path d="M112 420 L112 168 L256 88 L400 168 L400 420"/>
+          <path d="M112 168 L256 296 L400 168"/>
+        </g>
+      </svg>
+    </span>
+    <span class="nm">Maxwell Midodzi</span>
+    <span style="color:#94A3B8;font-size:13px;">← exactly how your site menu would look</span>
+  </div>
+
+  <div class="lockup">
+    <svg viewBox="0 0 512 512" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke-width="40" stroke-linejoin="miter">
+        <path d="M112 420 L112 168 L256 88 L400 168 L400 420" stroke="#c9a961"/>
+        <path d="M112 168 L256 296 L400 168" stroke="#c9a961"/>
+      </g>
+    </svg>
+    <div>
+      <div class="lk-name">MAXWELL MIDODZI</div>
+      <div class="lk-bar"></div>
+      <div class="lk-tag">Less theatre. More homework.</div>
+    </div>
+  </div>
+  <p class="note" style="text-align:center;margin-top:8px;">The full lockup for posters &amp; print — your gold underline and your own tagline.</p>
+
+  <hr class="divider">
+
+  <!-- ══════════ OPTION 2 — SERIF M IN A RING ══════════ -->
+  <h2>Option 2 — Serif M in a ring</h2>
+  <p class="note">A classic serif M inside a thin ring, with your signature gold underline built into the mark. Dignified and safe — matches the Georgia headlines on your Instagram templates exactly.</p>
+
+  <div class="row">
+    <div class="cell">
+      <div class="surface white-lg">
+        <svg viewBox="0 0 512 512" width="150" height="150" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="256" cy="256" r="222" fill="none" stroke="#0F172A" stroke-width="18"/>
+          <g fill="none" stroke="#0F172A" stroke-width="34" stroke-linejoin="miter">
+            <path d="M166 352 L166 158 L256 300 L346 158 L346 352"/>
+          </g>
+          <g stroke="#0F172A" stroke-width="16">
+            <path d="M136 158 L196 158"/><path d="M316 158 L376 158"/>
+            <path d="M136 352 L196 352"/><path d="M316 352 L376 352"/>
+          </g>
+          <rect x="186" y="390" width="140" height="13" rx="6" fill="#c9a961"/>
+        </svg>
+      </div>
+      <div class="lab">Large · ink on white</div>
+    </div>
+    <div class="cell">
+      <div class="surface navy-tile">
+        <svg viewBox="0 0 512 512" width="78" height="78" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="256" cy="256" r="222" fill="none" stroke="#c9a961" stroke-width="18"/>
+          <g fill="none" stroke="#fff" stroke-width="34" stroke-linejoin="miter">
+            <path d="M166 352 L166 158 L256 300 L346 158 L346 352"/>
+          </g>
+          <g stroke="#fff" stroke-width="16">
+            <path d="M136 158 L196 158"/><path d="M316 158 L376 158"/>
+            <path d="M136 352 L196 352"/><path d="M316 352 L376 352"/>
+          </g>
+          <rect x="186" y="390" width="140" height="13" rx="6" fill="#c9a961"/>
+        </svg>
+      </div>
+      <div class="lab">Instagram / print · on navy</div>
+    </div>
+    <div class="cell">
+      <div class="surface coral-circle">
+        <svg viewBox="0 0 512 512" width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#fff" stroke-width="44" stroke-linejoin="miter">
+            <path d="M166 372 L166 148 L256 300 L346 148 L346 372"/>
+          </g>
+          <rect x="176" y="408" width="160" height="22" rx="10" fill="#fff" opacity="0.85"/>
+        </svg>
+      </div>
+      <div class="lab">Site nav circle · 64px (ring dropped — too fine)</div>
+    </div>
+    <div class="cell">
+      <div class="surface fav">
+        <svg viewBox="0 0 512 512" width="21" height="21" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="#fff" stroke-width="52" stroke-linejoin="miter">
+            <path d="M166 372 L166 148 L256 300 L346 148 L346 372"/>
+          </g>
+        </svg>
+      </div>
+      <div class="lab">Favicon · 32px (M only)</div>
+    </div>
+  </div>
+
+  <div class="nav-demo">
+    <span class="surface coral-circle small">
+      <svg viewBox="0 0 512 512" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#fff" stroke-width="52" stroke-linejoin="miter">
+          <path d="M166 372 L166 148 L256 300 L346 148 L346 372"/>
+        </g>
+      </svg>
+    </span>
+    <span class="nm">Maxwell Midodzi</span>
+    <span style="color:#94A3B8;font-size:13px;">← how option 2 looks in your site menu</span>
+  </div>
+
+  <hr class="divider">
+  <p class="note"><strong>Before either ships:</strong> confirm the initials story — your public name is <strong>Maxwell Midodzi</strong> (→ M/MM, like Hollett's HG), while the site currently says "MD" (Maxwell <em>Delali</em>). Whichever you choose, one identity sweeps the whole site, favicon, and Instagram in the same update — never two at once. The REALTOR® mark and "Brokered by eXp Realty" always stay as text beside the logo, never inside it (CREA rule).</p>
+</div>
+</body>
+</html>

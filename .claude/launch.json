@@ -2,10 +2,40 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "boardroom-live",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3555", "/private/tmp/claude-503/-Users-kojo-Desktop-maxwell-dealflow/a40541b3-ba13-4d86-975a-ddf7a918779e/scratchpad/boardroom"],
+      "port": 3555
+    },
+    {
+      "name": "boardroom-live-dealflow-next",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3556", "/private/tmp/claude-503/-Users-kojo-Desktop-maxwell-dealflow/48121868-1358-402e-ac85-8c9adfd5f612/scratchpad/boardroom"],
+      "port": 3556
+    },
+    {
       "name": "maxwell-crm",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-l", "3333", "/Users/kojo/Desktop/maxwell-dealflow"],
       "port": 3333
+    },
+    {
+      "name": "finance-tracker",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3344", "/Users/kojo/Desktop"],
+      "port": 3344
+    },
+    {
+      "name": "bluedepth-dashboard",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-lc", "cd /Users/kojo/Desktop/Bluedep/bluedepth-mvp && exec .venv/bin/streamlit run bluedepth/dashboard/app.py --server.port 8501 --server.headless true --browser.gatherUsageStats false"],
+      "port": 8501
+    },
+    {
+      "name": "bluedepth-pwa",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-lc", "cd /Users/kojo/Desktop/Bluedep/bluedepth-mvp && exec .venv/bin/python -m bluedepth serve --port 8020"],
+      "port": 8020
     }
   ]
 }
