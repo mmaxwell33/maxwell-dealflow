@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1080" height="1080">
-  <!-- Instagram profile tile — eXp navy field, gold Gable M (brand playbook colours) -->
-  <rect width="512" height="512" fill="#0a1628"/>
-  <g fill="none" stroke="#c9a961" stroke-width="42" stroke-linejoin="miter">
-    <path d="M128 408 L128 180 L256 108 L384 180 L384 408"/>
-    <path d="M128 180 L256 296 L384 180"/>
-  </g>
-</svg>
