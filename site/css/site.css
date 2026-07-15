@@ -1254,3 +1254,21 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
 .photo-band .pb-eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#d3ddf0;margin-bottom:10px;}
 .photo-band .pb-line{color:#fff;font-size:clamp(20px,2.6vw,28px);font-weight:700;max-width:26ch;margin:0;line-height:1.2;text-wrap:balance;}
 @media(max-width:520px){.photo-band{min-height:240px;}}
+
+/* ── Circular "Get in touch" button (Dikan-style) — sits inside a .cta-band.
+   White circle, navy text; fills with the brand accent-blue on hover, arrow
+   slides, gentle scale. Links to the contact form. */
+.circle-cta{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  width:158px;height:158px;border-radius:50%;
+  background:var(--bg);color:var(--ink);text-decoration:none;
+  font-weight:700;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+  transition:background .25s ease,color .25s ease,transform .25s ease;
+}
+.circle-cta .cc-arrow{font-size:22px;line-height:1;transition:transform .25s ease;}
+.circle-cta:hover,.circle-cta:focus-visible{
+  background:#7C9DD6;color:var(--ink);transform:scale(1.06);text-decoration:none;
+}
+.circle-cta:hover .cc-arrow{transform:translateX(5px);}
+@media(max-width:600px){.circle-cta{width:132px;height:132px;font-size:11.5px;}}
