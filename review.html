@@ -10,7 +10,7 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#F8F7F4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;color:#1A1917;}
   .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;overflow:hidden;}
-  .header{background:linear-gradient(135deg,#CC785C 0%,#D98B6F 100%);padding:28px;text-align:center;color:#fff;}
+  .header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:28px;text-align:center;color:#fff;}
   .header-logo{font-size:13px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
   .header-title{font-size:22px;font-weight:800;margin-bottom:6px;}
   .header-sub{font-size:13px;color:rgba(255,255,255,.7);}
@@ -22,26 +22,26 @@
   .opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
   .opts.two{grid-template-columns:1fr 1fr 1fr;}
   .opt{padding:12px 8px;border:2px solid #e5e7eb;background:#fff;border-radius:10px;font-size:14px;font-weight:600;color:#1A1917;cursor:pointer;text-align:center;transition:all .15s;}
-  .opt:hover{border-color:#CC785C;background:#FFF5F0;}
-  .opt.selected{border-color:#CC785C;background:rgba(204,120,92,0.12);color:#7A4435;}
+  .opt:hover{border-color:#0F172A;background:#F5EFE6;}
+  .opt.selected{border-color:#0F172A;background:rgba(15,23,42,0.12);color:#0F172A;}
   .stars{display:flex;gap:8px;justify-content:center;margin:10px 0;}
   .star{font-size:36px;cursor:pointer;color:#d1d5db;transition:transform .12s, color .12s;user-select:none;}
   .star:hover{transform:scale(1.1);}
   .star.on{color:#f59e0b;}
   textarea{width:100%;padding:12px 14px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;resize:vertical;min-height:90px;font-family:inherit;color:#1A1917;background:#fff;}
-  textarea:focus{outline:none;border-color:#CC785C;}
-  .btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;background:#CC785C;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
-  .btn:hover{background:#B86A50;}
+  textarea:focus{outline:none;border-color:#0F172A;}
+  .btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;background:#0F172A;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
+  .btn:hover{background:#0A0F1E;}
   .btn-secondary{background:#fff;color:#1A1917;border:2px solid #e5e7eb;}
   .btn-secondary:hover{background:#f5f5f5;}
   .preview-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px;}
   .preview-row b{color:#1A1917;}
-  .preview-row span{color:#CC785C;font-weight:600;}
+  .preview-row span{color:#0F172A;font-weight:600;}
   .stage{display:none;}
   .stage.active{display:block;}
   .err{color:#ef4444;font-size:13px;margin-top:6px;}
   .ok-screen{text-align:center;padding:40px 28px;}
-  .ok-screen .check{font-size:54px;color:#CC785C;margin-bottom:12px;}
+  .ok-screen .check{font-size:54px;color:#0F172A;margin-bottom:12px;}
   .ok-screen h2{font-size:22px;margin-bottom:8px;}
   .ok-screen p{font-size:14px;color:#555;line-height:1.6;}
   .footer-note{font-size:11px;color:#9ca3af;text-align:center;margin-top:16px;padding:0 16px 18px;}
@@ -428,7 +428,7 @@
       }
       const stars = '★'.repeat(answers.overall_stars) + '☆'.repeat(5 - answers.overall_stars);
       html = `
-        <div style="text-align:center;font-size:32px;color:#CC785C;margin:10px 0 16px;">${stars}</div>
+        <div style="text-align:center;font-size:32px;color:#0F172A;margin:10px 0 16px;">${stars}</div>
         <div class="preview-row"><b>Communication</b><span>${cap(answers.communication)}</span></div>
         <div class="preview-row"><b>Next steps clarity</b><span>${cap(answers.next_steps_clarity)}</span></div>`;
       if (answers.comments) html += `<div style="margin-top:14px;padding:14px;background:#f9fafb;border-radius:8px;color:#1a1a2e;"><b>Stress points:</b> ${answers.comments.replace(/</g,'&lt;')}</div>`;
