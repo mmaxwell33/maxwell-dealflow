@@ -56,6 +56,30 @@ Deno.serve(async (req: Request) => {
                     || Deno.env.get('GMAIL_USER')
                     || 'Maxwell.Midodzi@exprealty.com';
 
+  // ── Rate limit: cap emails per IP so the form can't be scripted to flood
+  //    Maxwell's Gmail. Backed by the lead_rate_limit table (service-role only,
+  //    migration 060). Fail-open: if the limiter errors we still send, so a
+  //    real lead is never blocked by an infra hiccup.
+  const LIMIT = 5, WINDOW_MIN = 60;
+  const ip = ((req.headers.get('x-forwarded-for') || '').split(',')[0].trim())
+          || req.headers.get('cf-connecting-ip') || 'unknown';
+  try {
+    const since = new Date(Date.now() - WINDOW_MIN * 60000).toISOString();
+    const q = `${SUPABASE_URL}/rest/v1/lead_rate_limit?ip=eq.${encodeURIComponent(ip)}`
+            + `&created_at=gte.${encodeURIComponent(since)}&select=id`;
+    const cr = await fetch(q, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, Prefer: 'count=exact' },
+    });
+    const total = parseInt(((cr.headers.get('content-range') || '').split('/')[1] || '0'), 10) || 0;
+    if (total >= LIMIT) return json({ ok: true }); // silently drop; lead is already saved by submit_intake
+    // record this attempt (fire-and-forget)
+    fetch(`${SUPABASE_URL}/rest/v1/lead_rate_limit`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip }),
+    }).catch(() => {});
+  } catch { /* fail open — never block a genuine lead */ }
+
   const html = `
     <p><strong>New message from your website Contact form.</strong></p>
     <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">
