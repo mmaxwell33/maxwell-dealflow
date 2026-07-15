@@ -101,7 +101,7 @@ const Reviews = {
     const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
     const agentPhone = agent?.phone || '(709) 325-0545';
     const agentEmail = agent?.email || 'Maxwell.Midodzi@exprealty.com';
-    const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const link = `https://maxwellmidodzi.com/review.html?t=${token}`;
     const property = deal?.property_address ? ` at ${deal.property_address}` : '';
     return {
       subject: `How was your experience, ${firstName}? 🏡`,
@@ -286,7 +286,7 @@ maxwellmidodzi.com`
   },
 
   copyLink(token) {
-    const url = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const url = `https://maxwellmidodzi.com/review.html?t=${token}`;
     navigator.clipboard.writeText(url).then(() => alert('Link copied:\n' + url));
   },
 
@@ -397,7 +397,7 @@ ${r.comments || ''}
   searchTemplate(client, agent, token) {
     const firstName = client.full_name?.split(' ')[0] || 'there';
     const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
-    const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const link = `https://maxwellmidodzi.com/review.html?t=${token}`;
     return {
       subject: `Quick check-in: how's the search going, ${firstName}?`,
       body: `Hi ${firstName},
@@ -420,7 +420,7 @@ REALTOR® | eXp Realty`
   preCloseTemplate(client, deal, agent, token) {
     const firstName = client.full_name?.split(' ')[0] || 'there';
     const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
-    const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const link = `https://maxwellmidodzi.com/review.html?t=${token}`;
     const property = deal?.property_address ? ` on ${deal.property_address}` : '';
     return {
       subject: `Quick check-in before closing, ${firstName}`,
@@ -480,7 +480,7 @@ REALTOR® | eXp Realty`
   newBuildTemplate(client, build, agent, token) {
     const firstName = client.full_name?.split(' ')[0] || 'there';
     const agentName = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
-    const link = `https://maxwell-dealflow.vercel.app/review.html?t=${token}`;
+    const link = `https://maxwellmidodzi.com/review.html?t=${token}`;
     return {
       subject: `Quick check-in on your build, ${firstName}`,
       body: `Hi ${firstName},

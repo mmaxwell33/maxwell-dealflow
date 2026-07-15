@@ -434,7 +434,7 @@ const NewBuilds = {
           const s = (stakes || []).find(x => x.role === role);
           if (!s || !s.email || !s.token) { stakeMissing++; continue; }
           const roleLabel = role === 'lawyer' ? 'Lawyer' : 'Lender';
-          const portalUrl = `https://maxwell-dealflow.vercel.app/portal?t=${s.token}`;
+          const portalUrl = `https://maxwellmidodzi.com/portal?t=${s.token}`;
           const tmpl = Notify.templates.build_update_stakeholder(
             { name: s.name }, b.client_name, b, newStage, currentAgent, portalUrl, roleLabel
           );

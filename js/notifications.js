@@ -680,8 +680,8 @@ P.S. Don't hesitate to reach out anytime — even just to say hello from your ne
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
       const agentWebsite = agent.website_url || 'maxwellmidodzi.com';
       const responseLink = viewing._responseToken
-        ? `https://maxwell-dealflow.vercel.app/respond?t=${viewing._responseToken}`
-        : `https://maxwell-dealflow.vercel.app/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
+        ? `https://maxwellmidodzi.com/respond?t=${viewing._responseToken}`
+        : `https://maxwellmidodzi.com/respond?viewing_id=${viewing.id}&client_id=${client.id}`;
       const listPrice = viewing.list_price ? Number(viewing.list_price).toLocaleString('en-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}) : '';
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
@@ -1090,8 +1090,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
       const trackerLink = buildToken
-        ? `https://maxwell-dealflow.vercel.app/build?t=${buildToken}`
-        : `https://maxwell-dealflow.vercel.app/build`;
+        ? `https://maxwellmidodzi.com/build?t=${buildToken}`
+        : `https://maxwellmidodzi.com/build`;
 
       const STAGE_ORDER = [
         'Deposit Paid','Purchase Agreement','Lot Identified','Lot Offer Accepted',
@@ -1177,7 +1177,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const role = roleLabel || 'stakeholder';
       const estClose = build.est_close_date || build.closing_date;
       const estCloseStr = estClose ? new Date(estClose).toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : null;
-      const link = portalUrl || 'https://maxwell-dealflow.vercel.app/portal';
+      const link = portalUrl || 'https://maxwellmidodzi.com/portal';
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
         <p>A quick construction update on <strong>${buyerName || 'your client'}</strong>'s new build at <strong>${build.lot_address || 'the property'}</strong>, for your file.</p>
@@ -1480,7 +1480,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         ${opts.referralToken ? `
         <div style="margin-top:18px;padding:14px 16px;background:#FAFAF9;border-left:3px solid #0F172A;border-radius:8px;">
           <p style="margin:0 0 10px;font-size:13px;font-style:italic;color:#555;">One more thing — I work with a great mortgage broker here in Newfoundland day to day. If you'd ever like a second opinion or a smoother financing process, I'm happy to introduce you — no pressure at all.</p>
-          <a href="https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#0F172A;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
+          <a href="https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#0F172A;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
         </div>` : ''}
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
@@ -1498,7 +1498,7 @@ Here's what happens next:
 4. Offer & Closing — I'll negotiate the best deal for you
 
 Feel free to reach out anytime — I'm here to help!
-${opts.referralToken ? `\nP.S. — I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwell-dealflow.vercel.app/refer.html?t=${opts.referralToken}\n` : ''}
+${opts.referralToken ? `\nP.S. — I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}\n` : ''}
 Best regards,
 ${agentName}
 REALTOR® | eXp Realty
