@@ -89,7 +89,7 @@
   bar.className = 'cookie-bar';
   bar.setAttribute('role', 'region');
   bar.setAttribute('aria-label', 'Cookie notice');
-  bar.innerHTML = '<p>This site uses only the essential cookies it needs to work — no ads and no third-party tracking. <a href="/site/privacy/">Privacy policy</a>.</p><button type="button" class="cookie-ok">Got it</button>';
+  bar.innerHTML = '<p>This site keeps one small setting in your browser to remember you dismissed this notice — no cookies, no ads, no analytics. The homepage plays background video hosted by a third party (Pexels). <a href="/site/privacy/">Privacy policy</a>.</p><button type="button" class="cookie-ok">Got it</button>';
   document.body.appendChild(bar);
   bar.querySelector('.cookie-ok').addEventListener('click', function () {
     try { localStorage.setItem('mm-cookie-ok', '1'); } catch (e) {}

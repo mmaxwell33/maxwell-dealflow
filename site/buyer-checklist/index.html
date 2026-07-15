@@ -196,8 +196,10 @@
  /* ── Print styles ───────────────────────────────────────────────
  Visitors will print this. Strip the nav, footer, hero CTAs.
  Make it black-on-white with tight margins. */
+ .print-id { display: none; }
  @media print {
  .nav, footer, .cl-actions, .cl-final { display: none !important; }
+ .print-id { display: block !important; margin-top: 26px; padding-top: 12px; border-top: 1px solid #000; font-size: 11px; line-height: 1.5; color: #000; }
  body { background: #ffffff; color: #000000; }
  .cl-hero { padding: 0 0 16px; border-bottom: 1px solid #000; }
  .cl-body { padding: 16px 0; max-width: none; }
@@ -507,6 +509,7 @@
  <p>Tell me what stage you're at and I'll help you get to the next one. Five-minute intake form, no pressure, first conversation is free.</p>
  <a class="btn btn-primary" href="/intake.html">Start with a free intake →</a>
  </div>
+ <p class="print-id">Maxwell Midodzi · REALTOR® · eXp Realty · (709) 325-0545 · maxwellmidodzi.com<br>General information only — not legal, financial, or tax advice. Verify figures with your lender and lawyer. REALTOR®, MLS® and associated marks are trademarks of CREA.</p>
 
  </div>
  </div>

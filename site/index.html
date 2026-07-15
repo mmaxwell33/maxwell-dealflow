@@ -367,11 +367,11 @@
  </div>
  <form class="contact-form" id="contactForm" novalidate>
  <div class="cf-row">
- <input type="text" id="cf-name" placeholder="Your name" autocomplete="name" required>
- <input type="email" id="cf-email" placeholder="Email" autocomplete="email" required>
+ <input type="text" id="cf-name" placeholder="Your name" aria-label="Your name" autocomplete="name" required>
+ <input type="email" id="cf-email" placeholder="Email" aria-label="Email address" autocomplete="email" required>
  </div>
- <input type="tel" id="cf-phone" placeholder="Phone (optional)" autocomplete="tel">
- <textarea id="cf-message" placeholder="How can I help?" required></textarea>
+ <input type="tel" id="cf-phone" placeholder="Phone (optional)" aria-label="Phone number (optional)" autocomplete="tel">
+ <textarea id="cf-message" placeholder="How can I help?" aria-label="How can I help?" required></textarea>
  <input class="cf-hp" type="text" id="cf-company" tabindex="-1" autocomplete="off" aria-hidden="true">
  <label class="cf-consent"><input type="checkbox" id="cf-consent"> I agree that Maxwell Midodzi (eXp Realty) may use my details to reply to this message. I can withdraw anytime by emailing him. See the <a href="/site/privacy/">privacy policy</a>.</label>
  <button class="btn btn-primary" type="submit" id="cf-submit">Send message</button>
@@ -502,6 +502,9 @@
   f.addEventListener('submit', async function(e){
     e.preventDefault();
     if (document.getElementById('cf-company').value) return; // honeypot: bot filled it
+    // Light client-side throttle — the real rate limit lives server-side (Supabase).
+    try { var _last = +localStorage.getItem('mm-cf-last') || 0;
+      if (Date.now() - _last < 20000) { st.style.color='var(--error)'; st.textContent='Please wait a few seconds before sending again.'; return; } } catch (e2) {}
     if (!document.getElementById('cf-consent').checked) {
       st.style.color = 'var(--error)'; st.textContent = 'Please check the consent box so I can reply.'; return;
     }
@@ -527,6 +530,7 @@
         headers:{ 'Content-Type':'application/json', 'apikey':KEY, 'Authorization':'Bearer ' + KEY },
         body: JSON.stringify({ name: payload.full_name, email: payload.email, phone: payload.phone, message: payload.notes })
       }).catch(function(){});
+      try { localStorage.setItem('mm-cf-last', String(Date.now())); } catch (e3) {}
       f.reset(); btn.textContent = 'Sent ✓';
       st.style.color = ''; st.textContent = "Thanks, your message is in. I'll usually reply the same business day.";
     } catch (err) {
