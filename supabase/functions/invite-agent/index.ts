@@ -70,6 +70,14 @@ serve(async (req) => {
     const { data: { user: inviter } } = await caller.auth.getUser();
     if (!inviter) return json({ error: 'Not authorized — please sign in and try again.' }, 401);
 
+    // Only the FOUNDER (the agent whose own row has created_by IS NULL) may manage
+    // agents. Invited agents cannot invite/edit/delete other agents.
+    const adminCheck = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data: inviterRow } = await adminCheck.from('agents').select('created_by').eq('id', inviter.id).single();
+    if (!inviterRow || inviterRow.created_by !== null) {
+      return json({ error: 'Only the account owner can add or manage agents.' }, 403);
+    }
+
     // 2) Parse input.
     const body = await req.json().catch(() => ({}));
     const mode = String(body.mode ?? 'invite');

@@ -4262,6 +4262,7 @@ const AgentPortal = {
   },
 
   async deploy() {
+    if (currentAgent && currentAgent.isFounder === false) { App.toast('Only the account owner can add agents.', 'var(--red)'); return; }
     const name = document.getElementById('ap-name')?.value.trim();
     const email = document.getElementById('ap-email')?.value.trim();
     const phone = document.getElementById('ap-phone')?.value.trim() || '';
@@ -4371,6 +4372,7 @@ ${brokerage}`;
 
   // Load an existing agent's details into the top form for editing.
   async startEdit(id) {
+    if (currentAgent && currentAgent.isFounder === false) { App.toast('Only the account owner can manage agents.', 'var(--red)'); return; }
     const { data: a } = await db.from('agents').select('*').eq('id', id).single();
     if (!a) { App.toast('Could not load that agent'); return; }
     const setV = (el, v) => { const e = document.getElementById(el); if (e) e.value = v || ''; };
@@ -4397,6 +4399,7 @@ ${brokerage}`;
 
   // Queue a delete for approval — nothing is removed until you approve it.
   async deleteAgent(id) {
+    if (currentAgent && currentAgent.isFounder === false) { App.toast('Only the account owner can manage agents.', 'var(--red)'); return; }
     const { data: a } = await db.from('agents').select('*').eq('id', id).single();
     if (!a) { App.toast('Could not load that agent'); return; }
     if (!confirm(`Remove ${a.name || a.email}?\n\nThis queues a request to permanently delete their login and ALL their data. Nothing is deleted until you approve it in Approvals.`)) return;

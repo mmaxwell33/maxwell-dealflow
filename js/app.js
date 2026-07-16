@@ -205,6 +205,14 @@ const App = {
       const cached = JSON.parse(localStorage.getItem('mdf-profile-cache') || 'null');
       if (cached) Object.assign(currentAgent, cached);
     } catch(e) {}
+    // Only the FOUNDER (agents row with created_by IS NULL) may manage agents.
+    // Hide the Agent Portal from invited agents (the invite-agent edge function
+    // also rejects non-founders server-side).
+    try {
+      currentAgent.isFounder = (agent && (agent.created_by === null || agent.created_by === undefined));
+      const apNav = document.querySelector('.nav-item[data-tab="agentportal"]');
+      if (apNav) apNav.style.display = currentAgent.isFounder ? '' : 'none';
+    } catch (_) {}
     // Update topbar with full agent info
     const _nmParts = (currentAgent.full_name || currentAgent.name || 'M').trim().split(/\s+/).filter(Boolean);
     const initials = (_nmParts[0][0] + (_nmParts.length > 1 ? _nmParts[_nmParts.length - 1][0] : '')).toUpperCase();
