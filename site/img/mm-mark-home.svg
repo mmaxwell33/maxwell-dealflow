@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- "Rowhouse MM — Home" : Maxwell Midodzi's mark, evolved (July 2026).
+       Two gabled "M" houses sharing a party wall (M·M = two joined St. John's
+       rowhomes) with warm amber LIT DOORWAYS — each M is now a home with the
+       light on. White strokes + amber doors, transparent background: drop onto
+       any coloured container (navy nav tile, navy IG tile). Paths only, no text. -->
+  <g fill="none" stroke="#ffffff" stroke-width="40" stroke-linejoin="miter" stroke-linecap="butt">
+    <path d="M62 383 L62 191 L159 129 L256 191 L256 383"/>
+    <path d="M62 191 L159 245 L256 191"/>
+    <path d="M256 191 L353 129 L450 191 L450 383"/>
+    <path d="M256 191 L353 245 L450 191"/>
+  </g>
+  <!-- lit doorways -->
+  <path d="M143 383 L143 333 Q143 316 159 316 Q175 316 175 333 L175 383 Z" fill="#e8a24a"/>
+  <path d="M337 383 L337 333 Q337 316 353 316 Q369 316 369 333 L369 383 Z" fill="#e8a24a"/>
+</svg>
