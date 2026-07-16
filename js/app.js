@@ -889,7 +889,7 @@ const App = {
       if (heroGreetingEl) {
         const h = now.getHours();
         const part = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
-        const firstName = (window.App?.currentUser?.user_metadata?.full_name || 'Maxwell').split(' ')[0];
+        const firstName = ((typeof currentAgent !== 'undefined' && currentAgent && (currentAgent.name || currentAgent.full_name)) || window.App?.currentUser?.user_metadata?.full_name || 'there').split(' ')[0];
         heroGreetingEl.textContent = `${part}, ${firstName}`;
       }
       if (heroSubEl) {
