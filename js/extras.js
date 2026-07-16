@@ -24,7 +24,7 @@ const Approvals = {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
       return;
     }
-    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Invite':'🧑‍💼', 'Agent Update':'✏️', 'Agent Delete':'🗑️' };
+    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Welcome':'🧑‍💼', 'Agent Update':'✏️', 'Agent Delete':'🗑️' };
     Approvals._data = pending;
     el.innerHTML = pending.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};cursor:pointer;" onclick="Approvals.openEdit('${a.id}')">
@@ -137,19 +137,6 @@ const Approvals = {
       if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
       await markApproved();
       App.toast('✅ Agent updated');
-    } else {
-      // Agent Invite — create the login via the secure edge function.
-      App.toast('Creating account…', 'var(--accent2)');
-      const { data, error } = await db.functions.invoke('invite-agent', {
-        body: { name: p.name, email: p.email, phone: p.phone, brokerage: p.brokerage, title: p.title }
-      });
-      if (error || !data || data.error) {
-        App.toast('⚠️ ' + ((data && data.error) || error?.message || 'Could not create the account'), 'var(--red)');
-        return;
-      }
-      await markApproved();
-      // Persistent credentials display (toast would fade before he copies it).
-      alert(`✅ Account created for ${p.name}\n\nSend them the app link plus:\n\nEmail: ${data.email}\nTemp password: ${data.temp_password}\n\nThey can change it in Settings after their first sign-in.`);
     }
     if (typeof Notify !== 'undefined') Notify.updateBadge();
     if (typeof AgentPortal !== 'undefined') AgentPortal.loadAgents();
@@ -167,8 +154,9 @@ const Approvals = {
     const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
     if (!item) { Approvals._sending.delete(id); return; }
 
-    // ── AGENT actions run here (no email is sent) then exit ──────────────────
-    if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
+    // ── AGENT update/delete run here (no email); 'Agent Welcome' is a real
+    //    email and flows through the normal send path below. ──
+    if (item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
       try { await Approvals._runAgentAction(item); }
       finally { Approvals._sending.delete(id); }
       return;
@@ -418,8 +406,9 @@ const Approvals = {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
 
-      // ── Agent requests get their own review popup (NOT the email editor) ──
-      if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
+      // ── Agent update/delete get their own review popup (they send no email).
+      //    'Agent Welcome' is a real email → uses the normal editor below. ──
+      if (item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
         let p = {};
         try { const c = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : (item.context_data || {}); p = (c && c.agent) || {}; } catch {}
         const isDel = item.approval_type === 'Agent Delete';
@@ -4304,15 +4293,42 @@ const AgentPortal = {
       return;
     }
 
-    // ── Create — queue a new-agent request to your Approvals (nothing is created until you approve) ──
+    // ── Create the login now, then queue the WELCOME EMAIL to the agent for
+    //    you to review & send. The account is created immediately so the real
+    //    temp password can go in the email you pre-read; nothing reaches the
+    //    agent until you Approve & Send it in Approvals. ──
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Preparing…'; }
+    const { data, error } = await db.functions.invoke('invite-agent', {
+      body: { name, email, phone, brokerage, title }
+    });
+    if (error || !data || data.error) {
+      const emsg = (data && data.error) || (error && error.message) || 'Could not create the account.';
+      if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${emsg}`; }
+      return;
+    }
+
+    const appUrl = 'https://maxwellmidodzi.com';
+    const welcomeBody =
+`Hi ${name},
+
+Your DealFlow account is ready. Here's how to sign in:
+
+Open: ${appUrl}
+Email: ${data.email}
+Temporary password: ${data.temp_password}
+
+Sign in with the details above, then go to Settings to set your own password.
+
+Welcome aboard,
+${brokerage}`;
+
     const { error: qErr } = await db.from('approval_queue').insert({
       agent_id: currentAgent?.id,
       client_name: name,
       client_email: email,
-      approval_type: 'Agent Invite',
-      email_subject: `New agent login · ${name}`,
-      email_body: `Approve to create a login for ${name} (${email}) — ${brokerage || ''}${title ? ' · ' + title : ''}. You'll get a temp password to send them.`,
-      context_data: JSON.stringify({ agent: { action: 'invite', name, email, phone, brokerage, title } }),
+      approval_type: 'Agent Welcome',
+      email_subject: `Your DealFlow account is ready, ${name} 🎉`,
+      email_body: welcomeBody,
       status: 'Pending'
     });
     if (qErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${qErr.message}`; } return; }
@@ -4320,8 +4336,9 @@ const AgentPortal = {
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-email').value = '';
     document.getElementById('ap-phone').value = '';
-    if (msg) { msg.style.color='var(--green)'; msg.innerHTML = '📋 Sent to your <b>Approvals</b> — go to Approvals and approve it to create the account (the temp password shows there).'; }
-    App.toast('📋 Sent to Approvals for your approval');
+    if (msg) { msg.style.color='var(--green)'; msg.innerHTML = `📋 Account created. The <b>welcome email</b> (with their temp password) is waiting in <b>Approvals</b> — open it, read it, and <b>Approve &amp; Send</b> to email it to them.`; }
+    App.toast('📋 Welcome email sent to Approvals for your review');
+    AgentPortal.loadAgents();
     if (typeof Notify !== 'undefined') Notify.updateBadge();
   },
 
