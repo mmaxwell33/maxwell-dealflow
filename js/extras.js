@@ -4198,32 +4198,34 @@ const AgentPortal = {
     const msg = document.getElementById('ap-msg');
 
     if (!name || !email) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Name and email are required.'; } return; }
-    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Deploying...'; }
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Creating account…'; }
 
-    // Insert into agents table
-    const { error } = await db.from('agents').insert({
-      full_name: name,
-      email,
-      phone,
-      brokerage,
-      title,
-      province,
-      created_by: currentAgent?.id || null,
-      created_at: new Date().toISOString()
+    // Create the agent's login + profile via the secure invite-agent edge function.
+    // The browser can't do this itself: creating an auth user needs the service-role
+    // key (never allowed client-side), and the agents RLS blocks inserting a row for
+    // anyone but yourself. The function also sets the new agents row id = auth uid,
+    // which is what keeps the new agent's account working.
+    const { data, error } = await db.functions.invoke('invite-agent', {
+      body: { name, email, phone, brokerage, title, province }
     });
 
-    if (error) {
-      if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${error.message}`; }
+    if (error || !data || data.error) {
+      const emsg = (data && data.error) || (error && error.message) || 'Could not create the agent account.';
+      if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${emsg}`; }
       return;
     }
 
-    // Invite via Supabase Auth (requires admin key — attempt, may fail gracefully)
-    try {
-      await db.auth.admin?.inviteUserByEmail?.(email);
-    } catch (_) {}
-
-    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Agent portal deployed for ${name}! They'll receive an invite email.`; }
-    App.toast(`🚀 Agent portal deployed for ${name}`);
+    // Success — show the credentials for Maxwell to pass to the new agent.
+    if (msg) {
+      msg.style.color='var(--green)';
+      msg.innerHTML =
+        `✅ Account created for <b>${name}</b>. Send them the app link plus:<br>` +
+        `<b>Email:</b> ${data.email}<br>` +
+        `<b>Temp password:</b> <code style="user-select:all;background:var(--card2,rgba(255,255,255,.06));padding:1px 6px;border-radius:4px;">${data.temp_password}</code><br>` +
+        `<span style="color:var(--text2);">They can change it in Settings after their first sign-in.</span>` +
+        (data.warning ? `<br><span style="color:var(--yellow);">⚠️ ${data.warning}</span>` : '');
+    }
+    App.toast(`🚀 Agent account created for ${name}`);
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-email').value = '';
     document.getElementById('ap-phone').value = '';
@@ -5009,6 +5011,7 @@ const Settings = {
     set('set-brokerage', a.brokerage);
     set('set-province', a.province);
     set('set-license', a.license_number || a.license);
+    set('set-website', a.website_url);
     set('set-signature', a.email_signature || a.signature || `${a.full_name || a.name}\n${a.brokerage || ''}\n${a.phone || ''}`);
     // ── Mileage settings ──────────────────────────────────────────────────
     set('set-home-base', a.home_base_address);
@@ -5111,6 +5114,11 @@ const Settings = {
       province: document.getElementById('set-province')?.value.trim(),
       license_number: document.getElementById('set-license')?.value.trim(),
       email_signature: document.getElementById('set-signature')?.value.trim(),
+      // Every client-facing email reads this. Until now there was no way to
+      // change it without hand-editing the database. Strip any scheme/trailing
+      // slash so the templates print a clean "maxwellmidodzi.com".
+      website_url: document.getElementById('set-website')?.value.trim()
+        .replace(/^https?:\/\//i, '').replace(/\/+$/, ''),
     };
     if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving...'; }
     // 1. Update local state immediately (instant feedback)
