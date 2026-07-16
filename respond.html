@@ -56,6 +56,7 @@
     .spinner{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .done-icon{font-size:56px;margin-bottom:16px;}
+    .done-icon:empty,.choice-icon:empty{display:none;}
     .done-title{font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:8px;}
     .done-sub{font-size:14px;color:#555;line-height:1.6;}
     .contact-box{margin-top:24px;padding:16px;background:#f8faff;border-radius:10px;text-align:left;}
@@ -81,20 +82,20 @@
       <div class="header-title">REALTOR® | eXp Realty</div>
     </div>
     <div class="body" style="text-align:center;">
-      <div class="done-icon">🔒</div>
+      <div class="done-icon"></div>
       <div class="done-title" id="expired-title">This link has expired</div>
       <div class="done-sub" id="expired-sub">This response link is no longer active.</div>
       <!-- Request New Link — shown only when we have the record and it wasn't already used -->
       <div id="req-link-section" style="display:none;margin:20px 0 4px;">
         <p style="font-size:13px;color:#555;margin-bottom:14px;">Still need to respond to this property? Tap below and Maxwell will be notified to send you a fresh link right away.</p>
-        <button id="req-link-btn" onclick="requestNewLink()" class="submit-btn btn-blue" style="max-width:320px;margin:0 auto;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:15px;font-weight:700;cursor:pointer;">🔗 Request New Link from Maxwell</button>
-        <div id="req-confirm" style="display:none;margin-top:14px;padding:12px 16px;background:#f0fdf4;border-radius:10px;color:#059669;font-size:14px;font-weight:600;text-align:center;">✅ Request sent! Maxwell has been notified and will resend your link shortly.</div>
+        <button id="req-link-btn" onclick="requestNewLink()" class="submit-btn btn-blue" style="max-width:320px;margin:0 auto;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:15px;font-weight:700;cursor:pointer;"> Request New Link from Maxwell</button>
+        <div id="req-confirm" style="display:none;margin-top:14px;padding:12px 16px;background:#f0fdf4;border-radius:10px;color:#059669;font-size:14px;font-weight:600;text-align:center;"> Request sent! Maxwell has been notified and will resend your link shortly.</div>
       </div>
       <div class="contact-box" style="margin-top:20px;">
         <div class="contact-box-title">Contact Your Agent</div>
         <div style="font-size:14px;line-height:2.2;">
-          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
-          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+           <a href="tel:7093250545">(709) 325-0545</a><br>
+           <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
         </div>
       </div>
     </div>
@@ -108,14 +109,14 @@
       <div class="header-title">REALTOR® | eXp Realty</div>
     </div>
     <div class="body" style="text-align:center;">
-      <div class="done-icon" id="done-icon">✅</div>
+      <div class="done-icon" id="done-icon"></div>
       <div class="done-title" id="done-title">Response Received</div>
       <div class="done-sub" id="done-sub">Thank you! Maxwell has been notified and will be in touch shortly.</div>
       <div class="contact-box">
         <div class="contact-box-title">Questions? Contact Maxwell</div>
         <div style="font-size:14px;line-height:2.2;">
-          📞 <a href="tel:7093250545">(709) 325-0545</a><br>
-          ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+           <a href="tel:7093250545">(709) 325-0545</a><br>
+           <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
         </div>
       </div>
     </div>
@@ -142,7 +143,7 @@
 
       <!-- Make an Offer -->
       <button class="btn-choice" id="btn-offer" onclick="selectChoice('offer')">
-        <span class="choice-icon">🏠</span>
+        <span class="choice-icon"></span>
         <span class="choice-label">Make an Offer</span>
         <span class="choice-sub">I'd like to submit an offer on this property</span>
       </button>
@@ -163,7 +164,7 @@
 
       <!-- Continue Searching -->
       <button class="btn-choice" id="btn-search" onclick="selectChoice('search')">
-        <span class="choice-icon">🔍</span>
+        <span class="choice-icon"></span>
         <span class="choice-label">Continue Searching</span>
         <span class="choice-sub">Keep looking — I'd like to see more properties</span>
       </button>
@@ -173,7 +174,7 @@
 
       <!-- Not a Good Fit -->
       <button class="btn-choice" id="btn-notfit" onclick="selectChoice('notfit')">
-        <span class="choice-icon">❌</span>
+        <span class="choice-icon"></span>
         <span class="choice-label">Not a Good Fit</span>
         <span class="choice-sub">This property isn't right for me</span>
       </button>
@@ -293,15 +294,15 @@ async function submitDecision(choice){
 
     // Show confirmation
     if(decision==='make_offer'){
-      document.getElementById('done-icon').textContent='🏠';
+      document.getElementById('done-icon').textContent='';
       document.getElementById('done-title').textContent='Offer Interest Submitted!';
       document.getElementById('done-sub').textContent='Maxwell has been notified and will begin preparing your offer. He will be in touch with you shortly to review the details.';
     }else if(decision==='continue_searching'){
-      document.getElementById('done-icon').textContent='🔍';
+      document.getElementById('done-icon').textContent='';
       document.getElementById('done-title').textContent='Got It — Keep Searching';
       document.getElementById('done-sub').textContent="Maxwell will continue finding properties that match what you're looking for and will be in touch soon.";
     }else{
-      document.getElementById('done-icon').textContent='👍';
+      document.getElementById('done-icon').textContent='';
       document.getElementById('done-title').textContent='Feedback Received';
       document.getElementById('done-sub').textContent="Thank you for the feedback — it helps Maxwell find the perfect home for you. He'll be in touch with new options soon.";
     }
@@ -326,13 +327,13 @@ async function requestNewLink(){
       property_address: rec.property_address||'Unknown property',
       list_price: rec.list_price||null,
       offer_amount: null,
-      client_note: '🔗 Client requested a new response link — their link expired. Please resend the viewing response link from the Viewings tab.',
+      client_note: ' Client requested a new response link — their link expired. Please resend the viewing response link from the Viewings tab.',
       status: 'New Link Requested'
     })});
     if(btn) btn.style.display='none';
     const cf=document.getElementById('req-confirm'); if(cf) cf.style.display='block';
   }catch(e){
-    if(btn){btn.disabled=false;btn.textContent='🔗 Request New Link from Maxwell';}
+    if(btn){btn.disabled=false;btn.textContent=' Request New Link from Maxwell';}
     alert('Could not send request. Please contact Maxwell directly at (709) 325-0545.');
   }
 }

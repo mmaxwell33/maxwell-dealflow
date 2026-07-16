@@ -133,14 +133,14 @@
         <div class="header-title">REALTOR® | eXp Realty</div>
       </div>
       <div class="body" style="text-align:center;">
-        <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+        <div style="font-size:48px;margin-bottom:16px;"></div>
         <div style="font-size:18px;font-weight:800;color:#1A1F2E;margin-bottom:8px;">Page Not Found</div>
         <div style="font-size:14px;color:#5C6577;line-height:1.6;">This build tracker link is invalid or has been removed. Please contact Maxwell for your latest build status.</div>
         <div class="contact-box" style="text-align:left;margin-top:24px;">
           <div class="contact-box-title">Contact Maxwell</div>
           <div style="font-size:14px;line-height:2.2;">
-            📞 <a href="tel:7093250545">(709) 325-0545</a><br>
-            ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
+             <a href="tel:7093250545">(709) 325-0545</a><br>
+             <a href="mailto:Maxwell.Midodzi@exprealty.com">Maxwell.Midodzi@exprealty.com</a>
           </div>
         </div>
       </div>
@@ -184,14 +184,14 @@
     <div class="panel">
       <h3>Questions about your build?</h3>
       <div style="font-size:14px;line-height:2.2;color:#1A1F2E;">
-        📞 <a href="tel:7093250545" style="color:#0F172A;text-decoration:none;font-weight:600;">(709) 325-0545</a><br>
-        ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#0F172A;text-decoration:none;font-weight:600;">Maxwell.Midodzi@exprealty.com</a><br>
-        🌐 <a href="https://maxwellmidodzi.com" target="_blank" style="color:#0F172A;text-decoration:none;font-weight:600;">maxwellmidodzi.com</a>
+         <a href="tel:7093250545" style="color:#0F172A;text-decoration:none;font-weight:600;">(709) 325-0545</a><br>
+         <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#0F172A;text-decoration:none;font-weight:600;">Maxwell.Midodzi@exprealty.com</a><br>
+         <a href="https://maxwellmidodzi.com" target="_blank" style="color:#0F172A;text-decoration:none;font-weight:600;">maxwellmidodzi.com</a>
       </div>
     </div>
 
     <div class="footer-line">
-      🔒 Secure link · auto-extends with each visit<br>
+       Secure link · auto-extends with each visit<br>
       Maxwell Delali Midodzi · REALTOR® · eXp Realty · (709) 325-0545
     </div>
   </div>
@@ -203,7 +203,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // 5 sections / 28 steps — matches NewBuilds.STAGES in js/extras.js so buyer
 // view stays in sync with what the agent (and builder) see in DealFlow.
 const SECTIONS = [
-  { key:'pre_construction', label:'📋 Pre-Construction', steps:[
+  { key:'pre_construction', label:' Pre-Construction', steps:[
     { key:'builder_contacted',  label:'Builder contacted' },
     { key:'lot_visited',        label:'Lot visited / site walk done' },
     { key:'plans_selections',   label:'Plans & design selections made' },
@@ -212,13 +212,13 @@ const SECTIONS = [
     { key:'aps_sent_builder',   label:'APS sent to builder' },
     { key:'aps_sent_lender',    label:'APS sent to lender for financing' },
   ]},
-  { key:'financing', label:'🏦 Financing', steps:[
+  { key:'financing', label:' Financing', steps:[
     { key:'pre_asset_submitted', label:'Pre-asset submitted to lender' },
     { key:'pre_asset_approved',  label:'Pre-asset approved' },
     { key:'partial_approval',    label:'Partial financing approval received' },
     { key:'full_approval',       label:'Full financing approval received' },
   ]},
-  { key:'construction', label:'🏗️ Construction', steps:[
+  { key:'construction', label:' Construction', steps:[
     { key:'permit_approved',      label:'Building permit approved' },
     { key:'construction_started', label:'Builder starts construction' },
     { key:'foundation',           label:'Foundation poured' },
@@ -229,13 +229,13 @@ const SECTIONS = [
     { key:'cabinets_flooring',    label:'Cabinets & flooring' },
     { key:'finishes',             label:'Finishes & fixtures' },
   ]},
-  { key:'conditions', label:'✅ Conditions & Closing Prep', steps:[
+  { key:'conditions', label:' Conditions & Closing Prep', steps:[
     { key:'inspection_done',    label:'Home inspection done' },
     { key:'conditions_waived',  label:'Conditions waived' },
     { key:'docs_attached',      label:'All documents attached' },
     { key:'lawyer_confirmed',   label:'Financing confirmed by lawyer' },
   ]},
-  { key:'possession', label:'🎉 Possession', steps:[
+  { key:'possession', label:' Possession', steps:[
     { key:'final_walkthrough',  label:'Final walkthrough with client' },
     { key:'ps_signed',          label:'P&S agreement signed' },
     { key:'closing_docs_sent',  label:'Closing documents sent to lawyer' },
@@ -321,7 +321,7 @@ async function init() {
 
       return `<div class="section">
         <div class="section-header${allDone ? ' done' : ''}">
-          <span>${allDone ? '✅ ' : ''}${section.label}</span>
+          <span>${allDone ? ' ' : ''}${section.label}</span>
           <span class="section-count">${sectionDoneCount}/${sectionDone}${allDone ? ' · Complete' : ''}</span>
         </div>
         ${stepsHtml}
@@ -339,13 +339,12 @@ async function init() {
     const currentLabel = allComplete
       ? null
       : SECTIONS[currentSectionIdx].label.replace(/^\S+\s*/, ''); // strip leading emoji
-    const statusTitle = allComplete ? 'Build complete 🎉' : 'Build is on track';
+    const statusTitle = allComplete ? 'Build complete ' : 'Build is on track';
     const statusSub   = allComplete
       ? 'All stages finished — congratulations on your new home!'
       : 'Currently working through ' + currentLabel + ' — ' + pct + '% of all steps complete.';
     document.getElementById('build-status-banner').innerHTML =
       '<div class="status-banner">' +
-        '<div class="status-banner-icon">✅</div>' +
         '<div class="status-banner-text"><strong>' + statusTitle + '</strong><span>' + statusSub + '</span></div>' +
       '</div>';
 
@@ -359,7 +358,7 @@ async function init() {
             '<div class="countdown-num"><strong>' + cd.days + '</strong><span>Days</span></div>' +
             '<div class="countdown-num"><strong>' + String(cd.hours).padStart(2,'0') + '</strong><span>Hours</span></div>' +
             '<div class="countdown-num"><strong>' + String(cd.mins).padStart(2,'0') + '</strong><span>Min</span></div>' +
-            '<div class="countdown-label">Until possession 🔑</div>' +
+            '<div class="countdown-label">Until possession </div>' +
           '</div>';
       } else {
         document.getElementById('build-countdown').innerHTML = '';

@@ -103,7 +103,7 @@
 
 <!-- HEADER -->
 <div class="hdr">
-  <div class="hdr-avatar">🏠</div>
+  <div class="hdr-avatar"><img src="/site/img/mm-mark.svg" alt="" width="40" height="40"></div>
   <div class="hdr-name">Maxwell Delali Midodzi</div>
   <div class="hdr-role">REALTOR® · eXp Realty · (709) 325-0545</div>
   <div class="hdr-sub">Let's find your perfect home! Fill out this quick form so I can send you personalized listings that match exactly what you're looking for.</div>
@@ -111,10 +111,10 @@
 
 <!-- ══ ROUTER — Buyer or Seller? (seller-side feature) ══════════════════ -->
 <div class="router-screen" id="router-screen">
-  <h1>👋 Welcome!</h1>
+  <h1> Welcome!</h1>
   <div class="router-sub">Before we start — are you looking to <strong style="color:#e2e8f0">buy a home</strong>, or do you have a <strong style="color:#e2e8f0">property you'd like to sell</strong>?</div>
   <div class="choice-card" onclick="chooseRoute('buy')">
-    <div class="choice-icon">🏠</div>
+    <div class="choice-icon"></div>
     <div class="choice-body">
       <div class="choice-title">I'm Buying a Home</div>
       <div class="choice-desc">Tell Maxwell what you're looking for and start getting personalized listings.</div>
@@ -122,7 +122,7 @@
     <div class="choice-arrow">→</div>
   </div>
   <div class="choice-card" onclick="chooseRoute('sell')">
-    <div class="choice-icon">🏷</div>
+    <div class="choice-icon"></div>
     <div class="choice-body">
       <div class="choice-title">I'm Selling My Home</div>
       <div class="choice-desc">Free consultation, comparative market analysis, and a marketing plan from Maxwell.</div>
@@ -130,7 +130,7 @@
     <div class="choice-arrow">→</div>
   </div>
   <div class="choice-card" onclick="chooseRoute('both')">
-    <div class="choice-icon">🔄</div>
+    <div class="choice-icon"></div>
     <div class="choice-body">
       <div class="choice-title">I'm Doing Both</div>
       <div class="choice-desc">Selling one home and buying another? Let's start with the sale, then we'll set up your buyer search.</div>
@@ -182,7 +182,7 @@
 <!-- ══ SECTION 1 — ABOUT YOU ══════════════════════════════════════════ -->
 <div class="section active" id="sec-1">
   <div class="section-hdr">
-    <h2>👤 Tell me about yourself</h2>
+    <h2> Tell me about yourself</h2>
     <p>Basic contact info so I can reach you with listings.</p>
   </div>
 
@@ -208,11 +208,11 @@
   <div class="field">
     <span class="field-label">What is your current living situation?</span>
     <div class="pills" id="pills-living">
-      <div class="pill" data-val="Currently Renting" onclick="togglePill(this,'pills-living',true)">🏢 Renting</div>
-      <div class="pill" data-val="Homeowner — buying another" onclick="togglePill(this,'pills-living',true)">🏠 I own a home</div>
-      <div class="pill" data-val="Living with family / friends" onclick="togglePill(this,'pills-living',true)">👨‍👩‍👧 Living with family</div>
-      <div class="pill" data-val="Relocating" onclick="togglePill(this,'pills-living',true)">✈️ Relocating</div>
-      <div class="pill" data-val="Investor — rental / income property" onclick="togglePill(this,'pills-living',true)">📈 Investor</div>
+      <div class="pill" data-val="Currently Renting" onclick="togglePill(this,'pills-living',true)"> Renting</div>
+      <div class="pill" data-val="Homeowner — buying another" onclick="togglePill(this,'pills-living',true)"> I own a home</div>
+      <div class="pill" data-val="Living with family / friends" onclick="togglePill(this,'pills-living',true)"> Living with family</div>
+      <div class="pill" data-val="Relocating" onclick="togglePill(this,'pills-living',true)"> Relocating</div>
+      <div class="pill" data-val="Investor — rental / income property" onclick="togglePill(this,'pills-living',true)"> Investor</div>
     </div>
   </div>
 
@@ -224,21 +224,21 @@
 <!-- ══ SECTION 2 — YOUR SEARCH ════════════════════════════════════════ -->
 <div class="section" id="sec-2">
   <div class="section-hdr">
-    <h2>🏠 What are you looking for?</h2>
+    <h2> What are you looking for?</h2>
     <p>Select everything that applies — I'll match listings to your exact criteria.</p>
   </div>
 
   <div class="field">
     <span class="field-label">Property Type <span class="req">*</span></span>
     <div class="pills" id="pills-ptype">
-      <div class="pill" data-val="Single Family Home" onclick="togglePill(this,'pills-ptype')">🏠 Single Family Home</div>
-      <div class="pill" data-val="Detached House" onclick="togglePill(this,'pills-ptype')">🏡 Detached House</div>
-      <div class="pill" data-val="Semi-Detached" onclick="togglePill(this,'pills-ptype')">🏘 Semi-Detached</div>
-      <div class="pill" data-val="2-Apartment" onclick="togglePill(this,'pills-ptype')">💵 2-Apartment</div>
-      <div class="pill" data-val="Townhouse" onclick="togglePill(this,'pills-ptype')">🏙 Townhouse</div>
-      <div class="pill" data-val="Condo / Apartment" onclick="togglePill(this,'pills-ptype')">🏢 Condo / Apartment</div>
-      <div class="pill" data-val="New Build" onclick="togglePill(this,'pills-ptype')">🏗 New Build</div>
-      <div class="pill" data-val="Open to anything" onclick="togglePill(this,'pills-ptype')">✨ Open to anything</div>
+      <div class="pill" data-val="Single Family Home" onclick="togglePill(this,'pills-ptype')"> Single Family Home</div>
+      <div class="pill" data-val="Detached House" onclick="togglePill(this,'pills-ptype')"> Detached House</div>
+      <div class="pill" data-val="Semi-Detached" onclick="togglePill(this,'pills-ptype')"> Semi-Detached</div>
+      <div class="pill" data-val="2-Apartment" onclick="togglePill(this,'pills-ptype')"> 2-Apartment</div>
+      <div class="pill" data-val="Townhouse" onclick="togglePill(this,'pills-ptype')"> Townhouse</div>
+      <div class="pill" data-val="Condo / Apartment" onclick="togglePill(this,'pills-ptype')"> Condo / Apartment</div>
+      <div class="pill" data-val="New Build" onclick="togglePill(this,'pills-ptype')"> New Build</div>
+      <div class="pill" data-val="Open to anything" onclick="togglePill(this,'pills-ptype')"> Open to anything</div>
     </div>
   </div>
 
@@ -288,16 +288,16 @@
   <div class="field">
     <span class="field-label">Must-Have Features</span>
     <div class="pills" id="pills-features">
-      <div class="pill" data-val="Garage" onclick="togglePill(this,'pills-features')">🚗 Garage</div>
-      <div class="pill" data-val="Basement" onclick="togglePill(this,'pills-features')">🏚 Basement</div>
-      <div class="pill" data-val="Backyard" onclick="togglePill(this,'pills-features')">🌿 Backyard</div>
-      <div class="pill" data-val="Home Office" onclick="togglePill(this,'pills-features')">💻 Home Office</div>
-      <div class="pill" data-val="Open Concept" onclick="togglePill(this,'pills-features')">🛋 Open Concept</div>
-      <div class="pill" data-val="Near Schools" onclick="togglePill(this,'pills-features')">🏫 Near Schools</div>
-      <div class="pill" data-val="Near Transit" onclick="togglePill(this,'pills-features')">🚌 Near Transit</div>
-      <div class="pill" data-val="Fireplace" onclick="togglePill(this,'pills-features')">🔥 Fireplace</div>
-      <div class="pill" data-val="Wheelchair Access" onclick="togglePill(this,'pills-features')">♿ Accessibility</div>
-      <div class="pill" data-val="In-law Suite" onclick="togglePill(this,'pills-features')">🏠 In-law Suite</div>
+      <div class="pill" data-val="Garage" onclick="togglePill(this,'pills-features')"> Garage</div>
+      <div class="pill" data-val="Basement" onclick="togglePill(this,'pills-features')"> Basement</div>
+      <div class="pill" data-val="Backyard" onclick="togglePill(this,'pills-features')"> Backyard</div>
+      <div class="pill" data-val="Home Office" onclick="togglePill(this,'pills-features')"> Home Office</div>
+      <div class="pill" data-val="Open Concept" onclick="togglePill(this,'pills-features')"> Open Concept</div>
+      <div class="pill" data-val="Near Schools" onclick="togglePill(this,'pills-features')"> Near Schools</div>
+      <div class="pill" data-val="Near Transit" onclick="togglePill(this,'pills-features')"> Near Transit</div>
+      <div class="pill" data-val="Fireplace" onclick="togglePill(this,'pills-features')"> Fireplace</div>
+      <div class="pill" data-val="Wheelchair Access" onclick="togglePill(this,'pills-features')"> Accessibility</div>
+      <div class="pill" data-val="In-law Suite" onclick="togglePill(this,'pills-features')"> In-law Suite</div>
     </div>
   </div>
 
@@ -310,7 +310,7 @@
 <!-- ══ SECTION 3 — BUDGET & TIMELINE ══════════════════════════════════ -->
 <div class="section" id="sec-3">
   <div class="section-hdr">
-    <h2>💰 Budget & Timeline</h2>
+    <h2> Budget & Timeline</h2>
     <p>This helps me filter out listings outside your range so I never waste your time.</p>
   </div>
 
@@ -334,21 +334,21 @@
   <div class="field">
     <span class="field-label">When are you looking to buy?</span>
     <div class="pills" id="pills-timeline">
-      <div class="pill" data-val="ASAP — actively looking" onclick="togglePill(this,'pills-timeline',true)">🔥 ASAP</div>
-      <div class="pill" data-val="1–3 months" onclick="togglePill(this,'pills-timeline',true)">📅 1–3 months</div>
-      <div class="pill" data-val="3–6 months" onclick="togglePill(this,'pills-timeline',true)">📅 3–6 months</div>
-      <div class="pill" data-val="6–12 months" onclick="togglePill(this,'pills-timeline',true)">🗓 6–12 months</div>
-      <div class="pill" data-val="Just exploring" onclick="togglePill(this,'pills-timeline',true)">👀 Just exploring</div>
+      <div class="pill" data-val="ASAP — actively looking" onclick="togglePill(this,'pills-timeline',true)"> ASAP</div>
+      <div class="pill" data-val="1–3 months" onclick="togglePill(this,'pills-timeline',true)"> 1–3 months</div>
+      <div class="pill" data-val="3–6 months" onclick="togglePill(this,'pills-timeline',true)"> 3–6 months</div>
+      <div class="pill" data-val="6–12 months" onclick="togglePill(this,'pills-timeline',true)"> 6–12 months</div>
+      <div class="pill" data-val="Just exploring" onclick="togglePill(this,'pills-timeline',true)"> Just exploring</div>
     </div>
   </div>
 
   <div class="field">
     <span class="field-label">Mortgage Pre-Approval Status</span>
     <div class="pills" id="pills-preapproval">
-      <div class="pill" data-val="Yes — fully pre-approved" onclick="togglePill(this,'pills-preapproval',true)">✅ Fully pre-approved</div>
-      <div class="pill" data-val="In progress" onclick="togglePill(this,'pills-preapproval',true)">🔄 In progress</div>
-      <div class="pill" data-val="Not yet — need guidance" onclick="togglePill(this,'pills-preapproval',true)">❓ Not yet</div>
-      <div class="pill" data-val="Paying cash" onclick="togglePill(this,'pills-preapproval',true)">💵 Paying cash</div>
+      <div class="pill" data-val="Yes — fully pre-approved" onclick="togglePill(this,'pills-preapproval',true)"> Fully pre-approved</div>
+      <div class="pill" data-val="In progress" onclick="togglePill(this,'pills-preapproval',true)"> In progress</div>
+      <div class="pill" data-val="Not yet — need guidance" onclick="togglePill(this,'pills-preapproval',true)"> Not yet</div>
+      <div class="pill" data-val="Paying cash" onclick="togglePill(this,'pills-preapproval',true)"> Paying cash</div>
     </div>
   </div>
 
@@ -361,27 +361,27 @@
 <!-- ══ SECTION 4 — FINAL DETAILS ══════════════════════════════════════ -->
 <div class="section" id="sec-4">
   <div class="section-hdr">
-    <h2>📝 Almost done!</h2>
+    <h2> Almost done!</h2>
     <p>Any extra details help me serve you better from day one.</p>
   </div>
 
   <div class="field">
     <span class="field-label">How did you hear about Maxwell?</span>
     <div class="pills" id="pills-referral">
-      <div class="pill" data-val="Referral from friend / family" onclick="togglePill(this,'pills-referral',true)">👥 Friend / Family</div>
-      <div class="pill" data-val="Google search" onclick="togglePill(this,'pills-referral',true)">🔍 Google</div>
-      <div class="pill" data-val="Instagram / Facebook" onclick="togglePill(this,'pills-referral',true)">📱 Social Media</div>
-      <div class="pill" data-val="eXp Realty website" onclick="togglePill(this,'pills-referral',true)">🌐 eXp Realty</div>
-      <div class="pill" data-val="Previous client" onclick="togglePill(this,'pills-referral',true)">🤝 Previous client</div>
+      <div class="pill" data-val="Referral from friend / family" onclick="togglePill(this,'pills-referral',true)"> Friend / Family</div>
+      <div class="pill" data-val="Google search" onclick="togglePill(this,'pills-referral',true)"> Google</div>
+      <div class="pill" data-val="Instagram / Facebook" onclick="togglePill(this,'pills-referral',true)"> Social Media</div>
+      <div class="pill" data-val="eXp Realty website" onclick="togglePill(this,'pills-referral',true)"> eXp Realty</div>
+      <div class="pill" data-val="Previous client" onclick="togglePill(this,'pills-referral',true)"> Previous client</div>
     </div>
   </div>
 
   <div class="field">
     <span class="field-label">Are you also looking to sell a current property?</span>
     <div class="pills" id="pills-sell">
-      <div class="pill" data-val="Yes — need to sell first" onclick="togglePill(this,'pills-sell',true)">🏷 Yes, sell first</div>
-      <div class="pill" data-val="Yes — already listed" onclick="togglePill(this,'pills-sell',true)">📋 Already listed</div>
-      <div class="pill" data-val="No — just buying" onclick="togglePill(this,'pills-sell',true)">🏠 Just buying</div>
+      <div class="pill" data-val="Yes — need to sell first" onclick="togglePill(this,'pills-sell',true)"> Yes, sell first</div>
+      <div class="pill" data-val="Yes — already listed" onclick="togglePill(this,'pills-sell',true)"> Already listed</div>
+      <div class="pill" data-val="No — just buying" onclick="togglePill(this,'pills-sell',true)"> Just buying</div>
     </div>
   </div>
 
@@ -400,7 +400,7 @@
   <input type="hidden" id="hp-timestamp" value="">
 
   <div style="background:rgba(15,23,42,.07);border:1px solid rgba(15,23,42,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
-    <div style="font-size:11px;font-weight:700;color:#7C9DD6;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🔒 Privacy &amp; Consent</div>
+    <div style="font-size:11px;font-weight:700;color:#7C9DD6;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;"> Privacy &amp; Consent</div>
     <div style="font-size:12px;color:#94a3b8;line-height:1.65;">
       Maxwell Delali Midodzi, REALTOR® (eXp Realty) will collect and use your information to provide real estate services, including sending you property listings and service-related communications. Your information is stored securely and will never be sold or shared with third parties. You may withdraw consent at any time by contacting Maxwell directly at <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#7C9DD6;">Maxwell.Midodzi@exprealty.com</a>.
     </div>
@@ -413,7 +413,7 @@
   </div>
 
   <button class="btn-submit" onclick="submitIntake()" id="submit-btn">
-    🏠 Submit — Let's Find My Home!
+     Submit — Let's Find My Home!
   </button>
   <div id="form-status"></div>
 
@@ -429,7 +429,7 @@
      Prevents accidental duplicate submissions — the client must contact
      Maxwell directly to update their information. -->
 <div id="already-submitted" style="display:none;max-width:560px;margin:60px auto;padding:0 20px;text-align:center;">
-  <div style="font-size:72px;margin-bottom:20px;">✅</div>
+  <div style="font-size:72px;margin-bottom:20px;"></div>
   <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:12px;">You've already submitted</div>
   <div style="font-size:14px;color:#94a3b8;line-height:1.8;max-width:420px;margin:0 auto;">
     Maxwell has your information on file and is preparing your personalized listings.
@@ -443,22 +443,22 @@
     <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
     <div style="font-size:13px;color:#7C9DD6;margin-top:3px;">REALTOR® · eXp Realty</div>
     <div style="font-size:13px;color:#94a3b8;margin-top:10px;line-height:1.9;">
-      📞 <a href="tel:7093250545" style="color:#7C9DD6;text-decoration:none;">(709) 325-0545</a><br>
-      ✉️ <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#7C9DD6;text-decoration:none;">Maxwell.Midodzi@exprealty.com</a>
+       <a href="tel:7093250545" style="color:#7C9DD6;text-decoration:none;">(709) 325-0545</a><br>
+       <a href="mailto:Maxwell.Midodzi@exprealty.com" style="color:#7C9DD6;text-decoration:none;">Maxwell.Midodzi@exprealty.com</a>
     </div>
   </div>
 </div>
 
 <!-- SUCCESS SCREEN -->
 <div id="success-screen">
-  <div class="success-icon">🎉</div>
+  <div class="success-icon"></div>
   <div class="success-title">You're all set!</div>
   <div class="success-msg">
     Maxwell has received your information and will be in touch very shortly. Check your inbox for a welcome email with everything you need to know about the home buying process.
   </div>
 
   <div class="success-steps" style="max-width:520px;margin:28px auto 0;">
-    <h3>🗺 Here's What Happens Next</h3>
+    <h3> Here's What Happens Next</h3>
     <div class="success-step-item">
       <div class="step-num">1</div>
       <div><strong style="color:#e2e8f0;">Welcome Email</strong><br>Maxwell will send you a welcome email with next steps and what to expect throughout your home buying journey.</div>
@@ -477,7 +477,7 @@
     </div>
     <div class="success-step-item">
       <div class="step-num">5</div>
-      <div><strong style="color:#e2e8f0;">Keys in Hand 🔑</strong><br>From accepted offer through conditions, inspections, and closing — Maxwell handles it all so you can focus on the exciting part.</div>
+      <div><strong style="color:#e2e8f0;">Keys in Hand </strong><br>From accepted offer through conditions, inspections, and closing — Maxwell handles it all so you can focus on the exciting part.</div>
     </div>
   </div>
 
@@ -486,8 +486,8 @@
     <div style="font-size:16px;font-weight:800;color:#fff;">Maxwell Delali Midodzi</div>
     <div style="font-size:13px;color:#7C9DD6;margin-top:3px;">REALTOR® · eXp Realty</div>
     <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.8;">
-      📞 (709) 325-0545<br>
-      ✉️ maxwelldelali22@gmail.com
+       (709) 325-0545<br>
+       maxwelldelali22@gmail.com
     </div>
   </div>
 </div>
@@ -609,7 +609,7 @@ async function submitIntake() {
 
   if (!firstName || !lastName || !email) {
     st.style.color = '#f87171';
-    st.textContent = '⚠️ Please go back and fill in your name and email.';
+    st.textContent = ' Please go back and fill in your name and email.';
     return;
   }
 
@@ -618,7 +618,7 @@ async function submitIntake() {
   const consentEl = document.getElementById('f-consent');
   if (consentEl && !consentEl.checked) {
     st.style.color = '#f87171';
-    st.textContent = '⚠️ Please check the consent box before submitting.';
+    st.textContent = ' Please check the consent box before submitting.';
     consentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
@@ -666,9 +666,9 @@ async function submitIntake() {
 
   if (error) {
     btn.disabled = false;
-    btn.textContent = '🏠 Submit — Let\'s Find My Home!';
+    btn.textContent = ' Submit — Let\'s Find My Home!';
     st.style.color = '#f87171';
-    st.textContent = '⚠️ Something went wrong. Please try again.';
+    st.textContent = ' Something went wrong. Please try again.';
     console.error(error);
     return;
   }
