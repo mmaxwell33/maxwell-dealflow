@@ -86,50 +86,60 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 4) Create the login. email_confirm:true → they can sign in right away.
+    // 4) Create (or re-provision) the login. email_confirm:true → sign in now.
     const tempPassword = genPassword();
+    let userId: string;
+    let reprovisioned = false;
+
     const { data: created, error: cErr } = await admin.auth.admin.createUser({
       email,
       password: tempPassword,
       email_confirm: true,
       user_metadata: { full_name: name, invited_by: inviter.email },
     });
-    if (cErr || !created?.user) {
-      const already = /already|exists|registered/i.test(cErr?.message ?? '');
-      return json(
-        { error: already ? 'That email already has an account.' : (cErr?.message ?? 'Could not create the account.') },
-        already ? 409 : 500,
-      );
-    }
-    const newId = created.user.id;
 
-    // 5) Create the matching profile row — id MUST equal the auth uid.
+    if (created?.user) {
+      userId = created.user.id;
+    } else {
+      const already = /already|exists|registered/i.test(cErr?.message ?? '');
+      if (!already) return json({ error: cErr?.message ?? 'Could not create the account.' }, 500);
+      // Email already has a login — find it and reset the password so the invite
+      // still hands back working credentials (also lets you re-test one email).
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = list?.users?.find((u) => (u.email ?? '').toLowerCase() === email);
+      if (!existing) return json({ error: 'That email already has an account.' }, 409);
+      userId = existing.id;
+      reprovisioned = true;
+      await admin.auth.admin.updateUserById(userId, { password: tempPassword, email_confirm: true });
+    }
+
+    // 5) Create/refresh the matching profile row — id MUST equal the auth uid.
+    // Column names match the live agents table: name (not full_name), no province.
     const { error: aErr } = await admin.from('agents').upsert(
       {
-        id: newId,
-        full_name: name,
+        id: userId,
+        name,
         email,
         phone,
         brokerage,
         title,
-        province,
         created_by: inviter.id,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'id' },
     );
     if (aErr) {
-      // Login exists but profile failed — still return creds so it's not lost.
       return json({
         ok: true,
-        agent_id: newId,
+        agent_id: userId,
         email,
         temp_password: tempPassword,
-        warning: `Login created, but the profile row failed to save: ${aErr.message}`,
+        reprovisioned,
+        warning: `Login ready, but the profile row failed to save: ${aErr.message}`,
       });
     }
 
-    return json({ ok: true, agent_id: newId, email, temp_password: tempPassword });
+    return json({ ok: true, agent_id: userId, email, temp_password: tempPassword, reprovisioned });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
