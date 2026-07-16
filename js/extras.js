@@ -417,6 +417,40 @@ const Approvals = {
   openEdit(id) {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
+
+      // ── Agent requests get their own review popup (NOT the email editor) ──
+      if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
+        let p = {};
+        try { const c = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : (item.context_data || {}); p = (c && c.agent) || {}; } catch {}
+        const isDel = item.approval_type === 'Agent Delete';
+        const icon = isDel ? '🗑️' : (item.approval_type === 'Agent Update' ? '✏️' : '🧑‍💼');
+        const note = isDel
+          ? '⚠️ Approving will <b style="color:var(--red);">permanently delete</b> this agent&rsquo;s login and all their data. This cannot be undone.'
+          : (item.approval_type === 'Agent Update'
+              ? 'Approving will save these changes to the agent&rsquo;s profile.'
+              : 'Approving will create their login and give you a <b>temp password</b> to send them.');
+        App.openModal(`
+          <div class="modal-title">${icon} Review agent request</div>
+          <div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px;padding:12px;background:var(--bg);border-radius:8px;">
+            <div style="font-size:28px;">${icon}</div>
+            <div>
+              <div class="fw-700" style="font-size:15px;">${App.esc(p.name || item.client_name || 'Agent')}</div>
+              <div style="font-size:12px;color:var(--text2);">✉️ ${App.esc(p.email || item.client_email || '')}</div>
+              ${(p.brokerage || p.title) ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;">${App.esc([p.brokerage, p.title].filter(Boolean).join(' · '))}</div>` : ''}
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6;padding:12px;border:1px solid ${isDel ? 'var(--red)' : 'var(--border,rgba(128,128,128,.3))'};border-radius:8px;margin-bottom:14px;">
+            ${note}<br><span style="color:var(--text2);">No email is sent — this just runs the action in the app.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="btn ${isDel ? '' : 'btn-green'}" style="${isDel ? 'background:var(--red);color:#fff;' : ''}" onclick="App.closeModal();Approvals.approve('${id}')">✅ ${isDel ? 'Approve delete' : 'Approve'}</button>
+            <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+          </div>
+          <button class="btn btn-block" style="background:var(--text2);color:#fff;margin-top:8px;" onclick="App.closeModal();Approvals.skip('${id}')">⏭ Dismiss this request</button>
+        `);
+        return;
+      }
+
       // Pull existing CC out of context_data so it's editable in the modal
       let existingCc = '';
       if (item.context_data) {
