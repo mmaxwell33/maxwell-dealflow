@@ -528,9 +528,11 @@ const FormResponses = {
     const el = document.getElementById('formresponses-list');
     if (!el) return;
     el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
-    // Load ALL submissions (no agent_id filter — public form, agent reviews all)
+    // Only this agent's submissions. RLS enforces this server-side too (migration
+    // 060); the explicit filter is defense-in-depth so no other agent's leads show.
     const { data, error } = await db.from('client_intake')
-      .select('*').order('submitted_at', { ascending: false }).limit(100);
+      .select('*').eq('agent_id', currentAgent?.id || '00000000-0000-0000-0000-000000000000')
+      .order('submitted_at', { ascending: false }).limit(100);
     if (error || !data?.length) {
       el.innerHTML = `<div class="empty-state">
         <div class="empty-icon">📝</div>
