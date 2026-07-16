@@ -4198,6 +4198,28 @@ const AgentPortal = {
     const msg = document.getElementById('ap-msg');
 
     if (!name || !email) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Name and email are required.'; } return; }
+
+    // ── Edit mode — update an agent you created (no new login) ──
+    if (this._editId) {
+      if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving changes…'; }
+      const { error: uErr } = await db.from('agents').update({ name, phone, brokerage, title }).eq('id', this._editId);
+      if (uErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ '+uErr.message; } return; }
+      this._editId = null;
+      const emailEl = document.getElementById('ap-email'); if (emailEl) emailEl.readOnly = false;
+      const dbtn = document.querySelector('button[onclick="AgentPortal.deploy()"]'); if (dbtn) dbtn.textContent = 'Deploy Agent Account';
+      ['ap-name','ap-email','ap-phone','ap-brokerage'].forEach(id => { const e = document.getElementById(id); if (e) e.value=''; });
+      if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Agent updated.'; }
+      App.toast('✅ Agent updated');
+      AgentPortal.loadAgents();
+      return;
+    }
+
+    // ── Review step before the irreversible create ──
+    if (!confirm(`Create a login for:\n\n${name}\n${email}\n${brokerage}${title ? '  ·  '+title : ''}\n\nThis makes a real account they can sign in with. Continue?`)) {
+      if (msg) msg.textContent = '';
+      return;
+    }
+
     if (msg) { msg.style.color='var(--text2)'; msg.textContent='Creating account…'; }
 
     // Create the agent's login + profile via the secure invite-agent edge function.
@@ -4244,13 +4266,42 @@ const AgentPortal = {
     }
     el.innerHTML = list.map(a => `
       <div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">
-        <div style="width:38px;height:38px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;">${(a.full_name||'?')[0].toUpperCase()}</div>
-        <div style="flex:1;">
-          <div class="fw-700">${App.esc(a.full_name||'Unknown')}</div>
-          <div style="font-size:12px;color:var(--text2);">${App.esc(a.email||'')} · ${App.esc(a.brokerage||'')} · ${App.esc(a.province||'')}</div>
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;">${App.esc((a.name||'?')[0].toUpperCase())}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="fw-700">${App.esc(a.name||'Unknown')}</div>
+          <div style="font-size:12px;color:var(--text2);">${App.esc(a.email||'')}${a.brokerage ? ' · '+App.esc(a.brokerage) : ''}${a.title ? ' · '+App.esc(a.title) : ''}</div>
         </div>
+        <button onclick="AgentPortal.startEdit('${a.id}')" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--border,rgba(128,128,128,.3));background:transparent;color:var(--text);cursor:pointer;">Edit</button>
         <span class="stage-badge badge-accepted" style="font-size:11px;">Active</span>
       </div>`).join('');
+  },
+
+  _editId: null,
+
+  // Load an existing agent's details into the top form for editing.
+  async startEdit(id) {
+    const { data: a } = await db.from('agents').select('*').eq('id', id).single();
+    if (!a) { App.toast('Could not load that agent'); return; }
+    const setV = (el, v) => { const e = document.getElementById(el); if (e) e.value = v || ''; };
+    setV('ap-name', a.name);
+    setV('ap-email', a.email);
+    setV('ap-phone', a.phone);
+    setV('ap-brokerage', a.brokerage);
+    setV('ap-title', a.title);
+    const emailEl = document.getElementById('ap-email'); if (emailEl) emailEl.readOnly = true; // email is their login
+    this._editId = id;
+    const dbtn = document.querySelector('button[onclick="AgentPortal.deploy()"]'); if (dbtn) dbtn.textContent = 'Save Changes';
+    const msg = document.getElementById('ap-msg');
+    if (msg) { msg.style.color = 'var(--text2)'; msg.innerHTML = `Editing <b>${App.esc(a.name || a.email)}</b> — change the fields above, then Save Changes. <a href="#" onclick="AgentPortal.cancelEdit();return false;" style="color:var(--accent2);">cancel</a>`; }
+    document.getElementById('ap-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  },
+
+  cancelEdit() {
+    this._editId = null;
+    ['ap-name','ap-email','ap-phone','ap-brokerage'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    const emailEl = document.getElementById('ap-email'); if (emailEl) emailEl.readOnly = false;
+    const dbtn = document.querySelector('button[onclick="AgentPortal.deploy()"]'); if (dbtn) dbtn.textContent = 'Deploy Agent Account';
+    const msg = document.getElementById('ap-msg'); if (msg) msg.textContent = '';
   }
 };
 
