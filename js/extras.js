@@ -4201,6 +4201,11 @@ const AgentPortal = {
 
     // ── Edit mode — update an agent you created (no new login) ──
     if (this._editId) {
+      // Review step — confirm the change before it applies.
+      if (!confirm(`Save these changes to this agent?\n\n${name}\n${email}\n${brokerage}${title ? '  ·  '+title : ''}`)) {
+        if (msg) msg.textContent = '';
+        return;
+      }
       if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving changes…'; }
       const { error: uErr } = await db.from('agents').update({ name, phone, brokerage, title }).eq('id', this._editId);
       if (uErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ '+uErr.message; } return; }
