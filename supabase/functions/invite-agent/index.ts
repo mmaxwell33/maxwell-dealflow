@@ -70,8 +70,22 @@ serve(async (req) => {
     const { data: { user: inviter } } = await caller.auth.getUser();
     if (!inviter) return json({ error: 'Not authorized — please sign in and try again.' }, 401);
 
-    // 2) Validate input.
+    // 2) Parse input.
     const body = await req.json().catch(() => ({}));
+    const mode = String(body.mode ?? 'invite');
+
+    // ── DELETE mode — remove an agent's login + profile row (service role) ──
+    if (mode === 'delete') {
+      const delId = String(body.id ?? '').trim();
+      if (!delId) return json({ error: 'Missing agent id to delete.' }, 400);
+      const adminDel = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+      await adminDel.from('agents').delete().eq('id', delId);               // removes profile (cascades their data)
+      const { error: dErr } = await adminDel.auth.admin.deleteUser(delId);  // removes the login
+      if (dErr && !/not.?found|does not exist/i.test(dErr.message)) return json({ error: dErr.message }, 500);
+      return json({ ok: true, deleted: true, agent_id: delId });
+    }
+
+    // ── INVITE mode — validate input ──
     const name = String(body.name ?? '').trim();
     const email = String(body.email ?? '').trim().toLowerCase();
     if (!name || !email) return json({ error: 'Name and email are required.' }, 400);

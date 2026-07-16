@@ -24,7 +24,7 @@ const Approvals = {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
       return;
     }
-    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Invite':'🧑‍💼', 'Agent Update':'✏️' };
+    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Invite':'🧑‍💼', 'Agent Update':'✏️', 'Agent Delete':'🗑️' };
     Approvals._data = pending;
     el.innerHTML = pending.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};cursor:pointer;" onclick="Approvals.openEdit('${a.id}')">
@@ -123,7 +123,15 @@ const Approvals = {
     const markApproved = () => db.from('approval_queue')
       .update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', item.id);
 
-    if (item.approval_type === 'Agent Update') {
+    if (item.approval_type === 'Agent Delete') {
+      const { data, error } = await db.functions.invoke('invite-agent', { body: { mode: 'delete', id: p.id } });
+      if (error || !data || data.error) {
+        App.toast('⚠️ ' + ((data && data.error) || error?.message || 'Could not delete the agent'), 'var(--red)');
+        return;
+      }
+      await markApproved();
+      App.toast('🗑️ Agent deleted');
+    } else if (item.approval_type === 'Agent Update') {
       const { error } = await db.from('agents')
         .update({ name: p.name, phone: p.phone, brokerage: p.brokerage, title: p.title }).eq('id', p.id);
       if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
@@ -160,7 +168,7 @@ const Approvals = {
     if (!item) { Approvals._sending.delete(id); return; }
 
     // ── AGENT actions run here (no email is sent) then exit ──────────────────
-    if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update') {
+    if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update' || item.approval_type === 'Agent Delete') {
       try { await Approvals._runAgentAction(item); }
       finally { Approvals._sending.delete(id); }
       return;
@@ -4301,6 +4309,7 @@ const AgentPortal = {
           <div style="font-size:12px;color:var(--text2);">${App.esc(a.email||'')}${a.brokerage ? ' · '+App.esc(a.brokerage) : ''}${a.title ? ' · '+App.esc(a.title) : ''}</div>
         </div>
         <button onclick="AgentPortal.startEdit('${a.id}')" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--border,rgba(128,128,128,.3));background:transparent;color:var(--text);cursor:pointer;">Edit</button>
+        <button onclick="AgentPortal.deleteAgent('${a.id}')" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">Delete</button>
         <span class="stage-badge badge-accepted" style="font-size:11px;">Active</span>
       </div>`).join('');
   },
@@ -4331,6 +4340,26 @@ const AgentPortal = {
     const emailEl = document.getElementById('ap-email'); if (emailEl) emailEl.readOnly = false;
     const dbtn = document.querySelector('button[onclick="AgentPortal.deploy()"]'); if (dbtn) dbtn.textContent = 'Deploy Agent Account';
     const msg = document.getElementById('ap-msg'); if (msg) msg.textContent = '';
+  },
+
+  // Queue a delete for approval — nothing is removed until you approve it.
+  async deleteAgent(id) {
+    const { data: a } = await db.from('agents').select('*').eq('id', id).single();
+    if (!a) { App.toast('Could not load that agent'); return; }
+    if (!confirm(`Remove ${a.name || a.email}?\n\nThis queues a request to permanently delete their login and ALL their data. Nothing is deleted until you approve it in Approvals.`)) return;
+    const { error } = await db.from('approval_queue').insert({
+      agent_id: currentAgent?.id,
+      client_name: a.name || a.email,
+      client_email: a.email,
+      approval_type: 'Agent Delete',
+      email_subject: `Delete agent · ${a.name || a.email}`,
+      email_body: `⚠️ Approve to PERMANENTLY delete ${a.name || a.email} (${a.email}) — their login and all their data. This cannot be undone.`,
+      context_data: JSON.stringify({ agent: { action: 'delete', id: a.id, name: a.name, email: a.email } }),
+      status: 'Pending'
+    });
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('📋 Delete sent to Approvals for your approval');
+    if (typeof Notify !== 'undefined') Notify.updateBadge();
   }
 };
 
