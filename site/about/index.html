@@ -46,7 +46,10 @@
  }
  .meet-grid {
  display: grid;
- grid-template-columns: minmax(280px, 380px) 1fr;
+ /* 560px, not 380: at 380 the box is ratio 0.518 but his shoulders are 0.709,
+    so object-fit:cover clipped one shoulder and dumped the slack on the other
+    side. 560 makes the box 0.671 — matching the photo — so nothing is cropped. */
+ grid-template-columns: minmax(280px, 560px) 1fr;
  gap: 0;
  align-items: stretch;
  border-radius: var(--r-lg);
@@ -243,11 +246,11 @@
  <!-- Photo column. Warm-tan studio backdrop composited off-line onto the
  cut-out master; the face itself is untouched. Board session 16 Jul 2026. -->
  <div class="meet-photo">
- <img src="/site/img/maxwell-about-440.webp"
- srcset="/site/img/maxwell-about-440.webp 440w, /site/img/maxwell-about-700.webp 700w, /site/img/maxwell-about-1075.webp 1075w"
- sizes="(max-width: 840px) calc(100vw - 48px), 380px"
+ <img src="/site/img/maxwell-about-560.webp"
+ srcset="/site/img/maxwell-about-560.webp 560w, /site/img/maxwell-about-841.webp 841w"
+ sizes="(max-width: 840px) calc(100vw - 48px), 560px"
  alt="Maxwell Midodzi, REALTOR® with eXp Realty in St. John's"
- width="440" height="518" decoding="async">
+ width="560" height="835" decoding="async">
  </div>
 
  <!-- Bio column, dark ink-coloured panel, editorial typography -->
