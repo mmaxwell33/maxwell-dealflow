@@ -4307,7 +4307,7 @@ const AgentPortal = {
       return;
     }
 
-    const appUrl = 'https://maxwellmidodzi.com';
+    const appUrl = 'https://maxwell-dealflow.vercel.app';
     const welcomeBody =
 `Hi ${name},
 
