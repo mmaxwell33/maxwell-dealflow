@@ -40,6 +40,11 @@ Deno.serve(async (req: Request) => {
   let payload: Record<string, string> = {};
   try { payload = await req.json(); } catch { return json({ error: 'bad json' }, 400); }
 
+  // Deliberately strict: this value can become a Reply-To header, so anything
+  // exotic is rejected rather than sanitised. No spaces, no angle brackets, no
+  // control characters can survive it.
+  const EMAIL_RE = /^[^\s@<>",;:\\]{1,64}@[^\s@<>",;:\\]{1,255}\.[A-Za-z]{2,24}$/;
+
   const name    = (payload.name    || '').toString().trim().slice(0, 120);
   const email   = (payload.email   || '').toString().trim().slice(0, 160);
   const phone   = (payload.phone   || '').toString().trim().slice(0, 40);
@@ -105,6 +110,11 @@ Deno.serve(async (req: Request) => {
         body: text,
         html,
         from_name: 'Website Contact Form',
+        // So hitting Reply answers the LEAD, not us. Only sent when the address
+        // actually looks like an address — this field comes straight off a public
+        // form, and send-email strips CR/LF as a second layer. If it fails the
+        // check we simply omit it, which is exactly today's behaviour.
+        reply_to: EMAIL_RE.test(email) ? email : undefined,
       }),
     });
     if (!r.ok) {

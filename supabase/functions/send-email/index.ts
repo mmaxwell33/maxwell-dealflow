@@ -33,6 +33,19 @@ interface AttachmentData {
   data: string;
 }
 
+// Strip CR/LF from anything that becomes a header line.
+//
+// A header value containing a bare newline lets the caller inject arbitrary
+// headers ("x@y.com\r\nBcc: attacker@evil.com"). That matters because the
+// public contact form feeds notify-lead → reply_to, so this value is
+// attacker-controlled. Applied to every header, not just the new one:
+// to/cc/bcc/from were only ever safe because an agent typed them.
+function sanitizeHeaderValue(value: string): string {
+  // U+2028/U+2029 are line terminators to JS but not to MIME; folded in anyway
+  // so nothing can smuggle a break through a JS-side string operation.
+  return value.replace(/[\r\n\u2028\u2029]+/g, ' ').trim();
+}
+
 // RFC 2047 encode a header value that contains non-ASCII characters
 function mimeEncodeHeader(value: string): string {
   if (!/[^\x20-\x7E]/.test(value)) return value;
@@ -54,16 +67,21 @@ function buildRawMime(opts: {
   text: string; html?: string | null; ics?: string | null;
   attachments?: AttachmentData[] | null;
   inReplyTo?: string | null; references?: string | null;
+  replyTo?: string | null;
 }): Uint8Array {
   const boundary = `b_${crypto.randomUUID().replace(/-/g, '')}`;
   const inner    = `i_${crypto.randomUUID().replace(/-/g, '')}`;
   const lines: string[] = [];
 
-  lines.push(`From: ${opts.from}`);
-  lines.push(`To: ${opts.to}`);
-  if (opts.cc) lines.push(`Cc: ${opts.cc}`);
-  if (opts.bcc) lines.push(`Bcc: ${opts.bcc}`);
-  lines.push(`Subject: ${mimeEncodeHeader(opts.subject)}`);
+  lines.push(`From: ${sanitizeHeaderValue(opts.from)}`);
+  lines.push(`To: ${sanitizeHeaderValue(opts.to)}`);
+  if (opts.cc) lines.push(`Cc: ${sanitizeHeaderValue(opts.cc)}`);
+  if (opts.bcc) lines.push(`Bcc: ${sanitizeHeaderValue(opts.bcc)}`);
+  // Reply-To is NOT In-Reply-To (below). This one decides where the recipient's
+  // Reply button goes; In-Reply-To only groups the thread. Without this, replying
+  // to a lead notification went back to Maxwell's own inbox.
+  if (opts.replyTo) lines.push(`Reply-To: ${sanitizeHeaderValue(opts.replyTo)}`);
+  lines.push(`Subject: ${mimeEncodeHeader(sanitizeHeaderValue(opts.subject))}`);
   lines.push('MIME-Version: 1.0');
   if (opts.inReplyTo) {
     lines.push(`In-Reply-To: ${opts.inReplyTo}`);
@@ -236,7 +254,7 @@ serve(async (req) => {
     }
 
     // ── Parse request ───────────────────────────────────────────────────────
-    const { to, cc, bcc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references } = await req.json();
+    const { to, cc, bcc, subject, body, html, ics, attachments, from_name, thread_id, in_reply_to, references, reply_to } = await req.json();
 
     if (!to || !subject || !body) {
       return json({ error: 'Missing: to, subject, body' }, 400);
@@ -308,6 +326,7 @@ serve(async (req) => {
       attachments: attachments || null,
       inReplyTo: in_reply_to || null,
       references: references || null,
+      replyTo: reply_to || null,
     });
 
     // Step 3 & 4: Send.
