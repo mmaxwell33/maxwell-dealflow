@@ -44,6 +44,22 @@
  .hero.hero-lean .hero-video.on{opacity:1;}
  .hero-ctas .btn-text{display:inline-flex;align-items:center;color:rgba(255, 255, 255, 0.9);text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255, 255, 255, 0.4);font-weight:600;font-size:15px;padding:14px 4px;}
  .hero-ctas .btn-text:hover{color:#fff;text-decoration-color:var(--brand-light);}
+ /* Hero entrance: each piece rises + fades in once on load, then stays put. */
+ @keyframes heroRise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+ .hero-lean .wrap > .eyebrow,
+ .hero-lean .wrap > h1,
+ .hero-lean .wrap > .lead,
+ .hero-lean .wrap > .hero-ctas{animation:heroRise .8s cubic-bezier(.22,.61,.36,1) both}
+ .hero-lean .wrap > .eyebrow{animation-delay:.10s}
+ .hero-lean .wrap > h1{animation-delay:.24s}
+ .hero-lean .wrap > .lead{animation-delay:.50s}
+ .hero-lean .wrap > .hero-ctas{animation-delay:.70s}
+ @media (prefers-reduced-motion: reduce){
+   .hero-lean .wrap > .eyebrow,
+   .hero-lean .wrap > h1,
+   .hero-lean .wrap > .lead,
+   .hero-lean .wrap > .hero-ctas{animation:none}
+ }
  .meet-grid{display:grid;gap:40px;align-items:center;}
  @media(min-width:720px){.meet-grid{grid-template-columns:5fr 7fr;gap:56px;}}
  .meet-photo{width:100%;max-width:340px;aspect-ratio:4/5;border-radius:var(--r-md);background:linear-gradient(160deg, var(--ink) 0%, #1E293B 100%);display:flex;align-items:center;justify-content:center;color:var(--bg);font-size:88px;font-weight:600;letter-spacing:-0.04em;margin:0 auto;box-shadow:var(--shadow-3);overflow:hidden;}
