@@ -24,7 +24,7 @@ const Approvals = {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
       return;
     }
-    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨' };
+    const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Invite':'🧑‍💼', 'Agent Update':'✏️' };
     Approvals._data = pending;
     el.innerHTML = pending.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};cursor:pointer;" onclick="Approvals.openEdit('${a.id}')">
@@ -115,6 +115,39 @@ const Approvals = {
     }
   },
 
+  // Approving an "Agent Invite/Update" item RUNS the action (no email is sent).
+  async _runAgentAction(item) {
+    let ctx = {};
+    try { ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : (item.context_data || {}); } catch {}
+    const p = (ctx && ctx.agent) || {};
+    const markApproved = () => db.from('approval_queue')
+      .update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', item.id);
+
+    if (item.approval_type === 'Agent Update') {
+      const { error } = await db.from('agents')
+        .update({ name: p.name, phone: p.phone, brokerage: p.brokerage, title: p.title }).eq('id', p.id);
+      if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+      await markApproved();
+      App.toast('✅ Agent updated');
+    } else {
+      // Agent Invite — create the login via the secure edge function.
+      App.toast('Creating account…', 'var(--accent2)');
+      const { data, error } = await db.functions.invoke('invite-agent', {
+        body: { name: p.name, email: p.email, phone: p.phone, brokerage: p.brokerage, title: p.title }
+      });
+      if (error || !data || data.error) {
+        App.toast('⚠️ ' + ((data && data.error) || error?.message || 'Could not create the account'), 'var(--red)');
+        return;
+      }
+      await markApproved();
+      // Persistent credentials display (toast would fade before he copies it).
+      alert(`✅ Account created for ${p.name}\n\nSend them the app link plus:\n\nEmail: ${data.email}\nTemp password: ${data.temp_password}\n\nThey can change it in Settings after their first sign-in.`);
+    }
+    if (typeof Notify !== 'undefined') Notify.updateBadge();
+    if (typeof AgentPortal !== 'undefined') AgentPortal.loadAgents();
+    Approvals.load();
+  },
+
   async approve(id) {
     // ── SEND LOCK — block if already in flight ──────────────────────────────
     if (Approvals._sending.has(id)) {
@@ -125,6 +158,13 @@ const Approvals = {
 
     const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
     if (!item) { Approvals._sending.delete(id); return; }
+
+    // ── AGENT actions run here (no email is sent) then exit ──────────────────
+    if (item.approval_type === 'Agent Invite' || item.approval_type === 'Agent Update') {
+      try { await Approvals._runAgentAction(item); }
+      finally { Approvals._sending.delete(id); }
+      return;
+    }
 
     // ── DEDUP CHECK — block if same email already sent in last 24h ──────────
     // Skipped when context_data.is_resend === true (user-initiated resend),
@@ -4199,64 +4239,48 @@ const AgentPortal = {
 
     if (!name || !email) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ Name and email are required.'; } return; }
 
-    // ── Edit mode — update an agent you created (no new login) ──
+    // ── Edit mode — queue an update to your Approvals (nothing changes until you approve) ──
     if (this._editId) {
-      // Review step — confirm the change before it applies.
-      if (!confirm(`Save these changes to this agent?\n\n${name}\n${email}\n${brokerage}${title ? '  ·  '+title : ''}`)) {
-        if (msg) msg.textContent = '';
-        return;
-      }
-      if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving changes…'; }
-      const { error: uErr } = await db.from('agents').update({ name, phone, brokerage, title }).eq('id', this._editId);
-      if (uErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ '+uErr.message; } return; }
+      const { error: qErr } = await db.from('approval_queue').insert({
+        agent_id: currentAgent?.id,
+        client_name: name,
+        client_email: email,
+        approval_type: 'Agent Update',
+        email_subject: `Update agent · ${name}`,
+        email_body: `Approve to update ${name} (${email}) — ${brokerage || ''}${title ? ' · ' + title : ''}.`,
+        context_data: JSON.stringify({ agent: { action: 'update', id: this._editId, name, email, phone, brokerage, title } }),
+        status: 'Pending'
+      });
+      if (qErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent='⚠️ '+qErr.message; } return; }
       this._editId = null;
       const emailEl = document.getElementById('ap-email'); if (emailEl) emailEl.readOnly = false;
       const dbtn = document.querySelector('button[onclick="AgentPortal.deploy()"]'); if (dbtn) dbtn.textContent = 'Deploy Agent Account';
       ['ap-name','ap-email','ap-phone','ap-brokerage'].forEach(id => { const e = document.getElementById(id); if (e) e.value=''; });
-      if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Agent updated.'; }
-      App.toast('✅ Agent updated');
-      AgentPortal.loadAgents();
+      if (msg) { msg.style.color='var(--green)'; msg.innerHTML = '📋 Change sent to your <b>Approvals</b> — open Approvals and approve it to apply.'; }
+      App.toast('📋 Sent to Approvals for your approval');
+      if (typeof Notify !== 'undefined') Notify.updateBadge();
       return;
     }
 
-    // ── Review step before the irreversible create ──
-    if (!confirm(`Create a login for:\n\n${name}\n${email}\n${brokerage}${title ? '  ·  '+title : ''}\n\nThis makes a real account they can sign in with. Continue?`)) {
-      if (msg) msg.textContent = '';
-      return;
-    }
-
-    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Creating account…'; }
-
-    // Create the agent's login + profile via the secure invite-agent edge function.
-    // The browser can't do this itself: creating an auth user needs the service-role
-    // key (never allowed client-side), and the agents RLS blocks inserting a row for
-    // anyone but yourself. The function also sets the new agents row id = auth uid,
-    // which is what keeps the new agent's account working.
-    const { data, error } = await db.functions.invoke('invite-agent', {
-      body: { name, email, phone, brokerage, title, province }
+    // ── Create — queue a new-agent request to your Approvals (nothing is created until you approve) ──
+    const { error: qErr } = await db.from('approval_queue').insert({
+      agent_id: currentAgent?.id,
+      client_name: name,
+      client_email: email,
+      approval_type: 'Agent Invite',
+      email_subject: `New agent login · ${name}`,
+      email_body: `Approve to create a login for ${name} (${email}) — ${brokerage || ''}${title ? ' · ' + title : ''}. You'll get a temp password to send them.`,
+      context_data: JSON.stringify({ agent: { action: 'invite', name, email, phone, brokerage, title } }),
+      status: 'Pending'
     });
+    if (qErr) { if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${qErr.message}`; } return; }
 
-    if (error || !data || data.error) {
-      const emsg = (data && data.error) || (error && error.message) || 'Could not create the agent account.';
-      if (msg) { msg.style.color='var(--red)'; msg.textContent=`⚠️ ${emsg}`; }
-      return;
-    }
-
-    // Success — show the credentials for Maxwell to pass to the new agent.
-    if (msg) {
-      msg.style.color='var(--green)';
-      msg.innerHTML =
-        `✅ Account created for <b>${name}</b>. Send them the app link plus:<br>` +
-        `<b>Email:</b> ${data.email}<br>` +
-        `<b>Temp password:</b> <code style="user-select:all;background:var(--card2,rgba(255,255,255,.06));padding:1px 6px;border-radius:4px;">${data.temp_password}</code><br>` +
-        `<span style="color:var(--text2);">They can change it in Settings after their first sign-in.</span>` +
-        (data.warning ? `<br><span style="color:var(--yellow);">⚠️ ${data.warning}</span>` : '');
-    }
-    App.toast(`🚀 Agent account created for ${name}`);
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-email').value = '';
     document.getElementById('ap-phone').value = '';
-    AgentPortal.loadAgents();
+    if (msg) { msg.style.color='var(--green)'; msg.innerHTML = '📋 Sent to your <b>Approvals</b> — go to Approvals and approve it to create the account (the temp password shows there).'; }
+    App.toast('📋 Sent to Approvals for your approval');
+    if (typeof Notify !== 'undefined') Notify.updateBadge();
   },
 
   async loadAgents() {
