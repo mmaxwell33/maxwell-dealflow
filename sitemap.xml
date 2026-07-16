@@ -61,6 +61,13 @@
     <priority>0.6</priority>
   </url>
 
+  <!-- Contact page — direct-entry conversion target, phone/email/office + message form -->
+  <url>
+    <loc>https://maxwellmidodzi.com/site/contact/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
   <!-- Buyer intake form — direct-entry conversion target -->
   <url>
     <loc>https://maxwellmidodzi.com/intake.html</loc>
