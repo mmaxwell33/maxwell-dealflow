@@ -10,6 +10,12 @@
 -- Safe to re-run.
 -- ============================================================
 
+-- ── (0) ensure agents.created_by exists ──────────────────────────────────────
+-- The agents table was created without this column, which is why the old invite
+-- silently failed (it wrote to a column that didn't exist). Nullable: existing
+-- rows (the founder) stay NULL; invited agents get the inviter's id.
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS created_by uuid;
+
 -- ── (1) briefings: only the founder account may read ─────────────────────────
 -- The founder is the agent whose own agents row has created_by IS NULL
 -- (invited agents always have created_by set to whoever invited them).
