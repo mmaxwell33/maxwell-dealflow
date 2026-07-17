@@ -975,7 +975,7 @@ const ActivityLog = {
         <div class="activity-icon">${App.activityIcon(a.activity_type)}</div>
         <div style="flex:1;">
           <div class="activity-title">${a.description || a.activity_type || 'Activity'}</div>
-          <div class="activity-meta">${a.client_name ? `👤 ${a.client_name} · ` : ''}${App.fmtDate(a.created_at)} · ${App.timeAgo(a.created_at)}</div>
+          <div class="activity-meta">${a.client_name ? `👤 ${a.client_name} · ` : ''}${App.fmtDate(a.created_at)}${a.created_at ? ', ' + new Date(a.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''} · ${App.timeAgo(a.created_at)}</div>
         </div>
         <span style="font-size:10px;color:var(--text3);background:var(--bg);padding:2px 8px;border-radius:20px;border:1px solid var(--border);">${(a.activity_type||'').replace(/_/g,' ')}</span>
       </div>`).join('');
