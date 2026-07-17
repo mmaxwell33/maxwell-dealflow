@@ -1382,7 +1382,7 @@ const Reports = {
     const [{ data: clients }, { data: pipeline }, { data: viewings }, { data: commissions }] = await Promise.all([
       db.from('clients').select('stage,status').eq('agent_id', currentAgent.id),
       db.from('pipeline').select('stage').eq('agent_id', currentAgent.id),
-      db.from('viewings').select('viewing_status').eq('agent_id', currentAgent.id),
+      db.from('viewings').select('viewing_status'),  // viewings has no agent_id; RLS scopes it via client_id
       db.from('commissions').select('agent_net,status').eq('agent_id', currentAgent.id)
     ]);
     const activeClients = (clients||[]).filter(c => c.status !== 'Lost').length;
@@ -4489,7 +4489,7 @@ const Cleanup = {
     const validNames = new Set((clients||[]).map(c => (c.full_name||'').toLowerCase().trim()));
 
     const [vRes, pRes, cRes] = await Promise.all([
-      db.from('viewings').select('id,client_name').eq('agent_id', currentAgent.id),
+      db.from('viewings').select('id,client_name'),  // RLS scopes viewings via client_id (no agent_id column)
       db.from('pipeline').select('id,client_name').eq('agent_id', currentAgent.id),
       db.from('commissions').select('id,client_name').eq('agent_id', currentAgent.id)
     ]);
@@ -4702,7 +4702,7 @@ const SystemTools = {
       }
 
       // Check viewings table
-      const { data: vi, error: viErr } = await db.from('viewings').select('id').eq('agent_id', currentAgent.id);
+      const { data: vi, error: viErr } = await db.from('viewings').select('id');  // RLS scopes via client_id (no agent_id column)
       if (viErr) issues.push(`❌ Cannot read viewings table: ${viErr.message}`);
       else ok.push(`✅ Viewings table: ${vi.length} records`);
 
