@@ -4271,7 +4271,10 @@ REALTOR® · eXp Realty · (709) 325-0545`;
           <div style="font-size:11px;color:var(--text2);">${App.esc(doc.file_name||'')} · ${sizeKB} KB</div>
           <div style="font-size:10px;color:var(--accent2);margin-top:2px;">Visible to: ${visibleRoleIcons}</div>
         </div>
-        <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);font-size:11px;padding:3px 8px;" onclick="Pipeline.deleteDoc('${doc.id}','${dealId}')">🗑</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 8px;" onclick="Pipeline.viewDoc('${doc.id}')">👁 Open</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);font-size:11px;padding:3px 8px;" onclick="Pipeline.deleteDoc('${doc.id}','${dealId}')">🗑</button>
+        </div>
       </div>`;
     }).join('');
 
@@ -4368,6 +4371,18 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     }
     await db.from('deal_documents').delete().eq('id', docId);
     Pipeline.openDocs(dealId);  // re-render
+  },
+
+  // Open a deal document via a short-lived signed URL (mirrors ClientDocs.download).
+  // Works whether the deal-docs bucket is public or private — after migration 065
+  // flips it private, this becomes the ONLY way to open a deal file.
+  async viewDoc(docId) {
+    const { data: doc, error } = await db.from('deal_documents')
+      .select('file_path').eq('id', docId).single();
+    if (error || !doc?.file_path) { App.toast('⚠️ Could not open file', 'var(--red)'); return; }
+    const { data, error: sErr } = await db.storage.from('deal-docs').createSignedUrl(doc.file_path, 300);
+    if (sErr || !data?.signedUrl) { App.toast('⚠️ Could not open file', 'var(--red)'); return; }
+    window.open(data.signedUrl, '_blank');
   },
 
   // Render the list of stakeholders attached to a deal — called inline by the
