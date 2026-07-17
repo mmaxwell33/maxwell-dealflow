@@ -42,7 +42,7 @@ const Clients = {
       db.from('clients').select('*').eq('agent_id', currentAgent.id).order('full_name'),
       db.from('offers').select('client_id,status').eq('agent_id', currentAgent.id),
       db.from('pipeline').select('client_id,stage').eq('agent_id', currentAgent.id),
-      db.from('viewings').select('client_id').eq('agent_id', currentAgent.id)
+      db.from('viewings').select('client_id')  // viewings has no agent_id; RLS scopes via client_id
     ]);
     const all      = clientsRes.data   || [];
     const offers   = offersRes.data    || [];
