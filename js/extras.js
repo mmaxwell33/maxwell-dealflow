@@ -4914,7 +4914,7 @@ const SystemTools = {
       <div>✉️ <strong>Email:</strong> ${App.esc(currentAgent.email || '—')}</div>
       <div>🏢 <strong>Brokerage:</strong> ${App.esc(currentAgent.brokerage || '—')}</div>
       <div>📍 <strong>Province:</strong> ${App.esc(currentAgent.province || '—')}</div>
-      <div>🆔 <strong>Agent ID:</strong> <span style="font-size:11px;opacity:0.6;">${currentAgent.id}</span></div>
+      <div>🆔 <strong>Account ref:</strong> <span style="font-size:12px;opacity:0.7;letter-spacing:.06em;">${(currentAgent.id||'').slice(-6).toUpperCase() || '—'}</span></div>
       <div>🔒 <strong>PWA Version:</strong> Maxwell DealFlow v2.0</div>
     `;
   },
@@ -5468,7 +5468,7 @@ const Settings = {
     el.innerHTML = `
       <div>👤 <strong>Signed in as:</strong> ${App.esc(currentAgent.email || '—')}</div>
       <div>🏢 <strong>Brokerage:</strong> ${App.esc(currentAgent.brokerage || '—')}</div>
-      <div>🆔 <strong>Agent ID:</strong> <span style="font-size:11px;opacity:0.5;">${currentAgent.id || '—'}</span></div>
+      <div>🆔 <strong>Account ref:</strong> <span style="font-size:12px;opacity:0.7;letter-spacing:.06em;">${(currentAgent.id||'').slice(-6).toUpperCase() || '—'}</span></div>
       <div>🌐 <strong>Host:</strong> GitHub Pages + Supabase</div>
       <div>📦 <strong>Version:</strong> Maxwell DealFlow v2.0</div>
     `;
