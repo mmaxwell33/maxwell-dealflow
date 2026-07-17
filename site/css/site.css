@@ -194,13 +194,20 @@ html { scroll-padding-top: 110px; }
 }
 .nav-brand:hover { text-decoration: none; }
 .nav-avatar {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   border-radius: var(--r-xs);
   background: var(--brand);
   display: inline-flex; align-items: center; justify-content: center;
   color: #ffffff; font-weight: 700; font-size: 12px;
   letter-spacing: 0.02em;
 }
+/* Personal "MM" monogram badge — enlarged for prominence (Jul 2026).
+   One rule here overrides the inline width/height on every page's nav. */
+.nav-avatar img { width: 28px; height: 28px; }
+/* eXp Realty footer logo — enlarged 120→170px site-wide via one rule
+   (overrides the inline width="120" on every page). Official file, not
+   recoloured or stretched — height stays auto so aspect ratio is kept. */
+footer img[alt="eXp Realty"] { width: 170px; }
 
 /* ── MEGA-MENU ────────────────────────────────────────────────────────
    CREA-inspired dropdown navigation. Each top-level item is a button
