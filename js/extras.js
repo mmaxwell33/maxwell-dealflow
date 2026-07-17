@@ -533,17 +533,33 @@ const FormResponses = {
     const { data, error } = await db.from('client_intake')
       .select('*').eq('agent_id', currentAgent?.id || '00000000-0000-0000-0000-000000000000')
       .order('submitted_at', { ascending: false }).limit(100);
-    if (error || !data?.length) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">📝</div>
-        <div class="empty-text">No form submissions yet</div>
-        <div class="empty-sub">Share your intake form link with clients to get started</div>
-      </div>
+
+    const formLinkCard = `
       <div class="card" style="margin-top:16px;padding:16px;">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📋 Your Intake Form Link</div>
         <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwellmidodzi.com/intake</div>
         <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>`;
+
+    // A query ERROR must NEVER render as "no submissions" — collapsing the two
+    // once made a filter/permissions failure look like deleted client data.
+    // Show a distinct error state and log it so the failure leaves a trace.
+    if (error) {
+      if (App.logError) App.logError(error, { where: 'FormResponses.load' });
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-text">Couldn't load your submissions</div>
+        <div class="empty-sub">Your data is safe — this is a display problem, not lost leads. Try again; if it keeps happening, let support know.</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:14px;" onclick="FormResponses.load()">Retry</button>
+      </div>`;
+      return;
+    }
+    if (!data?.length) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text">No form submissions yet</div>
+        <div class="empty-sub">Share your intake form link with clients to get started</div>
+      </div>${formLinkCard}`;
       return;
     }
     FormResponses.all = data;
