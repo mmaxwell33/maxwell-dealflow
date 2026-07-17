@@ -201,6 +201,9 @@ html { scroll-padding-top: 110px; }
   color: #ffffff; font-weight: 700; font-size: 12px;
   letter-spacing: 0.02em;
 }
+/* Personal "MM" monogram mark — enlarged 18→24px (boardroom, Jul 2026).
+   One rule here overrides the inline width/height on every page's nav. */
+.nav-avatar img { width: 24px; height: 24px; }
 
 /* ── MEGA-MENU ────────────────────────────────────────────────────────
    CREA-inspired dropdown navigation. Each top-level item is a button
