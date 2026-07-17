@@ -518,6 +518,7 @@ const Listings = {
       offer_amount: Number(o.amount) || 0,
       acceptance_date: acc,
       financing_date: fin,
+      financing_deadline: fin,
       closing_date: close,
       stage: 'Accepted',
       status: 'Active',

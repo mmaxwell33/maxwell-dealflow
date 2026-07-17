@@ -1345,6 +1345,9 @@ const Pipeline = {
       acceptance_date: acceptDate,
       inspection_date: dates.ins || null,
       financing_date:  dates.fin || null,
+      // Mirror into *_deadline so daily-automation reminders + stakeholder portals see them
+      inspection_deadline: dates.ins || null,
+      financing_deadline:  dates.fin || null,
       walkthrough_date: dates.walk || null,
       closing_date:    dates.close || null,
       stage: 'Accepted',
@@ -1408,7 +1411,8 @@ const Pipeline = {
     const taxPct = 15;
     const gross = sale * rate / 100;
     const hst = gross * taxPct / 100;
-    const brokerFee = gross * brokerPct / 100;
+    // Brokerage fee is taken on (gross + HST) — must match the manual form in extras.js (PR #12)
+    const brokerFee = (gross + hst) * brokerPct / 100;
     const net = (gross + hst) - brokerFee;
     await db.from('commissions').insert({
       agent_id: currentAgent.id,
@@ -2188,6 +2192,9 @@ const Pipeline = {
       acceptance_date:      acc,
       financing_date:       fin,
       inspection_date:      ins,
+      // Mirror into *_deadline so daily-automation reminders + stakeholder portals see them
+      financing_deadline:   fin,
+      inspection_deadline:  ins,
       walkthrough_date:     walk,
       closing_date:         close,
       inspection_skipped:   insSkip,
@@ -2600,7 +2607,8 @@ const Pipeline = {
       const taxPct    = 15;
       const gross     = newAmt * rate / 100;
       const hst       = gross * taxPct / 100;
-      const brokerFee = gross * brokerPct / 100;
+      // Brokerage fee is taken on (gross + HST) — must match the manual form in extras.js (PR #12)
+      const brokerFee = (gross + hst) * brokerPct / 100;
       const net       = (gross + hst) - brokerFee;
       await db.from('commissions').update({
         sale_price:        newAmt,
@@ -4078,6 +4086,9 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       acceptance_date: accDate,
       financing_date:  finDate,
       inspection_date: insSkip ? null : insDate,
+      // Mirror into *_deadline so daily-automation reminders + stakeholder portals see them
+      financing_deadline:  finDate,
+      inspection_deadline: insSkip ? null : insDate,
       inspection_skipped: insSkip,
       closing_date: closeDate,
       updated_at: new Date().toISOString()

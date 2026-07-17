@@ -61,10 +61,23 @@ git push origin master
 
 ## Database Tables (Supabase)
 
-clients, viewings, viewing_responses, offers, pipeline, checklist_items,
-commissions, reports, activity_log, approval_queue, push_subscriptions,
-pending_offers, agents, intake_responses, client_responses, new_builds,
-form_responses, pipeline_tasks
+Core CRM: agents, clients, client_intake (intake form submissions — NOT "intake_responses"),
+client_contacts, client_documents, client_reviews
+Deals: viewings, viewing_responses, offers, pending_offers, pipeline, deal_checklist
+(the per-deal checklist — NOT "checklist_items", which is Maxwell's personal to-do list),
+deal_documents, deal_stakeholders, listings, listing_offers, new_builds, commissions,
+disclosures, pipeline_reschedules
+Communications: approval_queue, email_inbox, briefings, broker_referral_requests
+Portals/tokens: build_tokens, builder_visit_requests, portal_views
+Ops: activity_log, push_subscriptions, mileage_trips, meetings, client_errors,
+email_rate_limit, claude_rate_limit
+
+Gotchas (boardroom audit Jul 2026): `viewings` has NO agent_id — scoped via
+client_id/RLS. `client_responses` is read by the Responses screen but nothing
+writes to it (legacy). "reports", "form_responses", "pipeline_tasks" do not
+exist in code — do not reference them. Pipeline has BOTH financing_date/
+inspection_date AND financing_deadline/inspection_deadline — always write both
+pairs (see migration 063).
 
 ## CSS Theme Variables (:root)
 

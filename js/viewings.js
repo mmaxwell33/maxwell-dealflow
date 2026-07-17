@@ -647,8 +647,13 @@ const Viewings = {
       offer_amount: offerAmt,
       stage: pipeStage,
       status: 'Active',
+      // Both column pairs exist in pipeline; UI/calendar read *_date while the
+      // daily-automation reminders and stakeholder portals read *_deadline —
+      // write both so every reader sees the dates (boardroom fix, Jul 2026)
       financing_deadline: finDate || null,
       inspection_deadline: insDate || null,
+      financing_date: finDate || null,
+      inspection_date: insDate || null,
       closing_date: closeDate || null,
       deposit_amount: depositAmt,
       deposit_due_date: depositDue,
