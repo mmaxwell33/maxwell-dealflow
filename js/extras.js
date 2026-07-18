@@ -3383,6 +3383,89 @@ const EmailSend = {
     if (body) body.innerHTML = t.body.replace('[CLIENT_NAME]', clientName).replace(/\n/g, '<br>');
   },
 
+  // ── AI: draft an update email from where the selected client's deal is ──
+  // Reads the deal's current stage + milestone dates, asks Claude for a warm,
+  // professional draft, and drops it into the editor. It NEVER sends — Maxwell
+  // edits and clicks Send, which still routes through Approvals. The eXp Realty
+  // signature is appended at send time, so the drafted body omits it. Strips
+  // em/en dashes per Maxwell's preference.
+  async draftFromDeal() {
+    const st = document.getElementById('email-status');
+    const setStatus = (msg, color) => { if (st) { st.style.color = color; st.textContent = msg; } };
+    const clientSel = document.getElementById('email-client');
+    const opt = clientSel?.options[clientSel.selectedIndex];
+    if (!opt?.value) { setStatus('⚠️ Pick a client first', 'var(--red)'); return; }
+    if (typeof AI === 'undefined' || !AI.callClaude) { setStatus('⚠️ AI is unavailable', 'var(--red)'); return; }
+
+    const clientId  = opt.value;
+    const firstName = (opt.dataset?.name || 'there').split(' ')[0] || 'there';
+    setStatus('✍️ Drafting from the deal stage…', 'var(--text2)');
+
+    // Find this client's most-recent active deal (cached first, else query).
+    let deal = (window.Pipeline?.all || [])
+      .find(d => d.client_id === clientId && !['Closed','Fell Through'].includes(d.stage));
+    if (!deal) {
+      const { data } = await db.from('pipeline').select('*')
+        .eq('agent_id', currentAgent.id).eq('client_id', clientId)
+        .is('archived_at', null).order('created_at', { ascending: false }).limit(1);
+      deal = data?.[0];
+    }
+    if (!deal) { setStatus('⚠️ No active deal for this client to draft from', 'var(--red)'); return; }
+
+    // Compact, factual context — Claude must not invent anything beyond this.
+    const fmt = v => v ? App.fmtDate(v) : 'not set';
+    const stageMsg = (typeof Pipeline !== 'undefined' && Pipeline.dealStatusMessage)
+      ? (Pipeline.dealStatusMessage(deal) || '').replace(/^[^\w]+/, '') : '';
+    const facts = [
+      `Client first name: ${firstName}`,
+      `Property: ${deal.property_address || 'not set'}`,
+      `Deal type: ${deal.deal_type === 'new_build' ? 'new build' : 'resale'}`,
+      `Current stage: ${deal.stage || 'In progress'}`,
+      `Offer/price: ${deal.offer_amount ? App.fmtMoney(deal.offer_amount) : 'not set'}`,
+      `Acceptance date: ${fmt(deal.acceptance_date)}`,
+      `Financing date: ${fmt(deal.financing_date)}`,
+      `Inspection date: ${fmt(deal.inspection_date)}`,
+      `Walkthrough date: ${fmt(deal.walkthrough_date)}`,
+      `Closing/possession date: ${fmt(deal.closing_date)}`,
+      stageMsg ? `Where things stand: ${stageMsg}` : ''
+    ].filter(Boolean).join('\n');
+
+    const userMsg = `Write a short, warm but professional update email from Maxwell to a real-estate client about where their deal currently stands.
+
+Rules:
+- Address the client by first name only.
+- Base it ONLY on the facts below. Do NOT invent dates, numbers, or events not listed. If a date is "not set", do not mention it.
+- Reassuring, human, plain tone. 90-150 words. No hype.
+- Do NOT give legal or financial advice; for those, say you will connect them with their lawyer or lender.
+- Do NOT include a signature, sign-off name, or contact block (the system adds it).
+- Do NOT use em dashes or en dashes; use commas or periods.
+- Respond with ONLY a JSON object: {"subject": "...", "body": "..."} where body uses \\n for line breaks.
+
+FACTS:
+${facts}`;
+
+    try {
+      const raw = await AI.callClaude(userMsg, 'Drafting a single client update email. Use only the facts in the user message.');
+      let subject = '', body = '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { const o = JSON.parse(jsonMatch[0]); subject = o.subject || ''; body = o.body || ''; } catch (e) {}
+      }
+      if (!body) body = raw;  // fallback: whole response as the body
+      const clean = s => (s || '').replace(/[—–]/g, '-').trim();
+      subject = clean(subject) || `Update on your ${deal.deal_type === 'new_build' ? 'new build' : 'home purchase'}`;
+      body = clean(body);
+      const subEl = document.getElementById('email-subject');
+      const bodyEl = document.getElementById('email-body');
+      if (subEl) subEl.value = subject;
+      if (bodyEl) bodyEl.innerHTML = body.replace(/\n/g, '<br>');
+      setStatus('✅ Draft ready — review, edit, then Send.', 'var(--green)');
+      App.toast('✍️ Draft ready — please review before sending', 'var(--accent2)');
+    } catch (e) {
+      setStatus('⚠️ ' + (e.message || 'Draft failed'), 'var(--red)');
+    }
+  },
+
   formatBlock(tag, editorId) {
     const el = document.getElementById(editorId);
     if (el) el.focus();
