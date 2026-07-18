@@ -483,6 +483,7 @@ const Clients = {
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent);color:var(--accent);" onclick="App.closeModal();Reviews.requestSearch('${c.id}')">📨 Mid-search Check-in</button>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent2);color:var(--accent2);" onclick="App.closeModal();Clients.sendBrokerIntro('${c.id}')">🏦 Send to mortgage broker</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.escAttr(c.full_name)}')">🗂 Archive</button>
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
@@ -693,6 +694,31 @@ const Clients = {
       });
       App.switchTab('approvals');
       App.toast(`📧 Welcome email queued for ${c.full_name} — go approve it!`, 'var(--green)');
+    }
+  },
+
+  // ── SEND MORTGAGE BROKER INTRO ────────────────────────────────────────────────
+  // Manually (re)queue the warm broker intro for an existing client — e.g. when a
+  // lender lead was added before the broker email was set. Routes through the same
+  // Notify.onBrokerReferral → approval_queue path, so Maxwell approves before send.
+  async sendBrokerIntro(id) {
+    if (!(currentAgent && currentAgent.broker_email)) {
+      App.toast('⚠️ No broker email set. Add it in Settings → Mortgage broker first, then try again.', 'var(--yellow)');
+      return;
+    }
+    let c = Clients.all.find(x => x.id === id);
+    if (!c) {
+      const { data } = await db.from('clients').select('id, full_name, email').eq('id', id).single();
+      c = data;
+    }
+    if (!c) { App.toast('⚠️ Client not found', 'var(--red)'); return; }
+    if (typeof Notify === "undefined" || !Notify.onBrokerReferral) { App.toast('⚠️ Broker referral unavailable', 'var(--red)'); return; }
+    const ok = await Notify.onBrokerReferral(c, {});   // template ignores the intake arg
+    if (ok) {
+      App.switchTab('approvals');
+      App.toast(`🏦 Broker intro queued for ${c.full_name} — approve it in Approvals to send.`, 'var(--green)');
+    } else {
+      App.toast('⚠️ Could not queue the broker intro — check the broker email in Settings.', 'var(--yellow)');
     }
   },
 

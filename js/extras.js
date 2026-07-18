@@ -777,7 +777,7 @@ const FormResponses = {
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
     // Use newClient if fetched, otherwise build a minimal client object from intake
     const clientForEmail = newClient || { id: null, full_name: r.full_name, email: r.email };
-    let brokerQueued = false;
+    let brokerQueued = false, wantsBroker = false;
     if (typeof Notify !== "undefined") {
       // Seller-side feature: route seller intakes to the seller welcome email.
       if (r.intake_type === 'seller' && typeof Notify.onSellerClientAdded === 'function') {
@@ -787,18 +787,23 @@ const FormResponses = {
         // Mortgage broker referral: if this BUYER said they need pre-approval
         // guidance and a broker is configured in Settings, also queue a warm
         // intro email to the broker (CC the client) for Maxwell's approval.
-        const wantsBroker = !!r.preapproval && /need guidance|not yet/i.test(r.preapproval);
+        wantsBroker = !!r.preapproval && /need guidance|not yet/i.test(r.preapproval);
         if (wantsBroker && typeof Notify.onBrokerReferral === 'function') {
           brokerQueued = await Notify.onBrokerReferral(clientForEmail, r);
         }
       }
     }
 
-    App.toast(
-      brokerQueued
-        ? `✅ ${r.full_name} added! Welcome email + mortgage broker intro queued for your approval.`
-        : `✅ ${r.full_name} added! Welcome email queued for your approval.`,
-      'var(--green)');
+    // Three outcomes. The middle one is the important fix: when a financing lead
+    // wants the broker but no broker email is set, say so LOUDLY instead of
+    // silently skipping (so the referral never quietly no-ops again).
+    if (brokerQueued) {
+      App.toast(`✅ ${r.full_name} added! Welcome email + mortgage broker intro queued for your approval.`, 'var(--green)');
+    } else if (wantsBroker && !(currentAgent && currentAgent.broker_email)) {
+      App.toast(`⚠️ ${r.full_name} added & welcome email queued — but NO broker intro was sent: your broker email isn't set. Add it in Settings → Mortgage broker, then tap "🏦 Send to mortgage broker" on the client.`, 'var(--yellow)');
+    } else {
+      App.toast(`✅ ${r.full_name} added! Welcome email queued for your approval.`, 'var(--green)');
+    }
     FormResponses.load();
     Clients.load();
     // Switch to Approvals so agent can review the welcome email right away
