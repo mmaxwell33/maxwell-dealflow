@@ -734,6 +734,22 @@ const Pipeline = {
       (builds || []).forEach(b => { Pipeline._buildsByName[b.client_name] = b; });
     }
 
+    // Fetch a lightweight deal_documents index for ALL deals — powers the
+    // per-card "📎 on file" pills so the agent sees at a glance which deals
+    // (and conditions) are backed by paper. Ids + type only; open via viewDoc.
+    Pipeline._docsByDeal = {};
+    if (Pipeline.all.length) {
+      const pipelineIds = Pipeline.all.map(d => d.id);
+      const { data: docs } = await db.from('deal_documents')
+        .select('id, pipeline_id, doc_type, file_name')
+        .in('pipeline_id', pipelineIds)
+        .order('created_at', { ascending: false });
+      (docs || []).forEach(doc => {
+        if (!Pipeline._docsByDeal[doc.pipeline_id]) Pipeline._docsByDeal[doc.pipeline_id] = [];
+        Pipeline._docsByDeal[doc.pipeline_id].push(doc);
+      });
+    }
+
     Pipeline.render(Pipeline.all);
   },
 
@@ -2071,6 +2087,7 @@ const Pipeline = {
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📋 Stage: ${d.stage}</div>
       <div style="font-size:13px;margin-bottom:4px;">💰 Build value: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
       ${d.closing_date ? `<div style="font-size:13px;margin-bottom:10px;">📅 Est. possession: <strong>${App.fmtDate(d.closing_date)}</strong></div>` : '<div style="margin-bottom:10px;"></div>'}
+      ${isClosed || isFell ? '' : Pipeline._newBuildFinancingBlock(d)}
       <div style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:8px;">
         ${isClosed || isFell ? '' : `
         <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Pipeline.openBuildDetail('${d.id}')">🏗️ Manage Build</button>
@@ -2086,6 +2103,42 @@ const Pipeline = {
       ${Pipeline.renderDealStakeholders(d.id)}
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">🕐 Updated: ${updatedStr}</div>
     </div>`;
+  },
+
+  // Compact financing tracker for new-build cards. Construction progress lives
+  // in the build tracker (Manage Build), but the buyer still needs a mortgage —
+  // this lets the agent record/update the financing date and attach the
+  // commitment right on the card, which new-build cards previously lacked.
+  _newBuildFinancingBlock(d) {
+    const docs = (Pipeline._docsByDeal || {})[d.id] || [];
+    const n = docs.length;
+    const docBtn = n
+      ? `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px;border-color:var(--green);color:var(--green);" onclick="Pipeline.openDocs('${d.id}')">📎 ${n} doc${n>1?'s':''} on file</button>`
+      : `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px;" onclick="Pipeline.openDocs('${d.id}')">＋ Attach financing doc</button>`;
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:10px;background:var(--bg);">
+      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">🏦 Financing</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input class="form-input" type="date" id="nb-fin-${d.id}" value="${d.financing_date||''}" style="font-size:12px;padding:5px 8px;flex:1;min-width:130px;">
+        <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 12px;" onclick="Pipeline.saveNewBuildFinancing('${d.id}')">Save</button>
+      </div>
+      <div style="margin-top:7px;">${docBtn}</div>
+    </div>`;
+  },
+
+  // Save the financing date on a new-build deal. Writes BOTH financing_date and
+  // financing_deadline (migration 063 rule). Does NOT touch stage — new-build
+  // progress is construction-driven via the build tracker, not this date.
+  async saveNewBuildFinancing(id) {
+    const input = document.getElementById(`nb-fin-${id}`);
+    if (!input) return;
+    const val = input.value || null;
+    const { error } = await db.from('pipeline')
+      .update({ financing_date: val, financing_deadline: val, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    const d = (Pipeline.all || []).find(x => x.id === id);
+    if (d) { d.financing_date = val; d.financing_deadline = val; }
+    App.toast(val ? '🏦 Financing date saved' : '🏦 Financing date cleared', 'var(--green)');
   },
 
   // Tap "Manage Build" on a new-build pipeline card → switch to New Builds tab
