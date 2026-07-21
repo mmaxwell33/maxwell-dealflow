@@ -5,129 +5,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Financing Lane — Referrals from Maxwell</title>
 <style>
-  :root{--bg:#0A0E14;--bg2:#0f1520;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
-        --t1:#F8FAFC;--t2:#94A3B8;--t3:#64748B;--bd:#232c38;--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
+  :root{--bg:#0A0E14;--bg2:#0d1420;--side:#0c121c;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
+        --t1:#F8FAFC;--t2:#94A3B8;--t3:#64748B;--bd:#232c38;--bd2:#2c3646;--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
         --am:#88A2CE;--am-soft:rgba(110,140,192,0.16);--rd:#B91C1C;
         --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
   *{box-sizing:border-box;margin:0;padding:0;}
-  html,body{background:var(--bg);}
-  body{color:var(--t1);font-family:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;}
-  .shell{max-width:1280px;width:100%;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  html,body{background:var(--bg);min-height:100%;}
+  body{color:var(--t1);font-family:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;}
 
-  /* header */
-  .top{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px solid var(--bd);
-       display:flex;align-items:center;gap:12px;padding:16px 24px;}
-  .mk{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
-  .top b{font-size:17px;display:block;line-height:1.15;letter-spacing:-.2px;}
-  .top small{font-size:11.5px;color:var(--t3);font-family:var(--mono);}
+  /* ── app shell: sidebar + main ─────────────────────────────── */
+  .app{display:flex;min-height:100vh;}
+  .side{width:260px;flex:none;background:var(--side);border-right:1px solid var(--bd);
+        display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:22px 16px;}
+  .brand{display:flex;align-items:center;gap:12px;padding:0 6px 20px;border-bottom:1px solid var(--bd);margin-bottom:16px;}
+  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:19px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
+  .brand b{font-size:16px;display:block;line-height:1.15;letter-spacing:-.2px;}
+  .brand small{font-size:11px;color:var(--t3);font-family:var(--mono);}
+  nav{display:flex;flex-direction:column;gap:6px;}
+  .navitem{display:flex;align-items:center;gap:11px;font:inherit;font-size:14px;font-weight:600;color:var(--t2);
+           background:transparent;border:0;border-radius:11px;padding:12px 13px;cursor:pointer;text-align:left;transition:.14s;width:100%;}
+  .navitem:hover{background:var(--card);color:var(--t1);}
+  .navitem.on{background:var(--a);color:#fff;box-shadow:0 3px 12px rgba(110,140,192,.35);}
+  .navitem .ic{font-size:17px;width:20px;text-align:center;}
+  .navitem .ct{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--s2);color:var(--t3);padding:2px 9px;border-radius:11px;}
+  .navitem.on .ct{background:rgba(255,255,255,.2);color:#fff;}
+  .side-foot{margin-top:auto;padding:14px 8px 2px;border-top:1px solid var(--bd);font-size:11px;color:var(--t3);font-family:var(--mono);line-height:1.5;}
 
-  .body{flex:1;padding:22px 24px 70px;}
+  .main{flex:1;min-width:0;padding:30px 34px 70px;}
+  .mwrap{max-width:1040px;}
+  .mhead{margin-bottom:22px;}
+  .mhead h1{font-size:24px;font-weight:700;letter-spacing:-.3px;}
+  .mhead p{font-size:14px;color:var(--t2);margin-top:5px;}
 
-  /* tabs */
-  .tabs{display:flex;gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:13px;padding:5px;margin:0 auto 20px;max-width:540px;width:100%;}
-  .tab{flex:1;font:inherit;font-size:13.5px;font-weight:600;padding:10px 8px;border-radius:9px;border:0;background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s;}
-  .tab.on{background:var(--a);color:#fff;box-shadow:0 2px 8px rgba(110,140,192,.35);}
-  .tab .ct{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.16);padding:1px 7px;border-radius:10px;}
-  .tab:not(.on) .ct{background:var(--s2);color:var(--t3);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;align-items:start;}
+  .panel{display:none;} .panel.on{display:block;}
 
-  .panel{display:none;flex-direction:column;gap:12px;}
-  .panel.on{display:flex;}
-  /* cards flow into columns on desktop, stack on mobile */
-  #list-pending,#list-active{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;align-items:start;}
-
-  /* card */
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:17px 18px;}
+  /* ── card ─────────────────────────────── */
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px 19px;}
   .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
   .cn{font-weight:700;font-size:17px;letter-spacing:-.2px;}
   .contact{font-size:12.5px;color:var(--t2);font-family:var(--mono);margin-top:4px;word-break:break-word;}
   .contact a{color:var(--a2);text-decoration:none;}
-  .src{font-size:10.5px;color:var(--t3);font-family:var(--mono);white-space:nowrap;margin-top:3px;}
   .pill{font-size:11px;font-weight:700;font-family:var(--mono);padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;}
   .p-wait{background:var(--am-soft);color:var(--am);} .p-go{background:var(--g-soft);color:var(--g);}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
-
   .actions{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap;}
   .btn{font:inherit;font-size:13px;font-weight:700;padding:10px 15px;border-radius:10px;border:1px solid var(--a);color:#fff;background:var(--a);cursor:pointer;transition:.12s;}
-  .btn:active{transform:translateY(1px);}
-  .btn:disabled{opacity:.5;cursor:default;}
+  .btn:active{transform:translateY(1px);} .btn:disabled{opacity:.5;cursor:default;}
   .btn.ghost{background:transparent;color:var(--a2);}
   .btn.block{width:100%;text-align:center;padding:14px;font-size:15px;border-radius:12px;}
   .btn.go{background:var(--g);border-color:var(--g);color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.3);margin-top:11px;}
   .btn.grow{flex:1;text-align:center;}
-
   .snap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
-  .field{display:flex;flex-direction:column;gap:6px;}
-  .field.full{grid-column:1 / -1;}
+  .field{display:flex;flex-direction:column;gap:6px;} .field.full{grid-column:1 / -1;}
   .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
   .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
   .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
-
   .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;}
   .maxsee b{color:var(--t1);}
   .note{font-size:11.5px;color:var(--t3);margin-top:11px;line-height:1.5;}
+  .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:14px;padding:60px 20px;background:var(--card);border:1px dashed var(--bd2);border-radius:16px;}
+  .empty .ei{font-size:34px;display:block;margin-bottom:12px;opacity:.5;}
+  .msg{font-size:12.5px;min-height:16px;margin-top:10px;} .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
 
-  .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:13.5px;padding:44px 20px;background:var(--card);border:1px dashed var(--bd);border-radius:16px;}
-  .empty .ei{font-size:30px;display:block;margin-bottom:10px;opacity:.5;}
-  .sechint{font-size:11.5px;color:var(--t3);font-family:var(--mono);margin:0 auto 14px;max-width:540px;text-align:center;}
-
-  @media(max-width:600px){
-    .top{padding:14px 16px;}
-    .body{padding:16px 14px 60px;}
-    #list-pending,#list-active{grid-template-columns:1fr;}
-  }
-
-  /* full-page states */
-  .state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px;min-height:70vh;}
-  .state .big{font-size:44px;margin-bottom:14px;}
-  .state h3{font-size:20px;margin-bottom:8px;}
-  .state p{font-size:14px;color:var(--t2);max-width:340px;}
-
-  .setup{flex:1;display:flex;flex-direction:column;justify-content:center;padding:36px 26px 70px;max-width:420px;margin:0 auto;text-align:center;}
-  .setup .mk{margin:0 auto 18px;width:56px;height:56px;font-size:26px;}
-  .setup h3{font-size:22px;margin-bottom:8px;}
-  .setup p{font-size:13.5px;color:var(--t2);margin-bottom:22px;line-height:1.55;}
+  /* ── full-screen states ─────────────────────────────── */
+  .state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px;}
+  .state .big{font-size:46px;margin-bottom:14px;}
+  .state h3{font-size:21px;margin-bottom:8px;} .state p{font-size:14px;color:var(--t2);max-width:360px;}
+  .setup{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:36px 26px;max-width:420px;margin:0 auto;text-align:center;}
+  .setup .mk{margin:0 auto 18px;width:58px;height:58px;font-size:27px;}
+  .setup h3{font-size:22px;margin-bottom:8px;} .setup p{font-size:13.5px;color:var(--t2);margin-bottom:22px;line-height:1.55;}
   .setup .field{text-align:left;margin-bottom:12px;}
-  .msg{font-size:12.5px;min-height:16px;margin-top:10px;}
-  .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
   [hidden]{display:none !important;}
+
+  /* ── mobile: sidebar collapses to a top bar with tab nav ── */
+  @media(max-width:820px){
+    .app{flex-direction:column;}
+    .side{width:100%;height:auto;position:static;padding:14px 16px;flex-direction:column;gap:12px;}
+    .brand{padding:0 0 12px;margin-bottom:0;}
+    nav{flex-direction:row;gap:8px;}
+    .navitem{flex:1;justify-content:center;padding:11px 8px;}
+    .navitem .ic{display:none;}
+    .navitem .ct{margin-left:6px;}
+    .side-foot{display:none;}
+    .main{padding:20px 16px 60px;}
+    .mhead h1{font-size:20px;}
+    .grid{grid-template-columns:1fr;gap:14px;}
+  }
 </style>
 </head>
 <body>
-<div class="shell">
-  <div class="top"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
 
-  <div id="state-loading" class="state"><p>Loading your lane…</p></div>
+<div id="state-loading" class="state"><p>Loading your lane…</p></div>
 
-  <div id="state-invalid" class="state" hidden>
-    <div class="big">🔒</div>
-    <h3>This link isn't active</h3>
-    <p>Ask Maxwell to resend your Financing Lane link, or reply to his email and he'll sort it out.</p>
-  </div>
+<div id="state-invalid" class="state" hidden>
+  <div class="big">🔒</div>
+  <h3>This link isn't active</h3>
+  <p>Ask Maxwell to resend your Financing Lane link, or reply to his email and he'll sort it out.</p>
+</div>
 
-  <div id="state-setup" class="setup" hidden>
-    <div class="mk">M</div>
-    <h3>Welcome to your lane</h3>
-    <p>Set an approval password only you will know. You'll type it when you approve a referral. Maxwell never sees it.</p>
-    <div class="field"><label>CHOOSE A PASSWORD</label><input id="pw1" type="password" autocomplete="new-password" placeholder="At least 4 characters"></div>
-    <div class="field"><label>CONFIRM PASSWORD</label><input id="pw2" type="password" autocomplete="new-password" placeholder="Type it again"></div>
-    <button class="btn block" id="pw-save" onclick="savePassword()">Save &amp; open my lane</button>
-    <div class="msg" id="pw-msg"></div>
-  </div>
+<div id="state-setup" class="setup" hidden>
+  <div class="mk">M</div>
+  <h3>Welcome to your lane</h3>
+  <p>Set an approval password only you will know. You'll type it when you approve a referral. Maxwell never sees it.</p>
+  <div class="field"><label>CHOOSE A PASSWORD</label><input id="pw1" type="password" autocomplete="new-password" placeholder="At least 4 characters"></div>
+  <div class="field"><label>CONFIRM PASSWORD</label><input id="pw2" type="password" autocomplete="new-password" placeholder="Type it again"></div>
+  <button class="btn block" id="pw-save" onclick="savePassword()">Save &amp; open my lane</button>
+  <div class="msg" id="pw-msg"></div>
+</div>
 
-  <div id="state-lane" class="body" hidden>
-    <div class="tabs">
-      <button class="tab on" id="tab-a" onclick="switchTab('a')">Reached out <span class="ct" id="ct-a">0</span></button>
-      <button class="tab" id="tab-b" onclick="switchTab('b')">Working with <span class="ct" id="ct-b">0</span></button>
+<div id="state-lane" class="app" hidden>
+  <aside class="side">
+    <div class="brand"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
+    <nav>
+      <button class="navitem on" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
+      <button class="navitem" id="nav-b" onclick="switchTab('b')"><span class="ic">💼</span>Working with<span class="ct" id="ct-b">0</span></button>
+    </nav>
+    <div class="side-foot">Private link from Maxwell.<br>You see only the clients he refers to you.</div>
+  </aside>
+
+  <main class="main">
+    <div class="mwrap">
+      <div class="mhead"><h1 id="mtitle">Reached out</h1><p id="msub"></p></div>
+      <div class="panel on" id="panel-a"><div class="grid" id="list-pending"></div></div>
+      <div class="panel" id="panel-b"><div class="grid" id="list-active"></div></div>
     </div>
-    <div class="panel on" id="panel-a">
-      <div class="sechint">Website leads Maxwell referred to you. Approve to start.</div>
-      <div id="list-pending"></div>
-    </div>
-    <div class="panel" id="panel-b">
-      <div class="sechint">Clients you're working. Save the pre-approval snapshot; hand them to Maxwell when ready.</div>
-      <div id="list-active"></div>
-    </div>
-  </div>
+  </main>
 </div>
 
 <script>
@@ -136,46 +139,38 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
 async function rpc(fn, args){
-  const r = await fetch(SB + '/rest/v1/rpc/' + fn, {
-    method:'POST', headers:{ 'Content-Type':'application/json', apikey:KEY, Authorization:'Bearer '+KEY }, body: JSON.stringify(args)
-  });
+  const r = await fetch(SB + '/rest/v1/rpc/' + fn, { method:'POST', headers:{ 'Content-Type':'application/json', apikey:KEY, Authorization:'Bearer '+KEY }, body: JSON.stringify(args) });
   if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
   return r.json();
 }
-async function sha256(text){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
+async function sha256(text){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text))); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 function show(id){ ['loading','invalid','setup','lane'].forEach(s=>{ const el=document.getElementById('state-'+s); if(el) el.hidden=(s!==id); }); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
+const TABMETA={ a:{t:'Reached out', s:'Website leads Maxwell referred to you. Approve to start working with them.'},
+                b:{t:'Working with', s:'Save the pre-approval snapshot, then hand the client to Maxwell when they are ready to buy.'} };
 let LANE = { referrals: [] };
 
 function switchTab(which){
-  document.getElementById('tab-a').classList.toggle('on', which==='a');
-  document.getElementById('tab-b').classList.toggle('on', which==='b');
+  document.getElementById('nav-a').classList.toggle('on', which==='a');
+  document.getElementById('nav-b').classList.toggle('on', which==='b');
   document.getElementById('panel-a').classList.toggle('on', which==='a');
   document.getElementById('panel-b').classList.toggle('on', which==='b');
+  document.getElementById('mtitle').textContent = TABMETA[which].t;
+  document.getElementById('msub').textContent = TABMETA[which].s;
 }
 
 async function load(){
   if(!TOKEN){ show('invalid'); return; }
   let data;
-  try { data = await rpc('broker_list_referrals', { p_token: TOKEN }); }
-  catch(e){ show('invalid'); return; }
+  try { data = await rpc('broker_list_referrals', { p_token: TOKEN }); } catch(e){ show('invalid'); return; }
   if(!data || !data.ok){ show('invalid'); return; }
   LANE = data;
   if(!data.has_password){ show('setup'); return; }
-  render();
-  show('lane');
+  render(); show('lane');
 }
 
-function contactLine(r){
-  const bits=[];
-  if(r.phone) bits.push(`<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>`);
-  if(r.email) bits.push(`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`);
-  return bits.join(' &middot; ');
-}
+function contactLine(r){ const b=[]; if(r.phone) b.push(`<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>`); if(r.email) b.push(`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`); return b.join(' &middot; '); }
 
 function render(){
   const refs = LANE.referrals || [];
@@ -183,44 +178,31 @@ function render(){
   const active = refs.filter(r => r.status === 'approved' || r.status === 'sent');
   document.getElementById('ct-a').textContent = pend.length;
   document.getElementById('ct-b').textContent = active.length;
-  document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('')
-    : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
-  document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('')
-    : '<div class="empty"><span class="ei">🗂️</span>No active clients yet. Approve a referral and it moves here.</div>';
-  // Land on whichever tab has something to do.
+  document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty"><span class="ei">📭</span>No new referrals right now.<br>New website leads from Maxwell land here.</div>';
+  document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('') : '<div class="empty"><span class="ei">🗂️</span>No active clients yet.<br>Approve a referral and it moves here.</div>';
   switchTab(pend.length && !active.length ? 'a' : (active.length && !pend.length ? 'b' : 'a'));
 }
 
 function cardPending(r){
   return `<div class="card">
-    <div class="r1">
-      <div><div class="cn">${esc(r.name||'New lead')}</div><div class="contact">${contactLine(r)}</div></div>
-      <span class="pill p-wait"><span class="dot"></span>Waiting on Maxwell</span>
-    </div>
+    <div class="r1"><div><div class="cn">${esc(r.name||'New lead')}</div><div class="contact">${contactLine(r)}</div></div>
+      <span class="pill p-wait"><span class="dot"></span>Waiting on Maxwell</span></div>
     <div class="actions"><button class="btn ghost grow" onclick="approve('${r.id}')">Approve myself</button></div>
     <div class="note">Maxwell usually approves within a day. If he's away, approve it yourself with your password and reach out to the client, naming Maxwell as the referrer.</div>
   </div>`;
 }
-
 function cardActive(r){
   const s = r.snapshot || {};
   return `<div class="card">
-    <div class="r1">
-      <div><div class="cn">${esc(r.name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
-      <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span>
-    </div>
+    <div class="r1"><div><div class="cn">${esc(r.name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
+      <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span></div>
     <div class="snap">
       <div class="field"><label>Max amount</label><input id="max-${r.id}" inputmode="numeric" placeholder="e.g. 385000" value="${s.max_amount!=null?esc(s.max_amount):''}"></div>
       <div class="field"><label>Rate hold expires</label><input id="rate-${r.id}" type="date" value="${esc(s.rate_hold||'')}"></div>
-      <div class="field full"><label>Status</label><select id="stat-${r.id}">
-        <option value="">Choose…</option>
-        ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${s.status===v?'selected':''}>${l}</option>`).join('')}
-      </select></div>
+      <div class="field full"><label>Status</label><select id="stat-${r.id}"><option value="">Choose…</option>
+        ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${s.status===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
-    <div class="actions">
-      <button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button>
-      <button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button>
-    </div>
+    <div class="actions"><button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button><button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button></div>
     <button class="btn go block" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
     <div class="maxsee"><b>Maxwell sees only</b> the amount, status and rate-hold you enter here. Nothing else, and none of your other clients.</div>
     <div class="msg" id="snapmsg-${r.id}"></div>
@@ -231,35 +213,27 @@ async function approve(id){
   const pw = prompt('Enter your approval password to take this referral:');
   if(pw===null) return;
   let hash; try{ hash = await sha256(pw); }catch(e){ return; }
-  try{
-    const res = await rpc('broker_approve_referral', { p_token: TOKEN, p_referral_id: id, p_hash: hash });
+  try{ const res = await rpc('broker_approve_referral', { p_token: TOKEN, p_referral_id: id, p_hash: hash });
     if(!res.ok){ alert(res.error==='wrong_password' ? 'That password is not right.' : 'Could not approve, please try again.'); return; }
     if(res.already_handled){ alert('Maxwell already approved this one.'); }
     await load(); switchTab('b');
   }catch(e){ alert('Something went wrong. Please try again.'); }
 }
-
 async function saveSnapshot(id){
   const msg = document.getElementById('snapmsg-'+id);
   const maxV = (document.getElementById('max-'+id).value||'').replace(/[^0-9.]/g,'');
   const stat = document.getElementById('stat-'+id).value || null;
   const rate = document.getElementById('rate-'+id).value || null;
-  try{
-    const res = await rpc('broker_set_snapshot', { p_token: TOKEN, p_referral_id: id, p_max: maxV?Number(maxV):null, p_status: stat, p_rate: rate });
-    if(res.ok){ msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; }
-    else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
+  try{ const res = await rpc('broker_set_snapshot', { p_token: TOKEN, p_referral_id: id, p_max: maxV?Number(maxV):null, p_status: stat, p_rate: rate });
+    if(res.ok){ msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; } else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
   }catch(e){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
 }
-
 async function handoff(id){
   if(!confirm("Send this client to Maxwell?\n\nHe'll receive their home-buyer form to approve and start the home search. Do this once they're pre-approved and ready to buy.")) return;
-  try{
-    const res = await rpc('broker_handoff_referral', { p_token: TOKEN, p_referral_id: id });
-    if(res.ok){ alert("Done. Maxwell will take it from here on the home search."); await load(); }
-    else { alert('Could not send yet. Approve the referral first, then try again.'); }
+  try{ const res = await rpc('broker_handoff_referral', { p_token: TOKEN, p_referral_id: id });
+    if(res.ok){ alert("Done. Maxwell will take it from here on the home search."); await load(); } else { alert('Could not send yet. Approve the referral first, then try again.'); }
   }catch(e){ alert('Something went wrong. Please try again.'); }
 }
-
 function sendIntake(id){
   const r = (LANE.referrals||[]).find(x=>x.id===id) || {};
   const url = LANE.intake_url;
@@ -268,18 +242,14 @@ function sendIntake(id){
   const body = encodeURIComponent(`Hi ${r.name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`);
   window.location.href = `mailto:${r.email||''}?subject=${subject}&body=${body}`;
 }
-
 async function savePassword(){
   const msg = document.getElementById('pw-msg');
   const p1 = document.getElementById('pw1').value, p2 = document.getElementById('pw2').value;
   if(p1.length < 4){ msg.className='msg err'; msg.textContent='Use at least 4 characters.'; return; }
   if(p1 !== p2){ msg.className='msg err'; msg.textContent='The two passwords do not match.'; return; }
   const btn = document.getElementById('pw-save'); btn.disabled=true; btn.textContent='Saving…';
-  try{
-    const hash = await sha256(p1);
-    const res = await rpc('broker_set_password', { p_token: TOKEN, p_hash: hash });
-    if(res.ok || res.error==='already_set'){ await load(); }
-    else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; btn.disabled=false; btn.textContent='Save & open my lane'; }
+  try{ const hash = await sha256(p1); const res = await rpc('broker_set_password', { p_token: TOKEN, p_hash: hash });
+    if(res.ok || res.error==='already_set'){ await load(); } else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; btn.disabled=false; btn.textContent='Save & open my lane'; }
   }catch(e){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; btn.disabled=false; btn.textContent='Save & open my lane'; }
 }
 
