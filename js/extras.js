@@ -5410,7 +5410,6 @@ const Settings = {
     set('set-broker-name', a.broker_name);
     set('set-broker-email', a.broker_email);
     set('set-broker-intake-url', a.broker_intake_url);
-    Settings._renderBrokerLane(a.broker_lane_token || null);
     // ── Delete password — show whether one is set (never the value) ─────────
     const delStatus = document.getElementById('set-delpin-status');
     if (delStatus) {
@@ -5469,7 +5468,44 @@ const Settings = {
     App.toast('✅ Mortgage broker saved');
   },
 
-  // ── Broker Financing Lane link (migration 067) ──────────────────────────
+  // ── Broker LOGIN portal (migration 071): create Asare's login, mark him a
+  //    broker, link this founder's referrals to him, show credentials to send.
+  async setupBrokerLogin() {
+    const msg = document.getElementById('set-blogin-msg');
+    const setMsg = (t, c) => { if (msg) { msg.style.color = c || 'var(--text2)'; msg.textContent = t; } };
+    if (!currentAgent?.id) { setMsg('Not logged in.', 'var(--red)'); return; }
+    const name  = document.getElementById('set-broker-name')?.value.trim() || '';
+    const email = (document.getElementById('set-broker-email')?.value.trim() || '').toLowerCase();
+    if (!name || !email) { setMsg('Fill in the Broker Name and Broker Email above first, then Save Broker.', 'var(--red)'); return; }
+    if (!confirm(`Create a broker login for:\n${name}  <${email}>\n\nTo TEST first, use your OWN spare email (not your main login email). You'll get a temporary password to send them.`)) return;
+    setMsg('Creating login…');
+    let res;
+    try { res = await db.functions.invoke('invite-agent', { body: { name, email } }); }
+    catch (e) { setMsg('Could not reach the server. Please try again.', 'var(--red)'); return; }
+    const data = res?.data, err = res?.error;
+    if (err || !data || data.error) { setMsg((data && data.error) || err?.message || 'Could not create the login.', 'var(--red)'); return; }
+    const brokerId = data.agent_id;
+    // Flag them a broker + link this founder's referrals to their login.
+    await db.from('agents').update({ role: 'broker' }).eq('id', brokerId);
+    await db.from('broker_referral_requests').update({ broker_id: brokerId }).eq('agent_id', currentAgent.id).is('broker_id', null);
+    setMsg('✅ Broker login ready.', 'var(--green)');
+    const url = 'https://maxwellmidodzi.com/broker.html';
+    App.openModal(`
+      <div class="modal-title">🔗 Broker login ready</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send these to <b>${App.esc(name)}</b> (${App.esc(email)}). They sign in, then change their password in the portal's Settings.</div>
+      <div class="card2" style="padding:12px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--text2);">PORTAL LINK</div>
+        <div style="font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;">${url}</div>
+      </div>
+      <div class="card2" style="padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--text2);">TEMPORARY PASSWORD</div>
+        <div style="font-family:ui-monospace,monospace;font-size:16px;font-weight:700;">${App.esc(data.temp_password || '')}</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="App.closeModal()">Done</button>
+    `);
+  },
+
+  // ── (legacy) token lane link — superseded by the login portal above ──────
   _renderBrokerLane(token) {
     const linkWrap = document.getElementById('set-lane-linkwrap');
     const link = document.getElementById('set-lane-link');

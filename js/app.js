@@ -200,6 +200,8 @@ const App = {
       agent = agentByEmail;
     }
     currentAgent = agent || { name: user.email, email: user.email, id: user.id };
+    // Mortgage brokers get their OWN portal (Financing Lane), never Maxwell's CRM.
+    if (agent && agent.role === 'broker') { location.replace('/broker.html'); return; }
     // Merge any locally-cached profile edits (in case Supabase write was blocked)
     try {
       const cached = JSON.parse(localStorage.getItem('mdf-profile-cache') || 'null');

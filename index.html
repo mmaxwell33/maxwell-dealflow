@@ -1602,19 +1602,12 @@
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveBroker()">Save Broker</button>
           <div id="set-broker-msg" style="font-size:13px;margin-top:8px;"></div>
 
-          <!-- ── Broker Financing Lane link ── -->
-          <div id="set-lane-box" style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
-            <div class="settings-card-title" style="font-size:14px;">🔗 Broker Financing Lane</div>
-            <div class="settings-card-sub" style="margin-bottom:12px;">Give your broker a private link to his own lane. He sees only the clients you refer, can approve a referral if you're away, and sends back the pre-approval snapshot (amount, status, rate hold). No login and no access to your data.</div>
-            <button class="btn btn-outline" id="set-lane-btn" style="min-width:200px;" onclick="Settings.setupBrokerLane()">Create broker lane link</button>
-            <div id="set-lane-linkwrap" style="display:none;margin-top:14px;">
-              <label class="form-label">Broker's private link — send this to him</label>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input class="form-input" id="set-lane-link" readonly onclick="this.select()" style="flex:1;font-size:12px;">
-                <button class="btn btn-primary" style="min-width:90px;" onclick="Settings.copyLaneLink()">Copy</button>
-              </div>
-            </div>
-            <div id="set-lane-msg" style="font-size:13px;margin-top:8px;"></div>
+          <!-- ── Broker Login Portal ── -->
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+            <div class="settings-card-title" style="font-size:14px;">🔗 Broker Login Portal</div>
+            <div class="settings-card-sub" style="margin-bottom:12px;">Create a login for your broker to his own portal (Financing Lane). He signs in, sees only the clients you refer, and manages himself. <b>To test it first, put YOUR OWN spare email in the Broker Email field above</b> (not your main login email), set it up, and sign in as the broker yourself. Redo it with his real email when you're happy.</div>
+            <button class="btn btn-outline" id="set-blogin-btn" style="min-width:220px;" onclick="Settings.setupBrokerLogin()">Set up broker login</button>
+            <div id="set-blogin-msg" style="font-size:13px;margin-top:8px;"></div>
           </div>
         </div>
 

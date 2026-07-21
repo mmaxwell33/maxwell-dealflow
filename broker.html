@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financing Lane — Broker Portal</title>
+<link rel="manifest" href="/broker-manifest.webmanifest">
+<meta name="theme-color" content="#0A0E14">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#0A0E14;--bg2:#0d1420;--side:#0c121c;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
+        --t1:#F8FAFC;--t2:#94A3B8;--t3:#64748B;--bd:#232c38;--bd2:#2c3646;--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
+        --am:#88A2CE;--am-soft:rgba(110,140,192,0.16);--rd:#B91C1C;--mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:var(--bg);min-height:100%;}
+  body{color:var(--t1);font-family:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .app{display:flex;min-height:100vh;}
+  .side{width:260px;flex:none;background:var(--side);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:22px 16px;}
+  .brand{display:flex;align-items:center;gap:12px;padding:0 6px 20px;border-bottom:1px solid var(--bd);margin-bottom:16px;}
+  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:19px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
+  .brand b{font-size:16px;display:block;line-height:1.15;letter-spacing:-.2px;} .brand small{font-size:11px;color:var(--t3);font-family:var(--mono);}
+  nav{display:flex;flex-direction:column;gap:6px;}
+  .navitem{display:flex;align-items:center;gap:11px;font:inherit;font-size:14px;font-weight:600;color:var(--t2);background:transparent;border:0;border-radius:11px;padding:12px 13px;cursor:pointer;text-align:left;transition:.14s;width:100%;}
+  .navitem:hover{background:var(--card);color:var(--t1);}
+  .navitem.on{background:var(--a);color:#fff;box-shadow:0 3px 12px rgba(110,140,192,.35);}
+  .navitem .ic{font-size:17px;width:20px;text-align:center;}
+  .navitem .ct{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--s2);color:var(--t3);padding:2px 9px;border-radius:11px;}
+  .navitem.on .ct{background:rgba(255,255,255,.2);color:#fff;}
+  .side-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--bd);}
+  .side-foot .who{font-size:12px;color:var(--t2);font-family:var(--mono);margin-bottom:8px;padding:0 6px;word-break:break-word;}
+  .signout{font:inherit;font-size:12.5px;font-weight:600;color:var(--t3);background:transparent;border:1px solid var(--bd);border-radius:9px;padding:9px;cursor:pointer;width:100%;}
+  .signout:hover{color:var(--t1);border-color:var(--bd2);}
+  .main{flex:1;min-width:0;padding:30px 34px 70px;}
+  .mwrap{max-width:1040px;} .mhead{margin-bottom:22px;}
+  .mhead h1{font-size:24px;font-weight:700;letter-spacing:-.3px;} .mhead p{font-size:14px;color:var(--t2);margin-top:5px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;align-items:start;}
+  .panel{display:none;} .panel.on{display:block;}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px 19px;}
+  .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .cn{font-weight:700;font-size:17px;letter-spacing:-.2px;}
+  .contact{font-size:12.5px;color:var(--t2);font-family:var(--mono);margin-top:4px;word-break:break-word;} .contact a{color:var(--a2);text-decoration:none;}
+  .pill{font-size:11px;font-weight:700;font-family:var(--mono);padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;}
+  .p-wait{background:var(--am-soft);color:var(--am);} .p-go{background:var(--g-soft);color:var(--g);}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .actions{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap;}
+  .btn{font:inherit;font-size:13px;font-weight:700;padding:10px 15px;border-radius:10px;border:1px solid var(--a);color:#fff;background:var(--a);cursor:pointer;transition:.12s;}
+  .btn:active{transform:translateY(1px);} .btn:disabled{opacity:.5;cursor:default;}
+  .btn.ghost{background:transparent;color:var(--a2);} .btn.block{width:100%;text-align:center;padding:14px;font-size:15px;border-radius:12px;}
+  .btn.go{background:var(--g);border-color:var(--g);color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.3);margin-top:11px;} .btn.grow{flex:1;text-align:center;}
+  .snap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
+  .field{display:flex;flex-direction:column;gap:6px;} .field.full{grid-column:1 / -1;}
+  .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
+  .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
+  .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;} .maxsee b{color:var(--t1);}
+  .note{font-size:11.5px;color:var(--t3);margin-top:11px;line-height:1.5;}
+  .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:14px;padding:60px 20px;background:var(--card);border:1px dashed var(--bd2);border-radius:16px;}
+  .empty .ei{font-size:34px;display:block;margin-bottom:12px;opacity:.5;}
+  .msg{font-size:12.5px;min-height:16px;margin-top:10px;} .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
+  .setcard{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;max-width:560px;margin-bottom:16px;}
+  .setcard h3{font-size:15px;margin-bottom:4px;} .setcard p{font-size:12.5px;color:var(--t2);margin-bottom:14px;}
+  /* login / states */
+  .center{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;}
+  .loginbox{width:100%;max-width:400px;text-align:center;}
+  .loginbox .mk{margin:0 auto 18px;width:58px;height:58px;font-size:27px;}
+  .loginbox h2{font-size:23px;margin-bottom:6px;} .loginbox .sub{font-size:13.5px;color:var(--t2);margin-bottom:24px;}
+  .loginbox .field{text-align:left;margin-bottom:13px;}
+  .state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px;}
+  .state .big{font-size:44px;margin-bottom:14px;} .state h3{font-size:20px;margin-bottom:8px;} .state p{font-size:14px;color:var(--t2);max-width:360px;}
+  [hidden]{display:none !important;}
+  @media(max-width:820px){
+    .app{flex-direction:column;} .side{width:100%;height:auto;position:static;padding:14px 16px;}
+    .brand{padding:0 0 12px;margin-bottom:0;} nav{flex-direction:row;gap:8px;} .navitem{flex:1;justify-content:center;padding:11px 6px;}
+    .navitem .ic{display:none;} .navitem .ct{margin-left:6px;} .side-foot{margin-top:14px;}
+    .main{padding:20px 16px 60px;} .grid{grid-template-columns:1fr;gap:14px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="state-loading" class="state"><p>Loading…</p></div>
+
+<div id="state-login" class="center" hidden>
+  <div class="loginbox">
+    <div class="mk">M</div>
+    <h2>Financing Lane</h2>
+    <div class="sub">Sign in to your broker portal.</div>
+    <div class="field"><label>EMAIL</label><input id="li-email" type="email" autocomplete="username" placeholder="you@example.com"></div>
+    <div class="field"><label>PASSWORD</label><input id="li-pw" type="password" autocomplete="current-password" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn block" id="li-btn" onclick="doLogin()">Sign in</button>
+    <div class="msg" id="li-msg"></div>
+  </div>
+</div>
+
+<div id="state-notbroker" class="state" hidden>
+  <div class="big">🔒</div>
+  <h3>This portal is for mortgage brokers</h3>
+  <p>This login isn't set up as a broker account. If you think that's wrong, ask Maxwell to re-send your invite.</p>
+  <button class="btn ghost" style="margin-top:18px;border:1px solid var(--bd);" onclick="doSignOut()">Sign out</button>
+</div>
+
+<div id="state-portal" class="app" hidden>
+  <aside class="side">
+    <div class="brand"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
+    <nav>
+      <button class="navitem on" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
+      <button class="navitem" id="nav-b" onclick="switchTab('b')"><span class="ic">💼</span>Working with<span class="ct" id="ct-b">0</span></button>
+      <button class="navitem" id="nav-s" onclick="switchTab('s')"><span class="ic">⚙️</span>Settings</button>
+    </nav>
+    <div class="side-foot"><div class="who" id="who"></div><button class="signout" onclick="doSignOut()">Sign out</button></div>
+  </aside>
+  <main class="main">
+    <div class="mwrap">
+      <div class="mhead"><h1 id="mtitle">Reached out</h1><p id="msub"></p></div>
+      <div class="panel on" id="panel-a"><div class="grid" id="list-pending"></div></div>
+      <div class="panel" id="panel-b"><div class="grid" id="list-active"></div></div>
+      <div class="panel" id="panel-s">
+        <div class="setcard">
+          <h3>Your application link</h3>
+          <p>Your own mortgage application (Filogix, etc.). The "Send my application" button emails this to your client.</p>
+          <div class="field"><label>Application link</label><input id="set-intake" type="url" placeholder="https://getmy.mortgage/…"></div>
+          <button class="btn" style="margin-top:12px;" onclick="saveIntake()">Save link</button>
+          <div class="msg" id="intake-msg"></div>
+        </div>
+        <div class="setcard">
+          <h3>Change your password</h3>
+          <p>Only you know it. Maxwell never sees it.</p>
+          <div class="field"><label>New password</label><input id="set-pw1" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
+          <button class="btn" style="margin-top:12px;" onclick="savePassword()">Update password</button>
+          <div class="msg" id="pw-msg"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const db = supabase.createClient(
+  'https://bxwmbrdndsetjwcexwpc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc',
+  { auth: { storageKey: 'financing-lane-auth' } }   // own session, separate from Maxwell's CRM login
+);
+let ME = null;      // the broker's agents row
+let REFS = [];
+const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
+const TABMETA={ a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
+                b:{t:'Working with',s:'Save the pre-approval snapshot, then hand the client to Maxwell when they are ready to buy.'},
+                s:{t:'Settings',s:'Manage your own portal.'} };
+
+function show(id){ ['loading','login','notbroker','portal'].forEach(s=>{ const el=document.getElementById('state-'+s); if(el) el.hidden=(s!==id); }); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(d){ if(!d) return ''; try{ return new Date(d).toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'}); }catch(e){ return d; } }
+
+async function init(){
+  const { data:{ session } } = await db.auth.getSession();
+  if(!session){ show('login'); return; }
+  await afterAuth();
+}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim(), pw=document.getElementById('li-pw').value;
+  const msg=document.getElementById('li-msg'), btn=document.getElementById('li-btn');
+  if(!email||!pw){ msg.className='msg err'; msg.textContent='Enter your email and password.'; return; }
+  btn.disabled=true; btn.textContent='Signing in…';
+  const { error } = await db.auth.signInWithPassword({ email, password: pw });
+  if(error){ msg.className='msg err'; msg.textContent='That email or password is not right.'; btn.disabled=false; btn.textContent='Sign in'; return; }
+  await afterAuth();
+}
+async function afterAuth(){
+  const { data:{ user } } = await db.auth.getUser();
+  if(!user){ show('login'); return; }
+  const { data: me } = await db.from('agents').select('id,full_name,name,email,role,broker_intake_url').eq('id', user.id).single();
+  if(!me || me.role !== 'broker'){ show('notbroker'); return; }
+  ME = me;
+  document.getElementById('who').textContent = (me.full_name||me.name||me.email);
+  document.getElementById('set-intake').value = me.broker_intake_url || '';
+  await loadRefs();
+  show('portal');
+}
+async function doSignOut(){ await db.auth.signOut(); location.reload(); }
+
+function switchTab(w){
+  ['a','b','s'].forEach(x=>{ document.getElementById('nav-'+x).classList.toggle('on',x===w); document.getElementById('panel-'+x).classList.toggle('on',x===w); });
+  document.getElementById('mtitle').textContent = TABMETA[w].t;
+  document.getElementById('msub').textContent = TABMETA[w].s;
+}
+
+async function loadRefs(){
+  const { data } = await db.from('broker_referral_requests')
+    .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold')
+    .eq('broker_id', ME.id).order('created_at',{ascending:false});
+  REFS = data || [];
+  render();
+}
+function render(){
+  const pend = REFS.filter(r=>r.status==='pending');
+  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
+  document.getElementById('ct-a').textContent = pend.length;
+  document.getElementById('ct-b').textContent = active.length;
+  document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
+  document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('') : '<div class="empty"><span class="ei">🗂️</span>No active clients yet. Approve a referral and it moves here.</div>';
+}
+function contactLine(r){ const b=[]; if(r.client_phone) b.push(`<a href="tel:${esc(r.client_phone)}">${esc(r.client_phone)}</a>`); if(r.client_email) b.push(`<a href="mailto:${esc(r.client_email)}">${esc(r.client_email)}</a>`); return b.join(' &middot; '); }
+function cardPending(r){
+  return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'New lead')}</div><div class="contact">${contactLine(r)}</div></div>
+    <span class="pill p-wait"><span class="dot"></span>Waiting on Maxwell</span></div>
+    <div class="actions"><button class="btn ghost grow" onclick="approve('${r.id}')">Approve myself</button></div>
+    <div class="note">Maxwell usually approves within a day. If he's away, approve it yourself and reach out to the client, naming Maxwell as the referrer.</div></div>`;
+}
+function cardActive(r){
+  return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
+    <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span></div>
+    <div class="snap">
+      <div class="field"><label>Max amount</label><input id="max-${r.id}" inputmode="numeric" placeholder="e.g. 385000" value="${r.snapshot_max_amount!=null?esc(r.snapshot_max_amount):''}"></div>
+      <div class="field"><label>Rate hold expires</label><input id="rate-${r.id}" type="date" value="${esc(r.snapshot_rate_hold||'')}"></div>
+      <div class="field full"><label>Status</label><select id="stat-${r.id}"><option value="">Choose…</option>
+        ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${r.snapshot_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="actions"><button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button><button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button></div>
+    <button class="btn go block" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
+    <div class="maxsee"><b>Maxwell sees only</b> the amount, status and rate-hold you enter here. Nothing else, and none of your other clients.</div>
+    <div class="msg" id="snapmsg-${r.id}"></div></div>`;
+}
+async function approve(id){
+  if(!confirm('Approve this referral and start working with the client?')) return;
+  const { data } = await db.from('broker_referral_requests')
+    .update({ status:'approved', approved_by:'broker', approved_at:new Date().toISOString() })
+    .eq('id',id).eq('broker_id',ME.id).eq('status','pending').select('id');
+  if(!data || !data.length){ alert('Maxwell may have already approved this one.'); }
+  await loadRefs(); switchTab('b');
+}
+async function saveSnapshot(id){
+  const msg=document.getElementById('snapmsg-'+id);
+  const maxV=(document.getElementById('max-'+id).value||'').replace(/[^0-9.]/g,'');
+  const stat=document.getElementById('stat-'+id).value||null;
+  const rate=document.getElementById('rate-'+id).value||null;
+  const { error } = await db.from('broker_referral_requests')
+    .update({ snapshot_max_amount:maxV?Number(maxV):null, snapshot_status:stat, snapshot_rate_hold:rate, snapshot_updated_at:new Date().toISOString() })
+    .eq('id',id).eq('broker_id',ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
+  else { msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; }
+}
+async function handoff(id){
+  if(!confirm("Send this client to Maxwell?\n\nHe'll get their home-buyer form to approve and start the home search. Do this once they're pre-approved and ready to buy.")) return;
+  const { data } = await db.from('broker_referral_requests')
+    .update({ status:'ready_for_agent', ready_at:new Date().toISOString() })
+    .eq('id',id).eq('broker_id',ME.id).in('status',['approved','sent']).select('id');
+  if(data && data.length){ alert('Done. Maxwell will take it from here on the home search.'); } else { alert('Approve the referral first, then try again.'); }
+  await loadRefs();
+}
+function sendIntake(id){
+  const r = REFS.find(x=>x.id===id)||{};
+  const url = (ME && ME.broker_intake_url) || document.getElementById('set-intake').value.trim();
+  if(!url){ alert('Add your application link in Settings first.'); switchTab('s'); return; }
+  const subject = encodeURIComponent('Your mortgage application, start here');
+  const body = encodeURIComponent(`Hi ${r.client_name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`);
+  window.location.href = `mailto:${r.client_email||''}?subject=${subject}&body=${body}`;
+}
+async function saveIntake(){
+  const msg=document.getElementById('intake-msg'); const url=document.getElementById('set-intake').value.trim()||null;
+  if(url && !/^https?:\/\//i.test(url)){ msg.className='msg err'; msg.textContent='The link should start with https://'; return; }
+  const { error } = await db.from('agents').update({ broker_intake_url:url }).eq('id',ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save.'; } else { ME.broker_intake_url=url; msg.className='msg ok'; msg.textContent='Saved.'; }
+}
+async function savePassword(){
+  const msg=document.getElementById('pw-msg'); const p1=document.getElementById('set-pw1').value;
+  if(p1.length<6){ msg.className='msg err'; msg.textContent='Use at least 6 characters.'; return; }
+  const { error } = await db.auth.updateUser({ password:p1 });
+  if(error){ msg.className='msg err'; msg.textContent=error.message; } else { msg.className='msg ok'; msg.textContent='Password updated.'; document.getElementById('set-pw1').value=''; }
+}
+init();
+</script>
+</body>
+</html>
