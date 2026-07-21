@@ -105,7 +105,10 @@
     <nav>
       <button class="navitem on" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
       <button class="navitem" id="nav-b" onclick="switchTab('b')"><span class="ic">💼</span>Working with<span class="ct" id="ct-b">0</span></button>
-      <button class="navitem" id="nav-c" onclick="switchTab('c')"><span class="ic">👤</span>My clients<span class="ct" id="ct-c">0</span></button>
+      <!-- FROZEN (Boardroom Session 10): broker's own-client management is a compliance
+           breach (Maxwell would custody another firm's client data). Hidden, not deleted —
+           re-enable only with a signed data-processing agreement + client consent. -->
+      <button class="navitem" id="nav-c" onclick="switchTab('c')" style="display:none"><span class="ic">👤</span>My clients<span class="ct" id="ct-c">0</span></button>
       <button class="navitem" id="nav-s" onclick="switchTab('s')"><span class="ic">⚙️</span>Settings</button>
     </nav>
     <div class="side-foot"><div class="who" id="who"></div><button class="signout" onclick="doSignOut()">Sign out</button></div>
@@ -189,7 +192,7 @@ async function afterAuth(){
   document.getElementById('who').textContent = (me.full_name||me.name||me.email);
   document.getElementById('set-intake').value = me.broker_intake_url || '';
   await loadRefs();
-  await loadMine();
+  // await loadMine();  // FROZEN (Session 10) — own-client tab hidden pending a data-processing agreement
   show('portal');
 }
 async function doSignOut(){ await db.auth.signOut(); location.reload(); }
