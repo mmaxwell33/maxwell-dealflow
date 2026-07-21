@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Contact Maxwell Midodzi, REALTOR® in St. John's, NL | eXp Realty</title>
-<meta name="description" content="Get in touch with Maxwell Midodzi, REALTOR® with eXp Realty in St. John's, NL. Call, email, or send a message — replies from Maxwell himself, usually the same business day.">
+<meta name="description" content="Get in touch with Maxwell Midodzi, REALTOR® with eXp Realty in St. John's, NL. Call, email, or send a message. Replies from Maxwell himself, usually the same business day.">
 <link rel="canonical" href="https://maxwellmidodzi.com/site/contact/">
 
 <meta property="og:type" content="website">
@@ -99,7 +99,7 @@
  <span class="eyebrow accent"><span class="eyebrow-divider"></span>Get in touch</span>
  <h1>Let's talk about your move.</h1>
  <p class="lead">
- Whether you have a question, want a realistic read on the market, or you're ready to start — send a note or call. It's always me who answers, and I usually reply the same business day.
+ Whether you have a question, want a realistic read on the market, or you're ready to start, send a note or call. It's always me who answers, and I usually reply the same business day.
  </p>
  </div>
 </section>
@@ -113,7 +113,7 @@
  <div>
  <div class="eyebrow">Contact information</div>
  <h2 class="section-title">Reach me directly.</h2>
- <p class="section-sub">No call centre, no gatekeeper — this goes straight to me.</p>
+ <p class="section-sub">No call centre, no gatekeeper. This goes straight to me.</p>
 
  <div class="ci-row">
  <span class="ci-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
@@ -306,8 +306,8 @@
     var now = new Date().toISOString();
     var payload = { full_name:name, first_name:first, last_name:last, email:email, phone:phone,
       notes: 'LENDER REFERRAL request via website. Consent shown: "' + CONSENT + '" at ' + now,
-      referral_source: 'Website — Connect with a lender',
-      preapproval: 'Not yet — need guidance',
+      referral_source: 'Website: Connect with a lender',
+      preapproval: 'Not yet, need guidance',
       intake_type: 'buyer', status: 'New',
       consent_text: CONSENT, consent_version: 'lender-v1', consent_at: now,
       submitted_at: now };
@@ -319,7 +319,7 @@
       fetch(SB + '/functions/v1/notify-lead', { method:'POST',
         headers:{ 'Content-Type':'application/json', 'apikey':KEY, 'Authorization':'Bearer ' + KEY },
         body: JSON.stringify({ name: payload.full_name, email: payload.email, phone: payload.phone,
-          message: 'LENDER LEAD — wants to speak to a mortgage broker. Open Form Responses and tap Add as Client to send the broker intro.' })
+          message: 'LENDER LEAD. Wants to speak to a mortgage broker. Open Form Responses and tap Add as Client to send the broker intro.' })
       }).catch(function(){});
       try { localStorage.setItem('mm-lf-last', String(Date.now())); } catch (e3) {}
       f.innerHTML = '<p style="font-size:16px;color:var(--ink);margin:0;font-weight:600;">Thanks, your details are on their way.</p><p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:8px 0 0;">A licensed mortgage broker will be in touch shortly.</p>';

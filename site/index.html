@@ -263,7 +263,7 @@
  </article>
  <article class="card">
  <h3>You'll have a private deal-progress link.</h3>
- <p>Once your deal is underway, you get a private portal that's live 24/7 — every milestone and deadline, and exactly where things stand, updated the moment anything changes. No "any updates?" calls.</p>
+ <p>Once your deal is underway, you get a private portal that's live 24/7, with every milestone and deadline, and exactly where things stand, updated the moment anything changes. No "any updates?" calls.</p>
  </article>
  </div>
  </div>
@@ -620,8 +620,8 @@
     var now = new Date().toISOString();
     var payload = { full_name:name, first_name:first, last_name:last, email:email, phone:phone,
       notes: 'LENDER REFERRAL request via website. Consent shown: "' + CONSENT + '" at ' + now,
-      referral_source: 'Website — Connect with a lender',
-      preapproval: 'Not yet — need guidance',
+      referral_source: 'Website: Connect with a lender',
+      preapproval: 'Not yet, need guidance',
       intake_type: 'buyer', status: 'New',
       consent_text: CONSENT, consent_version: 'lender-v1', consent_at: now,
       submitted_at: now };
@@ -633,7 +633,7 @@
       fetch(SB + '/functions/v1/notify-lead', { method:'POST',
         headers:{ 'Content-Type':'application/json', 'apikey':KEY, 'Authorization':'Bearer ' + KEY },
         body: JSON.stringify({ name: payload.full_name, email: payload.email, phone: payload.phone,
-          message: 'LENDER LEAD — wants to speak to a mortgage broker. Open Form Responses and tap Add as Client to send the broker intro.' })
+          message: 'LENDER LEAD. Wants to speak to a mortgage broker. Open Form Responses and tap Add as Client to send the broker intro.' })
       }).catch(function(){});
       try { localStorage.setItem('mm-lf-last', String(Date.now())); } catch (e3) {}
       f.innerHTML = '<p style="font-size:16px;color:var(--ink);margin:0;font-weight:600;">Thanks, your details are on their way.</p><p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:8px 0 0;">A licensed mortgage broker will be in touch shortly.</p>';
