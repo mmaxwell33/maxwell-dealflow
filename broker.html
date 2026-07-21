@@ -83,6 +83,15 @@
   .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:14px;padding:60px 20px;background:var(--card);border:1px dashed var(--bd2);border-radius:16px;}
   .empty .ei{font-size:34px;display:block;margin-bottom:12px;opacity:.5;}
   .msg{font-size:12.5px;min-height:16px;margin-top:10px;} .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
+  .modal{position:fixed;inset:0;background:rgba(6,9,16,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .modal.on{display:flex;}
+  .sheet{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;}
+  .sheet h3{font-size:18px;margin-bottom:6px;}
+  .sheet .rowlbl{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin:13px 0 5px;}
+  .sheet select,.sheet input,.sheet textarea{width:100%;font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);}
+  .sheet textarea{min-height:160px;resize:vertical;line-height:1.5;}
+  .sheet .info{font-size:12px;color:var(--t2);background:var(--a-soft);border:1px solid #33445f;border-radius:9px;padding:9px 11px;margin-top:12px;line-height:1.45;}
+  .sheet .foot{display:flex;gap:10px;margin-top:16px;}
   .setcard{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;max-width:560px;margin-bottom:16px;}
   .setcard h3{font-size:15px;margin-bottom:4px;} .setcard p{font-size:12.5px;color:var(--t2);margin-bottom:14px;}
   /* login / states */
@@ -168,6 +177,15 @@
           <div class="msg" id="intake-msg"></div>
         </div>
         <div class="setcard">
+          <h3>Email templates</h3>
+          <p>Pre-written emails you tweak when you send. Use <b>{name}</b> for the client's name and <b>{link}</b> for your application link.</p>
+          <div class="field"><label>Template</label><select id="tmpl-pick" onchange="loadTmplEditor()"><option value="reachout">Reach out</option><option value="application">Application invite</option><option value="reminder">Reminder</option></select></div>
+          <div class="field" style="margin-top:10px"><label>Subject</label><input id="tmpl-subject"></div>
+          <div class="field" style="margin-top:10px"><label>Message</label><textarea id="tmpl-body" style="min-height:120px;resize:vertical;"></textarea></div>
+          <button class="btn" style="margin-top:12px" onclick="saveTemplate()">Save template</button>
+          <div class="msg" id="tmpl-msg"></div>
+        </div>
+        <div class="setcard">
           <h3>Change your password</h3>
           <p>Only you know it. Maxwell never sees it.</p>
           <div class="field"><label>New password</label><input id="set-pw1" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
@@ -179,6 +197,18 @@
   </main>
 </div>
 
+<div class="modal" id="compose">
+  <div class="sheet">
+    <h3>Email <span id="cmp-name"></span></h3>
+    <div class="rowlbl">Template</div>
+    <select id="cmp-tmpl" onchange="applyTemplate()"><option value="reachout">Reach out</option><option value="application">Application invite</option><option value="reminder">Reminder</option></select>
+    <div class="rowlbl">Subject</div><input id="cmp-subject">
+    <div class="rowlbl">Message</div><textarea id="cmp-body"></textarea>
+    <div class="info">This client came from Maxwell, so your email goes to him to review and send.</div>
+    <div class="foot"><button class="btn grow" onclick="sendCompose()">Send to Maxwell to review</button><button class="btn ghost grow" onclick="document.getElementById('compose').classList.remove('on')">Cancel</button></div>
+    <div class="msg" id="cmp-msg"></div>
+  </div>
+</div>
 <script>
 const db = supabase.createClient(
   'https://bxwmbrdndsetjwcexwpc.supabase.co',
@@ -189,7 +219,13 @@ let ME = null;      // the broker's agents row
 let REFS = [];
 let CHECKS = [];
 let _landed = false;
+let COMPOSE_REF = null;
 const DEFAULT_CHECK = ['Sent application to client','Client submitted application','ID / KYC received','Income docs received (pay stubs / NOA / T4)','Down-payment proof received','Credit check completed','Pre-approved','Rate hold confirmed'];
+const DEFAULT_TEMPLATES = {
+  reachout:{subject:'Getting started on your mortgage',body:"Hi {name},\n\nGreat to connect. I'll be helping you on the financing side. When is a good time for a quick call to go over your options?\n\nThanks!"},
+  application:{subject:'Your mortgage application, start here',body:"Hi {name},\n\nWhen you're ready, you can start your mortgage application here:\n{link}\n\nAny questions, just reply to this email."},
+  reminder:{subject:'A quick nudge on your application',body:"Hi {name},\n\nJust checking in. I still need a few things to move your application forward, whenever you get a moment. Happy to help if anything is unclear."}
+};
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
 const TABMETA={ t:{t:'Today',s:'What needs your attention right now.'},
                 a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
@@ -218,11 +254,13 @@ async function doLogin(){
 async function afterAuth(){
   const { data:{ user } } = await db.auth.getUser();
   if(!user){ show('login'); return; }
-  const { data: me } = await db.from('agents').select('id,full_name,name,email,role,broker_intake_url,created_by').eq('id', user.id).single();
+  const { data: me } = await db.from('agents').select('id,full_name,name,email,role,broker_intake_url,broker_templates,created_by').eq('id', user.id).single();
   if(!me || me.role !== 'broker'){ show('notbroker'); return; }
   ME = me;
+  if(!ME.broker_templates){ ME.broker_templates = DEFAULT_TEMPLATES; db.from('agents').update({broker_templates:DEFAULT_TEMPLATES}).eq('id',ME.id); }
   document.getElementById('who').textContent = (me.full_name||me.name||me.email);
   document.getElementById('set-intake').value = me.broker_intake_url || '';
+  loadTmplEditor();
   await loadRefs();
   // await loadMine();  // FROZEN (Session 10) — own-client tab hidden pending a data-processing agreement
   show('portal');
@@ -338,7 +376,7 @@ function cardActive(r){
         ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${r.snapshot_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
     ${checklistBlock(r.id)}
-    <div class="actions"><button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button><button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button></div>
+    <div class="actions"><button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button><button class="btn ghost grow" onclick="openCompose('${r.id}')">Email client</button><button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button></div>
     ${(() => { const it=CHECKS.filter(c=>c.ref_id===r.id); const done=it.filter(c=>c.done).length, tot=it.length, ready=tot>0&&done===tot;
       return `<button class="btn go block" onclick="handoff('${r.id}')" ${ready?'':'disabled'}>&#10003; ${ready?'Client is ready, hand to Maxwell':`Finish the checklist (${done}/${tot}) to hand off`}</button>`; })()}
     <div class="maxsee"><b>Maxwell sees only</b> the amount, status, rate-hold and progress. Nothing else, and none of your other clients.</div>
@@ -423,6 +461,54 @@ async function moveToMaxwell(id){
   const { data, error } = await db.rpc('broker_move_client_to_agent', { p_client_id:id, p_agent_id: ME.created_by });
   if(!error && data && data.ok){ alert('Moved to Maxwell. He will take it from here.'); await loadMine(); }
   else { alert('Could not move that client: ' + ((data && data.error) || (error && error.message) || 'please try again')); }
+}
+function fillTokens(s, r){ const name=(r&&r.client_name)||''; const link=(ME&&ME.broker_intake_url)||''; return (s||'').replace(/{name}/g,name).replace(/{link}/g,link); }
+function openCompose(refId){
+  const r = REFS.find(x=>x.id===refId); if(!r) return;
+  COMPOSE_REF = r;
+  document.getElementById('cmp-name').textContent = r.client_name || 'client';
+  document.getElementById('cmp-tmpl').value = 'reachout';
+  applyTemplate();
+  document.getElementById('cmp-msg').textContent = '';
+  document.getElementById('compose').classList.add('on');
+}
+function applyTemplate(){
+  const key = document.getElementById('cmp-tmpl').value;
+  const t = (ME.broker_templates && ME.broker_templates[key]) || DEFAULT_TEMPLATES[key];
+  document.getElementById('cmp-subject').value = fillTokens(t.subject, COMPOSE_REF);
+  document.getElementById('cmp-body').value = fillTokens(t.body, COMPOSE_REF);
+}
+async function sendCompose(){
+  if(!COMPOSE_REF) return;
+  const msg = document.getElementById('cmp-msg');
+  const subject = document.getElementById('cmp-subject').value.trim();
+  const body = document.getElementById('cmp-body').value.trim();
+  if(!subject || !body){ msg.className='msg err'; msg.textContent='Add a subject and a message.'; return; }
+  const { error } = await db.from('broker_referral_requests')
+    .update({ pending_email_subject:subject, pending_email_body:body, pending_email_at:new Date().toISOString() })
+    .eq('id', COMPOSE_REF.id).eq('broker_id', ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not send. Please try again.'; return; }
+  document.getElementById('compose').classList.remove('on');
+  alert('Sent to Maxwell to review. Once he approves it, it goes to the client.');
+}
+function loadTmplEditor(){
+  const pick = document.getElementById('tmpl-pick'); if(!pick) return;
+  const key = pick.value || 'reachout';
+  const t = (ME.broker_templates && ME.broker_templates[key]) || DEFAULT_TEMPLATES[key];
+  document.getElementById('tmpl-subject').value = t.subject || '';
+  document.getElementById('tmpl-body').value = t.body || '';
+}
+async function saveTemplate(){
+  const msg = document.getElementById('tmpl-msg');
+  const key = document.getElementById('tmpl-pick').value;
+  const subject = document.getElementById('tmpl-subject').value.trim();
+  const body = document.getElementById('tmpl-body').value.trim();
+  const tmpls = Object.assign({}, ME.broker_templates || DEFAULT_TEMPLATES);
+  tmpls[key] = { subject, body };
+  const { error } = await db.from('agents').update({ broker_templates: tmpls }).eq('id', ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save.'; return; }
+  ME.broker_templates = tmpls;
+  msg.className='msg ok'; msg.textContent='Saved.';
 }
 init();
 </script>

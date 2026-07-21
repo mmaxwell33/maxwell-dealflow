@@ -564,8 +564,10 @@ const App = {
   async loadNotifications() {
     const el = document.getElementById('notif-list');
     if (!el || !currentAgent?.id) return;
-    // Auto-queue the buyer intake for any client the broker has handed over.
+    // Auto-queue the buyer intake for any client the broker has handed over,
+    // and any client email the broker composed (both land in your Approvals).
     App.processBrokerHandoffs().catch(() => {});
+    App.processBrokerClientEmails().catch(() => {});
     el.innerHTML = '<div class="notif-loading">Loading…</div>';
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
@@ -753,6 +755,30 @@ const App = {
     }
     if (queued) App.toast(`📨 ${queued} buyer intake${queued > 1 ? 's' : ''} queued from your broker, approve in Approvals to send`, 'var(--green)');
     if (already) App.toast(`✅ ${already} client your broker sent ${already > 1 ? 'are' : 'is'} already in your list, no form re-sent`, 'var(--green)');
+  },
+
+  // The broker composed a client email in his portal (stamped on the referral).
+  // Queue it into your Approvals (branded, via Notify.queue) for you to review
+  // and send, then clear the pending fields. Idempotent (claim-then-queue).
+  async processBrokerClientEmails() {
+    if (!currentAgent?.id || typeof Notify === 'undefined') return;
+    const { data: rows } = await db.from('broker_referral_requests')
+      .select('id,client_id,client_name,client_email,pending_email_subject,pending_email_body')
+      .eq('agent_id', currentAgent.id).not('pending_email_body', 'is', null).limit(20)
+      .then(r => r, () => ({ data: [] }));
+    if (!rows || !rows.length) return;
+    let queued = 0;
+    for (const r of rows) {
+      if (!r.client_email) continue;
+      const { data: won } = await db.from('broker_referral_requests')
+        .update({ pending_email_subject: null, pending_email_body: null, pending_email_at: null })
+        .eq('id', r.id).not('pending_email_body', 'is', null).select('id');
+      if (!won || !won.length) continue;   // already claimed by a prior pass
+      await Notify.queue('Broker Email to Client', r.client_id, r.client_name, r.client_email,
+        r.pending_email_subject || 'A note about your mortgage', r.pending_email_body);
+      queued++;
+    }
+    if (queued) App.toast(`📨 ${queued} email${queued > 1 ? 's' : ''} from your broker queued, approve in Approvals to send`, 'var(--green)');
   },
 
   // ── DELETE PASSWORD GATE ────────────────────────────────────────────────
