@@ -200,7 +200,7 @@
 <section class="search-band">
  <div class="wrap">
  <p class="search-band-q">Looking for what's on the market right now?</p>
- <a class="btn btn-primary" href="https://www.realtor.ca/" target="_blank" rel="noopener">Browse all Newfoundland listings on REALTOR.ca ↗</a>
+ <a class="btn btn-outline" href="https://www.realtor.ca/" target="_blank" rel="noopener">Browse all Newfoundland listings on REALTOR.ca ↗</a>
  <p class="search-band-sub">REALTOR.ca is the national listing service, always current. See something you like? <a href="#contact">Send it to me</a> and I'll set up the showing.</p>
  </div>
 </section>
@@ -357,27 +357,10 @@
  </div>
  </details>
  <details class="faq-item">
- <summary>What does "pre-approval" actually mean, and do I need it?</summary>
- <div class="faq-body">
- <p>A pre-approval is a lender's written commitment to lend you up to a specific amount, based on your income, credit, and debts. It's <strong>not</strong> a guarantee, the lender still has to approve the specific property, but it tells you (and any seller) what you can credibly offer.</p>
- <p>Yes, I'd want you pre-approved before we tour anything serious. It keeps us from falling in love with a house we can't actually finance.</p>
- </div>
- </details>
- <details class="faq-item">
- <summary>How do you decide what to list my home for?</summary>
- <div class="faq-body">
- <p>A Comparable Market Analysis (CMA). I pull every recent sale within a reasonable radius and adjust for condition, lot, finishes, and current market direction. Then I give you an honest range, usually a low/likely/high, and explain the tradeoffs at each price point.</p>
- <p>If your number and my number disagree by a lot, I'll tell you why. I won't list a property I think is overpriced just to win the listing.</p>
- </div>
- </details>
- <details class="faq-item">
- <summary>Who pays the real estate commission when I'm selling?</summary>
- <div class="faq-body"><p>In Newfoundland the seller's proceeds usually cover both the listing agent's and the buyer's agent's commission. Commission is always negotiable and isn't set by law or by any real-estate board. I'll show you the full breakdown before you sign anything.</p></div>
- </details>
- <details class="faq-item">
  <summary>What if I don't end up buying or selling?</summary>
  <div class="faq-body"><p>Then you don't, and we part as friends. No fees, no guilt, no follow-up sales pressure. A lot of people who reach out aren't ready yet, and that's completely normal.</p></div>
  </details>
+ <p style="margin-top:18px;font-size:14px;"><a href="/site/process/" style="color:var(--brand-dark);font-weight:600;">More questions? See how buying and selling work, step by step →</a></p>
  </div>
  </div>
 </section>
@@ -419,11 +402,14 @@
       Add-as-Client. Consent text + timestamp are stored for the NL s.20 record. -->
  <div id="lender" style="border-top:1px solid var(--border);margin-top:40px;padding-top:32px;">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-   <div style="flex:1;min-width:220px;font-size:19px;font-weight:600;color:var(--ink);">Not sure about financing?</div>
-   <button type="button" class="btn btn-primary" id="lender-toggle" aria-expanded="false" aria-controls="lenderForm">Speak to a mortgage broker</button>
+   <div style="flex:1;min-width:240px;">
+    <div style="font-size:19px;font-weight:600;color:var(--ink);">Not sure about financing?</div>
+    <div style="font-size:15px;color:var(--ink-2);line-height:1.55;margin-top:6px;">I work with a licensed mortgage broker who can take you from A to Z on your mortgage, at no cost or commitment. Just get in touch.</div>
+   </div>
+   <button type="button" class="btn btn-outline" id="lender-toggle" aria-expanded="false" aria-controls="lenderForm">Speak to a mortgage broker</button>
   </div>
   <form id="lenderForm" novalidate style="display:none;margin-top:20px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-md);padding:24px;">
-   <p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 16px;">Want to know what you can afford? Get connected with a licensed mortgage broker, at no cost or commitment.</p>
+   <p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 16px;">Leave your details and I'll connect you with the broker, who will reach out shortly.</p>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
     <input type="text" id="lf-name" placeholder="Your name" aria-label="Your name" autocomplete="name" required style="width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:#fff;color:var(--ink);">
     <input type="tel" id="lf-phone" placeholder="Phone" aria-label="Phone" autocomplete="tel" required style="width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:#fff;color:var(--ink);">
