@@ -52,8 +52,9 @@
   .snap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
   .field{display:flex;flex-direction:column;gap:6px;} .field.full{grid-column:1 / -1;}
   .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
-  .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
-  .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
+  .field input,.field select,.field textarea{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
+  .field textarea{min-height:150px;resize:vertical;line-height:1.55;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
   .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;} .maxsee b{color:var(--t1);}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
   .tile{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px 17px;}
@@ -186,6 +187,13 @@
           <div class="msg" id="tmpl-msg"></div>
         </div>
         <div class="setcard">
+          <h3>Your email signature</h3>
+          <p>Added to the bottom of every email you send from here.</p>
+          <div class="field"><label>Signature</label><textarea id="set-sig" placeholder="Asare Gyimah&#10;Mortgage Broker, Centum&#10;(709) 555-0100"></textarea></div>
+          <button class="btn" style="margin-top:12px" onclick="saveSignature()">Save signature</button>
+          <div class="msg" id="sig-msg"></div>
+        </div>
+        <div class="setcard">
           <h3>Change your password</h3>
           <p>Only you know it. Maxwell never sees it.</p>
           <div class="field"><label>New password</label><input id="set-pw1" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>
@@ -204,8 +212,8 @@
     <select id="cmp-tmpl" onchange="applyTemplate()"><option value="reachout">Reach out</option><option value="application">Application invite</option><option value="reminder">Reminder</option></select>
     <div class="rowlbl">Subject</div><input id="cmp-subject">
     <div class="rowlbl">Message</div><textarea id="cmp-body"></textarea>
-    <div class="info">This client came from Maxwell, so your email goes to him to review and send.</div>
-    <div class="foot"><button class="btn grow" onclick="sendCompose()">Send to Maxwell to review</button><button class="btn ghost grow" onclick="document.getElementById('compose').classList.remove('on')">Cancel</button></div>
+    <div class="info">This opens your own email app and sends from your address. Your signature is added automatically.</div>
+    <div class="foot"><button class="btn grow" onclick="sendCompose()">Open in my email</button><button class="btn ghost grow" onclick="document.getElementById('compose').classList.remove('on')">Cancel</button></div>
     <div class="msg" id="cmp-msg"></div>
   </div>
 </div>
@@ -260,6 +268,7 @@ async function afterAuth(){
   if(!ME.broker_templates){ ME.broker_templates = DEFAULT_TEMPLATES; db.from('agents').update({broker_templates:DEFAULT_TEMPLATES}).eq('id',ME.id); }
   document.getElementById('who').textContent = (me.name||me.email);
   document.getElementById('set-intake').value = me.broker_intake_url || '';
+  const _sig = document.getElementById('set-sig'); if(_sig) _sig.value = (me.broker_templates && me.broker_templates.signature) || '';
   loadTmplEditor();
   await loadRefs();
   // await loadMine();  // FROZEN (Session 10) — own-client tab hidden pending a data-processing agreement
@@ -415,8 +424,10 @@ function sendIntake(id){
   if(!url){ alert('Add your application link in Settings first.'); switchTab('s'); return; }
   db.from('broker_referral_requests').update({ app_sent_at:new Date().toISOString() }).eq('id',id).eq('broker_id',ME.id);  // start the follow-up clock
   const subject = encodeURIComponent('Your mortgage application, start here');
-  const body = encodeURIComponent(`Hi ${r.client_name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`);
-  window.location.href = `mailto:${r.client_email||''}?subject=${subject}&body=${body}`;
+  const sig = (ME.broker_templates && ME.broker_templates.signature) || '';
+  let raw = `Hi ${r.client_name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`;
+  if(sig) raw += '\n\n' + sig;
+  window.location.href = `mailto:${r.client_email||''}?subject=${subject}&body=${encodeURIComponent(raw)}`;
 }
 async function saveIntake(){
   const msg=document.getElementById('intake-msg'); const url=document.getElementById('set-intake').value.trim()||null;
@@ -479,18 +490,18 @@ function applyTemplate(){
   document.getElementById('cmp-subject').value = fillTokens(t.subject, COMPOSE_REF);
   document.getElementById('cmp-body').value = fillTokens(t.body, COMPOSE_REF);
 }
-async function sendCompose(){
+function sendCompose(){
   if(!COMPOSE_REF) return;
   const msg = document.getElementById('cmp-msg');
   const subject = document.getElementById('cmp-subject').value.trim();
-  const body = document.getElementById('cmp-body').value.trim();
+  let body = document.getElementById('cmp-body').value.trim();
   if(!subject || !body){ msg.className='msg err'; msg.textContent='Add a subject and a message.'; return; }
-  const { error } = await db.from('broker_referral_requests')
-    .update({ pending_email_subject:subject, pending_email_body:body, pending_email_at:new Date().toISOString() })
-    .eq('id', COMPOSE_REF.id).eq('broker_id', ME.id);
-  if(error){ msg.className='msg err'; msg.textContent='Could not send. Please try again.'; return; }
+  const sig = (ME.broker_templates && ME.broker_templates.signature) || '';
+  if(sig) body += '\n\n' + sig;
+  const to = COMPOSE_REF.client_email || '';
   document.getElementById('compose').classList.remove('on');
-  alert('Sent to Maxwell to review. Once he approves it, it goes to the client.');
+  // Opens the broker's own mail app so it sends from HIS address, in his Sent folder.
+  window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 function loadTmplEditor(){
   const pick = document.getElementById('tmpl-pick'); if(!pick) return;
@@ -506,6 +517,16 @@ async function saveTemplate(){
   const body = document.getElementById('tmpl-body').value.trim();
   const tmpls = Object.assign({}, ME.broker_templates || DEFAULT_TEMPLATES);
   tmpls[key] = { subject, body };
+  const { error } = await db.from('agents').update({ broker_templates: tmpls }).eq('id', ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save.'; return; }
+  ME.broker_templates = tmpls;
+  msg.className='msg ok'; msg.textContent='Saved.';
+}
+async function saveSignature(){
+  const msg = document.getElementById('sig-msg');
+  const sig = document.getElementById('set-sig').value;
+  const tmpls = Object.assign({}, ME.broker_templates || DEFAULT_TEMPLATES);
+  tmpls.signature = sig;
   const { error } = await db.from('agents').update({ broker_templates: tmpls }).eq('id', ME.id);
   if(error){ msg.className='msg err'; msg.textContent='Could not save.'; return; }
   ME.broker_templates = tmpls;

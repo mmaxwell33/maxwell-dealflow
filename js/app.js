@@ -592,7 +592,7 @@ const App = {
         .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10),
       // Clients who tapped "Yes, introduce me" on the welcome email's soft broker
       // offer. Best-effort (table may not be migrated yet).
-      db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source,snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at,approved_by')
+      db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source,broker_id,snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at,approved_by')
         .eq('agent_id', currentAgent.id).in('status', ['requested', 'pending', 'approved', 'sent'])
         .order('created_at', { ascending: false }).limit(15)
         .then(r => r, () => ({ data: [] }))
@@ -605,8 +605,9 @@ const App = {
     const _money = n => (n != null && n !== '') ? '$' + Number(n).toLocaleString() : '';
     const _recentCut = Date.now() - 14 * 86400000;
     (referrals || []).forEach(r => {
-      if (r.status === 'pending' || r.status === 'requested') {
-        // Actionable — a client is waiting on the intro.
+      if ((r.status === 'pending' || r.status === 'requested') && !r.broker_id) {
+        // Actionable — a client is waiting on the intro, and it's not yet
+        // routed to a broker's lane (once broker_id is set it lives in his portal).
         const fromWeb = r.source === 'website' || r.status === 'pending';
         items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C',
           title: fromWeb ? 'Client wants a mortgage broker' : 'Broker intro requested',
@@ -704,12 +705,22 @@ const App = {
       App.toast('⚠️ Set your broker in Settings → Mortgage Broker Referral first', 'var(--yellow)'); return;
     }
     const name = req.client_name || 'this client';
-    if (!confirm(`Send your mortgage-broker intro for ${name}?\n\nIt'll be queued in Approvals for you to review and send.`)) return;
-    // CLAIM the referral first — compare-and-swap on the pre-approval statuses so a
-    // simultaneous broker approval on the lane can't produce a second intro email.
+    if (!confirm(`Send your mortgage-broker intro for ${name}?\n\nIt'll be queued in Approvals for you to review and send, and land in your broker's portal.`)) return;
+    // Resolve which broker's lane this belongs to (the account you set up).
+    let brokerId = currentAgent.broker_account_id || null;
+    if (!brokerId) {
+      const { data: bk } = await db.from('agents').select('id')
+        .eq('role', 'broker').eq('created_by', currentAgent.id)
+        .order('created_at', { ascending: false }).limit(1);
+      brokerId = (bk && bk[0] && bk[0].id) || null;
+    }
+    // CLAIM the referral first — compare-and-swap on broker_id IS NULL so a repeat
+    // tap (or a simultaneous broker approval) can't route it twice. We attach the
+    // broker_id and KEEP status 'pending' so it shows in the broker's "Reached out"
+    // tab for him to approve; it drops off Maxwell's bell because broker_id is set.
     const { data: won } = await db.from('broker_referral_requests')
-      .update({ status: 'sent', approved_by: 'maxwell', approved_at: new Date().toISOString() })
-      .eq('id', id).in('status', ['pending', 'requested', 'offered']).select('id');
+      .update({ broker_id: brokerId, approved_by: 'maxwell', approved_at: new Date().toISOString() })
+      .eq('id', id).is('broker_id', null).in('status', ['pending', 'requested', 'offered']).select('id');
     if (!won || !won.length) { App.toast('✅ Already handled', 'var(--yellow)'); App.loadNotifications(); return; }
     // Won the claim — now queue the intro (broker primary, client + Maxwell CC).
     if (typeof Notify === 'undefined' || !Notify.onBrokerReferral) { App.toast('Notify unavailable', 'var(--red)'); return; }
