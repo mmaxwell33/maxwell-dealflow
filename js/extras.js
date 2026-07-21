@@ -5488,21 +5488,29 @@ const Settings = {
     // Flag them a broker + link this founder's referrals to their login.
     await db.from('agents').update({ role: 'broker' }).eq('id', brokerId);
     await db.from('broker_referral_requests').update({ broker_id: brokerId }).eq('agent_id', currentAgent.id).is('broker_id', null);
-    setMsg('✅ Broker login ready.', 'var(--green)');
+    // Queue the invite email into Approvals — same rail as every other send.
+    // You approve it and it goes to the broker (with the link + temp password).
     const url = 'https://maxwellmidodzi.com/broker.html';
-    App.openModal(`
-      <div class="modal-title">🔗 Broker login ready</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send these to <b>${App.esc(name)}</b> (${App.esc(email)}). They sign in, then change their password in the portal's Settings.</div>
-      <div class="card2" style="padding:12px;margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--text2);">PORTAL LINK</div>
-        <div style="font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;">${url}</div>
-      </div>
-      <div class="card2" style="padding:12px;margin-bottom:14px;">
-        <div style="font-size:11px;color:var(--text2);">TEMPORARY PASSWORD</div>
-        <div style="font-family:ui-monospace,monospace;font-size:16px;font-weight:700;">${App.esc(data.temp_password || '')}</div>
-      </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="App.closeModal()">Done</button>
-    `);
+    const subject = 'Your Financing Lane portal: sign-in details';
+    const body =
+`Hi ${name},
+
+You're set up on Maxwell's Financing Lane. Sign in to your portal here:
+${url}
+
+Temporary password: ${data.temp_password || ''}
+
+Please change your password in the portal's Settings once you sign in. From your lane you'll see the clients Maxwell refers to you, approve them, add the pre-approval details, and hand a client back to Maxwell when they're ready to buy.
+
+Thanks,
+${currentAgent?.full_name || 'Maxwell Midodzi'}
+REALTOR, eXp Realty`;
+    if (typeof Notify !== 'undefined' && Notify.queue) {
+      await Notify.queue('Broker Portal Invite', null, name, email, subject, body, null);
+    }
+    setMsg(`✅ Login created. Temp password: ${data.temp_password || ''}  ·  the invite email is now in Approvals. Approve it to send to ${email}.`, 'var(--green)');
+    App.toast('📨 Broker invite queued in Approvals', 'var(--green)');
+    if (window.App?.switchTab) App.switchTab('approvals');
   },
 
   // ── (legacy) token lane link — superseded by the login portal above ──────
