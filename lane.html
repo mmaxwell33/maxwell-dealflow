@@ -5,82 +5,130 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Financing Lane — Referrals from Maxwell</title>
 <style>
-  :root{--bg:#0A0E14;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
+  :root{--bg:#0A0E14;--bg2:#0f1520;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
         --t1:#F8FAFC;--t2:#94A3B8;--t3:#64748B;--bd:#232c38;--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
         --am:#88A2CE;--am-soft:rgba(110,140,192,0.16);--rd:#B91C1C;
         --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--t1);font-family:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:560px;margin:0 auto;padding:0 16px 60px;}
-  .top{display:flex;align-items:center;gap:11px;padding:20px 16px 16px;max-width:560px;margin:0 auto;border-bottom:1px solid var(--bd);}
-  .mk{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;flex:none;}
-  .top b{font-size:16px;display:block;line-height:1.15;}
-  .top small{font-size:11px;color:var(--t3);font-family:var(--mono);}
-  h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);font-family:var(--mono);margin:24px 4px 10px;}
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:15px 16px;margin-bottom:11px;}
-  .r1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-  .cn{font-weight:700;font-size:16px;}
-  .src{font-size:10.5px;color:var(--t3);font-family:var(--mono);white-space:nowrap;}
-  .contact{font-size:13px;color:var(--t2);font-family:var(--mono);margin-top:3px;}
+  html,body{background:var(--bg);}
+  body{color:var(--t1);font-family:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;}
+  .shell{max-width:1280px;width:100%;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+
+  /* header */
+  .top{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px solid var(--bd);
+       display:flex;align-items:center;gap:12px;padding:16px 24px;}
+  .mk{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
+  .top b{font-size:17px;display:block;line-height:1.15;letter-spacing:-.2px;}
+  .top small{font-size:11.5px;color:var(--t3);font-family:var(--mono);}
+
+  .body{flex:1;padding:22px 24px 70px;}
+
+  /* tabs */
+  .tabs{display:flex;gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:13px;padding:5px;margin:0 auto 20px;max-width:540px;width:100%;}
+  .tab{flex:1;font:inherit;font-size:13.5px;font-weight:600;padding:10px 8px;border-radius:9px;border:0;background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s;}
+  .tab.on{background:var(--a);color:#fff;box-shadow:0 2px 8px rgba(110,140,192,.35);}
+  .tab .ct{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.16);padding:1px 7px;border-radius:10px;}
+  .tab:not(.on) .ct{background:var(--s2);color:var(--t3);}
+
+  .panel{display:none;flex-direction:column;gap:12px;}
+  .panel.on{display:flex;}
+  /* cards flow into columns on desktop, stack on mobile */
+  #list-pending,#list-active{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;align-items:start;}
+
+  /* card */
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:17px 18px;}
+  .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .cn{font-weight:700;font-size:17px;letter-spacing:-.2px;}
+  .contact{font-size:12.5px;color:var(--t2);font-family:var(--mono);margin-top:4px;word-break:break-word;}
   .contact a{color:var(--a2);text-decoration:none;}
-  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap;}
-  .pill{font-size:11px;font-weight:700;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;}
+  .src{font-size:10.5px;color:var(--t3);font-family:var(--mono);white-space:nowrap;margin-top:3px;}
+  .pill{font-size:11px;font-weight:700;font-family:var(--mono);padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;}
   .p-wait{background:var(--am-soft);color:var(--am);} .p-go{background:var(--g-soft);color:var(--g);}
-  .btn{font:inherit;font-size:13px;font-weight:700;padding:9px 15px;border-radius:9px;border:1px solid var(--a);color:#fff;background:var(--a);cursor:pointer;}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+  .actions{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap;}
+  .btn{font:inherit;font-size:13px;font-weight:700;padding:10px 15px;border-radius:10px;border:1px solid var(--a);color:#fff;background:var(--a);cursor:pointer;transition:.12s;}
+  .btn:active{transform:translateY(1px);}
   .btn:disabled{opacity:.5;cursor:default;}
   .btn.ghost{background:transparent;color:var(--a2);}
-  .btn.block{width:100%;text-align:center;padding:13px;font-size:15px;border-radius:11px;margin-top:8px;}
-  .snap{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px;}
-  .field{display:flex;flex-direction:column;gap:5px;}
+  .btn.block{width:100%;text-align:center;padding:14px;font-size:15px;border-radius:12px;}
+  .btn.go{background:var(--g);border-color:var(--g);color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.3);margin-top:11px;}
+  .btn.grow{flex:1;text-align:center;}
+
+  .snap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
+  .field{display:flex;flex-direction:column;gap:6px;}
   .field.full{grid-column:1 / -1;}
-  .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px;}
-  .field input,.field select{font:inherit;font-size:14px;padding:10px 11px;border-radius:9px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
-  .note{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.45;}
-  .state{padding:70px 24px;text-align:center;color:var(--t2);}
-  .state .big{font-size:40px;margin-bottom:12px;}
-  .state h3{font-size:18px;color:var(--t1);margin-bottom:8px;}
-  .state p{font-size:14px;color:var(--t2);max-width:340px;margin:0 auto;}
-  .setup{padding:40px 20px;max-width:400px;margin:0 auto;text-align:center;}
-  .setup .mk{margin:0 auto 16px;width:52px;height:52px;font-size:24px;}
-  .setup h3{font-size:20px;margin-bottom:6px;}
-  .setup p{font-size:13px;color:var(--t2);margin-bottom:20px;}
-  .msg{font-size:12.5px;min-height:16px;margin-top:8px;}
+  .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
+  .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
+
+  .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;}
+  .maxsee b{color:var(--t1);}
+  .note{font-size:11.5px;color:var(--t3);margin-top:11px;line-height:1.5;}
+
+  .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:13.5px;padding:44px 20px;background:var(--card);border:1px dashed var(--bd);border-radius:16px;}
+  .empty .ei{font-size:30px;display:block;margin-bottom:10px;opacity:.5;}
+  .sechint{font-size:11.5px;color:var(--t3);font-family:var(--mono);margin:0 auto 14px;max-width:540px;text-align:center;}
+
+  @media(max-width:600px){
+    .top{padding:14px 16px;}
+    .body{padding:16px 14px 60px;}
+    #list-pending,#list-active{grid-template-columns:1fr;}
+  }
+
+  /* full-page states */
+  .state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px;min-height:70vh;}
+  .state .big{font-size:44px;margin-bottom:14px;}
+  .state h3{font-size:20px;margin-bottom:8px;}
+  .state p{font-size:14px;color:var(--t2);max-width:340px;}
+
+  .setup{flex:1;display:flex;flex-direction:column;justify-content:center;padding:36px 26px 70px;max-width:420px;margin:0 auto;text-align:center;}
+  .setup .mk{margin:0 auto 18px;width:56px;height:56px;font-size:26px;}
+  .setup h3{font-size:22px;margin-bottom:8px;}
+  .setup p{font-size:13.5px;color:var(--t2);margin-bottom:22px;line-height:1.55;}
+  .setup .field{text-align:left;margin-bottom:12px;}
+  .msg{font-size:12.5px;min-height:16px;margin-top:10px;}
   .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
-  .empty{color:var(--t3);font-size:13px;padding:14px 4px;}
   [hidden]{display:none !important;}
 </style>
 </head>
 <body>
-  <div class="top"><div class="mk">M</div><div><b>Financing Lane</b><small id="top-sub">referrals from Maxwell</small></div></div>
+<div class="shell">
+  <div class="top"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
 
-  <div class="wrap">
-    <div id="state-loading" class="state"><p>Loading your lane…</p></div>
+  <div id="state-loading" class="state"><p>Loading your lane…</p></div>
 
-    <div id="state-invalid" class="state" hidden>
-      <div class="big">🔒</div>
-      <h3>This link isn't active</h3>
-      <p>Ask Maxwell to resend your Financing Lane link, or reply to his email and he'll sort it out.</p>
+  <div id="state-invalid" class="state" hidden>
+    <div class="big">🔒</div>
+    <h3>This link isn't active</h3>
+    <p>Ask Maxwell to resend your Financing Lane link, or reply to his email and he'll sort it out.</p>
+  </div>
+
+  <div id="state-setup" class="setup" hidden>
+    <div class="mk">M</div>
+    <h3>Welcome to your lane</h3>
+    <p>Set an approval password only you will know. You'll type it when you approve a referral. Maxwell never sees it.</p>
+    <div class="field"><label>CHOOSE A PASSWORD</label><input id="pw1" type="password" autocomplete="new-password" placeholder="At least 4 characters"></div>
+    <div class="field"><label>CONFIRM PASSWORD</label><input id="pw2" type="password" autocomplete="new-password" placeholder="Type it again"></div>
+    <button class="btn block" id="pw-save" onclick="savePassword()">Save &amp; open my lane</button>
+    <div class="msg" id="pw-msg"></div>
+  </div>
+
+  <div id="state-lane" class="body" hidden>
+    <div class="tabs">
+      <button class="tab on" id="tab-a" onclick="switchTab('a')">Reached out <span class="ct" id="ct-a">0</span></button>
+      <button class="tab" id="tab-b" onclick="switchTab('b')">Working with <span class="ct" id="ct-b">0</span></button>
     </div>
-
-    <div id="state-setup" class="setup" hidden>
-      <div class="mk">M</div>
-      <h3>Welcome to your lane</h3>
-      <p>Set an approval password only you will know. You'll type it whenever you approve a referral. Maxwell never sees it.</p>
-      <div class="field full" style="text-align:left"><label>Choose a password</label>
-        <input id="pw1" type="password" autocomplete="new-password" placeholder="At least 4 characters"></div>
-      <div class="field full" style="text-align:left;margin-top:10px"><label>Confirm password</label>
-        <input id="pw2" type="password" autocomplete="new-password" placeholder="Type it again"></div>
-      <button class="btn block" id="pw-save" onclick="savePassword()">Save &amp; open my lane</button>
-      <div class="msg" id="pw-msg"></div>
-    </div>
-
-    <div id="state-lane" hidden>
-      <h2 class="sec">Waiting on Maxwell / ready</h2>
+    <div class="panel on" id="panel-a">
+      <div class="sechint">Website leads Maxwell referred to you. Approve to start.</div>
       <div id="list-pending"></div>
-      <h2 class="sec">Working with</h2>
+    </div>
+    <div class="panel" id="panel-b">
+      <div class="sechint">Clients you're working. Save the pre-approval snapshot; hand them to Maxwell when ready.</div>
       <div id="list-active"></div>
     </div>
   </div>
+</div>
 
 <script>
 const SB = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
@@ -89,9 +137,7 @@ const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
 async function rpc(fn, args){
   const r = await fetch(SB + '/rest/v1/rpc/' + fn, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', apikey:KEY, Authorization:'Bearer '+KEY },
-    body: JSON.stringify(args)
+    method:'POST', headers:{ 'Content-Type':'application/json', apikey:KEY, Authorization:'Bearer '+KEY }, body: JSON.stringify(args)
   });
   if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
   return r.json();
@@ -100,12 +146,17 @@ async function sha256(text){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-function show(id){ ['loading','invalid','setup','lane'].forEach(s=>{ const el=document.getElementById('state-'+s); if(el) el.hidden = (s!==id); }); }
+function show(id){ ['loading','invalid','setup','lane'].forEach(s=>{ const el=document.getElementById('state-'+s); if(el) el.hidden=(s!==id); }); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function money(n){ return n==null?'':'$'+Number(n).toLocaleString(); }
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
-
 let LANE = { referrals: [] };
+
+function switchTab(which){
+  document.getElementById('tab-a').classList.toggle('on', which==='a');
+  document.getElementById('tab-b').classList.toggle('on', which==='b');
+  document.getElementById('panel-a').classList.toggle('on', which==='a');
+  document.getElementById('panel-b').classList.toggle('on', which==='b');
+}
 
 async function load(){
   if(!TOKEN){ show('invalid'); return; }
@@ -119,57 +170,59 @@ async function load(){
   show('lane');
 }
 
-function render(){
-  const refs = LANE.referrals || [];
-  const pend = refs.filter(r => r.status === 'pending');
-  const active = refs.filter(r => r.status === 'approved' || r.status === 'sent');
-  const pc = document.getElementById('list-pending');
-  const ac = document.getElementById('list-active');
-
-  pc.innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty">No new referrals right now.</div>';
-  ac.innerHTML = active.length ? active.map(cardActive).join('') : '<div class="empty">Nothing here yet. Approved referrals show up here.</div>';
-}
-
 function contactLine(r){
   const bits=[];
   if(r.phone) bits.push(`<a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>`);
   if(r.email) bits.push(`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`);
-  return bits.join(' · ');
+  return bits.join(' &middot; ');
+}
+
+function render(){
+  const refs = LANE.referrals || [];
+  const pend = refs.filter(r => r.status === 'pending');
+  const active = refs.filter(r => r.status === 'approved' || r.status === 'sent');
+  document.getElementById('ct-a').textContent = pend.length;
+  document.getElementById('ct-b').textContent = active.length;
+  document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('')
+    : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
+  document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('')
+    : '<div class="empty"><span class="ei">🗂️</span>No active clients yet. Approve a referral and it moves here.</div>';
+  // Land on whichever tab has something to do.
+  switchTab(pend.length && !active.length ? 'a' : (active.length && !pend.length ? 'b' : 'a'));
 }
 
 function cardPending(r){
   return `<div class="card">
-    <div class="r1"><span class="cn">${esc(r.name||'New lead')}</span><span class="src">from ${esc(r.source||'referral')}</span></div>
-    <div class="contact">${contactLine(r)}</div>
-    <div class="foot">
-      <span class="pill p-wait">● Waiting on Maxwell to approve</span>
-      <button class="btn ghost" onclick="approve('${r.id}')">Approve myself</button>
+    <div class="r1">
+      <div><div class="cn">${esc(r.name||'New lead')}</div><div class="contact">${contactLine(r)}</div></div>
+      <span class="pill p-wait"><span class="dot"></span>Waiting on Maxwell</span>
     </div>
-    <div class="note">Maxwell usually approves within a day. If he's away, you can take it from here — approve with your password and reach out to the client yourself, naming Maxwell as the referrer.</div>
+    <div class="actions"><button class="btn ghost grow" onclick="approve('${r.id}')">Approve myself</button></div>
+    <div class="note">Maxwell usually approves within a day. If he's away, approve it yourself with your password and reach out to the client, naming Maxwell as the referrer.</div>
   </div>`;
 }
 
 function cardActive(r){
   const s = r.snapshot || {};
   return `<div class="card">
-    <div class="r1"><span class="cn">${esc(r.name||'Client')}</span>
-      <span class="pill p-go">● ${r.approved_by==='broker'?'You are handling':'Approved'}</span></div>
-    <div class="contact">${contactLine(r)}</div>
+    <div class="r1">
+      <div><div class="cn">${esc(r.name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
+      <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span>
+    </div>
     <div class="snap">
       <div class="field"><label>Max amount</label><input id="max-${r.id}" inputmode="numeric" placeholder="e.g. 385000" value="${s.max_amount!=null?esc(s.max_amount):''}"></div>
       <div class="field"><label>Rate hold expires</label><input id="rate-${r.id}" type="date" value="${esc(s.rate_hold||'')}"></div>
-      <div class="field full"><label>Status</label>
-        <select id="stat-${r.id}">
-          <option value="">Choose…</option>
-          ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${s.status===v?'selected':''}>${l}</option>`).join('')}
-        </select></div>
+      <div class="field full"><label>Status</label><select id="stat-${r.id}">
+        <option value="">Choose…</option>
+        ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${s.status===v?'selected':''}>${l}</option>`).join('')}
+      </select></div>
     </div>
-    <div class="foot">
-      <button class="btn ghost" onclick="sendIntake('${r.id}')">Send my application</button>
-      <button class="btn ghost" onclick="saveSnapshot('${r.id}')">Save snapshot</button>
+    <div class="actions">
+      <button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button>
+      <button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button>
     </div>
-    <button class="btn block" style="margin-top:10px;background:var(--g);border-color:var(--g);" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
-    <div class="note">"Send my application" emails the client your own mortgage application. When they're pre-approved and ready to buy, "send to Maxwell" hands them over and Maxwell sends his home-buyer form. Only the amount, status and rate-hold you enter here are shared with Maxwell.</div>
+    <button class="btn go block" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
+    <div class="maxsee"><b>Maxwell sees only</b> the amount, status and rate-hold you enter here. Nothing else, and none of your other clients.</div>
     <div class="msg" id="snapmsg-${r.id}"></div>
   </div>`;
 }
@@ -180,26 +233,20 @@ async function approve(id){
   let hash; try{ hash = await sha256(pw); }catch(e){ return; }
   try{
     const res = await rpc('broker_approve_referral', { p_token: TOKEN, p_referral_id: id, p_hash: hash });
-    if(!res.ok){
-      alert(res.error==='wrong_password' ? 'That password is not right.' : 'Could not approve — please try again.');
-      return;
-    }
+    if(!res.ok){ alert(res.error==='wrong_password' ? 'That password is not right.' : 'Could not approve, please try again.'); return; }
     if(res.already_handled){ alert('Maxwell already approved this one.'); }
-    await load();
+    await load(); switchTab('b');
   }catch(e){ alert('Something went wrong. Please try again.'); }
 }
 
 async function saveSnapshot(id){
   const msg = document.getElementById('snapmsg-'+id);
-  const maxV = document.getElementById('max-'+id).value.replace(/[^0-9.]/g,'');
+  const maxV = (document.getElementById('max-'+id).value||'').replace(/[^0-9.]/g,'');
   const stat = document.getElementById('stat-'+id).value || null;
   const rate = document.getElementById('rate-'+id).value || null;
   try{
-    const res = await rpc('broker_set_snapshot', {
-      p_token: TOKEN, p_referral_id: id,
-      p_max: maxV ? Number(maxV) : null, p_status: stat, p_rate: rate
-    });
-    if(res.ok){ msg.className='msg ok'; msg.textContent='Saved — Maxwell can see this now.'; }
+    const res = await rpc('broker_set_snapshot', { p_token: TOKEN, p_referral_id: id, p_max: maxV?Number(maxV):null, p_status: stat, p_rate: rate });
+    if(res.ok){ msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; }
     else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
   }catch(e){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
 }
@@ -217,10 +264,8 @@ function sendIntake(id){
   const r = (LANE.referrals||[]).find(x=>x.id===id) || {};
   const url = LANE.intake_url;
   if(!url){ alert('No application link is set yet. Ask Maxwell to add your application link in his DealFlow settings, then it will appear here.'); return; }
-  const subject = encodeURIComponent('Your mortgage application — start here');
-  const body = encodeURIComponent(
-    `Hi ${r.name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`
-  );
+  const subject = encodeURIComponent('Your mortgage application, start here');
+  const body = encodeURIComponent(`Hi ${r.name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`);
   window.location.href = `mailto:${r.email||''}?subject=${subject}&body=${body}`;
 }
 
@@ -229,12 +274,11 @@ async function savePassword(){
   const p1 = document.getElementById('pw1').value, p2 = document.getElementById('pw2').value;
   if(p1.length < 4){ msg.className='msg err'; msg.textContent='Use at least 4 characters.'; return; }
   if(p1 !== p2){ msg.className='msg err'; msg.textContent='The two passwords do not match.'; return; }
-  const btn = document.getElementById('pw-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  const btn = document.getElementById('pw-save'); btn.disabled=true; btn.textContent='Saving…';
   try{
     const hash = await sha256(p1);
     const res = await rpc('broker_set_password', { p_token: TOKEN, p_hash: hash });
-    if(res.ok){ await load(); }
-    else if(res.error==='already_set'){ await load(); }
+    if(res.ok || res.error==='already_set'){ await load(); }
     else { msg.className='msg err'; msg.textContent='Could not save. Please try again.'; btn.disabled=false; btn.textContent='Save & open my lane'; }
   }catch(e){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; btn.disabled=false; btn.textContent='Save & open my lane'; }
 }
