@@ -574,14 +574,33 @@ const FormResponses = {
       );
     }
 
+    // ── Split "reached out" (a website message, no intake yet) from "intake
+    // completed" (the full form). Classify by field-presence, not status. Once a
+    // reached-out person fills the intake (a new row with the same email), their
+    // inquiry card auto-clears from Reached out.
+    const completed = data.filter(x => FormResponses._isIntake(x) && x.status !== 'Dismissed');
+    const intakeEmails = new Set(completed.map(x => (x.email || '').toLowerCase()).filter(Boolean));
+    const reached = data.filter(x => !FormResponses._isIntake(x)
+      && x.status !== 'Added' && x.status !== 'Dismissed'
+      && !intakeEmails.has((x.email || '').toLowerCase()));
+    if (FormResponses._tab !== 'intake') FormResponses._tab = 'reached';
+    const activeList = FormResponses._tab === 'intake' ? completed : reached;
+    const subline = FormResponses._tab === 'intake'
+      ? 'People who filled the full intake form. Review and add them as a client.'
+      : "People who got in touch but haven't filled the intake form yet. Talk to them, then send them the form.";
+    const tabBtn = (key, label, n) => `<button style="font-size:13px;font-weight:600;padding:8px 14px;border-radius:7px;border:none;cursor:pointer;background:${FormResponses._tab===key?'var(--accent)':'transparent'};color:${FormResponses._tab===key?'#fff':'var(--text2)'};" onclick="FormResponses.setTab('${key}')">${label} (${n})</button>`;
     el.innerHTML = `
       <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
         <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwellmidodzi.com/intake</div>
         <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${data.length} submission${data.length!==1?'s':''} received</div>
-      ${data.map(r => {
+      <div style="display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;gap:4px;margin-bottom:8px;">
+        ${tabBtn('reached','📨 Reached out', reached.length)}${tabBtn('intake','📋 Intake completed', completed.length)}
+      </div>
+      <div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;">${subline}</div>
+      ${activeList.length ? activeList.map(r => {
+        if (!FormResponses._isIntake(r)) return FormResponses._reachedCard(r);
         const isNew = r.status === 'New';
         const date = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
         // Seller-side feature: render seller-specific fields when intake_type === 'seller'
@@ -642,7 +661,96 @@ const FormResponses = {
             <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);" title="More actions" onclick="FormResponses.openMenu('${r.id}')">⋮</button>
           </div>`}
         </div>`;
-      }).join('')}`;
+      }).join('') : `<div style="text-align:center;padding:34px 16px;color:var(--text3);font-size:13px;">${FormResponses._tab==='intake' ? 'No completed intakes yet. Send your intake form to someone who reached out and it will show up here.' : 'No new inquiries. When someone messages you from your website, they land here first, before they fill the intake form.'}</div>`}`;
+  },
+
+  _tab: 'reached',
+
+  // A submission is a completed INTAKE if it carries real search criteria;
+  // otherwise it is someone who just "reached out" (a website message/inquiry).
+  // Do NOT use preapproval as a signal: the lender opt-in sets it with no
+  // criteria, and those belong under "Reached out".
+  _isIntake(r) {
+    const buyer  = r.budget_max || r.preferred_areas || r.property_types || r.bedrooms || r.timeline || r.must_haves;
+    const seller = r.property_address || r.asking_price || r.sell_timeline || r.property_type || r.property_bedrooms;
+    return !!(buyer || seller);
+  },
+  _isLender(r) { return (r.referral_source || '').toLowerCase().includes('lender'); },
+
+  setTab(t) { FormResponses._tab = (t === 'intake') ? 'intake' : 'reached'; FormResponses.load(); },
+
+  // Card for a "reached out" lead: the person + their message + the right next
+  // step. A lender inquiry gets "Send to mortgage broker"; everyone else gets
+  // "Send intake form". No "Add as Client" here (they are not a client yet).
+  _reachedCard(r) {
+    const lender = FormResponses._isLender(r);
+    const date = r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const chip = lender
+      ? `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:rgba(156,163,175,.16);color:#B7C0CE;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">Lender inquiry</span>`
+      : `<span style="display:inline-block;padding:3px 9px;border-radius:50px;background:var(--accent-soft);color:var(--accent2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;vertical-align:middle;">Website message</span>`;
+    const st = r.status === 'Intake sent' ? 'Intake sent' : r.status === 'Broker sent' ? 'Sent to broker' : 'Reached out';
+    const fresh = r.status === 'New';
+    const statusPill = `<span class="stage-badge" style="font-size:10px;white-space:nowrap;background:${fresh?'var(--accent-soft)':'rgba(156,163,175,.16)'};color:${fresh?'var(--accent2)':'#B7C0CE'};">${st}</span>`;
+    const email = r.email ? `<a href="mailto:${r.email}" style="color:var(--text2);text-decoration:none;">📧 ${r.email}</a>` : '';
+    const phone = r.phone ? ` · <a href="tel:${(r.phone||'').replace(/[^0-9+]/g,'')}" style="color:var(--text2);text-decoration:none;">📞 ${r.phone}</a>` : '';
+    const primary = lender
+      ? `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendToBroker('${r.id}')">🏦 Send to mortgage broker</button>`
+      : `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendIntake('${r.id}')">📨 ${r.status==='Intake sent'?'Resend intake form':'Send intake form'}</button>`;
+    const secondary = (lender && r.status!=='Intake sent')
+      ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.sendIntake('${r.id}')">📨 Send intake form</button>` : '';
+    return `
+      <div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div class="fw-700" style="font-size:15px;">${r.full_name || '—'}${chip}</div>
+          ${statusPill}
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">${email}${phone}</div>
+        ${r.notes ? `<div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;color:var(--text);line-height:1.5;margin-bottom:10px;">💬 ${r.notes}</div>` : ''}
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;">Submitted ${date}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${primary}
+          ${secondary}
+          <button class="btn btn-red btn-sm" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
+        </div>
+      </div>`;
+  },
+
+  // Email a reached-out lead the intake link. Routes through the existing
+  // Notify.queue -> Approvals -> send-email rail (Maxwell approves before it sends).
+  async sendIntake(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    if (!r) return;
+    if (!r.email) { App.toast('⚠️ No email on this lead to send to', 'var(--red)'); return; }
+    if (typeof Notify === 'undefined') { App.toast('⚠️ Email system unavailable', 'var(--red)'); return; }
+    const first = (r.full_name || 'there').split(/\s+/)[0] || 'there';
+    const sig = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain)
+      ? '\n\n' + EmailFormat.signaturePlain(currentAgent)
+      : '\n\nMaxwell Midodzi\nREALTOR, eXp Realty\n(709) 325-0545';
+    const subject = 'A quick form to help me find the right fit for you';
+    const body = `Hi ${first},\n\nGreat to connect. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for and can help you properly:\n\nhttps://maxwellmidodzi.com/intake\n\nIt only takes about five minutes. Once it is in, I will follow up with your next steps.` + sig;
+    await Notify.queue('Intake Link', null, r.full_name, r.email, subject, body, r.id);
+    await db.from('client_intake').update({ status: 'Intake sent' }).eq('id', id);
+    App.toast('📨 Intake link queued. Approve it in Approvals to send.', 'var(--green)');
+    if (window.App?.switchTab) App.switchTab('approvals');
+  },
+
+  // Queue the warm broker intro for a lender inquiry (reused from the broker
+  // referral path). Goes to the broker via Approvals; CC the lead + Maxwell.
+  async sendToBroker(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    if (!r) return;
+    if (!(currentAgent && currentAgent.broker_email)) {
+      App.toast('⚠️ No broker email set. Add it in Settings, Mortgage broker, first.', 'var(--yellow)'); return;
+    }
+    if (typeof Notify === 'undefined' || !Notify.templates?.broker_intro) { App.toast('⚠️ Broker referral unavailable', 'var(--red)'); return; }
+    const broker = { name: currentAgent.broker_name, email: currentAgent.broker_email };
+    const client = { id: null, full_name: r.full_name, email: r.email };
+    const tmpl = Notify.templates.broker_intro(client, r, currentAgent, broker);
+    const cc = [r.email, currentAgent.email].filter(Boolean).filter((e, i, a) => a.indexOf(e) === i).join(', ') || null;
+    await Notify.queue('Mortgage Broker Intro', null, broker.name || 'Mortgage Broker', broker.email, tmpl.subject, tmpl.body, r.id, tmpl.html, null, cc);
+    await db.from('client_intake').update({ status: 'Broker sent' }).eq('id', id);
+    App.toast('🏦 Broker intro queued. Approve it in Approvals to send.', 'var(--green)');
+    if (window.App?.switchTab) App.switchTab('approvals');
   },
 
   async addAsClient(id) {
