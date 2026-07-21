@@ -53,6 +53,18 @@
   .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
   .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
   .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;} .maxsee b{color:var(--t1);}
+  .chk{margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
+  .chk .chd{display:flex;justify-content:space-between;font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+  .chk .bar{height:8px;background:var(--s2);border-radius:5px;overflow:hidden;margin-bottom:10px;}
+  .chk .bar>i{display:block;height:100%;background:var(--g);border-radius:5px;transition:width .2s;}
+  .chk .it{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;font-size:13.5px;color:var(--t1);}
+  .chk .it .box{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--bd);flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;}
+  .chk .it.on .box{background:var(--g);border-color:var(--g);}
+  .chk .it.on span:last-child{color:var(--t3);text-decoration:line-through;}
+  .chk .add{display:flex;gap:8px;margin-top:10px;}
+  .chk .add input{flex:1;font:inherit;font-size:13px;padding:9px 11px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);}
+  .chk .add button{font:inherit;font-size:13px;font-weight:700;padding:9px 13px;border-radius:8px;border:1px solid var(--a);background:transparent;color:var(--a2);cursor:pointer;}
+  .btn.go:disabled{opacity:.4;box-shadow:none;cursor:default;}
   .note{font-size:11.5px;color:var(--t3);margin-top:11px;line-height:1.5;}
   .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:14px;padding:60px 20px;background:var(--card);border:1px dashed var(--bd2);border-radius:16px;}
   .empty .ei{font-size:34px;display:block;margin-bottom:12px;opacity:.5;}
@@ -159,6 +171,8 @@ const db = supabase.createClient(
 );
 let ME = null;      // the broker's agents row
 let REFS = [];
+let CHECKS = [];
+const DEFAULT_CHECK = ['Sent application to client','Client submitted application','ID / KYC received','Income docs received (pay stubs / NOA / T4)','Down-payment proof received','Credit check completed','Pre-approved','Rate hold confirmed'];
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
 const TABMETA={ a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
                 b:{t:'Working with',s:'Save the pre-approval snapshot, then hand the client to Maxwell when they are ready to buy.'},
@@ -208,6 +222,37 @@ async function loadRefs(){
     .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold')
     .eq('broker_id', ME.id).order('created_at',{ascending:false});
   REFS = data || [];
+  await loadChecklists();
+  render();
+}
+async function loadChecklists(){
+  const { data } = await db.from('broker_checklist').select('*').eq('broker_id', ME.id).order('sort_order',{ascending:true});
+  CHECKS = data || [];
+  // Seed the default readiness list for any active referral that has none yet.
+  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
+  for(const r of active){
+    if(!CHECKS.some(c=>c.ref_id===r.id)){
+      const rows = DEFAULT_CHECK.map((t,i)=>({ broker_id:ME.id, ref_id:r.id, title:t, category:'Financing', sort_order:i }));
+      const { data:ins } = await db.from('broker_checklist').insert(rows).select('*');
+      if(ins) CHECKS = CHECKS.concat(ins);
+    }
+  }
+}
+async function toggleCheck(id){
+  const c = CHECKS.find(x=>x.id===id); if(!c) return;
+  const nd = !c.done;
+  const { error } = await db.from('broker_checklist').update({ done:nd, done_at: nd?new Date().toISOString():null }).eq('id',id).eq('broker_id',ME.id);
+  if(error){ alert('Could not update. Please try again.'); return; }
+  c.done=nd; c.done_at = nd?new Date().toISOString():null;
+  render();
+}
+async function addCheckItem(refId){
+  const inp = document.getElementById('addcheck-'+refId);
+  const t = (inp && inp.value || '').trim(); if(!t) return;
+  const orders = CHECKS.filter(c=>c.ref_id===refId).map(c=>c.sort_order||0);
+  const next = (orders.length?Math.max.apply(null,orders):0) + 1;
+  const { data:ins } = await db.from('broker_checklist').insert({ broker_id:ME.id, ref_id:refId, title:t, category:'Financing', sort_order:next, custom:true }).select('*');
+  if(ins) CHECKS = CHECKS.concat(ins);
   render();
 }
 function render(){
@@ -225,6 +270,17 @@ function cardPending(r){
     <div class="actions"><button class="btn ghost grow" onclick="approve('${r.id}')">Approve myself</button></div>
     <div class="note">Maxwell usually approves within a day. If he's away, approve it yourself and reach out to the client, naming Maxwell as the referrer.</div></div>`;
 }
+function checklistBlock(refId){
+  const items = CHECKS.filter(c=>c.ref_id===refId).sort((a,b)=>(a.sort_order-b.sort_order)||0);
+  const done = items.filter(c=>c.done).length, total = items.length;
+  const pct = total?Math.round(done/total*100):0;
+  return `<div class="chk">
+    <div class="chd"><span>Readiness</span><span>${done} of ${total} done · ${pct}%</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    ${items.map(c=>`<div class="it ${c.done?'on':''}" onclick="toggleCheck('${c.id}')"><span class="box">${c.done?'&#10003;':''}</span><span>${esc(c.title)}</span></div>`).join('')}
+    <div class="add"><input id="addcheck-${refId}" placeholder="Add your own item…" onkeydown="if(event.key==='Enter')addCheckItem('${refId}')"><button onclick="addCheckItem('${refId}')">Add</button></div>
+  </div>`;
+}
 function cardActive(r){
   return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
     <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span></div>
@@ -234,9 +290,11 @@ function cardActive(r){
       <div class="field full"><label>Status</label><select id="stat-${r.id}"><option value="">Choose…</option>
         ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${r.snapshot_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
+    ${checklistBlock(r.id)}
     <div class="actions"><button class="btn ghost grow" onclick="sendIntake('${r.id}')">Send my application</button><button class="btn grow" onclick="saveSnapshot('${r.id}')">Save snapshot</button></div>
-    <button class="btn go block" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
-    <div class="maxsee"><b>Maxwell sees only</b> the amount, status and rate-hold you enter here. Nothing else, and none of your other clients.</div>
+    ${(() => { const it=CHECKS.filter(c=>c.ref_id===r.id); const done=it.filter(c=>c.done).length, tot=it.length, ready=tot>0&&done===tot;
+      return `<button class="btn go block" onclick="handoff('${r.id}')" ${ready?'':'disabled'}>&#10003; ${ready?'Client is ready, hand to Maxwell':`Finish the checklist (${done}/${tot}) to hand off`}</button>`; })()}
+    <div class="maxsee"><b>Maxwell sees only</b> the amount, status, rate-hold and progress. Nothing else, and none of your other clients.</div>
     <div class="msg" id="snapmsg-${r.id}"></div></div>`;
 }
 async function approve(id){
