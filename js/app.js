@@ -706,20 +706,21 @@ const App = {
     }
     const name = req.client_name || 'this client';
     if (!confirm(`Send your mortgage-broker intro for ${name}?\n\nIt'll be queued in Approvals for you to review and send, and land in your broker's portal.`)) return;
-    // Resolve which broker's lane this belongs to (the account you set up).
-    let brokerId = currentAgent.broker_account_id || null;
-    if (!brokerId) {
-      const { data: bk } = await db.from('agents').select('id')
-        .eq('role', 'broker').eq('created_by', currentAgent.id)
-        .order('created_at', { ascending: false }).limit(1);
-      brokerId = (bk && bk[0] && bk[0].id) || null;
-    }
-    // CLAIM the referral first — compare-and-swap on broker_id IS NULL so a repeat
-    // tap (or a simultaneous broker approval) can't route it twice. We attach the
-    // broker_id and KEEP status 'pending' so it shows in the broker's "Reached out"
-    // tab for him to approve; it drops off Maxwell's bell because broker_id is set.
+    // Resolve the active broker — the one you've saved in Settings
+    // (agents.broker_email). Change that email and routing follows it, so you can
+    // switch brokers at any time.
+    const { data: bk } = await db.from('agents').select('id')
+      .eq('role', 'broker').ilike('email', currentAgent.broker_email).limit(1);
+    const brokerId = (bk && bk[0] && bk[0].id) || null;
+    // CLAIM the referral first (compare-and-swap on broker_id IS NULL) so a repeat
+    // tap — or a simultaneous broker approval — can't route/send it twice. If the
+    // broker has a portal login, attach broker_id and KEEP status 'pending' so it
+    // lands in his "Reached out" tab; either way it leaves Maxwell's bell.
+    const claim = brokerId
+      ? { broker_id: brokerId, approved_by: 'maxwell', approved_at: new Date().toISOString() }
+      : { status: 'sent', approved_by: 'maxwell', approved_at: new Date().toISOString() };
     const { data: won } = await db.from('broker_referral_requests')
-      .update({ broker_id: brokerId, approved_by: 'maxwell', approved_at: new Date().toISOString() })
+      .update(claim)
       .eq('id', id).is('broker_id', null).in('status', ['pending', 'requested', 'offered']).select('id');
     if (!won || !won.length) { App.toast('✅ Already handled', 'var(--yellow)'); App.loadNotifications(); return; }
     // Won the claim — now queue the intro (broker primary, client + Maxwell CC).
