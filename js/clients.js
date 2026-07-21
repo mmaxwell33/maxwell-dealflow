@@ -55,6 +55,11 @@ const Clients = {
     Clients.all      = all.filter(c => c.status !== 'Archived');
     Clients.archived = all.filter(c => c.status === 'Archived');
 
+    // Keep the broker's portal in sync: for any client shared with the broker,
+    // push the current derived deal stage onto their referral row (the broker
+    // can't read clients/pipeline directly). Fire-and-forget, non-blocking.
+    Clients.syncBrokerStages(all).catch(() => {});
+
     // PR #26: load persisted filter + sort preferences before first render
     Clients._loadPrefs();
     const sortSel = document.getElementById('clients-sort');
@@ -529,7 +534,8 @@ const Clients = {
     const { error } = await db.from('broker_referral_requests').insert({
       agent_id: currentAgent.id, broker_id: brokerId, client_id: c.id,
       client_name: c.full_name || null, client_email: c.email || null, client_phone: c.phone || null,
-      token, status: 'approved', source: 'transfer', approved_by: 'maxwell', approved_at: new Date().toISOString()
+      token, status: 'approved', source: 'transfer', approved_by: 'maxwell', approved_at: new Date().toISOString(),
+      deal_stage: c._derivedStage || c.stage || 'Searching'
     });
     if (error) {
       if (error.code === '23505' || /duplicate|unique/i.test(error.message || '')) App.toast('Already in your broker\'s lane', 'var(--yellow)');
@@ -538,6 +544,25 @@ const Clients = {
     }
     App.toast('🔄 Transferred to your broker', 'var(--green)');
     App.closeModal();
+  },
+
+  // Push the current derived deal stage onto any referral shared with the broker,
+  // so his portal shows where each shared client stands (Under Contract, Closed…).
+  // Fire-and-forget from Clients.load(); the broker can't read clients/pipeline.
+  async syncBrokerStages(clients) {
+    if (!currentAgent?.id || !clients || !clients.length) return;
+    const { data: refs } = await db.from('broker_referral_requests')
+      .select('id,client_id,deal_stage').eq('agent_id', currentAgent.id).not('client_id', 'is', null)
+      .then(x => x, () => ({ data: [] }));
+    if (!refs || !refs.length) return;
+    const stageById = {};
+    clients.forEach(c => { stageById[c.id] = c._derivedStage || c.stage || 'Searching'; });
+    for (const r of refs) {
+      const s = stageById[r.client_id];
+      if (s && s !== r.deal_stage) {
+        await db.from('broker_referral_requests').update({ deal_stage: s }).eq('id', r.id);
+      }
+    }
   },
 
   async openEdit(id) {

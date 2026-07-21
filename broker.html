@@ -41,6 +41,8 @@
   .contact{font-size:12.5px;color:var(--t2);font-family:var(--mono);margin-top:4px;word-break:break-word;} .contact a{color:var(--a2);text-decoration:none;}
   .pill{font-size:11px;font-weight:700;font-family:var(--mono);padding:5px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;}
   .p-wait{background:var(--am-soft);color:var(--am);} .p-go{background:var(--g-soft);color:var(--g);}
+  .pill.stage-closed{background:var(--g-soft);color:var(--g);} .pill.stage-active{background:var(--a-soft);color:var(--a2);}
+  .pill.stage-fell{background:rgba(185,28,28,.16);color:#e0657f;} .pill.stage-neutral{background:var(--s2);color:var(--t2);}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .actions{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap;}
   .btn{font:inherit;font-size:13px;font-weight:700;padding:10px 15px;border-radius:10px;border:1px solid var(--a);color:#fff;background:var(--a);cursor:pointer;transition:.12s;}
@@ -53,6 +55,18 @@
   .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
   .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
   .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;} .maxsee b{color:var(--t1);}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+  .tile{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px 17px;}
+  .tile .n{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.5px;}
+  .tile .l{font-size:12px;color:var(--t2);margin-top:7px;}
+  .tile.blue .n{color:var(--a2);} .tile.amber .n{color:var(--am);} .tile.green .n{color:var(--g);} .tile.plain .n{color:var(--t1);}
+  .feed{display:flex;flex-direction:column;gap:11px;}
+  .fitem{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--bd);border-left:3px solid var(--bd);border-radius:14px;padding:14px 16px;}
+  .fitem.blue{border-left-color:var(--a);} .fitem.amber{border-left-color:var(--am);} .fitem.green{border-left-color:var(--g);}
+  .fitem .fico{font-size:20px;flex:none;}
+  .fitem .fbody{flex:1;min-width:0;}
+  .fitem .ft{font-weight:700;font-size:14.5px;}
+  .fitem .fs{font-size:12.5px;color:var(--t2);margin-top:2px;}
   .chk{margin-top:15px;padding-top:15px;border-top:1px dashed var(--bd);}
   .chk .chd{display:flex;justify-content:space-between;font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
   .chk .bar{height:8px;background:var(--s2);border-radius:5px;overflow:hidden;margin-bottom:10px;}
@@ -115,7 +129,8 @@
   <aside class="side">
     <div class="brand"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
     <nav>
-      <button class="navitem on" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
+      <button class="navitem on" id="nav-t" onclick="switchTab('t')"><span class="ic">🏠</span>Today</button>
+      <button class="navitem" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
       <button class="navitem" id="nav-b" onclick="switchTab('b')"><span class="ic">💼</span>Working with<span class="ct" id="ct-b">0</span></button>
       <!-- FROZEN (Boardroom Session 10): broker's own-client management is a compliance
            breach (Maxwell would custody another firm's client data). Hidden, not deleted —
@@ -128,7 +143,8 @@
   <main class="main">
     <div class="mwrap">
       <div class="mhead"><h1 id="mtitle">Reached out</h1><p id="msub"></p></div>
-      <div class="panel on" id="panel-a"><div class="grid" id="list-pending"></div></div>
+      <div class="panel on" id="panel-t"><div id="list-today"></div></div>
+      <div class="panel" id="panel-a"><div class="grid" id="list-pending"></div></div>
       <div class="panel" id="panel-b"><div class="grid" id="list-active"></div></div>
       <div class="panel" id="panel-c">
         <div style="margin-bottom:16px;"><button class="btn" id="ac-toggle" onclick="showAddClient()">+ Add a client</button></div>
@@ -172,9 +188,11 @@ const db = supabase.createClient(
 let ME = null;      // the broker's agents row
 let REFS = [];
 let CHECKS = [];
+let _landed = false;
 const DEFAULT_CHECK = ['Sent application to client','Client submitted application','ID / KYC received','Income docs received (pay stubs / NOA / T4)','Down-payment proof received','Credit check completed','Pre-approved','Rate hold confirmed'];
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
-const TABMETA={ a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
+const TABMETA={ t:{t:'Today',s:'What needs your attention right now.'},
+                a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
                 b:{t:'Working with',s:'Save the pre-approval snapshot, then hand the client to Maxwell when they are ready to buy.'},
                 c:{t:'My clients',s:'Your own private clients (not from Maxwell). Move one to Maxwell when they need a Realtor.'},
                 s:{t:'Settings',s:'Manage your own portal.'} };
@@ -212,14 +230,14 @@ async function afterAuth(){
 async function doSignOut(){ await db.auth.signOut(); location.reload(); }
 
 function switchTab(w){
-  ['a','b','c','s'].forEach(x=>{ document.getElementById('nav-'+x).classList.toggle('on',x===w); document.getElementById('panel-'+x).classList.toggle('on',x===w); });
+  ['t','a','b','c','s'].forEach(x=>{ document.getElementById('nav-'+x).classList.toggle('on',x===w); document.getElementById('panel-'+x).classList.toggle('on',x===w); });
   document.getElementById('mtitle').textContent = TABMETA[w].t;
   document.getElementById('msub').textContent = TABMETA[w].s;
 }
 
 async function loadRefs(){
   const { data } = await db.from('broker_referral_requests')
-    .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold')
+    .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold,deal_stage')
     .eq('broker_id', ME.id).order('created_at',{ascending:false});
   REFS = data || [];
   await loadChecklists();
@@ -257,12 +275,38 @@ async function addCheckItem(refId){
 }
 function render(){
   const pend = REFS.filter(r=>r.status==='pending');
-  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
+  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent')
+    .sort((a,b)=>((a.deal_stage||'').toLowerCase()==='closed'?1:0)-((b.deal_stage||'').toLowerCase()==='closed'?1:0));  // closed to the bottom
   document.getElementById('ct-a').textContent = pend.length;
   document.getElementById('ct-b').textContent = active.length;
   document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
   document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('') : '<div class="empty"><span class="ei">🗂️</span>No active clients yet. Approve a referral and it moves here.</div>';
+  renderToday();
+  if(!_landed){ switchTab('t'); _landed=true; }   // land on Today on first load; keep the current tab on re-renders
 }
+function daysUntil(d){ if(!d) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((new Date(d+'T00:00:00')-t)/86400000); }
+function renderToday(){
+  const pend = REFS.filter(r=>r.status==='pending');
+  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
+  const ready = active.filter(r=>{ const it=CHECKS.filter(c=>c.ref_id===r.id); return it.length>0 && it.every(c=>c.done); });
+  const dueSoon = active.filter(r=>{ const d=daysUntil(r.snapshot_rate_hold); return d!=null && d>=0 && d<=7; });
+  const tiles=[
+    {n:pend.length,l:'New referrals',cls:'blue'},
+    {n:dueSoon.length,l:'Deadlines this week',cls:'amber'},
+    {n:ready.length,l:'Ready to hand off',cls:'green'},
+    {n:active.length,l:'Working with',cls:'plain'}
+  ];
+  const feed=[];
+  pend.forEach(r=>feed.push({icon:'📥',cls:'blue',title:`New referral: ${esc(r.client_name||'lead')}`,sub:'Approve to start working with them.',act:"switchTab('a')",btn:'Go'}));
+  ready.forEach(r=>feed.push({icon:'✅',cls:'green',title:`${esc(r.client_name||'Client')} is ready`,sub:'Checklist complete, hand to Maxwell.',act:"switchTab('b')",btn:'Open'}));
+  dueSoon.forEach(r=>{ const d=daysUntil(r.snapshot_rate_hold); const w=d===0?'expires today':(d===1?'expires tomorrow':'in '+d+' days'); feed.push({icon:'⏳',cls:'amber',title:`${esc(r.client_name||'Client')}: rate hold ${w}`,sub:`Rate hold ${esc(r.snapshot_rate_hold||'')}.`,act:"switchTab('b')",btn:'Open'}); });
+  document.getElementById('list-today').innerHTML =
+    `<div class="tiles">${tiles.map(t=>`<div class="tile ${t.cls}"><div class="n">${t.n}</div><div class="l">${t.l}</div></div>`).join('')}</div>`
+    + (feed.length
+        ? `<div class="feed">${feed.map(f=>`<div class="fitem ${f.cls}"><div class="fico">${f.icon}</div><div class="fbody"><div class="ft">${f.title}</div><div class="fs">${f.sub}</div></div><button class="btn ghost" onclick="${f.act}">${f.btn}</button></div>`).join('')}</div>`
+        : `<div class="empty"><span class="ei">☀️</span>You're all caught up. Nothing needs you today.</div>`);
+}
+function stageClass(s){ s=(s||'').toLowerCase(); if(s==='closed') return 'closed'; if(s==='fell through') return 'fell'; if(['under contract','accepted','conditions','closing','offers'].indexOf(s)>=0) return 'active'; return 'neutral'; }
 function contactLine(r){ const b=[]; if(r.client_phone) b.push(`<a href="tel:${esc(r.client_phone)}">${esc(r.client_phone)}</a>`); if(r.client_email) b.push(`<a href="mailto:${esc(r.client_email)}">${esc(r.client_email)}</a>`); return b.join(' &middot; '); }
 function cardPending(r){
   return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'New lead')}</div><div class="contact">${contactLine(r)}</div></div>
@@ -283,7 +327,10 @@ function checklistBlock(refId){
 }
 function cardActive(r){
   return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
-    <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span></div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+      <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span>
+      ${r.deal_stage?`<span class="pill stage-${stageClass(r.deal_stage)}">🏡 ${esc(r.deal_stage)}</span>`:''}
+    </div></div>
     <div class="snap">
       <div class="field"><label>Max amount</label><input id="max-${r.id}" inputmode="numeric" placeholder="e.g. 385000" value="${r.snapshot_max_amount!=null?esc(r.snapshot_max_amount):''}"></div>
       <div class="field"><label>Rate hold expires</label><input id="rate-${r.id}" type="date" value="${esc(r.snapshot_rate_hold||'')}"></div>
