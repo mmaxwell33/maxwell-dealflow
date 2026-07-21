@@ -586,9 +586,9 @@ const App = {
         .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10),
       // Clients who tapped "Yes, introduce me" on the welcome email's soft broker
       // offer. Best-effort (table may not be migrated yet).
-      db.from('broker_referral_requests').select('id,client_id,client_name,client_email')
-        .eq('agent_id', currentAgent.id).eq('status', 'requested')
-        .order('requested_at', { ascending: false }).limit(10)
+      db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source')
+        .eq('agent_id', currentAgent.id).in('status', ['requested', 'pending'])
+        .order('created_at', { ascending: false }).limit(10)
         .then(r => r, () => ({ data: [] }))
     ]);
     const referrals = referralRes?.data || [];
@@ -596,7 +596,11 @@ const App = {
     // Broker-intro requests sit at the very top — the client raised their hand,
     // so this is hot. Clicking sends the intro (through Approvals) and clears it.
     (referrals || []).forEach(r => {
-      items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C', title: 'Broker intro requested', text: `${r.client_name || 'A client'} wants an introduction to your broker`, tag: 'Action', action: `App.closeNotifPanel();App.sendBrokerReferral('${r.id}')` });
+      const fromWeb = r.source === 'website' || r.status === 'pending';
+      items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C',
+        title: fromWeb ? 'Client wants a mortgage broker' : 'Broker intro requested',
+        text: fromWeb ? `${r.client_name || 'A client'} asked to speak to a mortgage broker` : `${r.client_name || 'A client'} wants an introduction to your broker`,
+        tag: 'Action', action: `App.closeNotifPanel();App.sendBrokerReferral('${r.id}')` });
     });
     // Missed "how did the viewing go?" prompts come first — they're the most
     // actionable and the ones Maxwell asked to never lose. Clicking opens the
@@ -667,13 +671,27 @@ const App = {
     if (!id) return;
     const { data: req } = await db.from('broker_referral_requests').select('*').eq('id', id).single();
     if (!req) { App.toast('Referral request not found', 'var(--red)'); return; }
+    // Already actioned (by Maxwell earlier, or by the broker on his lane)? Don't re-send.
+    if (req.status === 'approved' || req.status === 'sent') {
+      App.toast(req.approved_by === 'broker' ? '✅ Already handled by the broker' : '✅ Already sent', 'var(--yellow)');
+      App.loadNotifications(); return;
+    }
+    // Broker must be configured before we claim the row (avoid stranding it 'sent').
+    if (!(currentAgent && currentAgent.broker_email)) {
+      App.toast('⚠️ Set your broker in Settings → Mortgage Broker Referral first', 'var(--yellow)'); return;
+    }
     const name = req.client_name || 'this client';
     if (!confirm(`Send your mortgage-broker intro for ${name}?\n\nIt'll be queued in Approvals for you to review and send.`)) return;
+    // CLAIM the referral first — compare-and-swap on the pre-approval statuses so a
+    // simultaneous broker approval on the lane can't produce a second intro email.
+    const { data: won } = await db.from('broker_referral_requests')
+      .update({ status: 'sent', approved_by: 'maxwell', approved_at: new Date().toISOString() })
+      .eq('id', id).in('status', ['pending', 'requested', 'offered']).select('id');
+    if (!won || !won.length) { App.toast('✅ Already handled', 'var(--yellow)'); App.loadNotifications(); return; }
+    // Won the claim — now queue the intro (broker primary, client + Maxwell CC).
     if (typeof Notify === 'undefined' || !Notify.onBrokerReferral) { App.toast('Notify unavailable', 'var(--red)'); return; }
     const client = { id: req.client_id, full_name: req.client_name, email: req.client_email };
-    const ok = await Notify.onBrokerReferral(client, {});
-    if (ok === false) { App.toast('⚠️ Set your broker in Settings → Mortgage Broker Referral first', 'var(--yellow)'); return; }
-    await db.from('broker_referral_requests').update({ status: 'sent' }).eq('id', id);
+    await Notify.onBrokerReferral(client, {});
     App.toast('🤝 Broker intro queued in Approvals', 'var(--green)');
     App.loadNotifications();
     if (App.switchTab) App.switchTab('approvals');

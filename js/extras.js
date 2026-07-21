@@ -5398,6 +5398,7 @@ const Settings = {
     // ── Mortgage broker referral ───────────────────────────────────────────
     set('set-broker-name', a.broker_name);
     set('set-broker-email', a.broker_email);
+    Settings._renderBrokerLane(a.broker_lane_token || null);
     // ── Delete password — show whether one is set (never the value) ─────────
     const delStatus = document.getElementById('set-delpin-status');
     if (delStatus) {
@@ -5449,6 +5450,50 @@ const Settings = {
     if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
     if (msg) { msg.style.color='var(--green)'; msg.textContent = email ? '✅ Broker saved — referrals are on' : '✅ Saved — referrals off (no broker set)'; }
     App.toast('✅ Mortgage broker saved');
+  },
+
+  // ── Broker Financing Lane link (migration 067) ──────────────────────────
+  _renderBrokerLane(token) {
+    const linkWrap = document.getElementById('set-lane-linkwrap');
+    const link = document.getElementById('set-lane-link');
+    const btn  = document.getElementById('set-lane-btn');
+    if (!btn) return;
+    if (token) {
+      if (link) link.value = `https://maxwellmidodzi.com/lane.html?t=${token}`;
+      if (linkWrap) linkWrap.style.display = '';
+      btn.textContent = 'Regenerate link';
+    } else {
+      if (linkWrap) linkWrap.style.display = 'none';
+      btn.textContent = 'Create broker lane link';
+    }
+  },
+
+  async setupBrokerLane() {
+    const msg = document.getElementById('set-lane-msg');
+    if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
+    if (currentAgent.broker_lane_token &&
+        !confirm('Regenerate the lane link?\n\nThe old link stops working and your broker will need to set his password again on the new link.')) return;
+    const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
+                + Math.random().toString(36).slice(2);
+    if (msg) { msg.style.color='var(--text2)'; msg.textContent='Creating…'; }
+    // A fresh link also clears any old approval password (clean start for the broker).
+    const updates = { broker_lane_token: token };
+    if (currentAgent.broker_lane_token) updates.broker_approval_hash = null;
+    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
+    if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent = error.message + ' (run migration 067 first)'; } return; }
+    Object.assign(currentAgent, updates);
+    Settings._renderBrokerLane(token);
+    if (msg) { msg.style.color='var(--green)'; msg.textContent='✅ Link ready — copy it and send it to your broker.'; }
+    App.toast('✅ Broker lane link created');
+  },
+
+  copyLaneLink() {
+    const link = document.getElementById('set-lane-link');
+    if (!link) return;
+    link.select();
+    const done = () => App.toast('📋 Link copied');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) {} });
+    else { try { document.execCommand('copy'); done(); } catch (e) {} }
   },
 
   async saveMileage() {
