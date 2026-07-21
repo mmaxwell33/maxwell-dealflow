@@ -5490,7 +5490,11 @@ const Settings = {
     await db.from('agents').update({ role: 'broker' }).eq('id', brokerId);
     await db.from('agents').update({ broker_account_id: brokerId }).eq('id', currentAgent.id);
     currentAgent.broker_account_id = brokerId;
-    await db.from('broker_referral_requests').update({ broker_id: brokerId }).eq('agent_id', currentAgent.id).is('broker_id', null);
+    // Re-link only referrals you'd ALREADY sent to a broker (legacy 'sent' rows
+    // from before this broker had a portal). Never sweep in pending/unrouted
+    // leads — those stay unassigned until you route them from your bell, so a
+    // new (or test) broker portal doesn't inherit stray referrals.
+    await db.from('broker_referral_requests').update({ broker_id: brokerId }).eq('agent_id', currentAgent.id).is('broker_id', null).eq('status', 'sent');
     // Queue the invite email into Approvals — same rail as every other send.
     // You approve it and it goes to the broker (with the link + temp password).
     const url = 'https://maxwellmidodzi.com/broker.html';
