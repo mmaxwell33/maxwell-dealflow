@@ -404,19 +404,19 @@
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
    <div style="flex:1;min-width:240px;">
     <div style="font-size:19px;font-weight:600;color:var(--ink);">Not sure about financing?</div>
-    <div style="font-size:15px;color:var(--ink-2);line-height:1.55;margin-top:6px;">I work with a licensed mortgage broker who can take you from A to Z on your mortgage, at no cost or commitment. Just get in touch.</div>
+    <div style="font-size:15px;color:var(--ink-2);line-height:1.55;margin-top:6px;">We work with a licensed mortgage broker who can show you exactly how much you may be pre-approved for and walk you through each step, at no cost or commitment. Just get in touch.</div>
    </div>
    <button type="button" class="btn btn-outline" id="lender-toggle" aria-expanded="false" aria-controls="lenderForm">Speak to a mortgage broker</button>
   </div>
   <form id="lenderForm" novalidate style="display:none;margin-top:20px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-md);padding:24px;">
-   <p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 16px;">Leave your details and I'll connect you with the broker, who will reach out shortly.</p>
+   <p style="font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 16px;">Leave your details and we will connect you with the broker, who will reach out shortly.</p>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
     <input type="text" id="lf-name" placeholder="Your name" aria-label="Your name" autocomplete="name" required style="width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:#fff;color:var(--ink);">
     <input type="tel" id="lf-phone" placeholder="Phone" aria-label="Phone" autocomplete="tel" required style="width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:#fff;color:var(--ink);">
    </div>
    <input type="email" id="lf-email" placeholder="Email" aria-label="Email" autocomplete="email" required style="width:100%;font:inherit;font-size:15px;padding:12px 13px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:#fff;color:var(--ink);margin-bottom:14px;">
    <input class="cf-hp" type="text" id="lf-company" tabindex="-1" autocomplete="off" aria-hidden="true">
-   <label class="cf-consent" style="margin-bottom:14px;"><input type="checkbox" id="lf-consent"> I agree to have my details shared with a licensed mortgage broker so they can contact me about financing. A copy is kept by eXp Realty. This is optional, and I can unsubscribe anytime. See the <a href="/site/privacy/">privacy policy</a>.</label>
+   <label class="cf-consent" style="margin-bottom:14px;"><input type="checkbox" id="lf-consent"> I agree to share my name and contact details with a licensed mortgage broker so they can contact me about financing. Maxwell Midodzi is a REALTOR® brokered by eXp Realty, and keeps a record of this referral. Sharing is optional and I can opt out anytime. See the <a href="/site/privacy/">privacy policy</a>.</label>
    <button class="btn btn-primary" type="submit" id="lf-submit">Send my details</button>
    <div class="cf-status" id="lf-status" role="status" aria-live="polite"></div>
   </form>
@@ -595,7 +595,7 @@
   if(!f || !tog) return;
   var SB = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
-  var CONSENT = 'I agree to have my details shared with a licensed mortgage broker so they can contact me about financing. A copy is kept by eXp Realty. This is optional, and I can unsubscribe anytime.';
+  var CONSENT = 'I agree to share my name and contact details with a licensed mortgage broker so they can contact me about financing. Maxwell Midodzi is a REALTOR® brokered by eXp Realty, and keeps a record of this referral. Sharing is optional and I can opt out anytime.';
   var st = document.getElementById('lf-status');
   tog.addEventListener('click', function(){
     var open = f.style.display !== 'none';
@@ -623,7 +623,7 @@
       referral_source: 'Website: Connect with a lender',
       preapproval: 'Not yet, need guidance',
       intake_type: 'buyer', status: 'New',
-      consent_text: CONSENT, consent_version: 'lender-v1', consent_at: now,
+      consent_text: CONSENT, consent_version: 'lender-v2', consent_at: now,
       submitted_at: now };
     try {
       var r = await fetch(SB + '/rest/v1/rpc/submit_intake', { method:'POST',
