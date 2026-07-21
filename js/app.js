@@ -588,21 +588,38 @@ const App = {
         .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10),
       // Clients who tapped "Yes, introduce me" on the welcome email's soft broker
       // offer. Best-effort (table may not be migrated yet).
-      db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source')
-        .eq('agent_id', currentAgent.id).in('status', ['requested', 'pending'])
-        .order('created_at', { ascending: false }).limit(10)
+      db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source,snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at,approved_by')
+        .eq('agent_id', currentAgent.id).in('status', ['requested', 'pending', 'approved', 'sent'])
+        .order('created_at', { ascending: false }).limit(15)
         .then(r => r, () => ({ data: [] }))
     ]);
     const referrals = referralRes?.data || [];
     const items = [];
     // Broker-intro requests sit at the very top — the client raised their hand,
     // so this is hot. Clicking sends the intro (through Approvals) and clears it.
+    const _STAT = { pre_approved: 'Pre-approved', conditional: 'Conditional', soft_prequal: 'Soft pre-qual', declined: 'Declined' };
+    const _money = n => (n != null && n !== '') ? '$' + Number(n).toLocaleString() : '';
+    const _recentCut = Date.now() - 14 * 86400000;
     (referrals || []).forEach(r => {
-      const fromWeb = r.source === 'website' || r.status === 'pending';
-      items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C',
-        title: fromWeb ? 'Client wants a mortgage broker' : 'Broker intro requested',
-        text: fromWeb ? `${r.client_name || 'A client'} asked to speak to a mortgage broker` : `${r.client_name || 'A client'} wants an introduction to your broker`,
-        tag: 'Action', action: `App.closeNotifPanel();App.sendBrokerReferral('${r.id}')` });
+      if (r.status === 'pending' || r.status === 'requested') {
+        // Actionable — a client is waiting on the intro.
+        const fromWeb = r.source === 'website' || r.status === 'pending';
+        items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C',
+          title: fromWeb ? 'Client wants a mortgage broker' : 'Broker intro requested',
+          text: fromWeb ? `${r.client_name || 'A client'} asked to speak to a mortgage broker` : `${r.client_name || 'A client'} wants an introduction to your broker`,
+          tag: 'Action', action: `App.closeNotifPanel();App.sendBrokerReferral('${r.id}')` });
+      } else if ((r.snapshot_status || r.snapshot_max_amount != null)
+                 && r.snapshot_updated_at && new Date(r.snapshot_updated_at).getTime() > _recentCut) {
+        // Broker shared a financing snapshot — show ONLY the amount/status/rate.
+        const parts = [];
+        if (r.snapshot_status) parts.push(_STAT[r.snapshot_status] || r.snapshot_status);
+        if (r.snapshot_max_amount != null) parts.push(_money(r.snapshot_max_amount));
+        if (r.snapshot_rate_hold) parts.push('rate hold ' + App.fmtDate(r.snapshot_rate_hold));
+        items.push({ icon: '💰', bg: 'rgba(22,163,74,0.16)', color: '#16A34A',
+          title: `${r.client_name || 'Client'} · financing`,
+          text: parts.join(' · ') || 'Pre-approval details from your broker',
+          tag: 'Broker', action: null });
+      }
     });
     // Missed "how did the viewing go?" prompts come first — they're the most
     // actionable and the ones Maxwell asked to never lose. Clicking opens the
