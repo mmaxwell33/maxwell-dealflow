@@ -423,6 +423,29 @@ const Clients = {
     const { count: vc } = await db.from('viewings').select('*',{count:'exact',head:true}).eq('client_id',id);
     const { count: oc } = await db.from('offers').select('*',{count:'exact',head:true}).eq('client_id',id);
 
+    // Financing snapshot from the broker's lane (matched by email). Show ONLY the
+    // 3 shared fields — amount, status, rate-hold. Nothing else crosses over.
+    let fin = null;
+    if (c.email) {
+      const { data: frs } = await db.from('broker_referral_requests')
+        .select('snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at')
+        .eq('agent_id', currentAgent.id).ilike('client_email', c.email)
+        .order('snapshot_updated_at', { ascending: false, nullsFirst: false }).limit(1)
+        .then(x => x, () => ({ data: [] }));
+      if (frs && frs.length && (frs[0].snapshot_status || frs[0].snapshot_max_amount != null)) fin = frs[0];
+    }
+    const _finStat = { pre_approved:'Pre-approved', conditional:'Conditional', soft_prequal:'Soft pre-qual', declined:'Declined' };
+    const finHTML = fin ? `
+      <div class="card2" style="margin-top:12px;padding:14px;border:1px solid var(--green);">
+        <div class="fw-800" style="font-size:14px;margin-bottom:10px;color:var(--green);">🏦 Financing (from your broker)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Max amount</div><div class="fw-800" style="font-size:16px;">${fin.snapshot_max_amount!=null?'$'+Number(fin.snapshot_max_amount).toLocaleString():'not set'}</div></div>
+          <div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Status</div><div class="fw-800" style="font-size:16px;">${fin.snapshot_status?(_finStat[fin.snapshot_status]||fin.snapshot_status):'not set'}</div></div>
+          <div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Rate hold</div><div class="fw-800" style="font-size:16px;">${fin.snapshot_rate_hold?App.fmtDate(fin.snapshot_rate_hold):'not set'}</div></div>
+        </div>
+        ${fin.snapshot_updated_at?`<div style="font-size:11px;color:var(--text3);margin-top:9px;">Updated ${App.fmtDate(fin.snapshot_updated_at)} by your broker</div>`:''}
+      </div>` : '';
+
     // Phase 2.B.4: stage pill uses same variant mapping as the Clients list
     // (see Clients.render) so detail + list stay visually consistent.
     // Closed → green, Fell Through → red, Under Contract → coral.
@@ -472,6 +495,7 @@ const Clients = {
       ${c.price_range ? `<div class="activity-row"><span style="font-size:18px;">💰</span><div><div class="activity-title">Budget</div><div class="activity-meta">${c.price_range}</div></div></div>` : ''}
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
+      ${finHTML}
       <div class="card2" style="margin-top:12px;padding:12px;">
         <div class="fw-800" style="font-size:14px;margin-bottom:8px;">📁 Client Folder</div>
         <div id="client-folder-${c.id}"><div style="font-size:12px;color:var(--text2);">Loading…</div></div>
