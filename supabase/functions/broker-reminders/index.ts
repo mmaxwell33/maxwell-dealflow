@@ -76,7 +76,7 @@ serve(async (req) => {
       .select('id,broker_id,client_name,snapshot_rate_hold,snapshot_status,app_sent_at,nudged_at,status')
       .in('status', ['approved', 'sent']).not('broker_id', 'is', null);
 
-    const { data: bks } = await db.from('agents').select('id,email,full_name,name').eq('role', 'broker');
+    const { data: bks } = await db.from('agents').select('id,email,name').eq('role', 'broker');
     const brokers: Record<string, any> = {};
     (bks || []).forEach((b: any) => { brokers[b.id] = b; });
 
@@ -106,7 +106,7 @@ serve(async (req) => {
       if (!b || !b.email) continue;   // no email, leave unstamped so it retries later
       if (token === null) token = await getGmailToken();
       if (!token) break;              // Gmail not configured; don't stamp, will retry
-      const who = b.full_name || b.name || 'there';
+      const who = b.name || 'there';
       const body = `Hi ${who},\n\nA quick nudge on your Financing Lane clients that need attention:\n\n`
         + perBroker[bid].reasons.map((x) => '  - ' + x).join('\n')
         + `\n\nOpen your lane: https://maxwellmidodzi.com/broker.html\n\nAutomated reminder from Maxwell's Financing Lane.`;
