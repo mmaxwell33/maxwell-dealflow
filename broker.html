@@ -105,6 +105,7 @@
     <nav>
       <button class="navitem on" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
       <button class="navitem" id="nav-b" onclick="switchTab('b')"><span class="ic">💼</span>Working with<span class="ct" id="ct-b">0</span></button>
+      <button class="navitem" id="nav-c" onclick="switchTab('c')"><span class="ic">👤</span>My clients<span class="ct" id="ct-c">0</span></button>
       <button class="navitem" id="nav-s" onclick="switchTab('s')"><span class="ic">⚙️</span>Settings</button>
     </nav>
     <div class="side-foot"><div class="who" id="who"></div><button class="signout" onclick="doSignOut()">Sign out</button></div>
@@ -114,6 +115,19 @@
       <div class="mhead"><h1 id="mtitle">Reached out</h1><p id="msub"></p></div>
       <div class="panel on" id="panel-a"><div class="grid" id="list-pending"></div></div>
       <div class="panel" id="panel-b"><div class="grid" id="list-active"></div></div>
+      <div class="panel" id="panel-c">
+        <div style="margin-bottom:16px;"><button class="btn" id="ac-toggle" onclick="showAddClient()">+ Add a client</button></div>
+        <div id="addclient-form" class="setcard" hidden>
+          <h3>Add your own client</h3>
+          <p>Someone who is not from Maxwell. Only you see them.</p>
+          <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="ac-name" placeholder="Client name"></div>
+          <div class="field" style="margin-bottom:10px;"><label>Email</label><input id="ac-email" type="email" placeholder="name@example.com"></div>
+          <div class="field" style="margin-bottom:12px;"><label>Phone</label><input id="ac-phone" type="tel" placeholder="Phone"></div>
+          <div class="actions"><button class="btn grow" onclick="addMyClient()">Add client</button><button class="btn ghost grow" onclick="document.getElementById('addclient-form').hidden=true">Cancel</button></div>
+          <div class="msg" id="ac-msg"></div>
+        </div>
+        <div class="grid" id="list-mine"></div>
+      </div>
       <div class="panel" id="panel-s">
         <div class="setcard">
           <h3>Your application link</h3>
@@ -145,6 +159,7 @@ let REFS = [];
 const STATUS_LABEL={pre_approved:'Pre-approved',conditional:'Conditional',soft_prequal:'Soft pre-qual',declined:'Declined'};
 const TABMETA={ a:{t:'Reached out',s:'Website leads Maxwell referred to you. Approve to start working with them.'},
                 b:{t:'Working with',s:'Save the pre-approval snapshot, then hand the client to Maxwell when they are ready to buy.'},
+                c:{t:'My clients',s:'Your own private clients (not from Maxwell). Move one to Maxwell when they need a Realtor.'},
                 s:{t:'Settings',s:'Manage your own portal.'} };
 
 function show(id){ ['loading','login','notbroker','portal'].forEach(s=>{ const el=document.getElementById('state-'+s); if(el) el.hidden=(s!==id); }); }
@@ -168,18 +183,19 @@ async function doLogin(){
 async function afterAuth(){
   const { data:{ user } } = await db.auth.getUser();
   if(!user){ show('login'); return; }
-  const { data: me } = await db.from('agents').select('id,full_name,name,email,role,broker_intake_url').eq('id', user.id).single();
+  const { data: me } = await db.from('agents').select('id,full_name,name,email,role,broker_intake_url,created_by').eq('id', user.id).single();
   if(!me || me.role !== 'broker'){ show('notbroker'); return; }
   ME = me;
   document.getElementById('who').textContent = (me.full_name||me.name||me.email);
   document.getElementById('set-intake').value = me.broker_intake_url || '';
   await loadRefs();
+  await loadMine();
   show('portal');
 }
 async function doSignOut(){ await db.auth.signOut(); location.reload(); }
 
 function switchTab(w){
-  ['a','b','s'].forEach(x=>{ document.getElementById('nav-'+x).classList.toggle('on',x===w); document.getElementById('panel-'+x).classList.toggle('on',x===w); });
+  ['a','b','c','s'].forEach(x=>{ document.getElementById('nav-'+x).classList.toggle('on',x===w); document.getElementById('panel-'+x).classList.toggle('on',x===w); });
   document.getElementById('mtitle').textContent = TABMETA[w].t;
   document.getElementById('msub').textContent = TABMETA[w].s;
 }
@@ -266,6 +282,39 @@ async function savePassword(){
   if(p1.length<6){ msg.className='msg err'; msg.textContent='Use at least 6 characters.'; return; }
   const { error } = await db.auth.updateUser({ password:p1 });
   if(error){ msg.className='msg err'; msg.textContent=error.message; } else { msg.className='msg ok'; msg.textContent='Password updated.'; document.getElementById('set-pw1').value=''; }
+}
+let MINE = [];
+async function loadMine(){
+  const { data } = await db.from('broker_clients').select('*').eq('broker_id', ME.id).eq('status','active').order('created_at',{ascending:false});
+  MINE = data || [];
+  document.getElementById('ct-c').textContent = MINE.length;
+  document.getElementById('list-mine').innerHTML = MINE.length ? MINE.map(cardMine).join('')
+    : '<div class="empty"><span class="ei">👤</span>No private clients yet. Add one with the button above.</div>';
+}
+function cardMine(c){
+  const contact=[c.phone?`<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>`:'',c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''].filter(Boolean).join(' &middot; ');
+  return `<div class="card"><div class="r1"><div><div class="cn">${esc(c.name||'Client')}</div><div class="contact">${contact}</div></div>
+    <span class="pill p-go"><span class="dot"></span>Your client</span></div>
+    <div class="note">This client is yours only. Maxwell cannot see them.</div>
+    <button class="btn go block" onclick="moveToMaxwell('${c.id}')">Move to Maxwell (they need a Realtor)</button></div>`;
+}
+function showAddClient(){ const f=document.getElementById('addclient-form'); f.hidden=false; }
+async function addMyClient(){
+  const n=document.getElementById('ac-name').value.trim(), e=document.getElementById('ac-email').value.trim(), p=document.getElementById('ac-phone').value.trim();
+  const msg=document.getElementById('ac-msg');
+  if(!n){ msg.className='msg err'; msg.textContent='Enter a name.'; return; }
+  const { error } = await db.from('broker_clients').insert({ broker_id: ME.id, name:n, email:e||null, phone:p||null });
+  if(error){ msg.className='msg err'; msg.textContent='Could not add. Please try again.'; return; }
+  ['ac-name','ac-email','ac-phone'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('addclient-form').hidden=true; msg.textContent='';
+  await loadMine();
+}
+async function moveToMaxwell(id){
+  if(!ME.created_by){ alert('You are not linked to a Realtor yet, so there is no one to move this client to.'); return; }
+  if(!confirm('Move this client to Maxwell?\n\nHe will receive them as a new client and take over the home search. They leave your list.')) return;
+  const { data, error } = await db.rpc('broker_move_client_to_agent', { p_client_id:id, p_agent_id: ME.created_by });
+  if(!error && data && data.ok){ alert('Moved to Maxwell. He will take it from here.'); await loadMine(); }
+  else { alert('Could not move that client: ' + ((data && data.error) || (error && error.message) || 'please try again')); }
 }
 init();
 </script>

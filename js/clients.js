@@ -508,12 +508,36 @@ const Clients = {
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent);color:var(--accent);" onclick="App.closeModal();Reviews.requestSearch('${c.id}')">📨 Mid-search Check-in</button>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent2);color:var(--accent2);" onclick="App.closeModal();Clients.sendBrokerIntro('${c.id}')">🏦 Send to mortgage broker</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="Clients.transferToBroker('${c.id}')">🔄 Transfer to my broker's lane</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();Clients.archive('${c.id}','${App.escAttr(c.full_name)}')">🗂 Archive</button>
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="App.closeModal();Clients.confirmDelete('${c.id}','${App.escAttr(c.full_name)}')">🗑 Delete</button>
       </div>
     `);
     if (typeof ClientDocs !== 'undefined') ClientDocs.load(id);
+  },
+
+  // Transfer a client into your mortgage broker's lane (e.g. their other broker
+  // fell through). Appears as an active client in the broker's portal.
+  async transferToBroker(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    const brokerId = currentAgent?.broker_account_id;
+    if (!brokerId) { App.toast('⚠️ Set up your broker login first (Settings → Mortgage Broker Referral).', 'var(--yellow)'); return; }
+    if (!confirm(`Transfer ${c.full_name} to your mortgage broker's lane?\n\nThey'll appear as an active client in the broker's portal.`)) return;
+    const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+    const { error } = await db.from('broker_referral_requests').insert({
+      agent_id: currentAgent.id, broker_id: brokerId, client_id: c.id,
+      client_name: c.full_name || null, client_email: c.email || null, client_phone: c.phone || null,
+      token, status: 'approved', source: 'transfer', approved_by: 'maxwell', approved_at: new Date().toISOString()
+    });
+    if (error) {
+      if (error.code === '23505' || /duplicate|unique/i.test(error.message || '')) App.toast('Already in your broker\'s lane', 'var(--yellow)');
+      else App.toast('⚠️ ' + error.message, 'var(--red)');
+      return;
+    }
+    App.toast('🔄 Transferred to your broker', 'var(--green)');
+    App.closeModal();
   },
 
   async openEdit(id) {

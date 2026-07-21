@@ -5485,8 +5485,11 @@ const Settings = {
     const data = res?.data, err = res?.error;
     if (err || !data || data.error) { setMsg((data && data.error) || err?.message || 'Could not create the login.', 'var(--red)'); return; }
     const brokerId = data.agent_id;
-    // Flag them a broker + link this founder's referrals to their login.
+    // Flag them a broker, remember them as this agent's primary broker, and link
+    // this founder's existing referrals to their login.
     await db.from('agents').update({ role: 'broker' }).eq('id', brokerId);
+    await db.from('agents').update({ broker_account_id: brokerId }).eq('id', currentAgent.id);
+    currentAgent.broker_account_id = brokerId;
     await db.from('broker_referral_requests').update({ broker_id: brokerId }).eq('agent_id', currentAgent.id).is('broker_id', null);
     // Queue the invite email into Approvals — same rail as every other send.
     // You approve it and it goes to the broker (with the link + temp password).
