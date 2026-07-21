@@ -749,18 +749,35 @@ const FormResponses = {
     const cc = [r.email, currentAgent.email].filter(Boolean).filter((e, i, a) => a.indexOf(e) === i).join(', ') || null;
     await Notify.queue('Mortgage Broker Intro', null, broker.name || 'Mortgage Broker', broker.email, tmpl.subject, tmpl.body, r.id, tmpl.html, null, cc);
     await db.from('client_intake').update({ status: 'Broker sent' }).eq('id', id);
-    // Surface it in the broker's lane too, so Asare can assess + hand back.
-    // Best-effort: a lane row is a bonus, never block the intro on it.
+    // Surface it in the broker's lane so he sees it in "Reached out". broker_id
+    // is resolved from the broker you've saved in Settings (broker_email), so it
+    // lands in his portal. Prefer routing the EXISTING referral (submit_intake
+    // already made one for a website lead) over inserting a duplicate.
+    // Best-effort: the lane row is a bonus, never block the intro on it.
     try {
-      const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
-      await db.from('broker_referral_requests').insert({
-        agent_id: currentAgent.id, client_id: null,
-        client_name: r.full_name || null, client_email: r.email || null, client_phone: r.phone || null,
-        token, status: 'sent', source: 'agent',
-        approved_by: 'maxwell', approved_at: new Date().toISOString()
-      });
+      let brokerId = null;
+      const { data: bk } = await db.from('agents').select('id')
+        .eq('role', 'broker').ilike('email', currentAgent.broker_email).limit(1);
+      brokerId = (bk && bk[0] && bk[0].id) || null;
+      const { data: existingRef } = r.email
+        ? await db.from('broker_referral_requests').select('id')
+            .eq('agent_id', currentAgent.id).ilike('client_email', r.email).limit(1)
+        : { data: null };
+      if (existingRef && existingRef.length) {
+        await db.from('broker_referral_requests')
+          .update({ broker_id: brokerId, status: 'pending', approved_by: 'maxwell', approved_at: new Date().toISOString() })
+          .eq('id', existingRef[0].id);
+      } else {
+        const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+        await db.from('broker_referral_requests').insert({
+          agent_id: currentAgent.id, client_id: null, broker_id: brokerId,
+          client_name: r.full_name || null, client_email: r.email || null, client_phone: r.phone || null,
+          token, status: 'pending', source: 'agent',
+          approved_by: 'maxwell', approved_at: new Date().toISOString()
+        });
+      }
     } catch (e) { console.warn('[lane row] skipped:', e?.message || e); }
-    App.toast('🏦 Broker intro queued. Approve it in Approvals to send.', 'var(--green)');
+    App.toast('🏦 Broker intro queued for approval, and it is now in your broker portal.', 'var(--green)');
     if (window.App?.switchTab) App.switchTab('approvals');
   },
 
