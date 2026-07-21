@@ -562,6 +562,8 @@ const App = {
   async loadNotifications() {
     const el = document.getElementById('notif-list');
     if (!el || !currentAgent?.id) return;
+    // Auto-queue the buyer intake for any client the broker has handed over.
+    App.processBrokerHandoffs().catch(() => {});
     el.innerHTML = '<div class="notif-loading">Loading…</div>';
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
@@ -695,6 +697,43 @@ const App = {
     App.toast('🤝 Broker intro queued in Approvals', 'var(--green)');
     App.loadNotifications();
     if (App.switchTab) App.switchTab('approvals');
+  },
+
+  // When the broker taps "Client is ready" on his lane, the referral flips to
+  // 'ready_for_agent'. Here we auto-queue MAXWELL's buyer intake to that client
+  // (branded, via the existing Intake Link rail) for Maxwell to approve, then
+  // mark the referral 'handed' so it's queued exactly once. Idempotent.
+  async processBrokerHandoffs() {
+    if (!currentAgent?.id || typeof Notify === 'undefined') return;
+    const { data: ready } = await db.from('broker_referral_requests')
+      .select('id,client_name,client_email')
+      .eq('agent_id', currentAgent.id).eq('status', 'ready_for_agent').limit(20)
+      .then(r => r, () => ({ data: [] }));
+    if (!ready || !ready.length) return;
+    let queued = 0, already = 0;
+    for (const r of ready) {
+      if (!r.client_email) continue;
+      // Claim first (compare-and-swap) so a second load can't double-queue.
+      const { data: won } = await db.from('broker_referral_requests')
+        .update({ status: 'handed' }).eq('id', r.id).eq('status', 'ready_for_agent').select('id');
+      if (!won || !won.length) continue;
+      // DEDUP — never ask a client to fill the buyer intake twice. If they're
+      // already in your Clients list, they're captured; just flag, don't re-send.
+      const { data: existing } = await db.from('clients')
+        .select('id').eq('agent_id', currentAgent.id).ilike('email', r.client_email).limit(1)
+        .then(x => x, () => ({ data: [] }));
+      if (existing && existing.length) { already++; continue; }
+      const first = (r.client_name || 'there').split(/\s+/)[0] || 'there';
+      const sig = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain)
+        ? '\n\n' + EmailFormat.signaturePlain(currentAgent)
+        : '\n\nMaxwell Midodzi\nREALTOR, eXp Realty\n(709) 325-0545';
+      const subject = 'A quick form to help me find the right home for you';
+      const body = `Hi ${first},\n\nGreat news, your mortgage broker tells me you're pre-approved and ready to start looking. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for:\n\nhttps://maxwellmidodzi.com/intake\n\nOnce it is in, I will follow up with your next steps.` + sig;
+      await Notify.queue('Intake Link', null, r.client_name, r.client_email, subject, body, r.id);
+      queued++;
+    }
+    if (queued) App.toast(`📨 ${queued} buyer intake${queued > 1 ? 's' : ''} queued from your broker, approve in Approvals to send`, 'var(--green)');
+    if (already) App.toast(`✅ ${already} client your broker sent ${already > 1 ? 'are' : 'is'} already in your list, no form re-sent`, 'var(--green)');
   },
 
   // ── DELETE PASSWORD GATE ────────────────────────────────────────────────

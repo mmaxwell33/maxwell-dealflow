@@ -749,6 +749,17 @@ const FormResponses = {
     const cc = [r.email, currentAgent.email].filter(Boolean).filter((e, i, a) => a.indexOf(e) === i).join(', ') || null;
     await Notify.queue('Mortgage Broker Intro', null, broker.name || 'Mortgage Broker', broker.email, tmpl.subject, tmpl.body, r.id, tmpl.html, null, cc);
     await db.from('client_intake').update({ status: 'Broker sent' }).eq('id', id);
+    // Surface it in the broker's lane too, so Asare can assess + hand back.
+    // Best-effort: a lane row is a bonus, never block the intro on it.
+    try {
+      const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+      await db.from('broker_referral_requests').insert({
+        agent_id: currentAgent.id, client_id: null,
+        client_name: r.full_name || null, client_email: r.email || null, client_phone: r.phone || null,
+        token, status: 'sent', source: 'agent',
+        approved_by: 'maxwell', approved_at: new Date().toISOString()
+      });
+    } catch (e) { console.warn('[lane row] skipped:', e?.message || e); }
     App.toast('🏦 Broker intro queued. Approve it in Approvals to send.', 'var(--green)');
     if (window.App?.switchTab) App.switchTab('approvals');
   },
@@ -5398,6 +5409,7 @@ const Settings = {
     // ── Mortgage broker referral ───────────────────────────────────────────
     set('set-broker-name', a.broker_name);
     set('set-broker-email', a.broker_email);
+    set('set-broker-intake-url', a.broker_intake_url);
     Settings._renderBrokerLane(a.broker_lane_token || null);
     // ── Delete password — show whether one is set (never the value) ─────────
     const delStatus = document.getElementById('set-delpin-status');
@@ -5439,12 +5451,17 @@ const Settings = {
     if (!currentAgent?.id) { if (msg) { msg.style.color='var(--red)'; msg.textContent='Not logged in.'; } return; }
     const name  = document.getElementById('set-broker-name')?.value.trim() || null;
     const email = document.getElementById('set-broker-email')?.value.trim() || null;
+    const intakeUrl = document.getElementById('set-broker-intake-url')?.value.trim() || null;
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       if (msg) { msg.style.color='var(--red)'; msg.textContent='Please enter a valid broker email.'; }
       return;
     }
+    if (intakeUrl && !/^https?:\/\//i.test(intakeUrl)) {
+      if (msg) { msg.style.color='var(--red)'; msg.textContent='The application link should start with https://'; }
+      return;
+    }
     if (msg) { msg.style.color='var(--text2)'; msg.textContent='Saving…'; }
-    const updates = { broker_name: name, broker_email: email };
+    const updates = { broker_name: name, broker_email: email, broker_intake_url: intakeUrl };
     Object.assign(currentAgent, updates);
     const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
     if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }

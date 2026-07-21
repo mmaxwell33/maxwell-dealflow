@@ -86,7 +86,6 @@
 const SB = 'https://bxwmbrdndsetjwcexwpc.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 const TOKEN = new URLSearchParams(location.search).get('t') || '';
-const INTAKE_URL = 'https://maxwellmidodzi.com/intake.html';
 
 async function rpc(fn, args){
   const r = await fetch(SB + '/rest/v1/rpc/' + fn, {
@@ -166,10 +165,11 @@ function cardActive(r){
         </select></div>
     </div>
     <div class="foot">
-      <button class="btn ghost" onclick="sendIntake('${r.id}')">Email intake form</button>
-      <button class="btn" onclick="saveSnapshot('${r.id}')">Save snapshot</button>
+      <button class="btn ghost" onclick="sendIntake('${r.id}')">Send my application</button>
+      <button class="btn ghost" onclick="saveSnapshot('${r.id}')">Save snapshot</button>
     </div>
-    <div class="note">Only the amount, status and rate-hold date are shared with Maxwell. Nothing else.</div>
+    <button class="btn block" style="margin-top:10px;background:var(--g);border-color:var(--g);" onclick="handoff('${r.id}')">&#10003; Client is ready, hand to Maxwell</button>
+    <div class="note">"Send my application" emails the client your own mortgage application. When they're pre-approved and ready to buy, "send to Maxwell" hands them over and Maxwell sends his home-buyer form. Only the amount, status and rate-hold you enter here are shared with Maxwell.</div>
     <div class="msg" id="snapmsg-${r.id}"></div>
   </div>`;
 }
@@ -204,11 +204,22 @@ async function saveSnapshot(id){
   }catch(e){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
 }
 
+async function handoff(id){
+  if(!confirm("Send this client to Maxwell?\n\nHe'll receive their home-buyer form to approve and start the home search. Do this once they're pre-approved and ready to buy.")) return;
+  try{
+    const res = await rpc('broker_handoff_referral', { p_token: TOKEN, p_referral_id: id });
+    if(res.ok){ alert("Done. Maxwell will take it from here on the home search."); await load(); }
+    else { alert('Could not send yet. Approve the referral first, then try again.'); }
+  }catch(e){ alert('Something went wrong. Please try again.'); }
+}
+
 function sendIntake(id){
   const r = (LANE.referrals||[]).find(x=>x.id===id) || {};
-  const subject = encodeURIComponent('Quick financing intake — takes under a minute');
+  const url = LANE.intake_url;
+  if(!url){ alert('No application link is set yet. Ask Maxwell to add your application link in his DealFlow settings, then it will appear here.'); return; }
+  const subject = encodeURIComponent('Your mortgage application — start here');
   const body = encodeURIComponent(
-    `Hi ${r.name||''},\n\nGreat speaking with you. When you have a moment, please fill out this short intake so I can get your pre-approval moving:\n${INTAKE_URL}\n\nIt takes less than a minute. Any questions, just reply here.\n\nThanks!`
+    `Hi ${r.name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`
   );
   window.location.href = `mailto:${r.email||''}?subject=${subject}&body=${body}`;
 }

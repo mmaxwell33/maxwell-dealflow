@@ -1594,6 +1594,11 @@
               <input class="form-input" id="set-broker-email" type="email" placeholder="e.g. jane@mortgages.ca">
             </div>
           </div>
+          <div style="margin-top:14px;">
+            <label class="form-label">Broker's client application link (optional)</label>
+            <input class="form-input" id="set-broker-intake-url" type="url" placeholder="e.g. https://getmy.mortgage/xxxx#/application-widget/welcome">
+            <div style="font-size:12px;color:var(--text2);margin-top:4px;">His own mortgage-application link (Filogix, etc.). The lane's "Email intake form" button sends this to the client.</div>
+          </div>
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveBroker()">Save Broker</button>
           <div id="set-broker-msg" style="font-size:13px;margin-top:8px;"></div>
 
