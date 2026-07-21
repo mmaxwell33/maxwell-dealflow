@@ -413,6 +413,7 @@ function sendIntake(id){
   const r = REFS.find(x=>x.id===id)||{};
   const url = (ME && ME.broker_intake_url) || document.getElementById('set-intake').value.trim();
   if(!url){ alert('Add your application link in Settings first.'); switchTab('s'); return; }
+  db.from('broker_referral_requests').update({ app_sent_at:new Date().toISOString() }).eq('id',id).eq('broker_id',ME.id);  // start the follow-up clock
   const subject = encodeURIComponent('Your mortgage application, start here');
   const body = encodeURIComponent(`Hi ${r.client_name||''},\n\nGreat speaking with you. When you're ready, you can start your mortgage application here:\n${url}\n\nAny questions, just reply to this email.\n\nThanks!`);
   window.location.href = `mailto:${r.client_email||''}?subject=${subject}&body=${body}`;
