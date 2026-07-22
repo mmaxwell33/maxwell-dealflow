@@ -17,7 +17,7 @@
   .app{display:flex;min-height:100vh;}
   .side{width:260px;flex:none;background:var(--side);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:22px 16px;}
   .brand{display:flex;align-items:center;gap:12px;padding:0 6px 20px;border-bottom:1px solid var(--bd);margin-bottom:16px;}
-  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:19px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
+  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;letter-spacing:-.5px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
   .brand b{font-size:16px;display:block;line-height:1.15;letter-spacing:-.2px;} .brand small{font-size:11px;color:var(--t3);font-family:var(--mono);}
   nav{display:flex;flex-direction:column;gap:6px;}
   .navitem{display:flex;align-items:center;gap:11px;font:inherit;font-size:14px;font-weight:600;color:var(--t2);background:transparent;border:0;border-radius:11px;padding:12px 13px;cursor:pointer;text-align:left;transition:.14s;width:100%;}
@@ -28,6 +28,7 @@
   .navitem.on .ct{background:rgba(255,255,255,.2);color:#fff;}
   .side-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--bd);}
   .side-foot .who{font-size:12px;color:var(--t2);font-family:var(--mono);margin-bottom:8px;padding:0 6px;word-break:break-word;}
+  .side-foot .agentid{font-size:11px;color:var(--t2);margin-bottom:8px;padding:0 6px;line-height:1.4;}
   .signout{font:inherit;font-size:12.5px;font-weight:600;color:var(--t3);background:transparent;border:1px solid var(--bd);border-radius:9px;padding:9px;cursor:pointer;width:100%;}
   .signout:hover{color:var(--t1);border-color:var(--bd2);}
   .main{flex:1;min-width:0;padding:30px 34px 70px;}
@@ -118,7 +119,7 @@
 
 <div id="state-login" class="center" hidden>
   <div class="loginbox">
-    <div class="mk">M</div>
+    <div class="mk">FL</div>
     <h2>Financing Lane</h2>
     <div class="sub">Sign in to your broker portal.</div>
     <div class="field"><label>EMAIL</label><input id="li-email" type="email" autocomplete="username" placeholder="you@example.com"></div>
@@ -137,7 +138,7 @@
 
 <div id="state-portal" class="app" hidden>
   <aside class="side">
-    <div class="brand"><div class="mk">M</div><div><b>Financing Lane</b><small>referrals from Maxwell</small></div></div>
+    <div class="brand"><div class="mk">FL</div><div><b>Financing Lane</b><small>mortgage referral portal</small></div></div>
     <nav>
       <button class="navitem on" id="nav-t" onclick="switchTab('t')"><span class="ic">🏠</span>Today</button>
       <button class="navitem" id="nav-a" onclick="switchTab('a')"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
@@ -148,7 +149,7 @@
       <button class="navitem" id="nav-c" onclick="switchTab('c')" style="display:none"><span class="ic">👤</span>My clients<span class="ct" id="ct-c">0</span></button>
       <button class="navitem" id="nav-s" onclick="switchTab('s')"><span class="ic">⚙️</span>Settings</button>
     </nav>
-    <div class="side-foot"><div class="who" id="who"></div><button class="signout" onclick="doSignOut()">Sign out</button></div>
+    <div class="side-foot"><div class="who" id="who"></div><div class="agentid">Maxwell Delali Midodzi · REALTOR® · eXp Realty</div><button class="signout" onclick="doSignOut()">Sign out</button></div>
   </aside>
   <main class="main">
     <div class="mwrap">
