@@ -107,6 +107,15 @@
   .wn-ic{font-size:22px;flex:none;line-height:1.2;}
   .wn-t{font-weight:700;font-size:14.5px;margin-bottom:2px;}
   .wn-b{font-size:13px;color:var(--t2);line-height:1.45;}
+  .snapwrap{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px 17px;margin-bottom:22px;}
+  .snaphd{font-size:12px;color:var(--t2);margin-bottom:11px;}
+  .snaphd b{color:var(--t1);font-size:14px;}
+  .snapbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--s2);gap:2px;}
+  .snapseg{height:100%;}
+  .snaplegend{display:flex;flex-wrap:wrap;gap:14px;margin-top:11px;}
+  .snaplegend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);}
+  .snaplegend .sw{width:9px;height:9px;border-radius:3px;flex:none;}
+  .snaplegend b{color:var(--t1);font-variant-numeric:tabular-nums;}
   .setcard{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;max-width:560px;margin-bottom:16px;}
   .setcard h3{font-size:15px;margin-bottom:4px;} .setcard p{font-size:12.5px;color:var(--t2);margin-bottom:14px;}
   /* login / states */
@@ -417,6 +426,29 @@ function allClientsGrouped(pend, active){
     + `<div class="grid">${g.rows.map(r=>g.card(r)).join('')}</div>`
   ).join('');
 }
+function snapshotBar(){
+  // A current-state snapshot of the client mix (not a trend) — honest counts.
+  const isClosed = r => (r.deal_stage||'').toLowerCase()==='closed';
+  const isHanded = r => r.status==='ready_for_agent' || r.status==='handed';
+  const segs = [
+    { label:'New',      n: REFS.filter(r=>r.status==='pending').length, color:'#4a90d9' },
+    { label:'Working',  n: REFS.filter(r=>['approved','sent'].includes(r.status) && !isClosed(r)).length, color:'#eab04a' },
+    { label:'Closed',   n: REFS.filter(isClosed).length, color:'#16A34A' },
+    { label:'Handed',   n: REFS.filter(r=>isHanded(r) && !isClosed(r)).length, color:'#8a7cff' },
+    { label:'Your own', n: MINE.length, color:'#e0663a' }
+  ];
+  const total = segs.reduce((a,s)=>a+s.n,0);
+  const dateStr = new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});
+  const bar = total
+    ? segs.filter(s=>s.n).map(s=>`<div class="snapseg" style="width:${(s.n/total*100).toFixed(1)}%;background:${s.color}"></div>`).join('')
+    : `<div class="snapseg" style="width:100%;background:var(--s2)"></div>`;
+  const legend = segs.filter(s=>s.n).map(s=>`<span><span class="sw" style="background:${s.color}"></span>${s.label} <b>${s.n}</b></span>`).join('');
+  return `<div class="snapwrap">
+    <div class="snaphd"><b>Your snapshot</b> &middot; ${esc(dateStr)} &middot; ${total} client${total===1?'':'s'}</div>
+    <div class="snapbar">${bar}</div>
+    <div class="snaplegend">${legend || '<span>No clients yet.</span>'}</div>
+  </div>`;
+}
 function daysUntil(d){ if(!d) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((new Date(d+'T00:00:00')-t)/86400000); }
 function renderToday(){
   const pend = REFS.filter(r=>r.status==='pending');
@@ -434,7 +466,8 @@ function renderToday(){
   ready.forEach(r=>feed.push({icon:'✅',cls:'green',title:`${esc(r.client_name||'Client')} is ready`,sub:'Checklist complete, hand to Maxwell.',act:"switchTab('b')",btn:'Open'}));
   dueSoon.forEach(r=>{ const d=daysUntil(r.snapshot_rate_hold); const w=d===0?'expires today':(d===1?'expires tomorrow':'in '+d+' days'); feed.push({icon:'⏳',cls:'amber',title:`${esc(r.client_name||'Client')}: rate hold ${w}`,sub:`Rate hold ${esc(r.snapshot_rate_hold||'')}.`,act:"switchTab('b')",btn:'Open'}); });
   document.getElementById('list-today').innerHTML =
-    `<div class="tiles">${tiles.map(t=>`<div class="tile ${t.cls}"><div class="n">${t.n}</div><div class="l">${t.l}</div></div>`).join('')}</div>`
+    snapshotBar()
+    + `<div class="tiles">${tiles.map(t=>`<div class="tile ${t.cls}"><div class="n">${t.n}</div><div class="l">${t.l}</div></div>`).join('')}</div>`
     + (feed.length
         ? `<div class="feed">${feed.map(f=>`<div class="fitem ${f.cls}"><div class="fico">${f.icon}</div><div class="fbody"><div class="ft">${f.title}</div><div class="fs">${f.sub}</div></div><button class="btn ghost" onclick="${f.act}">${f.btn}</button></div>`).join('')}</div>`
         : `<div class="empty"><span class="ei">☀️</span>You're all caught up. Nothing needs you today.</div>`);
