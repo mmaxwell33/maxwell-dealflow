@@ -110,3 +110,24 @@ Always prepare the commit in the sandbox, then have the user run:
 ```bash
 cd ~/Desktop/maxwell-dealflow && rm -f .git/HEAD.lock .git/index.lock && git pull && git push
 ```
+
+### Preview-gated changes (broker.html, or anything Maxwell wants to see live before it ships)
+
+Default (above) pushes straight to `master`, which Vercel deploys to
+production instantly. For **broker.html** and anything else Maxwell wants to
+test before it goes live, use a feature branch instead — Vercel already
+auto-builds a Preview Deployment for any pushed branch (Boardroom, 2026-07-22
+— this repo already has dozens of feature branches doing this; no vercel.json
+change needed):
+
+```bash
+cd ~/Desktop/maxwell-dealflow && git checkout -b feat/<branch-name>
+# ...commit the change...
+git push origin feat/<branch-name>
+```
+Have the user push the **branch**, not `master`. Vercel builds a preview URL
+automatically (visible in the Vercel dashboard, or the check on the GitHub
+commit). Only after Maxwell approves on that preview URL:
+```bash
+git checkout master && git merge feat/<branch-name> && git push origin master
+```
