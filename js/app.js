@@ -605,9 +605,10 @@ const App = {
     const _money = n => (n != null && n !== '') ? '$' + Number(n).toLocaleString() : '';
     const _recentCut = Date.now() - 14 * 86400000;
     (referrals || []).forEach(r => {
-      if ((r.status === 'pending' || r.status === 'requested') && !r.broker_id) {
-        // Actionable — a client is waiting on the intro, and it's not yet
-        // routed to a broker's lane (once broker_id is set it lives in his portal).
+      if ((r.status === 'pending' || r.status === 'requested') && !r.approved_by) {
+        // Actionable — a client is waiting on the intro and nobody has acted yet.
+        // (Leads are pre-linked to the broker's lane, so we key off approved_by,
+        // not broker_id: it clears once you send the intro OR the broker approves.)
         const fromWeb = r.source === 'website' || r.status === 'pending';
         items.push({ icon: '🤝', bg: 'rgba(204,120,92,0.18)', color: '#CC785C',
           title: fromWeb ? 'Client wants a mortgage broker' : 'Broker intro requested',
@@ -712,16 +713,16 @@ const App = {
     const { data: bk } = await db.from('agents').select('id')
       .eq('role', 'broker').ilike('email', currentAgent.broker_email).limit(1);
     const brokerId = (bk && bk[0] && bk[0].id) || null;
-    // CLAIM the referral first (compare-and-swap on broker_id IS NULL) so a repeat
-    // tap — or a simultaneous broker approval — can't route/send it twice. If the
-    // broker has a portal login, attach broker_id and KEEP status 'pending' so it
-    // lands in his "Reached out" tab; either way it leaves Maxwell's bell.
-    const claim = brokerId
-      ? { broker_id: brokerId, approved_by: 'maxwell', approved_at: new Date().toISOString() }
-      : { status: 'sent', approved_by: 'maxwell', approved_at: new Date().toISOString() };
+    // CLAIM the referral first (compare-and-swap on approved_by IS NULL) so a
+    // repeat tap — or the broker approving first in his portal — can't send the
+    // intro twice. Leads are already linked to the broker's lane, so we ensure
+    // broker_id is set (no-op if already) and, only if there's no broker portal,
+    // flip to 'sent' so it still clears from the bell.
+    const claim = { approved_by: 'maxwell', approved_at: new Date().toISOString() };
+    if (brokerId) claim.broker_id = brokerId; else claim.status = 'sent';
     const { data: won } = await db.from('broker_referral_requests')
       .update(claim)
-      .eq('id', id).is('broker_id', null).in('status', ['pending', 'requested', 'offered']).select('id');
+      .eq('id', id).is('approved_by', null).in('status', ['pending', 'requested', 'offered']).select('id');
     if (!won || !won.length) { App.toast('✅ Already handled', 'var(--yellow)'); App.loadNotifications(); return; }
     // Won the claim — now queue the intro (broker primary, client + Maxwell CC).
     if (typeof Notify === 'undefined' || !Notify.onBrokerReferral) { App.toast('Notify unavailable', 'var(--red)'); return; }
