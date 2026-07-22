@@ -19,12 +19,15 @@
 
 const EmailFormat = {
 
-  // Pull agent contact fields with sensible defaults
+  // Pull agent contact fields with sensible defaults.
+  // Note: "role" here is the job title (e.g. "REALTOR® | eXp Realty"), never
+  // agent.role — that column is the app permission flag ('agent'/'broker')
+  // and must not leak into client-facing signatures.
   _agent(agent) {
     const a = agent || {};
     return {
       name:    a.full_name || a.name || 'Maxwell Delali Midodzi',
-      role:    a.role || 'REALTOR® | eXp Realty',
+      role:    'REALTOR® | eXp Realty',
       phone:   a.phone || '709.325.0545',
       email:   a.email || 'maxwell.midodzi@exprealty.com',
       website: a.website_url || 'maxwellmidodzi.com',
@@ -77,8 +80,22 @@ const EmailFormat = {
     `;
   },
 
-  // ── HTML signature block — tables for Outlook compatibility, icons via Unicode ──
+  // ── HTML signature block ──
+  // If the agent has saved a custom signature in Settings, that's the single
+  // source of truth and is used verbatim (so what Maxwell sees in Settings ->
+  // Email Signature is what clients actually receive). Otherwise falls back
+  // to the generated contact-block signature.
   signatureHTML(agent) {
+    const custom = (agent && agent.email_signature || '').trim();
+    if (custom) {
+      const escaped = custom
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+      return `
+      <p style="margin:16px 0 0;font-size:14px;line-height:1.55;color:#202124;">${escaped}</p>`;
+    }
     const a = EmailFormat._agent(agent);
     const tel = EmailFormat._phoneTel(a.phone);
     // Plain "real email" signature (no icons / no big bold name / no table) so the
@@ -101,7 +118,10 @@ const EmailFormat = {
   },
 
   // ── Plain-text signature (for Gmail's plain-text fallback) ──
+  // Same custom-signature-wins rule as signatureHTML() above.
   signaturePlain(agent) {
+    const custom = (agent && agent.email_signature || '').trim();
+    if (custom) return custom;
     const a = EmailFormat._agent(agent);
     return `${a.name}\n${a.role}\n\n📞   ${a.phone}\n✉️   ${a.email}\n🌐   ${a.website}`;
   },
@@ -214,7 +234,7 @@ const Notify = {
       const introLine = isUpdate
         ? `Your viewing details have been updated. Here is the latest information:`
         : `Your property viewing has been confirmed.`;
-      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${EmailFormat.signaturePlain(agent)}`;
 
       // ── HTML EMAIL ─────────────────────────────────────────────────────────
       const tableRows = [];
@@ -344,7 +364,7 @@ const Notify = {
 
       // Mirror the viewing-confirmation template exactly: same intro→table→
       // Add-to-Calendar→cal-note→reach-out line→sign-off→signature→disclaimer.
-      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.${EmailFormat.mapLinkPlain(meeting.location)}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${agentName}\nREALTOR® | eXp Realty\n${agentPhone} | ${agentEmail}\neXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2`;
+      const body = `Hi ${firstName},\n\nI've arranged your meeting with ${builderFull}.\n\nLocation: ${loc}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${meeting.notes ? '\nNotes: ' + meeting.notes : ''}\n\nA calendar invite is attached — open it to add this meeting to your calendar.${EmailFormat.mapLinkPlain(meeting.location)}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
@@ -402,11 +422,7 @@ ${feedback === 'interested' ? `Based on your strong interest, I'd recommend we d
 
 Let me know your thoughts!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -426,11 +442,7 @@ I will be in touch with you the moment I receive a response from the seller's ag
 
 Stay tuned — I'll be in touch!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -452,11 +464,7 @@ ${offer.conditions ? `Conditions to fulfill:\n${offer.conditions}\n\n` : ''}✅ 
 
 I'll be guiding you every step of the way. Please don't hesitate to call or message me anytime.
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -567,11 +575,7 @@ START PLANNING NOW:
 I'll be with you every step of the way. Call or message me anytime!
 
 Best regards,
-${agentName}
-REALTOR® | eXp Realty
-${agentPhone} | ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-${agentWebsite}
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
@@ -596,11 +600,7 @@ ${conditionType === 'Financing' ? 'Please ensure your mortgage lender has all re
 
 Time is of the essence — please reach out right away if anything needs attention.
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -631,11 +631,7 @@ ${daysLeft <= 3 ? `✅ Final Closing Checklist:
 
 `}I'm here for any questions. This is an exciting time!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -661,11 +657,7 @@ If you have a moment, I would truly appreciate a Google review or a referral to 
 
 Thank you again,
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.
@@ -714,11 +706,7 @@ Your options:
 No pressure — take your time. I'm here whenever you're ready!
 
 Best regards,
-${agentName}
-REALTOR® | eXp Realty
-${agentPhone} | ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`,
@@ -744,11 +732,7 @@ You have a few options:
 
 Please reply or call me as soon as possible — counter offers are time-sensitive!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -769,11 +753,7 @@ While this is disappointing, please know this happens and it's part of the proce
 
 I'll be in touch shortly with some new options. Please don't hesitate to reach out if you have any questions.
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -807,11 +787,7 @@ ${deal.inspection_date ? '• Your inspector has been scheduled and will reach o
 
 Take a moment to celebrate — this is a big milestone. I'll keep you updated as each piece of the process moves forward, and I'm here for any questions along the way.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -847,11 +823,7 @@ Please let me know once financing is locked in or if you need anything further f
 If it's easier to track on your end, I've set up a private portal for this deal where you can mark each step complete:
    ${portalUrl}` : ''}
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -883,11 +855,7 @@ Please confirm availability for the proposed date or send back a few options tha
 I've also set up a private portal where you can confirm completion when the inspection is done:
    ${portalUrl}` : ''}
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -923,11 +891,7 @@ I've cc'd ${clientFirst} on this email so you have an open line of communication
 I've also set up a private portal where you can mark title search, funds-in-trust, and ready-to-close as each step completes:
    ${portalUrl}` : ''}
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -956,11 +920,7 @@ Thank you for your ${roleLbl} on this one — it was a pleasure working with you
 
 I'll keep you in mind for the next file. If you have a moment, please feel free to reply with any feedback on how we worked together — always trying to make the process smoother for the next deal.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -988,11 +948,7 @@ Your live deal portal has been updated automatically. You'll see the new countdo
 
 If you have any questions or concerns, please call or text me anytime.
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -1018,11 +974,7 @@ If you notice anything concerning, contact me immediately — we still have time
 
 I'll be there with you. See you tomorrow!
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -1044,11 +996,7 @@ I'll be in touch very soon with new options. In the meantime, please feel free t
 
 We WILL find your perfect home. 💪
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -1073,11 +1021,7 @@ Thank you again for trusting me with such an important milestone. I hope to work
 
 Warmly,
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -1154,13 +1098,7 @@ View your full build tracker: ${trackerLink}
 
 If you have any questions, please don't hesitate to reach out.
 
-${agentName}
-REALTOR® | eXp Realty
-Phone: ${agentPhone} | Email: ${agentEmail}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited.`;
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
 
       return {
         subject: `🏗️ Build Update — ${newStage} | ${build.lot_address}`,
@@ -1200,8 +1138,7 @@ ${estCloseStr ? `Estimated Possession: ${estCloseStr}` : ''}
 View live progress in your portal: ${link}
 
 Best regards,
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty`;
+${EmailFormat.signaturePlain(agent)}`;
       return {
         subject: `🏗️ Build Update — ${newStage} | ${build.lot_address || ''} (${buyerName || ''})`,
         body,
@@ -1294,12 +1231,7 @@ It's been a little quiet on my end and I just wanted to check in. Are you still 
 
 Either way — even a one-line reply helps me know how to support you best from here.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`
       };
     },
 
@@ -1314,12 +1246,7 @@ A few homes have hit the market in ${areas} that line up with the budget and bed
 
 If your search has paused or shifted, just say the word — no pressure, just keeping you in the loop.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`
       };
     },
 
@@ -1333,12 +1260,7 @@ Just circling back — you mentioned your pre-approval was in progress. Has the 
 
 Happy to recommend a broker if you're still shopping around.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`
       };
     },
 
@@ -1352,12 +1274,7 @@ Wanted to check in on your selling plans. The market has shifted a bit — happy
 
 Even if you're just curious, no obligation. Reply or give me a quick call when you have a minute.
 
-Maxwell Delali Midodzi
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-
-──────────────────────────────────────────
-CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s).`
+${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`
       };
     },
 
@@ -1373,11 +1290,7 @@ Based on your search criteria, I think this one is worth a look. Properties like
 
 Would you like to schedule a viewing? Just reply to this email or give me a call and I'll set it up right away.
 
-${agent.full_name || agent.name || 'Maxwell Delali Midodzi'}
-REALTOR® | eXp Realty
-Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
-eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2
-maxwellmidodzi.com
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
@@ -1500,11 +1413,7 @@ Here's what happens next:
 Feel free to reach out anytime — I'm here to help!
 ${opts.referralToken ? `\nP.S. — I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}\n` : ''}
 Best regards,
-${agentName}
-REALTOR® | eXp Realty
-${agentPhone} | ${agentEmail}
-eXp Realty, ${agentAddress}
-${agentWebsite}
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
@@ -1623,11 +1532,7 @@ Selling a home is a big decision and I take that seriously. Whether you're ready
 Talk soon!
 
 Best regards,
-${agentName}
-REALTOR® | eXp Realty
-${agentPhone} | ${agentEmail}
-eXp Realty, ${agentAddress}
-${agentWebsite}
+${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
