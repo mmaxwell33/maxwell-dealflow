@@ -322,8 +322,9 @@ async function addCheckItem(refId){
 }
 function render(){
   const pend = REFS.filter(r=>r.status==='pending');
-  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent')
-    .sort((a,b)=>((a.deal_stage||'').toLowerCase()==='closed'?1:0)-((b.deal_stage||'').toLowerCase()==='closed'?1:0));  // closed to the bottom
+  const rank = r => (r.status==='ready_for_agent'||r.status==='handed') ? 2 : (((r.deal_stage||'').toLowerCase()==='closed')?1:0);
+  const active = REFS.filter(r=>['approved','sent','ready_for_agent','handed'].includes(r.status))
+    .sort((a,b)=>rank(a)-rank(b));  // in-progress first, then closed, then handed-off (kept for the record)
   document.getElementById('ct-a').textContent = pend.length;
   document.getElementById('ct-b').textContent = active.length;
   document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
@@ -373,6 +374,20 @@ function checklistBlock(refId){
   </div>`;
 }
 function cardActive(r){
+  // Handed back to Maxwell: keep it as a read-only record so the broker still
+  // sees everyone he's worked and the stage each ended in. No editing.
+  if(r.status==='ready_for_agent' || r.status==='handed'){
+    const amt = r.snapshot_max_amount!=null ? '$'+Number(r.snapshot_max_amount).toLocaleString() : '—';
+    const stat = STATUS_LABEL[r.snapshot_status] || r.snapshot_status || '—';
+    const rate = r.snapshot_rate_hold || '—';
+    return `<div class="card" style="opacity:.85"><div class="r1"><div><div class="cn">${esc(r.client_name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+        <span class="pill p-go"><span class="dot"></span>Sent to Maxwell</span>
+        ${r.deal_stage?`<span class="pill stage-${stageClass(r.deal_stage)}">🏡 ${esc(r.deal_stage)}</span>`:''}
+      </div></div>
+      <div style="font-size:13px;color:var(--t2);margin-top:10px;line-height:1.5;">Pre-approval: <b style="color:var(--t1)">${esc(amt)}</b> &middot; ${esc(stat)} &middot; rate hold ${esc(rate)}</div>
+      <div class="note">You handed this client back to Maxwell for the home search. Kept here for your records.</div></div>`;
+  }
   return `<div class="card"><div class="r1"><div><div class="cn">${esc(r.client_name||'Client')}</div><div class="contact">${contactLine(r)}</div></div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
       <span class="pill p-go"><span class="dot"></span>${r.approved_by==='broker'?'You are handling':'Approved'}</span>

@@ -5551,8 +5551,19 @@ Please change your password in the portal's Settings once you sign in. From your
 Thanks,
 ${currentAgent?.full_name || 'Maxwell Midodzi'}
 REALTOR, eXp Realty`;
+    // Branded HTML version (same wrapper + signature + disclaimer as every other
+    // DealFlow email) so the invite doesn't look like a bare plain-text template.
+    const bodyHtml = (typeof EmailFormat !== 'undefined' && EmailFormat.htmlEmail)
+      ? EmailFormat.htmlEmail(
+          `<p>Hi ${name},</p>
+           <p>You're set up on Maxwell's <strong>Financing Lane</strong>. Sign in to your portal here:</p>
+           <p><a href="${url}">${url}</a></p>
+           <p><strong>Temporary password:</strong> ${data.temp_password || ''}</p>
+           <p>Please change your password in the portal's Settings once you sign in. From your lane you'll see the clients Maxwell refers to you, approve them, add the pre-approval details, and hand a client back to Maxwell when they're ready to buy.</p>`,
+          currentAgent)
+      : null;
     if (typeof Notify !== 'undefined' && Notify.queue) {
-      await Notify.queue('Broker Portal Invite', null, name, email, subject, body, null);
+      await Notify.queue('Broker Portal Invite', null, name, email, subject, body, null, bodyHtml);
     }
     setMsg(`✅ Login created. Temp password: ${data.temp_password || ''}  ·  the invite email is now in Approvals. Approve it to send to ${email}.`, 'var(--green)');
     App.toast('📨 Broker invite queued in Approvals', 'var(--green)');
