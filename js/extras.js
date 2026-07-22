@@ -564,6 +564,21 @@ const FormResponses = {
     }
     FormResponses.all = data;
 
+    // Pull broker-referral state so a lender lead the broker has already picked
+    // up (or you've already sent) shows as handled instead of nagging you to
+    // send it again. Whoever acts first settles it for both sides. Best-effort.
+    FormResponses.refByEmail = {};
+    try {
+      const { data: refs } = await db.from('broker_referral_requests')
+        .select('client_email,status,approved_by')
+        .eq('agent_id', currentAgent?.id || '00000000-0000-0000-0000-000000000000')
+        .limit(500);
+      (refs || []).forEach(rf => {
+        const k = (rf.client_email || '').toLowerCase();
+        if (k) FormResponses.refByEmail[k] = rf;
+      });
+    } catch (e) { /* referral state is a bonus; never block the funnel on it */ }
+
     // ── PUSH NOTIFY FOR ANY NEW (unreviewed) SUBMISSIONS ───────────────────
     const newCount = data.filter(r => r.status === 'New').length;
     if (newCount > 0 && window.App?.pushNotify) {
@@ -693,10 +708,17 @@ const FormResponses = {
     const statusPill = `<span class="stage-badge" style="font-size:10px;white-space:nowrap;background:${fresh?'var(--accent-soft)':'rgba(156,163,175,.16)'};color:${fresh?'var(--accent2)':'#B7C0CE'};">${st}</span>`;
     const email = r.email ? `<a href="mailto:${r.email}" style="color:var(--text2);text-decoration:none;">📧 ${r.email}</a>` : '';
     const phone = r.phone ? ` · <a href="tel:${(r.phone||'').replace(/[^0-9+]/g,'')}" style="color:var(--text2);text-decoration:none;">📞 ${r.phone}</a>` : '';
-    const primary = lender
-      ? `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendToBroker('${r.id}')">🏦 Send to mortgage broker</button>`
-      : `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendIntake('${r.id}')">📨 ${r.status==='Intake sent'?'Resend intake form':'Send intake form'}</button>`;
-    const secondary = (lender && r.status!=='Intake sent')
+    // Has this lender lead already been claimed — by the broker (approved in his
+    // portal) or by you (already sent)? If so, don't offer "Send to broker" again.
+    const ref = lender ? (FormResponses.refByEmail || {})[(r.email || '').toLowerCase()] : null;
+    const handled = ref && (ref.approved_by || (ref.status && ref.status !== 'pending' && ref.status !== 'requested'));
+    const handledLabel = (ref && ref.approved_by === 'broker') ? '✅ Broker is handling this' : '✅ Sent to your broker';
+    const primary = !lender
+      ? `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendIntake('${r.id}')">📨 ${r.status==='Intake sent'?'Resend intake form':'Send intake form'}</button>`
+      : handled
+        ? `<span class="stage-badge" style="font-size:11px;background:rgba(34,197,94,.14);color:#22c55e;padding:7px 12px;white-space:nowrap;">${handledLabel}</span>`
+        : `<button class="btn btn-primary btn-sm" onclick="FormResponses.sendToBroker('${r.id}')">🏦 Send to mortgage broker</button>`;
+    const secondary = (lender && !handled && r.status!=='Intake sent')
       ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.sendIntake('${r.id}')">📨 Send intake form</button>` : '';
     return `
       <div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">

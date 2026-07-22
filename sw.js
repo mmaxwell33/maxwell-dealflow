@@ -1,4 +1,4 @@
-const CACHE = 'dealflow-v202';
+const CACHE = 'dealflow-v203';
 const ICON_CACHE = 'dealflow-icons-v4';
 
 const ICONS = [
