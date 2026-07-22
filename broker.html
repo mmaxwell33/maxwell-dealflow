@@ -29,6 +29,9 @@
   .side-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--bd);}
   .side-foot .who{font-size:12px;color:var(--t2);font-family:var(--mono);margin-bottom:8px;padding:0 6px;word-break:break-word;}
   .side-foot .agentid{font-size:11px;color:var(--t2);margin-bottom:8px;padding:0 6px;line-height:1.4;}
+  .side-foot .agentid:empty{display:none;}
+  .mk img{width:100%;height:100%;object-fit:cover;border-radius:inherit;}
+  .mk.haslogo{background:#fff;}
   .signout{font:inherit;font-size:12.5px;font-weight:600;color:var(--t3);background:transparent;border:1px solid var(--bd);border-radius:9px;padding:9px;cursor:pointer;width:100%;}
   .signout:hover{color:var(--t1);border-color:var(--bd2);}
   .main{flex:1;min-width:0;padding:30px 34px 70px;}
@@ -143,7 +146,7 @@
 
 <div id="state-portal" class="app" hidden>
   <aside class="side">
-    <div class="brand"><div class="mk">FL</div><div><b>Financing Lane</b><small>mortgage referral portal</small></div></div>
+    <div class="brand"><div class="mk" id="brand-mk">FL</div><div><b id="brand-name">Financing Lane</b><small id="brand-sub">mortgage referral portal</small></div></div>
     <nav>
       <button class="navitem on" id="nav-t" onclick="switchTab('t')"><span class="ic">🏠</span>Today</button>
       <button class="navitem" id="nav-a" onclick="switchTab('a')" style="display:none"><span class="ic">📥</span>Reached out<span class="ct" id="ct-a">0</span></button>
@@ -154,7 +157,7 @@
       <button class="navitem" id="nav-c" onclick="switchTab('c')" style="display:none"><span class="ic">👤</span>My clients<span class="ct" id="ct-c">0</span></button>
       <button class="navitem" id="nav-s" onclick="switchTab('s')"><span class="ic">⚙️</span>Settings</button>
     </nav>
-    <div class="side-foot"><div class="who" id="who"></div><div class="agentid">Maxwell Delali Midodzi · REALTOR® · eXp Realty</div><button class="signout" onclick="doSignOut()">Sign out</button></div>
+    <div class="side-foot"><div class="who" id="who"></div><div class="agentid" id="brand-foot"></div><button class="signout" onclick="doSignOut()">Sign out</button></div>
   </aside>
   <main class="main">
     <div class="mwrap">
@@ -176,6 +179,28 @@
         <div class="grid" id="list-mine"></div>
       </div>
       <div class="panel" id="panel-s">
+        <div class="setcard">
+          <h3>Your brand</h3>
+          <p>Your own logo and brokerage name. Shown at the top of your portal. This is your business, not Maxwell's.</p>
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div class="mk" id="brand-preview" style="width:52px;height:52px;font-size:18px;">FL</div>
+            <div>
+              <input type="file" id="logo-input" accept="image/*" style="display:none;" onchange="uploadLogo(this)">
+              <button class="btn ghost" onclick="document.getElementById('logo-input').click()">Upload logo</button>
+              <button class="btn ghost" id="logo-remove" onclick="removeLogo()" style="display:none;margin-left:6px;">Remove</button>
+            </div>
+          </div>
+          <div class="field"><label>Brokerage name</label><input id="set-brokerage" placeholder="e.g. Centum Mortgage"></div>
+          <button class="btn" style="margin-top:12px;" onclick="saveBrand()">Save brand</button>
+          <div class="msg" id="brand-msg"></div>
+        </div>
+        <div class="setcard">
+          <h3>Notifications</h3>
+          <p>Get alerted on this device the moment a new client or deadline comes in. Tap the alert to jump straight to it.</p>
+          <button class="btn" id="notif-btn" onclick="enableNotifs()">Turn on notifications</button>
+          <button class="btn ghost" id="notif-test" onclick="testNotif()" style="margin-left:8px;display:none;">Send a test</button>
+          <div class="msg" id="notif-msg"></div>
+        </div>
         <div class="setcard">
           <h3>Your application link</h3>
           <p>Your own mortgage application (Filogix, etc.). The "Send my application" button emails this to your client.</p>
@@ -234,6 +259,10 @@ let REFS = [];
 let CHECKS = [];
 let _landed = false;
 let COMPOSE_REF = null;
+// Web Push — same public VAPID key + edge function as the main app (public values).
+const VAPID_PUBLIC_KEY = 'BH3dmIs9gHMMlzYgzzzQ5nDjpHpJmo7mNmM3UBY5hUbAQyiWItJDsJuXqUVQzJCEWITyHpf289ayNt-q5-xV0-I';
+const PUSH_FUNCTION_URL = 'https://bxwmbrdndsetjwcexwpc.supabase.co/functions/v1/send-push';
+const BROKER_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4d21icmRuZHNldGp3Y2V4d3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTgzOTgsImV4cCI6MjA5MDU3NDM5OH0.zHSYjhbbZqG4Bx76Jyrjpak2mwPrkQKk42ZOBkhYkzc';
 const DEFAULT_CHECK = ['Sent application to client','Client submitted application','ID / KYC received','Income docs received (pay stubs / NOA / T4)','Down-payment proof received','Credit check completed','Pre-approved','Rate hold confirmed'];
 const DEFAULT_TEMPLATES = {
   reachout:{subject:'Getting started on your mortgage',body:"Hi {name},\n\nGreat to connect. I'll be helping you on the financing side. When is a good time for a quick call to go over your options?\n\nThanks!"},
@@ -276,6 +305,8 @@ async function afterAuth(){
   document.getElementById('set-intake').value = me.broker_intake_url || '';
   const _sig = document.getElementById('set-sig'); if(_sig) _sig.value = (me.broker_templates && me.broker_templates.signature) || '';
   loadTmplEditor();
+  applyBrand();
+  refreshNotifState();
   await loadRefs();
   // await loadMine();  // FROZEN (Session 10) — own-client tab hidden pending a data-processing agreement
   show('portal');
@@ -568,6 +599,104 @@ async function saveSignature(){
   ME.broker_templates = tmpls;
   msg.className='msg ok'; msg.textContent='Saved.';
 }
+
+// ── Broker's own brand (logo + brokerage name) ───────────────────────────────
+let _pendingLogo = undefined;   // undefined = unchanged; null = removed; string = new data URL
+function applyBrand(){
+  const t = ME.broker_templates || {};
+  const logo = (_pendingLogo!==undefined) ? _pendingLogo : (t.logo || null);
+  const brokerage = t.brokerage || '';
+  const setMk = (el)=>{ if(!el) return; if(logo){ el.innerHTML='<img src="'+logo+'" alt="logo">'; el.classList.add('haslogo'); } else { el.textContent='FL'; el.classList.remove('haslogo'); } };
+  setMk(document.getElementById('brand-mk'));
+  setMk(document.getElementById('brand-preview'));
+  const sub=document.getElementById('brand-sub'); if(sub) sub.textContent = brokerage || 'mortgage referral portal';
+  const foot=document.getElementById('brand-foot'); if(foot) foot.textContent = brokerage || '';
+  const inp=document.getElementById('set-brokerage'); if(inp && document.activeElement!==inp) inp.value = brokerage;
+  const rm=document.getElementById('logo-remove'); if(rm) rm.style.display = logo ? 'inline-block' : 'none';
+}
+function uploadLogo(input){
+  const file = input.files[0]; if(!file) return;
+  const msg=document.getElementById('brand-msg');
+  if(file.size > 400*1024){ msg.className='msg err'; msg.textContent='Logo must be under 400KB. Try a smaller image.'; return; }
+  const reader=new FileReader();
+  reader.onload=e=>{ _pendingLogo=e.target.result; applyBrand(); msg.className='msg'; msg.textContent='Logo ready. Tap "Save brand" to keep it.'; };
+  reader.readAsDataURL(file);
+}
+function removeLogo(){ _pendingLogo=null; applyBrand(); const msg=document.getElementById('brand-msg'); msg.className='msg'; msg.textContent='Logo removed. Tap "Save brand" to keep it.'; }
+async function saveBrand(){
+  const msg=document.getElementById('brand-msg');
+  const brokerage=(document.getElementById('set-brokerage').value||'').trim();
+  const tmpls=Object.assign({}, ME.broker_templates || DEFAULT_TEMPLATES);
+  tmpls.brokerage=brokerage;
+  if(_pendingLogo!==undefined) tmpls.logo = _pendingLogo;   // null clears it, string sets it
+  const { error } = await db.from('agents').update({ broker_templates: tmpls }).eq('id', ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; return; }
+  ME.broker_templates=tmpls; _pendingLogo=undefined;
+  applyBrand();
+  msg.className='msg ok'; msg.textContent='Saved.';
+}
+
+// ── Web Push (broker device) ─────────────────────────────────────────────────
+// Own service worker, scoped to /broker.html so it never controls Maxwell's app.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw-broker.js', { scope: '/broker.html' }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', ev=>{
+    if(ev.data && ev.data.type==='SWITCH_TAB' && ev.data.tab){ switchTab(ev.data.tab); }
+  });
+}
+function refreshNotifState(){
+  const btn=document.getElementById('notif-btn'), test=document.getElementById('notif-test');
+  if(!btn) return;
+  const granted = ('Notification' in window) && Notification.permission==='granted';
+  btn.textContent = granted ? 'Notifications are on' : 'Turn on notifications';
+  btn.disabled = granted;
+  if(test) test.style.display = granted ? 'inline-block' : 'none';
+}
+async function enableNotifs(){
+  const msg=document.getElementById('notif-msg');
+  if(!('Notification' in window)){ msg.className='msg err'; msg.textContent='This device does not support notifications.'; return; }
+  let perm = Notification.permission;
+  if(perm==='default') perm = await Notification.requestPermission();
+  if(perm!=='granted'){ msg.className='msg err'; msg.textContent='Notifications are blocked. Turn them on in your browser settings for this site.'; refreshNotifState(); return; }
+  await subscribePush();
+  msg.className='msg ok'; msg.textContent='Notifications are on for this device.';
+  refreshNotifState();
+}
+async function subscribePush(){
+  try{
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      const pad = VAPID_PUBLIC_KEY.length % 4 === 0 ? '' : '='.repeat(4 - VAPID_PUBLIC_KEY.length % 4);
+      const raw = atob((VAPID_PUBLIC_KEY + pad).replace(/-/g,'+').replace(/_/g,'/'));
+      const keyBytes = Uint8Array.from(raw, c=>c.charCodeAt(0));
+      sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:keyBytes });
+    }
+    const j = sub.toJSON();
+    await db.from('push_subscriptions').upsert({
+      agent_id: ME.id, endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth, updated_at: new Date().toISOString()
+    }, { onConflict:'endpoint' });
+  }catch(err){ console.warn('[Push] subscribe failed:', err.message); }
+}
+async function testNotif(){
+  const msg=document.getElementById('notif-msg');
+  msg.className='msg'; msg.textContent='Sending…';
+  try{
+    const { data: subs } = await db.from('push_subscriptions').select('endpoint,p256dh,auth').eq('agent_id', ME.id);
+    if(!subs || !subs.length){ msg.className='msg err'; msg.textContent='No device registered yet. Tap "Turn on notifications" first.'; return; }
+    const { data:{ session } } = await db.auth.getSession();
+    const res = await fetch(PUSH_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token||''}`, 'apikey':BROKER_ANON_KEY },
+      body: JSON.stringify({ title:'Financing Lane', body:'Test notification — tap to open your clients.', tab:'b',
+        subscriptions: subs.map(s=>({ endpoint:s.endpoint, keys:{ p256dh:s.p256dh, auth:s.auth } })) })
+    });
+    if(res.ok){ msg.className='msg ok'; msg.textContent='Sent. Check your device.'; }
+    else { msg.className='msg err'; msg.textContent='Could not send the test. Please try again.'; }
+  }catch(err){ msg.className='msg err'; msg.textContent='Could not send the test.'; }
+}
+
 init();
 </script>
 </body>
