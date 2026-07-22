@@ -354,7 +354,7 @@ function switchTab(w){
 
 async function loadRefs(){
   const { data } = await db.from('broker_referral_requests')
-    .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold,deal_stage')
+    .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold,deal_stage,follow_up_date')
     .eq('broker_id', ME.id).order('created_at',{ascending:false});
   REFS = data || [];
   const { data: mine } = await db.from('broker_clients').select('*')
@@ -455,9 +455,12 @@ function renderToday(){
   const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
   const ready = active.filter(r=>{ const it=CHECKS.filter(c=>c.ref_id===r.id); return it.length>0 && it.every(c=>c.done); });
   const dueSoon = active.filter(r=>{ const d=daysUntil(r.snapshot_rate_hold); return d!=null && d>=0 && d<=7; });
+  // Follow-up dates the broker set on any client (referrals + own clients).
+  const followUps = [];
+  [...active, ...MINE].forEach(r=>{ const d=daysUntil(r.follow_up_date); if(d!=null && d>=0 && d<=7) followUps.push({ nm:(r.client_name||r.name), d, date:r.follow_up_date }); });
   const tiles=[
     {n:pend.length,l:'New referrals',cls:'blue'},
-    {n:dueSoon.length,l:'Deadlines this week',cls:'amber'},
+    {n:dueSoon.length+followUps.length,l:'Deadlines this week',cls:'amber'},
     {n:ready.length,l:'Ready to hand off',cls:'green'},
     {n:active.length,l:'Working with',cls:'plain'}
   ];
@@ -465,6 +468,7 @@ function renderToday(){
   pend.forEach(r=>feed.push({icon:'📥',cls:'blue',title:`New referral: ${esc(r.client_name||'lead')}`,sub:'Approve to start working with them.',act:"switchTab('b')",btn:'Go'}));
   ready.forEach(r=>feed.push({icon:'✅',cls:'green',title:`${esc(r.client_name||'Client')} is ready`,sub:'Checklist complete, hand to Maxwell.',act:"switchTab('b')",btn:'Open'}));
   dueSoon.forEach(r=>{ const d=daysUntil(r.snapshot_rate_hold); const w=d===0?'expires today':(d===1?'expires tomorrow':'in '+d+' days'); feed.push({icon:'⏳',cls:'amber',title:`${esc(r.client_name||'Client')}: rate hold ${w}`,sub:`Rate hold ${esc(r.snapshot_rate_hold||'')}.`,act:"switchTab('b')",btn:'Open'}); });
+  followUps.forEach(f=>{ const w=f.d===0?'today':(f.d===1?'tomorrow':'in '+f.d+' days'); feed.push({icon:'☎️',cls:'amber',title:`Follow up with ${esc(f.nm||'client')} ${w}`,sub:`Follow-up set for ${esc(f.date)}.`,act:"switchTab('b')",btn:'Open'}); });
   document.getElementById('list-today').innerHTML =
     snapshotBar()
     + `<div class="tiles">${tiles.map(t=>`<div class="tile ${t.cls}"><div class="n">${t.n}</div><div class="l">${t.l}</div></div>`).join('')}</div>`
@@ -514,7 +518,8 @@ function cardActive(r){
     <div class="snap">
       <div class="field"><label>Max amount</label><input id="max-${r.id}" inputmode="numeric" placeholder="e.g. 385000" value="${r.snapshot_max_amount!=null?esc(r.snapshot_max_amount):''}"></div>
       <div class="field"><label>Rate hold expires</label><input id="rate-${r.id}" type="date" value="${esc(r.snapshot_rate_hold||'')}"></div>
-      <div class="field full"><label>Status</label><select id="stat-${r.id}"><option value="">Choose…</option>
+      <div class="field"><label>Follow-up date</label><input id="followup-${r.id}" type="date" value="${esc(r.follow_up_date||'')}"></div>
+      <div class="field"><label>Status</label><select id="stat-${r.id}"><option value="">Choose…</option>
         ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${r.snapshot_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
     ${checklistBlock(r.id)}
@@ -537,11 +542,12 @@ async function saveSnapshot(id){
   const maxV=(document.getElementById('max-'+id).value||'').replace(/[^0-9.]/g,'');
   const stat=document.getElementById('stat-'+id).value||null;
   const rate=document.getElementById('rate-'+id).value||null;
+  const followup=document.getElementById('followup-'+id).value||null;
   const { error } = await db.from('broker_referral_requests')
-    .update({ snapshot_max_amount:maxV?Number(maxV):null, snapshot_status:stat, snapshot_rate_hold:rate, snapshot_updated_at:new Date().toISOString() })
+    .update({ snapshot_max_amount:maxV?Number(maxV):null, snapshot_status:stat, snapshot_rate_hold:rate, follow_up_date:followup, snapshot_updated_at:new Date().toISOString() })
     .eq('id',id).eq('broker_id',ME.id);
   if(error){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
-  else { msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; }
+  else { msg.className='msg ok'; msg.textContent='Saved. Maxwell can see this now.'; const rr=REFS.find(x=>x.id===id); if(rr){ rr.snapshot_rate_hold=rate; rr.follow_up_date=followup; rr.snapshot_max_amount=maxV?Number(maxV):null; rr.snapshot_status=stat; } renderToday(); }
 }
 async function handoff(id){
   if(!confirm("Send this client to Maxwell?\n\nHe'll get their home-buyer form to approve and start the home search. Do this once they're pre-approved and ready to buy.")) return;
@@ -591,7 +597,8 @@ function cardOwn(c){
     <div class="snap">
       <div class="field"><label>Max amount</label><input id="max-own-${c.id}" inputmode="numeric" placeholder="e.g. 385000" value="${c.max_amount!=null?esc(c.max_amount):''}"></div>
       <div class="field"><label>Rate hold expires</label><input id="rate-own-${c.id}" type="date" value="${esc(c.rate_hold||'')}"></div>
-      <div class="field full"><label>Status</label><select id="stat-own-${c.id}"><option value="">Choose…</option>
+      <div class="field"><label>Follow-up date</label><input id="followup-own-${c.id}" type="date" value="${esc(c.follow_up_date||'')}"></div>
+      <div class="field"><label>Status</label><select id="stat-own-${c.id}"><option value="">Choose…</option>
         ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${c.prequal_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </div>
     ${checklistBlock(c.id)}
@@ -617,11 +624,12 @@ async function saveOwnSnapshot(id){
   const maxV=(document.getElementById('max-own-'+id).value||'').replace(/[^0-9.]/g,'');
   const stat=document.getElementById('stat-own-'+id).value||null;
   const rate=document.getElementById('rate-own-'+id).value||null;
+  const followup=document.getElementById('followup-own-'+id).value||null;
   const { error } = await db.from('broker_clients')
-    .update({ max_amount:maxV?Number(maxV):null, prequal_status:stat, rate_hold:rate, updated_at:new Date().toISOString() })
+    .update({ max_amount:maxV?Number(maxV):null, prequal_status:stat, rate_hold:rate, follow_up_date:followup, updated_at:new Date().toISOString() })
     .eq('id',id).eq('broker_id',ME.id);
   if(error){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
-  else { msg.className='msg ok'; msg.textContent='Saved.'; }
+  else { msg.className='msg ok'; msg.textContent='Saved.'; const cc=MINE.find(x=>x.id===id); if(cc){ cc.rate_hold=rate; cc.follow_up_date=followup; cc.max_amount=maxV?Number(maxV):null; cc.prequal_status=stat; } renderToday(); }
 }
 async function handToAgent(id){
   const c = MINE.find(x=>x.id===id); if(!c) return;
