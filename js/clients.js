@@ -527,8 +527,12 @@ const Clients = {
   async transferToBroker(id) {
     const c = Clients.all.find(x => x.id === id);
     if (!c) return;
-    const brokerId = currentAgent?.broker_account_id;
-    if (!brokerId) { App.toast('⚠️ Set up your broker login first (Settings → Mortgage Broker Referral).', 'var(--yellow)'); return; }
+    if (!(currentAgent && currentAgent.broker_email)) { App.toast('⚠️ Save your broker in Settings → Mortgage Broker Referral first.', 'var(--yellow)'); return; }
+    // Resolve the broker's login from the saved broker email (the active broker).
+    const { data: bk } = await db.from('agents').select('id')
+      .eq('role', 'broker').ilike('email', currentAgent.broker_email).limit(1);
+    const brokerId = (bk && bk[0] && bk[0].id) || null;
+    if (!brokerId) { App.toast('⚠️ Your saved broker has no portal login yet. Set it up in Settings.', 'var(--yellow)'); return; }
     if (!confirm(`Transfer ${c.full_name} to your mortgage broker's lane?\n\nThey'll appear as an active client in the broker's portal.`)) return;
     const token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
     const { error } = await db.from('broker_referral_requests').insert({
