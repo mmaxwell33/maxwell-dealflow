@@ -325,8 +325,11 @@ function render(){
   const rank = r => (r.status==='ready_for_agent'||r.status==='handed') ? 2 : (((r.deal_stage||'').toLowerCase()==='closed')?1:0);
   const active = REFS.filter(r=>['approved','sent','ready_for_agent','handed'].includes(r.status))
     .sort((a,b)=>rank(a)-rank(b));  // in-progress first, then closed, then handed-off (kept for the record)
+  // Badge counts who he's ACTIVELY working; the list below keeps handed-off
+  // clients too (as a record), so the count and the list intentionally differ.
+  const inProgress = active.filter(r=>r.status==='approved'||r.status==='sent');
   document.getElementById('ct-a').textContent = pend.length;
-  document.getElementById('ct-b').textContent = active.length;
+  document.getElementById('ct-b').textContent = inProgress.length;
   document.getElementById('list-pending').innerHTML = pend.length ? pend.map(cardPending).join('') : '<div class="empty"><span class="ei">📭</span>No new referrals right now.</div>';
   document.getElementById('list-active').innerHTML = active.length ? active.map(cardActive).join('') : '<div class="empty"><span class="ei">🗂️</span>No active clients yet. Approve a referral and it moves here.</div>';
   renderToday();
