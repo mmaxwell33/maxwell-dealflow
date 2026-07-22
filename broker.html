@@ -164,20 +164,22 @@
       <div class="mhead"><h1 id="mtitle">Reached out</h1><p id="msub"></p></div>
       <div class="panel on" id="panel-t"><div id="list-today"></div></div>
       <div class="panel" id="panel-a"><div class="grid" id="list-pending"></div></div>
-      <div class="panel" id="panel-b"><div id="list-active"></div></div>
-      <div class="panel" id="panel-c">
-        <div style="margin-bottom:16px;"><button class="btn" id="ac-toggle" onclick="showAddClient()">+ Add a client</button></div>
+      <div class="panel" id="panel-b">
+        <div style="margin-bottom:16px;"><button class="btn" onclick="showAddClient()">+ Add a client</button></div>
         <div id="addclient-form" class="setcard" hidden>
-          <h3>Add your own client</h3>
-          <p>Someone who is not from Maxwell. Only you see them.</p>
-          <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="ac-name" placeholder="Client name"></div>
+          <h3>Add a client</h3>
+          <p>A client of yours from another agent (or your own). Only you see these — Maxwell cannot. You are responsible for your own clients' consent.</p>
+          <div class="field" style="margin-bottom:10px;"><label>Client name</label><input id="ac-name" placeholder="Client name"></div>
           <div class="field" style="margin-bottom:10px;"><label>Email</label><input id="ac-email" type="email" placeholder="name@example.com"></div>
-          <div class="field" style="margin-bottom:12px;"><label>Phone</label><input id="ac-phone" type="tel" placeholder="Phone"></div>
+          <div class="field" style="margin-bottom:10px;"><label>Phone</label><input id="ac-phone" type="tel" placeholder="Phone"></div>
+          <div class="field" style="margin-bottom:10px;"><label>Referred by (agent name)</label><input id="ac-agent" placeholder="e.g. another Realtor, or leave blank"></div>
+          <div class="field" style="margin-bottom:12px;"><label>That agent's email</label><input id="ac-agent-email" type="email" placeholder="agent@example.com — used to hand the client back later"></div>
           <div class="actions"><button class="btn grow" onclick="addMyClient()">Add client</button><button class="btn ghost grow" onclick="document.getElementById('addclient-form').hidden=true">Cancel</button></div>
           <div class="msg" id="ac-msg"></div>
         </div>
-        <div class="grid" id="list-mine"></div>
+        <div id="list-active"></div>
       </div>
+      <div class="panel" id="panel-c"><!-- merged into All clients (panel-b) --></div>
       <div class="panel" id="panel-s">
         <div class="setcard">
           <h3>Your brand</h3>
@@ -307,8 +309,7 @@ async function afterAuth(){
   loadTmplEditor();
   applyBrand();
   refreshNotifState();
-  await loadRefs();
-  // await loadMine();  // FROZEN (Session 10) — own-client tab hidden pending a data-processing agreement
+  await loadRefs();   // loads referrals + the broker's own clients together
   show('portal');
 }
 async function doSignOut(){ await db.auth.signOut(); location.reload(); }
@@ -324,17 +325,25 @@ async function loadRefs(){
     .select('id,client_name,client_email,client_phone,status,source,approved_by,snapshot_max_amount,snapshot_status,snapshot_rate_hold,deal_stage')
     .eq('broker_id', ME.id).order('created_at',{ascending:false});
   REFS = data || [];
+  const { data: mine } = await db.from('broker_clients').select('*')
+    .eq('broker_id', ME.id).eq('status','active').order('created_at',{ascending:false});
+  MINE = mine || [];
   await loadChecklists();
   render();
 }
 async function loadChecklists(){
   const { data } = await db.from('broker_checklist').select('*').eq('broker_id', ME.id).order('sort_order',{ascending:true});
   CHECKS = data || [];
-  // Seed the default readiness list for any active referral that has none yet.
-  const active = REFS.filter(r=>r.status==='approved'||r.status==='sent');
-  for(const r of active){
-    if(!CHECKS.some(c=>c.ref_id===r.id)){
-      const rows = DEFAULT_CHECK.map((t,i)=>({ broker_id:ME.id, ref_id:r.id, title:t, category:'Financing', sort_order:i }));
+  // Seed the default readiness list for any active referral OR own-client that
+  // has none yet. Own-clients reuse broker_checklist via ref_id = the client id
+  // (ref_id has no foreign key, so it holds either id).
+  const needSeed = [
+    ...REFS.filter(r=>r.status==='approved'||r.status==='sent').map(r=>r.id),
+    ...MINE.map(c=>c.id)
+  ];
+  for(const id of needSeed){
+    if(!CHECKS.some(c=>c.ref_id===id)){
+      const rows = DEFAULT_CHECK.map((t,i)=>({ broker_id:ME.id, ref_id:id, title:t, category:'Financing', sort_order:i }));
       const { data:ins } = await db.from('broker_checklist').insert(rows).select('*');
       if(ins) CHECKS = CHECKS.concat(ins);
     }
@@ -362,8 +371,8 @@ function render(){
   const active = REFS.filter(r=>['approved','sent','ready_for_agent','handed'].includes(r.status));
   // Badge shows new referrals needing action (the actionable number).
   document.getElementById('ct-b').textContent = pend.length;
-  const hasAny = pend.length || active.length;
-  document.getElementById('list-active').innerHTML = hasAny ? allClientsGrouped(pend, active) : '<div class="empty"><span class="ei">🗂️</span>No clients yet. New website referrals from Maxwell show up here.</div>';
+  const hasAny = pend.length || active.length || MINE.length;
+  document.getElementById('list-active').innerHTML = hasAny ? allClientsGrouped(pend, active) : '<div class="empty"><span class="ei">🗂️</span>No clients yet. New website referrals from Maxwell show up here, and you can add your own with the button above.</div>';
   renderToday();
   if(!_landed){ switchTab('t'); _landed=true; }   // land on Today on first load; keep the current tab on re-renders
 }
@@ -376,7 +385,8 @@ function allClientsGrouped(pend, active){
     {label:'New — initial consultation', hint:'Website leads Maxwell referred. Approve to start working with them.', rows:pend, card:cardPending},
     {label:'Working on financing', hint:'Clients you are actively working right now.', rows:active.filter(r=>!isHanded(r) && !isClosed(r)), card:cardActive},
     {label:'Closed deals', hint:'Completed — the client bought a home with Maxwell.', rows:active.filter(isClosed), card:cardActive},
-    {label:'Handed to Maxwell', hint:'You finished the financing; Maxwell is on the home search. Kept for your records.', rows:active.filter(r=>isHanded(r) && !isClosed(r)), card:cardActive}
+    {label:'Handed to Maxwell', hint:'You finished the financing; Maxwell is on the home search. Kept for your records.', rows:active.filter(r=>isHanded(r) && !isClosed(r)), card:cardActive},
+    {label:'Your own clients', hint:'Clients you added yourself, from other agents or your own book. Only you see these — Maxwell cannot.', rows:MINE, card:cardOwn}
   ];
   return groups.filter(g=>g.rows.length).map(g=>
     `<div class="grouphd"><span class="gl">${g.label}</span><span class="gc">${g.rows.length}</span></div>`
@@ -509,36 +519,74 @@ async function savePassword(){
   if(error){ msg.className='msg err'; msg.textContent=error.message; } else { msg.className='msg ok'; msg.textContent='Password updated.'; document.getElementById('set-pw1').value=''; }
 }
 let MINE = [];
-async function loadMine(){
-  const { data } = await db.from('broker_clients').select('*').eq('broker_id', ME.id).eq('status','active').order('created_at',{ascending:false});
-  MINE = data || [];
-  document.getElementById('ct-c').textContent = MINE.length;
-  document.getElementById('list-mine').innerHTML = MINE.length ? MINE.map(cardMine).join('')
-    : '<div class="empty"><span class="ei">👤</span>No private clients yet. Add one with the button above.</div>';
-}
-function cardMine(c){
+function cardOwn(c){
   const contact=[c.phone?`<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>`:'',c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''].filter(Boolean).join(' &middot; ');
+  const refBy = c.referred_by_agent_name || c.referred_by_agent_email;
+  const it=CHECKS.filter(x=>x.ref_id===c.id); const done=it.filter(x=>x.done).length, tot=it.length, ready=tot>0&&done===tot;
+  const agentEmail = c.referred_by_agent_email;
+  const handBtn = agentEmail
+    ? `<button class="btn go block" onclick="handToAgent('${c.id}')" ${ready?'':'disabled'}>&#10003; ${ready?`Client is ready, send to ${esc(c.referred_by_agent_name||agentEmail)}`:`Finish the checklist (${done}/${tot}) to hand off`}</button>`
+    : `<button class="btn go block" onclick="moveToMaxwell('${c.id}')" ${ready?'':'disabled'}>&#10003; ${ready?'Client is ready, move to Maxwell':`Finish the checklist (${done}/${tot}) to hand off`}</button>`;
   return `<div class="card"><div class="r1"><div><div class="cn">${esc(c.name||'Client')}</div><div class="contact">${contact}</div></div>
-    <span class="pill p-go"><span class="dot"></span>Your client</span></div>
-    <div class="note">This client is yours only. Maxwell cannot see them.</div>
-    <button class="btn go block" onclick="moveToMaxwell('${c.id}')">Move to Maxwell (they need a Realtor)</button></div>`;
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+      <span class="pill p-go"><span class="dot"></span>Your client</span>
+      ${refBy?`<span class="pill stage-neutral">↳ ${esc(refBy)}</span>`:''}
+    </div></div>
+    <div class="snap">
+      <div class="field"><label>Max amount</label><input id="max-own-${c.id}" inputmode="numeric" placeholder="e.g. 385000" value="${c.max_amount!=null?esc(c.max_amount):''}"></div>
+      <div class="field"><label>Rate hold expires</label><input id="rate-own-${c.id}" type="date" value="${esc(c.rate_hold||'')}"></div>
+      <div class="field full"><label>Status</label><select id="stat-own-${c.id}"><option value="">Choose…</option>
+        ${Object.entries(STATUS_LABEL).map(([v,l])=>`<option value="${v}" ${c.prequal_status===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </div>
+    ${checklistBlock(c.id)}
+    <div class="actions"><button class="btn grow" onclick="saveOwnSnapshot('${c.id}')">Save snapshot</button></div>
+    ${handBtn}
+    <div class="maxsee">This client is yours only. Maxwell cannot see them. When ready, ${agentEmail?`they go to <b>${esc(c.referred_by_agent_name||agentEmail)}</b>`:'you can move them to Maxwell'}.</div>
+    <div class="msg" id="ownmsg-${c.id}"></div></div>`;
 }
 function showAddClient(){ const f=document.getElementById('addclient-form'); f.hidden=false; }
 async function addMyClient(){
   const n=document.getElementById('ac-name').value.trim(), e=document.getElementById('ac-email').value.trim(), p=document.getElementById('ac-phone').value.trim();
+  const ag=document.getElementById('ac-agent').value.trim(), agE=document.getElementById('ac-agent-email').value.trim();
   const msg=document.getElementById('ac-msg');
   if(!n){ msg.className='msg err'; msg.textContent='Enter a name.'; return; }
-  const { error } = await db.from('broker_clients').insert({ broker_id: ME.id, name:n, email:e||null, phone:p||null });
+  const { error } = await db.from('broker_clients').insert({ broker_id: ME.id, name:n, email:e||null, phone:p||null, referred_by_agent_name:ag||null, referred_by_agent_email:agE||null });
   if(error){ msg.className='msg err'; msg.textContent='Could not add. Please try again.'; return; }
-  ['ac-name','ac-email','ac-phone'].forEach(id=>document.getElementById(id).value='');
+  ['ac-name','ac-email','ac-phone','ac-agent','ac-agent-email'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('addclient-form').hidden=true; msg.textContent='';
-  await loadMine();
+  await loadRefs();
+}
+async function saveOwnSnapshot(id){
+  const msg=document.getElementById('ownmsg-'+id);
+  const maxV=(document.getElementById('max-own-'+id).value||'').replace(/[^0-9.]/g,'');
+  const stat=document.getElementById('stat-own-'+id).value||null;
+  const rate=document.getElementById('rate-own-'+id).value||null;
+  const { error } = await db.from('broker_clients')
+    .update({ max_amount:maxV?Number(maxV):null, prequal_status:stat, rate_hold:rate, updated_at:new Date().toISOString() })
+    .eq('id',id).eq('broker_id',ME.id);
+  if(error){ msg.className='msg err'; msg.textContent='Could not save. Please try again.'; }
+  else { msg.className='msg ok'; msg.textContent='Saved.'; }
+}
+async function handToAgent(id){
+  const c = MINE.find(x=>x.id===id); if(!c) return;
+  const email = c.referred_by_agent_email;
+  if(!email){ alert('No agent email on file for this client. Edit the client to add it.'); return; }
+  if(!confirm(`Send ${c.name||'this client'} back to ${c.referred_by_agent_name||email}?\n\nThis opens an email to that agent and marks the client handed off.`)) return;
+  const amt = c.max_amount!=null ? '$'+Number(c.max_amount).toLocaleString() : 'n/a';
+  const stat = STATUS_LABEL[c.prequal_status] || c.prequal_status || 'n/a';
+  const subject = `Financing ready: ${c.name||'your client'}`;
+  const sig = (ME.broker_templates && ME.broker_templates.signature) || '';
+  let body = `Hi ${c.referred_by_agent_name||''},\n\nYour client ${c.name||''} is through the financing side and ready to move forward.\n\nPre-approval: ${amt}\nStatus: ${stat}\nRate hold: ${c.rate_hold||'n/a'}\n\nThey are all set on my end — over to you for the home search.`;
+  if(sig) body += '\n\n' + sig;
+  await db.from('broker_clients').update({ status:'handed_to_agent', handed_to_email:email, updated_at:new Date().toISOString() }).eq('id',id).eq('broker_id',ME.id);
+  window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  await loadRefs();
 }
 async function moveToMaxwell(id){
   if(!ME.created_by){ alert('You are not linked to a Realtor yet, so there is no one to move this client to.'); return; }
   if(!confirm('Move this client to Maxwell?\n\nHe will receive them as a new client and take over the home search. They leave your list.')) return;
   const { data, error } = await db.rpc('broker_move_client_to_agent', { p_client_id:id, p_agent_id: ME.created_by });
-  if(!error && data && data.ok){ alert('Moved to Maxwell. He will take it from here.'); await loadMine(); }
+  if(!error && data && data.ok){ alert('Moved to Maxwell. He will take it from here.'); await loadRefs(); }
   else { alert('Could not move that client: ' + ((data && data.error) || (error && error.message) || 'please try again')); }
 }
 function fillTokens(s, r){ const name=(r&&r.client_name)||''; const link=(ME&&ME.broker_intake_url)||''; return (s||'').replace(/{name}/g,name).replace(/{link}/g,link); }
