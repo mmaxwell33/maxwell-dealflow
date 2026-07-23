@@ -1164,16 +1164,86 @@ const ActivityLog = {
 // ── COMMISSIONS ─────────────────────────────────────────────────────────────
 const Commission = {
   all: [],
+  cap: 16000,   // eXp annual brokerage cap; loaded per-agent in load()
 
   async load() {
     if (!currentAgent?.id) return;
+    // Load this agent's cap (default 16000 if the column/value is absent).
+    const capVal = (currentAgent.commission_cap != null) ? Number(currentAgent.commission_cap) : null;
+    if (capVal != null && !isNaN(capVal)) { Commission.cap = capVal; }
+    else {
+      const { data: a } = await db.from('agents').select('commission_cap').eq('id', currentAgent.id).single();
+      if (a && a.commission_cap != null) Commission.cap = Number(a.commission_cap);
+    }
     const { data } = await db.from('commissions')
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
     Commission.all = data || [];
     Commission.renderSummary(data || []);
+    Commission.renderCapCard();
     Commission.render(data || []);
     Commission.populateClients();
+  },
+
+  // Which cap year a commission counts toward (calendar year of its closing date,
+  // falling back to created_at, then the current year).
+  capYearOf(c) {
+    const d = c.close_date || c.created_at;
+    const y = d ? new Date(d).getFullYear() : new Date().getFullYear();
+    return isNaN(y) ? new Date().getFullYear() : y;
+  },
+
+  // Cap progress for the CURRENT calendar year.
+  capInfo() {
+    const cap = Number(Commission.cap) || 0;
+    const year = new Date().getFullYear();
+    const paid = (Commission.all || [])
+      .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === year)
+      .reduce((s, c) => s + (c.brokerage_fees || 0), 0);
+    const remaining = Math.max(0, cap - paid);
+    return { cap, year, paid, remaining, capped: cap > 0 && remaining <= 0 };
+  },
+
+  renderCapCard() {
+    const el = document.getElementById('comm-cap-card');
+    if (!el) return;
+    const { cap, year, paid, remaining, capped } = Commission.capInfo();
+    const pct = cap > 0 ? Math.min(100, Math.round(paid / cap * 100)) : 0;
+    const barColor = capped ? 'var(--green)' : 'var(--accent2)';
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        <div style="font-size:16px;font-weight:800;">🎯 eXp Cap <span style="color:var(--text3);font-weight:700;font-size:13px;">· ${year}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Your cap</span>
+          <input class="form-input" id="cm-cap-input" type="number" step="500" value="${cap}" style="width:120px;padding:8px 10px;font-size:14px;">
+          <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.saveCap()">Save</button>
+        </div>
+      </div>
+      ${capped
+        ? `<div style="background:var(--green-soft,rgba(34,197,94,0.12));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--green);font-weight:700;">✅ Capped for ${year}! You keep 100% of your commission for the rest of the year.</div>`
+        : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+             <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Paid to cap</div><div style="font-size:18px;font-weight:900;color:var(--coral);">${App.fmtMoney(paid)}</div></div>
+             <div style="text-align:right;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Left to pay</div><div style="font-size:18px;font-weight:900;color:var(--accent2);">${App.fmtMoney(remaining)}</div></div>
+           </div>`}
+      <div style="height:10px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border);">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:6px;transition:width 0.3s;"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px;">${capped ? '' : `${pct}% of your ${App.fmtMoney(cap)} cap paid. After you reach it, new deals charge $0 brokerage.`}</div>
+      <div id="cm-cap-msg" style="margin-top:6px;font-size:12px;"></div>`;
+  },
+
+  async saveCap() {
+    const inp = document.getElementById('cm-cap-input');
+    const msg = document.getElementById('cm-cap-msg');
+    const val = parseFloat(inp?.value);
+    if (isNaN(val) || val < 0) { if (msg){ msg.style.color='var(--red)'; msg.textContent='Enter a valid cap amount.'; } return; }
+    const { error } = await db.from('agents').update({ commission_cap: val }).eq('id', currentAgent.id);
+    if (error) { if (msg){ msg.style.color='var(--red)'; msg.textContent='Could not save: ' + error.message; } return; }
+    Commission.cap = val;
+    if (currentAgent) currentAgent.commission_cap = val;
+    Commission.renderCapCard();
+    Commission.calcPreview();
+    App.toast('✅ Cap saved');
   },
 
   async populateClients() {
@@ -1203,15 +1273,25 @@ const Commission = {
     const gross = sale * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = grossPlusTax * brokerPct / 100;
+    const rawFee = grossPlusTax * brokerPct / 100;
+    // Apply the eXp cap: the brokerage fee can never take more than what is left
+    // to reach this year's cap. Once capped, the fee is $0 and the agent keeps 100%.
+    const { remaining, capped } = Commission.capInfo();
+    const brokerFee = Math.min(rawFee, remaining);
     const net = grossPlusTax - brokerFee;
+    const capNote = capped
+      ? `<span style="grid-column:1/-1;color:var(--green);font-size:12px;font-weight:700;padding-top:2px;">🎯 Capped for the year — you keep 100% ($0 brokerage on this deal).</span>`
+      : (brokerFee < rawFee - 0.01
+          ? `<span style="grid-column:1/-1;color:var(--accent2);font-size:12px;padding-top:2px;">🎯 This deal reaches your cap — only ${App.fmtMoney(brokerFee)} of the ${App.fmtMoney(rawFee)} fee is charged; the rest is 100% yours.</span>`
+          : '');
     prev.style.display = 'block';
     prev.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
         <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
-        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross + HST):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="color:var(--text2);">Brokerage Fee${brokerFee < rawFee - 0.01 ? ' (capped)' : ` (${brokerPct}% on gross + HST)`}:</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        ${capNote}
         <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
       </div>`;
   },
@@ -1534,7 +1614,11 @@ const Commission = {
     const gross = salePrice * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = grossPlusTax * brokerPct / 100;
+    const rawFee = grossPlusTax * brokerPct / 100;
+    // Apply the eXp cap (same as the live preview): never charge more brokerage
+    // than what is left to this year's cap. Once capped, fee is $0.
+    const { remaining } = Commission.capInfo();
+    const brokerFee = Math.min(rawFee, remaining);
     const net = grossPlusTax - brokerFee;
     msg.textContent = 'Saving...'; msg.style.color = 'var(--text2)';
     const closeDate = document.getElementById('cm-close-date')?.value || null;
