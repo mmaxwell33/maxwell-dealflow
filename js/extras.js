@@ -1345,9 +1345,9 @@ const Commission = {
         <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
       </div>
       <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;min-width:780px;">
+        <table style="width:100%;border-collapse:collapse;min-width:860px;">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
-            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}${th('','center')}
+            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Price','right')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}${th('','center')}
           </tr></thead>
           <tbody>${list.map(c => {
             const status = Commission.statusFrom(c);
@@ -1370,6 +1370,7 @@ const Commission = {
               <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
               <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}${c.deal_side === 'sell' ? ' <span style="font-size:9px;font-weight:800;letter-spacing:0.04em;background:var(--coral-soft);color:var(--coral);padding:2px 6px;border-radius:6px;vertical-align:middle;">SELL</span>' : ''}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(c.property_address||'—')}</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:700;color:var(--text2);">${App.fmtMoney(c.sale_price||0)}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fees||0)}</td>
