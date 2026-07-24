@@ -341,7 +341,11 @@ const Approvals = {
           db.storage.from('email-attachments').remove(stagedPaths)
             .catch(e => console.warn('[approve] staged attachment cleanup skipped:', e?.message || e));
         }
-        // Log sent email to inbox for threading
+        // Log sent email to inbox for threading. Store the EXACT delivered
+        // content (cleanSubject/outBody/outHtml — post de-dash + disclaimer) so
+        // the record is a faithful copy of what the client actually received,
+        // not the pre-send template. sent_html holds the delivered HTML (the
+        // part mail clients render) for a defensible record.
         try {
           await db.from('email_inbox').insert({
             agent_id: currentAgent.id,
@@ -350,8 +354,9 @@ const Approvals = {
             recipient_email: item.client_email,
             sender_name: agent.name || agent.full_name || 'Maxwell Midodzi',
             sender_email: agent.email || 'maxwelldelali22@gmail.com',
-            subject: item.email_subject,
-            body: item.email_body || '',
+            subject: cleanSubject,
+            body: outBody || '',
+            sent_html: outHtml || null,
             gmail_message_id: result.gmail_message_id || null,
             gmail_thread_id: result.gmail_thread_id || null,
             is_read: true,
