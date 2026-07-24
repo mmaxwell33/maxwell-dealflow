@@ -497,6 +497,32 @@ const Approvals = {
     }
     ctx.cc = cc;
 
+    // Mail clients render the HTML part of the email, so an edit to the plain-text
+    // body alone never reaches the recipient (the stale ctx.html wins). Regenerate
+    // the HTML twin FROM the edited text using the same shared shell the manual
+    // composer uses, and the same base64 convention approve() decodes with. This
+    // intentionally flattens the rich template to branded formatted text once the
+    // agent edits — the edited words become the single source of truth, which is
+    // also the only way an edit can actually remove HTML-only elements (e.g. the
+    // broker-intro button). Signature + confidentiality notice are included by
+    // htmlEmail(); approve()'s disclaimer guard then skips re-adding them.
+    try {
+      if (typeof EmailFormat !== 'undefined' && EmailFormat.htmlEmail) {
+        const freshHtml = EmailFormat.htmlEmail(EmailFormat.bodyHTML(body), currentAgent || {});
+        ctx.html = btoa(unescape(encodeURIComponent(freshHtml)));
+        ctx.edited = true;
+      } else {
+        // Fallback: if the shared helper isn't available, don't ship a stale rich
+        // template over the edit — send as plain text (approve sends html:null).
+        ctx.html = null;
+        ctx.edited = true;
+      }
+    } catch (e) {
+      console.warn('[saveEdit] HTML regeneration failed, sending edit as plain text:', e?.message || e);
+      ctx.html = null;
+      ctx.edited = true;
+    }
+
     await db.from('approval_queue').update({
       email_subject: subject,
       email_body: body,
