@@ -32,7 +32,7 @@
   <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152-v3.png">
   <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167-v3.png">
 
-  <link rel="stylesheet" href="css/app.css?v=2">
+  <link rel="stylesheet" href="css/app.css?v=3">
 
   <!-- SCRIPTS (PR #11) — moved to <head> with defer so the preload scanner
        starts downloads in parallel with the HTML parse. Execution still
@@ -167,16 +167,49 @@
 
       <div class="sb-scroll">
 
+        <!-- Line-icon sprite (Lucide-style, monochrome, inherits nav colors) -->
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+          <symbol id="ic-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+          <symbol id="ic-approvals" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5.4"/></symbol>
+          <symbol id="ic-activity" viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 5 14 2.5-7H21"/></symbol>
+          <symbol id="ic-clients" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.9"/><path d="M17 14.2a5.5 5.5 0 0 1 3.5 5.3"/></symbol>
+          <symbol id="ic-tracker" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></symbol>
+          <symbol id="ic-form" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v0.5H9z"/><path d="M9 11h6M9 15h6M9 18h3"/></symbol>
+          <symbol id="ic-viewings" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 9.5h18"/><path d="M9 15l2 2 4-4"/></symbol>
+          <symbol id="ic-responses" viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+          <symbol id="ic-offers" viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h4"/></symbol>
+          <symbol id="ic-pipeline" viewBox="0 0 24 24"><rect x="4" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="16" y="4" width="4" height="13" rx="1"/></symbol>
+          <symbol id="ic-listings" viewBox="0 0 24 24"><path d="M11 3H5a2 2 0 0 0-2 2v6l9.5 9.5a1.5 1.5 0 0 0 2.1 0l5.9-5.9a1.5 1.5 0 0 0 0-2.1z"/><circle cx="7.5" cy="7.5" r="1.4"/></symbol>
+          <symbol id="ic-checklist" viewBox="0 0 24 24"><path d="M4 6l1.5 1.5L8.5 4.5"/><path d="M4 13l1.5 1.5L8.5 11.5"/><path d="M11 6h9M11 13h9M11 19.5h9"/></symbol>
+          <symbol id="ic-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 9.5h18"/></symbol>
+          <symbol id="ic-commissions" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9.3c-.6-.9-1.7-1.4-3-1.4-1.7 0-3 .9-3 2s1.3 1.7 3 2 3 .9 3 2-1.3 2-3 2c-1.3 0-2.4-.5-3-1.4"/><path d="M12 6.3v11.4"/></symbol>
+          <symbol id="ic-mileage" viewBox="0 0 24 24"><path d="M5 15.5v-2l1.4-4A2 2 0 0 1 8.3 8h7.4a2 2 0 0 1 1.9 1.5l1.4 4v2"/><path d="M4 15.5h16v2.5a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-.5H7.5v.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><circle cx="7.5" cy="13" r="1"/><circle cx="16.5" cy="13" r="1"/></symbol>
+          <symbol id="ic-reports" viewBox="0 0 24 24"><path d="M3.5 21h17"/><path d="M7 21v-6"/><path d="M12 21V8"/><path d="M17 21v-9"/></symbol>
+          <symbol id="ic-analytics" viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M7.5 14.5l3.5-3.5 3 3 5-5.5"/></symbol>
+          <symbol id="ic-traffic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></symbol>
+          <symbol id="ic-email" viewBox="0 0 24 24"><path d="M21 4L3 11l7 2.5L12.5 21z"/><path d="M21 4l-11 9.5"/></symbol>
+          <symbol id="ic-broadcast" viewBox="0 0 24 24"><path d="M3 10.5v3a1 1 0 0 0 1 1h2.5l4.5 3.5v-15L6.5 10.5H4a1 1 0 0 0-1 1z"/><path d="M15 9a4.5 4.5 0 0 1 0 6"/><path d="M18 6.5a8 8 0 0 1 0 11"/></symbol>
+          <symbol id="ic-marketing" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/></symbol>
+          <symbol id="ic-reviews" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 17l-5.25 2.6 1-5.8L3.5 9.7l5.9-.9z"/></symbol>
+          <symbol id="ic-brief" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="15" rx="1.5"/><path d="M17 8.5h3.5V18a2 2 0 0 1-2 2H17"/><path d="M6 9.5h7M6 12.5h7M6 15.5h4"/></symbol>
+          <symbol id="ic-inbox" viewBox="0 0 24 24"><path d="M4 13l2.5-8h11L20 13"/><path d="M4 13v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5h-5l-1.5 2.5h-3L9 13z"/></symbol>
+          <symbol id="ic-ai" viewBox="0 0 24 24"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7z"/><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+          <symbol id="ic-portal" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V5.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V7"/><path d="M3 12.5h18"/></symbol>
+          <symbol id="ic-cleanup" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4L18 7"/><path d="M10 11v6M14 11v6"/></symbol>
+          <symbol id="ic-system" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
+          <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+        </defs></svg>
+
         <!-- MAIN (always visible, not collapsible) -->
         <button class="nav-item active" data-tab="overview" onclick="App.switchTab('overview')">
-          <span class="nav-icon">🏠</span><span class="nav-label">Overview</span>
+          <span class="nav-icon"><svg><use href="#ic-overview"/></svg></span><span class="nav-label">Overview</span>
         </button>
         <button class="nav-item" data-tab="approvals" onclick="App.switchTab('approvals')">
-          <span class="nav-icon">✅</span><span class="nav-label">Approvals</span>
+          <span class="nav-icon"><svg><use href="#ic-approvals"/></svg></span><span class="nav-label">Approvals</span>
           <span class="nav-badge" id="approvals-badge" style="display:none;">0</span>
         </button>
         <button class="nav-item" data-tab="activity" onclick="App.switchTab('activity')">
-          <span class="nav-icon">📋</span><span class="nav-label">Activity</span>
+          <span class="nav-icon"><svg><use href="#ic-activity"/></svg></span><span class="nav-label">Activity</span>
         </button>
 
         <!-- CLIENTS (collapsible) -->
@@ -186,13 +219,13 @@
           </div>
           <div class="sb-group-items">
             <button class="nav-item" data-tab="clients" onclick="App.switchTab('clients')">
-              <span class="nav-icon">👥</span><span class="nav-label">All Clients</span>
+              <span class="nav-icon"><svg><use href="#ic-clients"/></svg></span><span class="nav-label">All Clients</span>
             </button>
             <button class="nav-item" data-tab="tracker" onclick="App.switchTab('tracker')">
-              <span class="nav-icon">👤</span><span class="nav-label">Tracker</span>
+              <span class="nav-icon"><svg><use href="#ic-tracker"/></svg></span><span class="nav-label">Tracker</span>
             </button>
             <button class="nav-item" data-tab="formresponses" onclick="App.switchTab('formresponses')" style="position:relative;">
-              <span class="nav-icon">📝</span><span class="nav-label">Form Responses</span>
+              <span class="nav-icon"><svg><use href="#ic-form"/></svg></span><span class="nav-label">Form Responses</span>
               <span id="formresponses-badge" style="display:none;position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1;"></span>
             </button>
           </div>
@@ -205,20 +238,20 @@
           </div>
           <div class="sb-group-items">
             <button class="nav-item" data-tab="viewings" onclick="App.switchTab('viewings')">
-              <span class="nav-icon">📅</span><span class="nav-label">Viewings</span>
+              <span class="nav-icon"><svg><use href="#ic-viewings"/></svg></span><span class="nav-label">Viewings</span>
             </button>
             <button class="nav-item" data-tab="responses" onclick="App.switchTab('responses')" style="position:relative;">
-              <span class="nav-icon">💬</span><span class="nav-label">Client Responses</span>
+              <span class="nav-icon"><svg><use href="#ic-responses"/></svg></span><span class="nav-label">Client Responses</span>
               <span id="responses-badge" style="display:none;position:absolute;top:4px;right:4px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;line-height:1;"></span>
             </button>
             <button class="nav-item" data-tab="offers" onclick="App.switchTab('offers')">
-              <span class="nav-icon">📄</span><span class="nav-label">Offers</span>
+              <span class="nav-icon"><svg><use href="#ic-offers"/></svg></span><span class="nav-label">Offers</span>
             </button>
             <button class="nav-item" data-tab="pipeline" onclick="App.switchTab('pipeline')">
-              <span class="nav-icon">🚀</span><span class="nav-label">Pipeline</span>
+              <span class="nav-icon"><svg><use href="#ic-pipeline"/></svg></span><span class="nav-label">Pipeline</span>
             </button>
             <button class="nav-item" data-tab="listings" onclick="App.switchTab('listings')">
-              <span class="nav-icon">🏷️</span><span class="nav-label">Listings</span>
+              <span class="nav-icon"><svg><use href="#ic-listings"/></svg></span><span class="nav-label">Listings</span>
             </button>
             <!-- New Builds tab removed from nav (Phase 3 of pipeline merge). -->
             <!-- The newbuilds screen still exists; reachable via Pipeline → "+ New Build" button -->
@@ -228,10 +261,10 @@
             <!--   <span class="nav-icon">🏗️</span><span class="nav-label">New Builds</span>     -->
             <!-- </button>                                                                       -->
             <button class="nav-item" data-tab="checklist" onclick="App.switchTab('checklist')">
-              <span class="nav-icon">☑️</span><span class="nav-label">Checklist</span>
+              <span class="nav-icon"><svg><use href="#ic-checklist"/></svg></span><span class="nav-label">Checklist</span>
             </button>
             <button class="nav-item" data-tab="calendar" onclick="App.switchTab('calendar')">
-              <span class="nav-icon">📆</span><span class="nav-label">Calendar</span>
+              <span class="nav-icon"><svg><use href="#ic-calendar"/></svg></span><span class="nav-label">Calendar</span>
             </button>
           </div>
         </div>
@@ -243,19 +276,19 @@
           </div>
           <div class="sb-group-items">
             <button class="nav-item" data-tab="commissions" onclick="App.switchTab('commissions')">
-              <span class="nav-icon">💰</span><span class="nav-label">Commissions</span>
+              <span class="nav-icon"><svg><use href="#ic-commissions"/></svg></span><span class="nav-label">Commissions</span>
             </button>
             <button class="nav-item" data-tab="mileage" onclick="App.switchTab('mileage')">
-              <span class="nav-icon">🚗</span><span class="nav-label">Mileage</span>
+              <span class="nav-icon"><svg><use href="#ic-mileage"/></svg></span><span class="nav-label">Mileage</span>
             </button>
             <button class="nav-item" data-tab="reports" onclick="App.switchTab('reports')">
-              <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+              <span class="nav-icon"><svg><use href="#ic-reports"/></svg></span><span class="nav-label">Reports</span>
             </button>
             <button class="nav-item" data-tab="analytics" onclick="App.switchTab('analytics')">
-              <span class="nav-icon">📈</span><span class="nav-label">Analytics</span>
+              <span class="nav-icon"><svg><use href="#ic-analytics"/></svg></span><span class="nav-label">Analytics</span>
             </button>
             <button class="nav-item" data-tab="portaltraffic" onclick="App.switchTab('portaltraffic')">
-              <span class="nav-icon">📡</span><span class="nav-label">Portal Traffic</span>
+              <span class="nav-icon"><svg><use href="#ic-traffic"/></svg></span><span class="nav-label">Portal Traffic</span>
             </button>
           </div>
         </div>
@@ -267,26 +300,26 @@
           </div>
           <div class="sb-group-items">
             <button class="nav-item" data-tab="email" onclick="App.switchTab('email')">
-              <span class="nav-icon">✉️</span><span class="nav-label">Send Email</span>
+              <span class="nav-icon"><svg><use href="#ic-email"/></svg></span><span class="nav-label">Send Email</span>
             </button>
             <button class="nav-item" data-tab="broadcast" onclick="App.switchTab('broadcast')">
-              <span class="nav-icon">📣</span><span class="nav-label">Broadcast</span>
+              <span class="nav-icon"><svg><use href="#ic-broadcast"/></svg></span><span class="nav-label">Broadcast</span>
             </button>
             <button class="nav-item" data-tab="marketing" onclick="App.switchTab('marketing')">
-              <span class="nav-icon">📣</span><span class="nav-label">Marketing</span>
+              <span class="nav-icon"><svg><use href="#ic-marketing"/></svg></span><span class="nav-label">Marketing</span>
             </button>
             <button class="nav-item" data-tab="reviews" onclick="App.switchTab('reviews')">
-              <span class="nav-icon">📝</span><span class="nav-label">Reviews</span>
+              <span class="nav-icon"><svg><use href="#ic-reviews"/></svg></span><span class="nav-label">Reviews</span>
             </button>
             <button class="nav-item" data-tab="briefing" onclick="App.switchTab('briefing')">
-              <span class="nav-icon">📈</span><span class="nav-label">Money Brief</span>
+              <span class="nav-icon"><svg><use href="#ic-brief"/></svg></span><span class="nav-label">Money Brief</span>
             </button>
             <button class="nav-item" data-tab="inbox" onclick="App.switchTab('inbox')">
-              <span class="nav-icon">📬</span><span class="nav-label">Inbox</span>
+              <span class="nav-icon"><svg><use href="#ic-inbox"/></svg></span><span class="nav-label">Inbox</span>
               <span class="nav-badge" id="inbox-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px;"></span>
             </button>
             <button class="nav-item" data-tab="ai" onclick="App.toggleAI()">
-              <span class="nav-icon">🤖</span><span class="nav-label">AI Assistant</span>
+              <span class="nav-icon"><svg><use href="#ic-ai"/></svg></span><span class="nav-label">AI Assistant</span>
             </button>
           </div>
         </div>
@@ -298,20 +331,20 @@
           </div>
           <div class="sb-group-items" style="display:none;">
             <button class="nav-item" data-tab="agentportal" onclick="App.switchTab('agentportal')">
-              <span class="nav-icon">🚀</span><span class="nav-label">Agent Portal</span>
+              <span class="nav-icon"><svg><use href="#ic-portal"/></svg></span><span class="nav-label">Agent Portal</span>
             </button>
             <button class="nav-item" data-tab="cleanup" onclick="App.switchTab('cleanup')">
-              <span class="nav-icon">🧹</span><span class="nav-label">Cleanup</span>
+              <span class="nav-icon"><svg><use href="#ic-cleanup"/></svg></span><span class="nav-label">Cleanup</span>
             </button>
             <button class="nav-item" data-tab="system" onclick="App.switchTab('system')">
-              <span class="nav-icon">⚙️</span><span class="nav-label">System</span>
+              <span class="nav-icon"><svg><use href="#ic-system"/></svg></span><span class="nav-label">System</span>
             </button>
           </div>
         </div>
 
         <!-- SETTINGS -->
         <button class="nav-item" data-tab="settings" onclick="App.switchTab('settings')" style="margin-top:4px;">
-          <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+          <span class="nav-icon"><svg><use href="#ic-settings"/></svg></span><span class="nav-label">Settings</span>
         </button>
 
       </div><!-- /sb-scroll -->
