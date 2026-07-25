@@ -5176,6 +5176,95 @@ const SystemTools = {
   },
 
   // ── LIVE HEALTH DASHBOARD ─────────────────────────────────────────────────
+  // ── INTEGRITY SCAN ─────────────────────────────────────────────────────────
+  // Sweeps the agent's data for real problems (not just connectivity). Auto-fixes
+  // the safe, well-understood cases (malformed/doubled queued emails); flags the
+  // rest for review. Never deletes anything.
+  async runIntegrityScan() {
+    const box = document.getElementById('integrity-results');
+    if (box) box.innerHTML = '<div style="font-size:12px;color:var(--text2);">Scanning…</div>';
+    const aid = currentAgent?.id;
+    if (!aid) { if (box) box.innerHTML = '<div style="font-size:12px;color:var(--red);">No active agent.</div>'; return; }
+    const rows = [];
+    const add = (status, label, detail) => rows.push({ status, label, detail: detail || '' });
+
+    // 1. Malformed queued emails (doubled signature/notice) — AUTO-FIX
+    try {
+      const { data: q } = await db.from('approval_queue')
+        .select('id,email_body,context_data').eq('agent_id', aid).eq('status', 'Pending');
+      let fixed = 0, scanned = (q || []).length;
+      for (const r of (q || [])) {
+        let ctx = {};
+        try { ctx = typeof r.context_data === 'string' ? JSON.parse(r.context_data) : (r.context_data || {}); } catch { ctx = {}; }
+        let html = ctx.html || null;
+        if (html && !html.startsWith('<')) { try { html = decodeURIComponent(escape(atob(html))); } catch {} }
+        const chk = Approvals._dedupeOutgoing(html, r.email_body || '');
+        if (chk.fixed) {
+          const enc = chk.html ? btoa(unescape(encodeURIComponent(chk.html))) : null;
+          ctx.html = enc;
+          await db.from('approval_queue').update({ email_body: chk.body, context_data: ctx }).eq('id', r.id).eq('agent_id', aid);
+          fixed++;
+        }
+      }
+      if (fixed > 0) add('fixed', `Malformed emails: ${fixed} cleaned`, `Removed a duplicated signature/notice from ${fixed} queued email(s).`);
+      else add('ok', 'Emails in queue: all clean', `${scanned} pending email(s) checked.`);
+    } catch (e) { add('err', 'Email check failed', e.message); }
+
+    // 2. Duplicate clients (same email)
+    try {
+      const { data: cl } = await db.from('clients').select('id,full_name,email,status').eq('agent_id', aid).neq('status', 'Archived');
+      const seen = {}; const dupes = new Set();
+      (cl || []).forEach(c => { const e = (c.email || '').trim().toLowerCase(); if (!e) return; if (seen[e]) dupes.add(e); else seen[e] = 1; });
+      if (dupes.size) add('warn', `Duplicate clients: ${dupes.size}`, `These email addresses appear on more than one client. Open All Clients to merge.`);
+      else add('ok', 'Clients: no duplicates', `${(cl || []).length} active client(s) checked.`);
+    } catch (e) { add('err', 'Client check failed', e.message); }
+
+    // 3. Deals missing a deadline (active deals past offer stage)
+    try {
+      const { data: pi } = await db.from('pipeline').select('id,stage,financing_deadline,inspection_deadline').eq('agent_id', aid);
+      const needsDates = (pi || []).filter(p => ['Under Contract', 'Conditions', 'Accepted'].includes(p.stage) && !p.financing_deadline && !p.inspection_deadline);
+      if (needsDates.length) add('warn', `Deals missing deadlines: ${needsDates.length}`, `Under-contract deals with no financing/inspection deadline set. Open Pipeline to add them.`);
+      else add('ok', 'Deal deadlines: all set', `Active deals checked.`);
+    } catch (e) { add('err', 'Deal check failed', e.message); }
+
+    // 4. Commissions missing numbers
+    try {
+      const { data: co } = await db.from('commissions').select('id,client_name,agent_net,status').eq('agent_id', aid);
+      const bad = (co || []).filter(c => c.status !== 'Archived' && (c.agent_net == null || isNaN(Number(c.agent_net))));
+      if (bad.length) add('warn', `Commissions missing net: ${bad.length}`, `Commission rows with no net earnings recorded. Open Commissions to fix.`);
+      else add('ok', 'Commissions: all complete', `${(co || []).length} record(s) checked.`);
+    } catch (e) { add('err', 'Commission check failed', e.message); }
+
+    // 5. Orphaned deals (client no longer exists)
+    try {
+      const [{ data: pids }, { data: cids }] = await Promise.all([
+        db.from('pipeline').select('id,client_id').eq('agent_id', aid),
+        db.from('clients').select('id').eq('agent_id', aid)
+      ]);
+      const idset = new Set((cids || []).map(c => c.id));
+      const orphans = (pids || []).filter(p => p.client_id && !idset.has(p.client_id));
+      if (orphans.length) add('warn', `Orphaned deals: ${orphans.length}`, `Deals pointing at a client that no longer exists. Review in Pipeline.`);
+      else add('ok', 'No orphaned records', 'Deals all link to a live client.');
+    } catch (e) { add('err', 'Orphan check failed', e.message); }
+
+    // Render
+    if (box) {
+      const dot = s => s === 'ok' ? 'var(--green)' : s === 'fixed' ? 'var(--accent2)' : s === 'warn' ? 'var(--yellow)' : 'var(--red)';
+      const ico = s => s === 'ok' ? '✅' : s === 'fixed' ? '🔧' : s === 'warn' ? '⚠️' : '❌';
+      const issues = rows.filter(r => r.status === 'warn' || r.status === 'err').length;
+      const fixes = rows.filter(r => r.status === 'fixed').length;
+      box.innerHTML =
+        `<div style="font-size:12.5px;font-weight:700;margin-bottom:10px;color:${issues ? 'var(--yellow)' : 'var(--green)'};">`
+        + (issues ? `⚠️ ${issues} thing(s) to review` : '✅ All clear') + (fixes ? ` · 🔧 ${fixes} auto-fixed` : '')
+        + ` <span style="color:var(--text2);font-weight:400;">— ${new Date().toLocaleTimeString()}</span></div>`
+        + rows.map(r => `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);">
+             <span style="flex:none;">${ico(r.status)}</span>
+             <div><div style="font-size:13px;font-weight:600;color:${dot(r.status)};">${App.esc(r.label)}</div>
+             ${r.detail ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;">${App.esc(r.detail)}</div>` : ''}</div>
+           </div>`).join('');
+    }
+  },
+
   async runHealthCheck() {
     const setTile = (id, status, label) => {
       const tile = document.getElementById(id);
