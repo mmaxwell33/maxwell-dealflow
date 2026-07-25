@@ -299,6 +299,24 @@ const Approvals = {
       }
     }
 
+    // ── PRE-SEND INTEGRITY GUARD ─────────────────────────────────────────────
+    // Last line of defence: no email leaves with a duplicated signature or
+    // confidentiality notice, whatever upstream code did. Auto-cleans the known
+    // doubling (an appended signature+notice tail after the message body); if it
+    // still looks doubled after cleaning, the send is blocked so a messy email
+    // never reaches a client.
+    {
+      const chk = Approvals._dedupeOutgoing(outHtml, outBody);
+      outHtml = chk.html; outBody = chk.body;
+      if (chk.fixed) console.warn('[approve] pre-send guard cleaned a duplicated signature/notice before sending');
+      if (chk.blocked) {
+        App.toast('⚠️ This email looked like it had a repeated signature/notice that could not be auto-cleaned, so it was NOT sent. Open "Preview & Edit" to check it.', 'var(--red)');
+        await Approvals._markFailed(id, item, 'blocked by pre-send guard: duplicated signature/notice');
+        Approvals._sending.delete(id);
+        return;
+      }
+    }
+
     if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
@@ -541,6 +559,46 @@ const Approvals = {
     }).eq('id', id);
     App.closeModal();
     await Approvals.approve(id);
+  },
+
+  // Pre-send integrity guard. Detects a duplicated confidentiality notice (which
+  // is the reliable fingerprint of the doubled signature+notice bug) and removes
+  // the extra one before the email is sent. Returns {html, body, fixed, blocked}.
+  // Called from approve() as the final check before the send fetch.
+  _dedupeOutgoing(html, body) {
+    let fixed = false, blocked = false;
+    const countNotice = s => ((s || '').match(/CONFIDENTIALITY NOTICE/gi) || []).length;
+
+    // ── HTML: the duplicate is an appended signature+notice tail after the main
+    // message body (bodyHTML wraps the message in <div class="body">…</div>).
+    // If the notice appears more than once, drop everything between the last
+    // </div> and </body> — that's exactly the appended duplicate tail.
+    if (html && countNotice(html) > 1) {
+      const divClose = html.lastIndexOf('</div>');
+      const bodyClose = html.lastIndexOf('</body>');
+      if (divClose !== -1 && bodyClose > divClose) {
+        html = html.slice(0, divClose + 6) + html.slice(bodyClose);
+        fixed = true;
+      }
+      // If it's still doubled after cleaning, we can't be sure it's safe — block.
+      if (countNotice(html) > 1) blocked = true;
+    }
+
+    // ── Plain text: keep everything up to the second notice (drop the duplicate
+    // tail). Cut at the "---" separator before it when present, for a clean end.
+    if (body && countNotice(body) > 1) {
+      const first = body.toUpperCase().indexOf('CONFIDENTIALITY NOTICE');
+      const second = body.toUpperCase().indexOf('CONFIDENTIALITY NOTICE', first + 20);
+      if (second !== -1) {
+        let cut = body.lastIndexOf('\n---', second);
+        if (cut === -1 || cut <= first) cut = second;
+        body = body.slice(0, cut).replace(/\s+$/, '');
+        fixed = true;
+      }
+      if (countNotice(body) > 1) blocked = true;
+    }
+
+    return { html, body, fixed, blocked };
   },
 
   async reject(id) {
