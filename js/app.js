@@ -956,6 +956,46 @@ const App = {
     if (tab === 'pipeline') Pipeline.load();  // reload on visit — actions elsewhere no longer eagerly reload it
     if (tab === 'listings') Listings.load();
     if (tab === 'pipeline-archive') Pipeline.loadArchive();
+    App.setBreadcrumb(tab);
+  },
+
+  // Breadcrumb trail — reflects the sidebar hierarchy (Section › Screen) so you
+  // always know where you are. "DealFlow" is clickable back to Overview.
+  BREADCRUMB_MAP: {
+    overview:{label:'Overview'}, approvals:{label:'Approvals'}, activity:{label:'Activity'},
+    clients:{group:'Clients',label:'All Clients'}, tracker:{group:'Clients',label:'Tracker'},
+    formresponses:{group:'Clients',label:'Form Responses'},
+    viewings:{group:'Deals',label:'Viewings'}, responses:{group:'Deals',label:'Client Responses'},
+    offers:{group:'Deals',label:'Offers'}, pipeline:{group:'Deals',label:'Pipeline'},
+    listings:{group:'Deals',label:'Listings'}, checklist:{group:'Deals',label:'Checklist'},
+    calendar:{group:'Deals',label:'Calendar'}, newbuilds:{group:'Deals',label:'New Builds'},
+    'pipeline-archive':{group:'Deals',label:'Pipeline (Archived)'},
+    commissions:{group:'Finance',label:'Commissions'}, mileage:{group:'Finance',label:'Mileage'},
+    reports:{group:'Finance',label:'Reports'}, analytics:{group:'Finance',label:'Analytics'},
+    portaltraffic:{group:'Finance',label:'Portal Traffic'},
+    email:{group:'Communication',label:'Send Email'}, broadcast:{group:'Communication',label:'Broadcast'},
+    marketing:{group:'Communication',label:'Marketing'}, reviews:{group:'Communication',label:'Reviews'},
+    briefing:{group:'Communication',label:'Money Brief'}, inbox:{group:'Communication',label:'Inbox'},
+    ai:{group:'Communication',label:'AI Assistant'},
+    agentportal:{group:'Admin',label:'Agent Portal'}, cleanup:{group:'Admin',label:'Cleanup'},
+    system:{group:'Admin',label:'System'}, settings:{label:'Settings'}
+  },
+  setBreadcrumb(tab) {
+    const el = document.getElementById('breadcrumb');
+    if (!el) return;
+    const meta = App.BREADCRUMB_MAP[tab] || { label: tab };
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const sep = '<span class="bc-sep">›</span>';
+    const parts = [];
+    // Home crumb (clickable) — unless we're already on Overview
+    if (tab === 'overview') {
+      parts.push('<span class="bc-item">DealFlow</span>', sep, '<span class="bc-current">Overview</span>');
+    } else {
+      parts.push('<a class="bc-item" onclick="App.switchTab(\'overview\')">DealFlow</a>');
+      if (meta.group) parts.push(sep, `<span class="bc-item">${esc(meta.group)}</span>`);
+      parts.push(sep, `<span class="bc-current">${esc(meta.label)}</span>`);
+    }
+    el.innerHTML = parts.join(' ');
   },
 
   toggleAI() {
@@ -964,6 +1004,7 @@ const App = {
 
   async loadOverview() {
     if (!currentAgent?.id) return;
+    App.setBreadcrumb('overview');   // ensure the trail shows on first load
     const agentId = currentAgent.id;
     const now = new Date();
     const weekAgo = new Date(now - 7*24*60*60*1000).toISOString();
