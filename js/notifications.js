@@ -1559,6 +1559,19 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       .replace(/[—–]/g, '-');                     // any leftover → hyphen
   },
 
+  // Tidy vertical spacing so emails don't arrive with big blank gaps (common in
+  // AI-generated bodies). Collapses 3+ blank lines to a single paragraph break,
+  // strips trailing spaces on each line, and trims the ends. Never joins real
+  // paragraphs — one blank line between them is preserved.
+  tidyBody(s) {
+    if (!s || typeof s !== 'string') return s;
+    return s
+      .replace(/[ \t]+\n/g, '\n')   // trailing spaces on a line
+      .replace(/\n{3,}/g, '\n\n')   // 3+ newlines → one blank line
+      .replace(/^\n+/, '')          // leading blank lines
+      .replace(/\n+$/, '');         // trailing blank lines
+  },
+
   async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
     const user = await App.getAuthUser();
@@ -1567,7 +1580,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
     // Human tone: strip em/en dashes from every outgoing email before it's queued.
     emailSubject = Notify.deDash(emailSubject);
-    emailBody    = Notify.deDash(emailBody);
+    emailBody    = Notify.tidyBody(Notify.deDash(emailBody));
     htmlBody     = Notify.deDash(htmlBody);
 
     // Consistency net: if a template only supplied plain text (no HTML version),

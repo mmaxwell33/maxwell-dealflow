@@ -283,8 +283,9 @@ const Approvals = {
     // Human tone: strip em/en dashes from the outgoing email no matter how it was
     // queued (templates, manual composer, or AI all send through here).
     const _dd = (typeof Notify !== 'undefined' && Notify.deDash) ? Notify.deDash : (x => x);
+    const _tidy = (typeof Notify !== 'undefined' && Notify.tidyBody) ? Notify.tidyBody : (x => x);
     const cleanSubject = _dd(item.email_subject);
-    const cleanBody    = _dd(item.email_body || '');
+    const cleanBody    = _tidy(_dd(item.email_body || ''));
     htmlBody           = _dd(htmlBody);
 
     // Safety net: guarantee the confidentiality disclaimer on EVERY outgoing email,
@@ -495,7 +496,7 @@ const Approvals = {
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Message</label>
-          <textarea class="form-input" id="edit-appr-body" rows="18" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc(item.email_body||'')}</textarea>
+          <textarea class="form-input" id="edit-appr-body" rows="18" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc((typeof Notify!=='undefined'&&Notify.tidyBody)?Notify.tidyBody(item.email_body||''):(item.email_body||''))}</textarea>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
