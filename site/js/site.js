@@ -82,6 +82,17 @@
   });
 }());
 
+/* ── Vercel Web Analytics — cookieless, privacy-friendly page views ────── */
+/* Counts which pages are visited and how many visitors, with no cookies, no
+   personal data, and no cross-site tracking. Only becomes active once Web
+   Analytics is enabled for the project in the Vercel dashboard. */
+(function () {
+  var s = document.createElement('script');
+  s.defer = true;
+  s.src = '/_vercel/insights/script.js';
+  document.head.appendChild(s);
+}());
+
 /* ── Cookie notice — honest, essential-only, remembers the choice ─────── */
 (function () {
   try { if (localStorage.getItem('mm-cookie-ok')) return; } catch (e) {}
@@ -89,7 +100,7 @@
   bar.className = 'cookie-bar';
   bar.setAttribute('role', 'region');
   bar.setAttribute('aria-label', 'Cookie notice');
-  bar.innerHTML = '<p>This site keeps one small setting in your browser to remember you dismissed this notice. No cookies, no ads, no analytics. The homepage plays background video hosted by a third party (Pexels). <a href="/site/privacy/">Privacy policy</a>.</p><button type="button" class="cookie-ok">Got it</button>';
+  bar.innerHTML = '<p>This site uses privacy-friendly, cookieless analytics to see which pages are helpful. No personal data, no advertising, no cross-site tracking. It also keeps one small setting in your browser to remember you dismissed this notice. The homepage plays background video hosted by a third party (Pexels). <a href="/site/privacy/">Privacy policy</a>.</p><button type="button" class="cookie-ok">Got it</button>';
   document.body.appendChild(bar);
   bar.querySelector('.cookie-ok').addEventListener('click', function () {
     try { localStorage.setItem('mm-cookie-ok', '1'); } catch (e) {}
