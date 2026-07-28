@@ -10,6 +10,7 @@ const Calendar = {
   _filter: 'all',
   _TYPES: [
     { key: 'viewing',       label: 'Showings',     icon: '📅' },
+    { key: 'offer_due',     label: 'Offers Due',   icon: '⏰' },
     { key: 'accepted',      label: 'Accepted',     icon: '✅' },
     { key: 'financing',     label: 'Financing',    icon: '🏦' },
     { key: 'inspection',    label: 'Inspection',   icon: '🔍' },
@@ -66,7 +67,7 @@ const Calendar = {
 
     // Scheduled viewings
     const { data: viewings } = await db.from('viewings')
-      .select('id, client_name, address, viewing_date, viewing_time, viewing_status')
+      .select('id, client_name, address, viewing_date, viewing_time, viewing_status, offer_due_date, offer_due_time')
       .order('viewing_date', { ascending: true })
       .limit(150);
 
@@ -105,17 +106,31 @@ const Calendar = {
     });
 
     (viewings || []).forEach(v => {
-      if (!v.viewing_date) return;
-      events.push({
-        date:   v.viewing_date.slice(0,10),
-        label:  'Showing',
-        type:   'viewing',
-        icon:   '📅',
-        client: v.client_name || '—',
-        sub:    v.address     || '',
-        time:   v.viewing_time ? v.viewing_time.slice(0,5) : null,
-        status: v.viewing_status
-      });
+      if (v.viewing_date) {
+        events.push({
+          date:   v.viewing_date.slice(0,10),
+          label:  'Showing',
+          type:   'viewing',
+          icon:   '📅',
+          client: v.client_name || '—',
+          sub:    v.address     || '',
+          time:   v.viewing_time ? v.viewing_time.slice(0,5) : null,
+          status: v.viewing_status
+        });
+      }
+      // Offer deadline attached to this viewing/listing — its own calendar event.
+      if (v.offer_due_date) {
+        events.push({
+          date:   v.offer_due_date.slice(0,10),
+          label:  'Offers Due',
+          type:   'offer_due',
+          icon:   '⏰',
+          client: v.client_name || '—',
+          sub:    v.address     || '',
+          time:   v.offer_due_time ? v.offer_due_time.slice(0,5) : null,
+          status: 'Deadline'
+        });
+      }
     });
 
     (builderVisits || []).forEach(bv => {

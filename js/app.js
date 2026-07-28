@@ -579,6 +579,7 @@ const App = {
       { data: pending },
       { data: recentClients },
       { data: needFeedback },
+      { data: offerDue },
       referralRes
     ] = await Promise.all([
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', today).neq('viewing_status', 'Completed'),
@@ -590,6 +591,10 @@ const App = {
       // These are the "missed" prompts — they persist in the bell until acted on.
       db.from('viewings').select('*, clients(full_name)').eq('viewing_status', 'Completed')
         .is('client_feedback', null).order('viewing_date', { ascending: false }).limit(10),
+      // Offer deadlines due today or tomorrow — surfaced so the agent never
+      // misses an offer cutoff (the deadline lives on the viewing/listing).
+      db.from('viewings').select('id, client_name, address, property_address, offer_due_date, offer_due_time, clients(full_name)')
+        .in('offer_due_date', [today, tomorrow]),
       // Clients who tapped "Yes, introduce me" on the welcome email's soft broker
       // offer. Best-effort (table may not be migrated yet).
       db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source,broker_id,snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at,approved_by')
@@ -626,6 +631,21 @@ const App = {
           text: parts.join(' · ') || 'Pre-approval details from your broker',
           tag: 'Broker', action: null });
       }
+    });
+    // Offer deadlines lead the bell — a missed offer cutoff is the costliest
+    // thing to forget. Due today reads urgent; due tomorrow is a heads-up.
+    (offerDue || []).forEach(v => {
+      const name = (v.clients && v.clients.full_name) || v.client_name || 'Client';
+      const addr = v.property_address || v.address || 'Property';
+      const isToday = v.offer_due_date === today;
+      const time = v.offer_due_time ? ' at ' + v.offer_due_time.slice(0, 5) : '';
+      items.push({
+        icon: '⏰', bg: 'rgba(230,92,0,0.18)', color: '#e65c00',
+        title: `Offer deadline ${isToday ? 'today' : 'tomorrow'}${time}`,
+        text: `${name} — ${addr}`,
+        tag: isToday ? 'Urgent' : 'Deadline',
+        action: `App.closeNotifPanel();App.switchTab('viewings')`
+      });
     });
     // Missed "how did the viewing go?" prompts come first — they're the most
     // actionable and the ones Maxwell asked to never lose. Clicking opens the

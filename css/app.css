@@ -1067,6 +1067,7 @@ body.theme-light .room-tab.active{color:var(--accent);border-bottom-color:var(--
 /* Chips in month grid — Motion-style pills (tinted bg + matching text color) */
 .cal-chip{display:block;font-size:10px;font-weight:600;padding:3px 8px;margin-top:3px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;background:rgba(148,163,184,.16);color:var(--text2);}
 .cal-chip-viewing      {background:rgba(148,163,184,.18);color:#94A3B8;}
+.cal-chip-offer_due    {background:rgba(230,92,0,.18);   color:#E65C00;}
 .cal-chip-accepted     {background:rgba(15,23,42,.18);color:#0F172A;}
 .cal-chip-financing    {background:rgba(59,130,246,.18); color:#3B82F6;}
 .cal-chip-inspection   {background:rgba(245,158,11,.18); color:#F59E0B;}
@@ -1077,6 +1078,7 @@ body.theme-light .room-tab.active{color:var(--accent);border-bottom-color:var(--
 
 /* Type dots (used in legend) — monochrome; closing/accepted get accent */
 .cal-dot-viewing      {background:#94A3B8;}
+.cal-dot-offer_due    {background:#E65C00;}
 .cal-dot-accepted     {background:#0F172A;}
 .cal-dot-financing    {background:#3B82F6;}
 .cal-dot-inspection   {background:#F59E0B;}
