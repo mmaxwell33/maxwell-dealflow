@@ -262,9 +262,35 @@ const Viewings = {
     Viewings.load(); App.loadOverview();
   },
 
-  async openDetail(id) {
+  // Deadline that drives the viewing lock: the offer due date/time you set, or
+  // (if none) 4 days after the viewing date (internal, not shown to clients).
+  _deadline(v) {
+    if (v.offer_due_date) return new Date(v.offer_due_date + 'T' + (v.offer_due_time || '23:59') + ':00');
+    if (v.viewing_date)   { const d = new Date(v.viewing_date + 'T23:59:59'); d.setDate(d.getDate() + 4); return d; }
+    return null;
+  },
+  // Locked (read-only) once the outcome is recorded OR the deadline has passed.
+  _isLocked(v) {
+    if (v.client_feedback) return true;
+    const dl = Viewings._deadline(v);
+    return !!(dl && new Date() > dl);
+  },
+  async reopenDetail(id) {
+    const ok = await App.requireDeletePin({
+      title: 'Reopen viewing',
+      message: 'This viewing is settled. Enter your PIN to reopen it and make changes.',
+      confirmText: '🔓 Reopen'
+    });
+    if (!ok) return;
+    App.closeModal();
+    setTimeout(() => Viewings.openDetail(id, true), 200);
+  },
+
+  async openDetail(id, unlocked = false) {
     const v = Viewings.all.find(x => x.id === id);
     if (!v) return;
+    const locked = Viewings._isLocked(v) && !unlocked;
+    const lockReason = v.client_feedback ? "the client's decision is already recorded" : 'the offer deadline has passed';
     const client = Clients.all.find(c => c.id === v.client_id) || v.clients;
     const clientName = v.clients?.full_name || client?.full_name || '—';
     const isCompleted = v.viewing_status === 'Completed';
@@ -282,7 +308,7 @@ const Viewings = {
             <div style="font-size:12px;color:var(--text2);">Email follow-up queued in Approvals</div>
           </div>
         </div>
-      </div>` : isCompleted && !hasFeedback ? `
+      </div>` : (isCompleted && !hasFeedback && !locked) ? `
       <div class="card2" style="padding:14px;margin-bottom:12px;border-color:var(--accent2);">
         <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 How did the viewing go?</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select the outcome to automatically queue a follow-up email to ${clientName.split(' ')[0]}:</div>
@@ -307,6 +333,16 @@ const Viewings = {
       </div>
       ${v.agent_notes ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
       ${feedbackSection}
+      ${locked ? `
+      <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);display:flex;gap:10px;align-items:center;">
+        <span style="font-size:18px;">🔒</span>
+        <div style="flex:1;"><div class="fw-700" style="font-size:13px;">Viewing settled — locked</div><div style="font-size:12px;color:var(--text2);">Read-only because ${lockReason}. Reopen with your PIN to change it.</div></div>
+        <button class="btn2 btn2-ghost btn2-sm" style="flex:none;" onclick="Viewings.reopenDetail('${v.id}')">🔓 Reopen</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Mileage.logFromViewing('${v.id}'),300)">🚗 Log drive</button>
+        <button class="btn2 btn2-coral" style="justify-content:center;" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
+      </div>` : `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
         ${!isCompleted ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
         ${v.client_feedback === 'interested' ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
@@ -325,6 +361,7 @@ const Viewings = {
           <button class="btn2 btn2-ghost btn2-sm" style="justify-content:center;" onclick="Viewings.manualOverride('${v.id}','rescheduled')">📅 Reschedule</button>
         </div>
       </div>` : ''}
+      `}
     `);
   },
 
