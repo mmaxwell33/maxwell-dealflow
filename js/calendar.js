@@ -81,7 +81,7 @@ const Calendar = {
     let meetings = [];
     try {
       const { data } = await db.from('meetings')
-        .select('id, client_name, builder_name, location, meeting_date, meeting_time')
+        .select('*')  // '*' stays safe whether or not migration 084 (kind/stops/purpose) has run
         .order('meeting_date', { ascending: true })
         .limit(150);
       meetings = data || [];
@@ -136,13 +136,22 @@ const Calendar = {
 
     (meetings || []).forEach(m => {
       if (!m.meeting_date) return;
+      const isAppt = m.kind === 'appointment';
+      let sub;
+      if (isAppt) {
+        const stops = Array.isArray(m.stops) ? m.stops : [];
+        sub = stops.length ? stops.map(s => s.type).join(' · ') + (stops[0]?.address ? ' — ' + stops[0].address : '')
+                           : (m.purpose || '');
+      } else {
+        sub = (m.builder_name ? m.builder_name : '') + (m.location ? ' · ' + m.location : '');
+      }
       events.push({
         date:      m.meeting_date.slice(0,10),
-        label:     'Builder Meeting',
+        label:     isAppt ? (m.purpose || 'Appointment') : 'Builder Meeting',
         type:      'builder_visit',
-        icon:      '🏗️',
+        icon:      isAppt ? '📍' : '🏗️',
         client:    m.client_name || '—',
-        sub:       (m.builder_name ? m.builder_name : '') + (m.location ? ' · ' + m.location : ''),
+        sub,
         time:      m.meeting_time ? (m.meeting_time+'').slice(0,5) : null,
         status:    'Confirmed',
         meetingId: m.id   // enables delete from the day popup

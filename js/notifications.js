@@ -412,6 +412,90 @@ const Notify = {
       return { subject: `Meeting with ${builder} — ${dateStr}`, body, html, ics: icsBase64 };
     },
 
+    // ── CLIENT APPOINTMENT INVITE ──────────────────────────────────────────
+    // A day where the client meets Maxwell at one or more spots to pick out
+    // finishes. One email lists every stop; the attached .ics has one event
+    // per stop so all of them land on the client's calendar.
+    appointment: (client, appt, agent) => {
+      const a = EmailFormat._agent(agent);
+      const agentName = a.name, agentPhone = a.phone, agentEmail = a.email;
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const dateStr = new Date(appt.meeting_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      const fmt12h = (t) => { if (!t) return null; const [h,m] = t.split(':').map(Number); const ap = h>=12?'PM':'AM'; return `${h%12||12}:${String(m).padStart(2,'0')} ${ap}`; };
+      const stops = Array.isArray(appt.stops) ? appt.stops : [];
+
+      const rows = [`<tr><td class="label">Date</td><td class="value">${dateStr}</td></tr>`];
+      const stopLinesPlain = [];
+      stops.forEach((s, i) => {
+        const t = s.time ? fmt12h(s.time) + ' — ' : '';
+        rows.push(`<tr><td class="label">${i === 0 ? 'Stops' : ''}</td><td class="value">${t}<strong>${s.type}</strong> · ${s.address}</td></tr>`);
+        stopLinesPlain.push(`${s.time ? fmt12h(s.time) + ' — ' : ''}${s.type}: ${s.address}`);
+      });
+      if (appt.notes) rows.push(`<tr><td class="label">Notes</td><td class="value">${appt.notes}</td></tr>`);
+
+      // Google Calendar link — one day event summarising the stops.
+      const firstTime = stops[0]?.time;
+      let gStart, gEnd;
+      if (firstTime) {
+        const [gh, gm] = firstTime.split(':');
+        const s = new Date(`${appt.meeting_date}T${gh.padStart(2,'0')}:${gm.padStart(2,'0')}:00`);
+        const e = new Date(s.getTime() + 60*60*1000);
+        gStart = s.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+        gEnd   = e.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+      } else { gStart = appt.meeting_date.replace(/-/g,''); gEnd = gStart; }
+      const gDetails = 'Appointment with ' + agentName + '\n' + stopLinesPlain.join('\n') + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail;
+      const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Appointment with ' + agentName)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(stops[0]?.address || '')}&details=${encodeURIComponent(gDetails)}`;
+
+      const body = `Hi ${firstName},\n\nI've set up our appointment to pick out finishes. Here's the plan:\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+        <p>Hi ${firstName},</p>
+        <p>I've set up our appointment to pick out finishes. Here's the plan:</p>
+        <table class="dt">${rows.join('')}</table>
+        <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
+        <p class="cal-note">Click the button above to add this to your Google Calendar. An .ics file with every stop is also attached for other calendar apps.</p>
+        <p>Looking forward to it!</p>
+        <p>Best regards,</p>
+        ${EmailFormat.signatureHTML(agent)}
+        ${EmailFormat.disclaimerHTML()}
+      </body></html>`;
+
+      // ── .ICS — one VEVENT per stop ─────────────────────────────────────────
+      const dtStamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+      const vevents = [];
+      stops.forEach((s, i) => {
+        const uid = `appt-${appt.id || Date.now()}-${i}@maxwell-dealflow`;
+        let dateProps;
+        if (s.time) {
+          const [h, m] = s.time.split(':');
+          const st = new Date(`${appt.meeting_date}T${h.padStart(2,'0')}:${m.padStart(2,'0')}:00`);
+          const en = new Date(st.getTime() + 60*60*1000);
+          const ds = st.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+          const de = en.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'') + 'Z';
+          dateProps = `DTSTART:${ds}\r\nDTEND:${de}`;
+        } else {
+          const d = appt.meeting_date.replace(/-/g,'');
+          dateProps = `DTSTART;VALUE=DATE:${d}\r\nDTEND;VALUE=DATE:${d}`;
+        }
+        vevents.push([
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${dtStamp}`,
+          dateProps,
+          `SUMMARY:${s.type} — with ${agentName}`,
+          `DESCRIPTION:Appointment with ${agentName}\\n${agentPhone}\\n${agentEmail}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`,
+          `LOCATION:${s.address}`,
+          `ORGANIZER;CN=${agentName}:mailto:${agentEmail}`,
+          `ATTENDEE;CN=${client.full_name || 'Client'};CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${client.email || agentEmail}`,
+          'STATUS:CONFIRMED','SEQUENCE:0','END:VEVENT'
+        ].join('\r\n'));
+      });
+      const icsContent = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Maxwell DealFlow CRM//EN','CALSCALE:GREGORIAN','METHOD:REQUEST', ...vevents, 'END:VCALENDAR'].join('\r\n');
+      const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
+
+      return { subject: `Appointment ${dateStr} — ${appt.purpose || 'finishes'}`, body, html, ics: icsBase64 };
+    },
+
     viewing_followup: (client, viewing, feedback, agent) => ({
       subject: `Follow-Up: ${viewing.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
@@ -1719,6 +1803,19 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       tmpl.html,
       tmpl.ics,
       meeting.builder_email || null   // CC the builder
+    );
+  },
+
+  // Client appointment invite — emails the client the multi-stop .ics.
+  async onAppointment(appt, client) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.appointment(client, appt, agent);
+    await Notify.queue(
+      'Appointment',
+      client.id || null, client.full_name || appt.client_name, client.email || appt.client_email,
+      tmpl.subject, tmpl.body, appt.id,
+      tmpl.html,
+      tmpl.ics
     );
   },
 
