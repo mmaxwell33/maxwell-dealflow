@@ -146,19 +146,32 @@ const Marketing = {
   },
   setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
 
+  // Download/share need BOTH the client's consent and a listing photo — a post
+  // with the empty navy fallback isn't something to publish. Copy caption stays
+  // available (it's just text) once consent is given.
   _syncConsent() {
-    const ok = document.getElementById('mk-consent')?.checked;
-    ['mk-download','mk-copy','mk-share'].forEach(id => {
+    const ok = !!document.getElementById('mk-consent')?.checked;
+    const hasPhoto = !!Marketing._photoDataUrl;
+    const set = (id, enabled) => {
       const b = document.getElementById(id);
-      if (b) { b.disabled = !ok; b.style.opacity = ok ? '1' : '.45'; b.style.pointerEvents = ok ? 'auto' : 'none'; }
-    });
+      if (b) { b.disabled = !enabled; b.style.opacity = enabled ? '1' : '.45'; b.style.pointerEvents = enabled ? 'auto' : 'none'; }
+    };
+    set('mk-copy', ok);
+    set('mk-download', ok && hasPhoto);
+    set('mk-share',    ok && hasPhoto);
+    const hint = document.getElementById('mk-photo-hint');
+    if (hint) hint.style.display = (ok && !hasPhoto) ? 'block' : 'none';
   },
 
   onPhoto(input) {
     const f = input.files && input.files[0];
-    if (!f) { Marketing._photoDataUrl = null; Marketing.render(); return; }
+    if (!f) { Marketing._photoDataUrl = null; Marketing.render(); Marketing._syncConsent(); return; }
     const reader = new FileReader();
-    reader.onload = e => { Marketing._photoDataUrl = e.target.result; Marketing.render(); };
+    reader.onload = e => {
+      Marketing._photoDataUrl = e.target.result;
+      Marketing.render();
+      Marketing._syncConsent();   // a photo is required before download/share
+    };
     reader.readAsDataURL(f);
   },
 
@@ -294,13 +307,16 @@ const Marketing = {
       ctx.font = '600 24px -apple-system, system-ui, sans-serif';
       ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
     }
+    // Contact lines stack vertically — phone, then email beneath it, then the
+    // website beneath that — matching Maxwell's real eXp posts.
     const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
     ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, nx + 22, ly);
-    const pw = ctx.measureText(phone).width;
-    dot(nx + 22 + pw + 28, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(email, nx + 22 + pw + 28 + 22, ly);
-    ly += 40;
-    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, nx + 22, ly);
+    [phone, email, web].filter(Boolean).forEach((line, i) => {
+      if (i) ly += 38;
+      dot(nx, ly);
+      ctx.fillStyle = Marketing.WHITE;
+      ctx.fillText(line, nx + 22, ly);
+    });
     Marketing._hits.name = { x: nx, y: ny - nfs, w: Math.max(nameW, 420), h: (ly + 12) - (ny - nfs) };
 
     return canvas;
