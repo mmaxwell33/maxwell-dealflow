@@ -496,7 +496,7 @@ const Approvals = {
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Message</label>
-          <textarea class="form-input" id="edit-appr-body" rows="18" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc((typeof Notify!=='undefined'&&Notify.tidyBody)?Notify.tidyBody(item.email_body||''):(item.email_body||''))}</textarea>
+          <textarea class="form-input" id="edit-appr-body" rows="18" oninput="this.dataset.dirty='1'" style="font-size:13px;line-height:1.7;resize:vertical;">${App.esc((typeof Notify!=='undefined'&&Notify.tidyBody)?Notify.tidyBody(item.email_body||''):(item.email_body||''))}</textarea>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -509,9 +509,15 @@ const Approvals = {
   },
 
   async saveEdit(id) {
+    const bodyEl = document.getElementById('edit-appr-body');
     const subject = document.getElementById('edit-appr-subject')?.value.trim();
-    const body = document.getElementById('edit-appr-body')?.value.trim();
+    const body = bodyEl?.value.trim();
     const cc = document.getElementById('edit-appr-cc')?.value.trim() || null;
+    // Did the agent actually type in the message box? The textarea is seeded with
+    // a tidied copy of the stored body, so a pure string comparison can report a
+    // false "edit" and needlessly flatten a rich template. This flag is set only
+    // by a real keystroke.
+    const typedInBody = bodyEl?.dataset.dirty === '1';
 
     // Merge cc back into context_data without dropping html / ics / build_id / etc.
     const { data: existing } = await db.from('approval_queue').select('context_data, email_body').eq('id', id).single();
@@ -528,7 +534,7 @@ const Approvals = {
     // Mail clients render the HTML part, so an edit to the plain-text body alone
     // never reaches the recipient (the stale ctx.html wins) — regeneration is
     // still required, but only when the text genuinely diverged from what's stored.
-    const bodyChanged = (existing?.email_body || '').trim() !== (body || '').trim();
+    const bodyChanged = typedInBody && (existing?.email_body || '').trim() !== (body || '').trim();
     if (bodyChanged) {
       // IMPORTANT: the edited body ALREADY ends with the signature + confidentiality
       // notice (every template + the composer append signaturePlain/disclaimerPlain

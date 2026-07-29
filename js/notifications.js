@@ -446,7 +446,12 @@ const Notify = {
       const gDetails = 'Appointment with ' + agentName + '\n' + stopLinesPlain.join('\n') + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail;
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Appointment with ' + agentName)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(stops[0]?.address || '')}&details=${encodeURIComponent(gDetails)}`;
 
-      const body = `Hi ${firstName},\n\nI've set up our appointment to pick out finishes. Here's the plan:\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
+      // Map links, exactly like the viewing template — one per stop, since each
+      // stop is a different place the client has to find.
+      const mapsPlain = stops.map(s => EmailFormat.mapLinkPlain(s.address)).join('');
+      const mapsHTML  = stops.map(s => EmailFormat.mapBlockHTML(s.address)).join('');
+
+      const body = `Hi ${firstName},\n\nI've set up our appointment to pick out finishes. Here's the plan:\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.${mapsPlain}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
@@ -454,6 +459,8 @@ const Notify = {
         <table class="dt">${rows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this to your Google Calendar. An .ics file with every stop is also attached for other calendar apps.</p>
+        ${mapsHTML}
+        <p>Please don't hesitate to reach out if you have any questions or need to reschedule.</p>
         <p>Looking forward to it!</p>
         <p>Best regards,</p>
         ${EmailFormat.signatureHTML(agent)}
