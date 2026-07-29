@@ -996,6 +996,10 @@ const Appointments = {
         <label class="form-label">Notes (optional)</label>
         <textarea class="form-input" id="ap-notes" rows="2" placeholder="Anything the client should know…"></textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">CC <span style="color:var(--text2);font-weight:400;">(optional — separate multiple with commas)</span></label>
+        <input class="form-input" id="ap-cc" type="text" placeholder="e.g. spouse@email.com, builder@email.com">
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;">
         <input type="checkbox" id="ap-email" checked> Email the client an invite with Add-to-Calendar
       </label>
@@ -1093,9 +1097,10 @@ const Appointments = {
     }
 
     const wantEmail = document.getElementById('ap-email')?.checked;
+    const cc = document.getElementById('ap-cc')?.value.trim() || null;
     if (wantEmail && typeof Notify !== 'undefined') {
       if (client.email) {
-        await Notify.onAppointment({ ...row, id: saved?.id }, client);
+        await Notify.onAppointment({ ...row, id: saved?.id, cc }, client);
       } else {
         App.toast('⚠️ No email on file for this client — appointment saved, invite not sent', 'var(--yellow)');
       }

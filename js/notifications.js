@@ -1815,7 +1815,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       client.id || null, client.full_name || appt.client_name, client.email || appt.client_email,
       tmpl.subject, tmpl.body, appt.id,
       tmpl.html,
-      tmpl.ics
+      tmpl.ics,
+      appt.cc || null    // CC anyone the agent added (comma-separated)
     );
   },
 
