@@ -953,17 +953,17 @@ const Appointments = {
 
   _stopRow(i) {
     return `
-      <div class="ap-stop" data-i="${i}" style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div class="appt-stop" data-i="${i}" style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Stop ${i + 1}</span>
           <button type="button" onclick="Appointments.removeStop(${i})" style="background:none;border:none;color:var(--red);font-size:12px;cursor:pointer;${i === 0 ? 'visibility:hidden;' : ''}">✕ remove</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-          <select class="form-input form-select ap-type">${Appointments._typeOpts()}</select>
-          <input class="form-input ap-time" type="time">
+          <select class="form-input form-select appt-type">${Appointments._typeOpts()}</select>
+          <input class="form-input appt-time" type="time">
         </div>
-        <input class="form-input ap-type-other" placeholder="Describe it (only if you picked Other)" style="display:none;margin-bottom:8px;">
-        <input class="form-input ap-addr" placeholder="Address / place — e.g. Kent, 20 Stavanger Dr">
+        <input class="form-input appt-type-other" placeholder="Describe it (only if you picked Other)" style="display:none;margin-bottom:8px;">
+        <input class="form-input appt-addr" placeholder="Address / place — e.g. Kent, 20 Stavanger Dr">
       </div>`;
   },
 
@@ -977,33 +977,33 @@ const Appointments = {
       <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">Meet your client at one or more spots to pick out finishes. They get an Add-to-Calendar invite, just like a viewing.</div>
       <div class="form-group">
         <label class="form-label">Client *</label>
-        <select class="form-input form-select" id="ap-client" onchange="Appointments.onClientChange()"><option value="">Select client…</option>${clientOpts}<option value="__other__">➕ Other (not in my system)</option></select>
+        <select class="form-input form-select" id="appt-client" onchange="Appointments.onClientChange()"><option value="">Select client…</option>${clientOpts}<option value="__other__">➕ Other (not in my system)</option></select>
       </div>
-      <div class="form-group" id="ap-other-fields" style="display:none;">
+      <div class="form-group" id="appt-other-fields" style="display:none;">
         <label class="form-label">New Client Name *</label>
-        <input class="form-input" id="ap-other-name" placeholder="e.g. Jane Smith">
+        <input class="form-input" id="appt-other-name" placeholder="e.g. Jane Smith">
         <label class="form-label" style="margin-top:8px;">New Client Email <span style="color:var(--text2);font-weight:400;">(optional — for the invite)</span></label>
-        <input class="form-input" id="ap-other-email" type="email" placeholder="client@example.com">
+        <input class="form-input" id="appt-other-email" type="email" placeholder="client@example.com">
       </div>
       <div class="form-group">
         <label class="form-label">Date *</label>
-        <input class="form-input" id="ap-date" type="date" value="${today}">
+        <input class="form-input" id="appt-date" type="date" value="${today}">
       </div>
       <label class="form-label">Locations *</label>
-      <div id="ap-stops">${Appointments._stopRow(0)}</div>
+      <div id="appt-stops">${Appointments._stopRow(0)}</div>
       <button type="button" class="btn btn-outline btn-sm" onclick="Appointments.addStop()" style="margin-bottom:12px;">＋ Add another location</button>
       <div class="form-group">
         <label class="form-label">Notes (optional)</label>
-        <textarea class="form-input" id="ap-notes" rows="2" placeholder="Anything the client should know…"></textarea>
+        <textarea class="form-input" id="appt-notes" rows="2" placeholder="Anything the client should know…"></textarea>
       </div>
       <div class="form-group">
         <label class="form-label">CC <span style="color:var(--text2);font-weight:400;">(optional — separate multiple with commas)</span></label>
-        <input class="form-input" id="ap-cc" type="text" placeholder="e.g. spouse@email.com, builder@email.com">
+        <input class="form-input" id="appt-cc" type="text" placeholder="e.g. spouse@email.com, builder@email.com">
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;">
-        <input type="checkbox" id="ap-email" checked> Email the client an invite with Add-to-Calendar
+        <input type="checkbox" id="appt-email" checked> Email the client an invite with Add-to-Calendar
       </label>
-      <div id="ap-msg" style="font-size:13px;margin-bottom:8px;"></div>
+      <div id="appt-msg" style="font-size:13px;margin-bottom:8px;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <button class="btn btn-primary" onclick="Appointments.save()">📅 Book Appointment</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
@@ -1014,60 +1014,60 @@ const Appointments = {
 
   // Reveal a stop's free-text box only when its type is "Other".
   _wireOtherToggles() {
-    document.querySelectorAll('#ap-stops .ap-stop').forEach(row => {
-      const sel = row.querySelector('.ap-type');
-      const oth = row.querySelector('.ap-type-other');
+    document.querySelectorAll('#appt-stops .appt-stop').forEach(row => {
+      const sel = row.querySelector('.appt-type');
+      const oth = row.querySelector('.appt-type-other');
       if (sel && oth) sel.onchange = () => { oth.style.display = sel.value === 'Other' ? 'block' : 'none'; };
     });
   },
 
   onClientChange() {
-    const sel = document.getElementById('ap-client')?.value;
-    const box = document.getElementById('ap-other-fields');
+    const sel = document.getElementById('appt-client')?.value;
+    const box = document.getElementById('appt-other-fields');
     if (box) box.style.display = (sel === '__other__') ? 'block' : 'none';
   },
 
   addStop() {
     Appointments._n += 1;
-    const host = document.getElementById('ap-stops');
+    const host = document.getElementById('appt-stops');
     if (!host) return;
     host.insertAdjacentHTML('beforeend', Appointments._stopRow(Appointments._n));
     Appointments._wireOtherToggles();
   },
 
   removeStop(i) {
-    const row = document.querySelector(`#ap-stops .ap-stop[data-i="${i}"]`);
+    const row = document.querySelector(`#appt-stops .appt-stop[data-i="${i}"]`);
     if (row) row.remove();
   },
 
   _collectStops() {
     const stops = [];
-    document.querySelectorAll('#ap-stops .ap-stop').forEach(row => {
-      let type = row.querySelector('.ap-type')?.value || '';
-      if (type === 'Other') type = (row.querySelector('.ap-type-other')?.value.trim() || 'Other');
-      const address = row.querySelector('.ap-addr')?.value.trim() || '';
-      const time = row.querySelector('.ap-time')?.value || '';
+    document.querySelectorAll('#appt-stops .appt-stop').forEach(row => {
+      let type = row.querySelector('.appt-type')?.value || '';
+      if (type === 'Other') type = (row.querySelector('.appt-type-other')?.value.trim() || 'Other');
+      const address = row.querySelector('.appt-addr')?.value.trim() || '';
+      const time = row.querySelector('.appt-time')?.value || '';
       if (address) stops.push({ type, address, time: time || null });
     });
     return stops;
   },
 
   async save() {
-    const msg = document.getElementById('ap-msg');
+    const msg = document.getElementById('appt-msg');
     const set = (t, c) => { if (msg) { msg.style.color = c; msg.textContent = t; } };
-    const clientId = document.getElementById('ap-client')?.value || '';
+    const clientId = document.getElementById('appt-client')?.value || '';
     const isOther  = clientId === '__other__';
-    const date     = document.getElementById('ap-date')?.value || '';
+    const date     = document.getElementById('appt-date')?.value || '';
     const stops    = Appointments._collectStops();
     if (!clientId) { set('⚠️ Select a client', 'var(--red)'); return; }
-    if (isOther && !document.getElementById('ap-other-name')?.value.trim()) { set('⚠️ Enter the new client name', 'var(--red)'); return; }
+    if (isOther && !document.getElementById('appt-other-name')?.value.trim()) { set('⚠️ Enter the new client name', 'var(--red)'); return; }
     if (!date) { set('⚠️ Pick a date', 'var(--red)'); return; }
     if (!stops.length) { set('⚠️ Add at least one location with an address', 'var(--red)'); return; }
     set('Saving…', 'var(--text2)');
 
     const client = isOther
-      ? { full_name: document.getElementById('ap-other-name')?.value.trim() || null,
-          email:     document.getElementById('ap-other-email')?.value.trim() || null }
+      ? { full_name: document.getElementById('appt-other-name')?.value.trim() || null,
+          email:     document.getElementById('appt-other-email')?.value.trim() || null }
       : ((typeof Clients !== 'undefined' ? Clients.all : []).find(c => c.id === clientId) || {});
     const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
@@ -1088,7 +1088,7 @@ const Appointments = {
       location: stops[0].address,           // primary location (map link)
       meeting_date: date,
       meeting_time: stops[0].time || null,   // earliest stop drives calendar sort
-      notes: document.getElementById('ap-notes')?.value.trim() || null
+      notes: document.getElementById('appt-notes')?.value.trim() || null
     };
     const { data: saved, error } = await db.from('meetings').insert(row).select('id').single();
     if (error) {
@@ -1096,18 +1096,20 @@ const Appointments = {
       return;
     }
 
-    const wantEmail = document.getElementById('ap-email')?.checked;
-    const cc = document.getElementById('ap-cc')?.value.trim() || null;
+    const wantEmail = document.getElementById('appt-email')?.checked;
+    const cc = document.getElementById('appt-cc')?.value.trim() || null;
+    let emailed = false;
     if (wantEmail && typeof Notify !== 'undefined') {
       if (client.email) {
         await Notify.onAppointment({ ...row, id: saved?.id, cc }, client);
+        emailed = true;
       } else {
         App.toast('⚠️ No email on file for this client — appointment saved, invite not sent', 'var(--yellow)');
       }
     }
 
     App.closeModal();
-    App.toast(wantEmail ? '📍 Appointment booked — invite queued in Approvals' : '📍 Appointment booked & added to your calendar', 'var(--green)');
+    App.toast(emailed ? '📍 Appointment booked — invite queued in Approvals' : '📍 Appointment booked & added to your calendar', 'var(--green)');
     if (typeof Calendar !== 'undefined' && Calendar.load) Calendar.load();
     if (App.loadOverview) App.loadOverview();
   }
