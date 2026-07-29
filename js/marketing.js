@@ -57,9 +57,19 @@ const Marketing = {
   sizes:    { head: 90, specs: 30, name: 42 },
   offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } },
   DEFAULTS: { head: 90, specs: 30, name: 42 },
-  // "Slim" swaps each zone to a lighter weight for a more elegant, airy look.
-  slim:     { head: false, specs: false, name: false },
-  WEIGHTS:  { head: [700, 300], specs: [700, 400], name: [800, 400] },  // [normal, slim]
+  // Font families. Canvas can only use fonts already on the device, so these are
+  // all system faces present on Mac/iOS, each with a serif + sans pairing.
+  FONTS: {
+    classic:   { label: 'Classic',   serif: 'Georgia, "Times New Roman", serif',         sans: '-apple-system, system-ui, sans-serif' },
+    elegant:   { label: 'Elegant',   serif: 'Didot, "Playfair Display", Georgia, serif', sans: 'Optima, Candara, sans-serif' },
+    modern:    { label: 'Modern',    serif: '"Helvetica Neue", Arial, sans-serif',        sans: '"Helvetica Neue", Arial, sans-serif' },
+    geometric: { label: 'Geometric', serif: 'Futura, "Avenir Next", sans-serif',          sans: '"Avenir Next", Futura, sans-serif' },
+  },
+  font: 'classic',
+  // Per-zone weight: bold (the original look), normal, or slim.
+  weights:  { head: 'bold', specs: 'bold', name: 'bold' },
+  WEIGHT_IX: { bold: 0, normal: 1, slim: 2 },
+  WEIGHTS:  { head: [700, 500, 300], specs: [700, 500, 400], name: [800, 600, 400] },
   // Each block drags only inside its own horizontal band (top band / photo /
   // footer). Without this, blocks could be piled on top of each other into an
   // unusable mess. [minY, maxY] on the 1080 card.
@@ -82,7 +92,8 @@ const Marketing = {
     Marketing.theme = 'navy';
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
-    Marketing.slim = { head: false, specs: false, name: false };
+    Marketing.weights = { head: 'bold', specs: 'bold', name: 'bold' };
+    Marketing.font = 'classic';
     Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
@@ -131,8 +142,9 @@ const Marketing = {
     m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
     const box = m.querySelector('#mk-size-num');
     if (box) box.value = Marketing.sizes[Marketing.sizeZone];
-    const slimBtn = m.querySelector('#mk-slim');
-    if (slimBtn) slimBtn.classList.toggle('active', !!Marketing.slim[Marketing.sizeZone]);
+    const curW = Marketing.weights[Marketing.sizeZone] || 'bold';
+    m.querySelectorAll('.mk-weight').forEach(b => b.classList.toggle('active', b.dataset.weight === curW));
+    m.querySelectorAll('.mk-font').forEach(b => b.classList.toggle('active', b.dataset.font === Marketing.font));
     m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
   },
 
@@ -145,9 +157,22 @@ const Marketing = {
     Marketing._setStyleUI(); Marketing.render();
   },
   nudgeFontSize(d) { Marketing.setFontSize(Marketing.sizes[Marketing.sizeZone] + d); },
-  toggleSlim() {
-    Marketing.slim[Marketing.sizeZone] = !Marketing.slim[Marketing.sizeZone];
+  setWeight(w) {
+    Marketing.weights[Marketing.sizeZone] = w;
     Marketing._setStyleUI(); Marketing.render();
+  },
+  setFont(f) {
+    Marketing.font = f;
+    Marketing._setStyleUI(); Marketing.render();
+  },
+  // Show/hide the design controls so the composer stays calm until you edit.
+  toggleEdit() {
+    const p = document.getElementById('mk-edit-panel');
+    const b = document.getElementById('mk-edit-btn');
+    if (!p) return;
+    const open = p.style.display === 'none' || !p.style.display;
+    p.style.display = open ? 'flex' : 'none';
+    if (b) { b.classList.toggle('active', open); b.textContent = open ? '\u2713 Done editing' : '\u270e Edit design'; }
   },
   setLayout(l) {
     Marketing.layout = l;
@@ -159,7 +184,7 @@ const Marketing = {
   resetLayout() {
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
-    Marketing.slim = { head: false, specs: false, name: false };
+    Marketing.weights = { head: 'bold', specs: 'bold', name: 'bold' };
     Marketing._setStyleUI(); Marketing.render();
   },
   setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
@@ -217,8 +242,11 @@ const Marketing = {
     const TH = Marketing._theme();          // chosen background theme
     const SZ = Marketing.sizes   || { ...Marketing.DEFAULTS };
     const OF = Object.assign({ head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0}, panel:{x:0,y:0} }, Marketing.offsets || {});
-    const SL = Marketing.slim    || { head:false, specs:false, name:false };
-    const wt = z => Marketing.WEIGHTS[z][SL[z] ? 1 : 0];   // normal or slim weight
+    // Chosen weight per zone (bold / normal / slim) and the chosen font pairing.
+    const WG = Marketing.weights || { head:'bold', specs:'bold', name:'bold' };
+    const wt = z => Marketing.WEIGHTS[z][Marketing.WEIGHT_IX[WG[z]] ?? 0];
+    const FT = Marketing.FONTS[Marketing.font] || Marketing.FONTS.classic;
+    const SF = FT.serif, SS = FT.sans;
     Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
@@ -249,18 +277,18 @@ const Marketing = {
 
       // Size the panel around its contents.
       let tFs = Math.round(SZ.head * 0.52); const sFs = Math.round(SZ.specs * 0.85), nFs = Math.round(SZ.name * 0.62);
-      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('head')} ${tFs}px ${SF}`;
       let maxW = ctx.measureText(titleStr).width;
-      if (specsLine) { ctx.font = `${wt('specs')} ${sFs}px -apple-system, system-ui, sans-serif`; maxW = Math.max(maxW, ctx.measureText(specsLine).width); }
-      ctx.font = `${wt('name')} ${nFs}px Georgia, "Times New Roman", serif`;
+      if (specsLine) { ctx.font = `${wt('specs')} ${sFs}px ${SS}`; maxW = Math.max(maxW, ctx.measureText(specsLine).width); }
+      ctx.font = `${wt('name')} ${nFs}px ${SF}`;
       maxW = Math.max(maxW, ctx.measureText(agentName).width);
 
       const padX = 56, padY = 44;
       const pw = Math.min(1080 - 80, Math.max(560, maxW + padX * 2));
       // Never let the letterspaced status run past the panel edges.
-      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('head')} ${tFs}px ${SF}`;
       while (ctx.measureText(titleStr).width > pw - padX * 2 && tFs > 16) {
-        tFs -= 1; ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+        tFs -= 1; ctx.font = `${wt('head')} ${tFs}px ${SF}`;
       }
       const ph = padY * 2 + tFs + (specsLine ? sFs + 26 : 0) + 34 + nFs + 26;
       const px = (1080 - pw) / 2 + OF.panel.x;
@@ -273,22 +301,22 @@ const Marketing = {
       let cy = py + padY + tFs;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('head')} ${tFs}px ${SF}`;
       ctx.fillText(titleStr, px + pw / 2, cy);
       if (specsLine) {
         cy += sFs + 26;
         ctx.fillStyle = '#4a4a4a';
-        ctx.font = `${wt('specs')} ${sFs}px -apple-system, system-ui, sans-serif`;
+        ctx.font = `${wt('specs')} ${sFs}px ${SS}`;
         ctx.fillText(specsLine, px + pw / 2, cy);
       }
       // Name + brokerage, right-aligned inside the panel.
       cy += 34 + nFs;
       ctx.textAlign = 'right';
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = `${wt('name')} ${nFs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('name')} ${nFs}px ${SF}`;
       ctx.fillText(agentName, px + pw - padX, cy);
       ctx.fillStyle = TH.rule;
-      ctx.font = `700 ${Math.round(nFs * 0.62)}px -apple-system, system-ui, sans-serif`;
+      ctx.font = `700 ${Math.round(nFs * 0.62)}px ${SS}`;
       ctx.fillText(brandStr, px + pw - padX, cy + Math.round(nFs * 0.82));
       ctx.textAlign = 'left';
 
@@ -310,7 +338,7 @@ const Marketing = {
       ctx.fillStyle = g; ctx.fillRect(0, MIDy, 1080, MIDh);
       if (f.area) {
         ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-        ctx.font = '600 58px Georgia, "Times New Roman", serif';
+        ctx.font = '600 58px ' + SF;
         ctx.fillText(f.area, 540, MIDy + MIDh / 2);
         ctx.textAlign = 'left';
       }
@@ -335,16 +363,16 @@ const Marketing = {
       ctx.restore();
       ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px -apple-system, system-ui, sans-serif';
+      ctx.font = '600 20px ' + SS;
       ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 28 + lh + 30);
       ctx.textAlign = 'left';
     } else {
       ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.WHITE;
-      ctx.font = '800 46px -apple-system, system-ui, sans-serif';
+      ctx.font = '800 46px ' + SS;
       ctx.fillText('eXp Realty', 1020, by + 68);
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px -apple-system, system-ui, sans-serif';
+      ctx.font = '600 20px ' + SS;
       ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
       ctx.textAlign = 'left';
     }
@@ -359,7 +387,7 @@ const Marketing = {
     if (specs.length) {
       const label = specs.join(DOT);
       const sfs = SZ.specs;
-      ctx.font = `${wt('specs')} ${sfs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('specs')} ${sfs}px ${SF}`;
       const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
       const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
       ctx.fillStyle = 'rgba(255,255,255,.95)';
@@ -373,9 +401,9 @@ const Marketing = {
 
     // status word (title)
     ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px Georgia, "Times New Roman", serif`;
+    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px ${SF}`;
     const spaced = tpl.status.split('').join(' ');
-    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px Georgia, serif`; }
+    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px ${SF}`; }
     const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
     ctx.fillText(spaced, headX, headY);
     const headW = ctx.measureText(spaced).width;
@@ -388,21 +416,21 @@ const Marketing = {
     // Auto-fit the name so it never runs into the eXp logo on the right.
     const nameStr = agentName + ', REALTOR®';
     let nfs = SZ.name;
-    ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`;
-    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`; }
+    ctx.font = `${wt('name')} ${nfs}px ${SF}`;
+    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px ${SF}`; }
     ctx.fillText(nameStr, nx, ny);
     const nameW = ctx.measureText(nameStr).width;
     let ly = ny + 40;
     if (f.mls) {
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 24px -apple-system, system-ui, sans-serif';
+      ctx.font = '600 24px ' + SS;
       ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
     }
     // Footer keeps only the website alongside the name, MLS® # and the eXp logo.
     // Phone and email were pulled off the image to cut the clutter; they live in
     // the caption, where they are tappable anyway.
     const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
-    ctx.font = '600 24px -apple-system, system-ui, sans-serif';
+    ctx.font = '600 24px ' + SS;
     [web].filter(Boolean).forEach((line, i) => {
       if (i) ly += 38;
       dot(nx, ly);

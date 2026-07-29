@@ -2025,8 +2025,11 @@
     </div>
     <div id="mk-tpl-hint" style="font-size:11.5px;color:var(--text3);margin-bottom:12px;"></div>
 
-    <!-- style controls: background colour + text size -->
-    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:16px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+    <!-- design controls stay collapsed until "Edit design" is clicked, so the
+         composer looks calm and only shows the tools when they are wanted -->
+    <button id="mk-edit-btn" class="mk-size btn btn-outline btn-sm" onclick="Marketing.toggleEdit()" style="margin-bottom:12px;">✎ Edit design</button>
+
+    <div id="mk-edit-panel" style="display:none;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:16px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
       <div style="display:flex;align-items:center;gap:9px;">
         <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Style</span>
         <div style="display:flex;gap:4px;">
@@ -2060,8 +2063,21 @@
           <button class="btn btn-outline btn-sm" onclick="Marketing.nudgeFontSize(4)" title="Bigger">+</button>
           <span style="font-size:11px;color:var(--text3);">px</span>
         </div>
-        <button id="mk-slim" class="mk-size btn btn-outline btn-sm" onclick="Marketing.toggleSlim()" title="Thinner, more elegant lettering">Slim</button>
-        <button class="btn btn-outline btn-sm" onclick="Marketing.resetLayout()" title="Reset sizes and positions">↺ Reset</button>
+        <div style="display:flex;gap:4px;">
+          <button class="mk-weight mk-size btn btn-outline btn-sm active" data-weight="bold"   onclick="Marketing.setWeight('bold')">Bold</button>
+          <button class="mk-weight mk-size btn btn-outline btn-sm" data-weight="normal" onclick="Marketing.setWeight('normal')">Normal</button>
+          <button class="mk-weight mk-size btn btn-outline btn-sm" data-weight="slim"   onclick="Marketing.setWeight('slim')">Slim</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Font</span>
+        <div style="display:flex;gap:4px;">
+          <button class="mk-font mk-size btn btn-outline btn-sm active" data-font="classic"   onclick="Marketing.setFont('classic')"   style="font-family:Georgia,serif;">Classic</button>
+          <button class="mk-font mk-size btn btn-outline btn-sm" data-font="elegant"   onclick="Marketing.setFont('elegant')"   style="font-family:Didot,Georgia,serif;">Elegant</button>
+          <button class="mk-font mk-size btn btn-outline btn-sm" data-font="modern"    onclick="Marketing.setFont('modern')"    style="font-family:'Helvetica Neue',Arial,sans-serif;">Modern</button>
+          <button class="mk-font mk-size btn btn-outline btn-sm" data-font="geometric" onclick="Marketing.setFont('geometric')" style="font-family:Futura,'Avenir Next',sans-serif;">Geometric</button>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Marketing.resetLayout()" title="Reset sizes, weights and positions">↺ Reset</button>
       </div>
     </div>
 
