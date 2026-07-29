@@ -291,6 +291,8 @@ const Viewings = {
     if (!v) return;
     const locked = Viewings._isLocked(v) && !unlocked;
     const lockReason = v.client_feedback ? "the client's decision is already recorded" : 'the offer deadline has passed';
+    const lockTitle  = v.client_feedback ? 'Viewing settled — locked' : '⏰ Offer deadline passed — locked';
+    const lockIcon   = v.client_feedback ? '🔒' : '⏰';
     const client = Clients.all.find(c => c.id === v.client_id) || v.clients;
     const clientName = v.clients?.full_name || client?.full_name || '—';
     const isCompleted = v.viewing_status === 'Completed';
@@ -335,8 +337,8 @@ const Viewings = {
       ${feedbackSection}
       ${locked ? `
       <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);display:flex;gap:10px;align-items:center;">
-        <span style="font-size:18px;">🔒</span>
-        <div style="flex:1;"><div class="fw-700" style="font-size:13px;">Viewing settled — locked</div><div style="font-size:12px;color:var(--text2);">Read-only because ${lockReason}. Reopen with your PIN to change it.</div></div>
+        <span style="font-size:18px;">${lockIcon}</span>
+        <div style="flex:1;"><div class="fw-700" style="font-size:13px;">${lockTitle}</div><div style="font-size:12px;color:var(--text2);">Read-only because ${lockReason}. Reopen with your PIN to change it.</div></div>
         <button class="btn2 btn2-ghost btn2-sm" style="flex:none;" onclick="Viewings.reopenDetail('${v.id}')">🔓 Reopen</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
