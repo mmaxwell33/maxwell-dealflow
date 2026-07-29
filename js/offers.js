@@ -1416,7 +1416,9 @@ const Pipeline = {
       financing_deadline:  dates.fin || null,
       walkthrough_date: dates.walk || null,
       closing_date:    dates.close || null,
-      stage: 'Accepted',
+      // A resale offer with written conditions (financing, inspection, etc.)
+      // starts in the Conditions stage; a clean offer starts at Accepted.
+      stage: (!isNewBuild && offer.conditions && String(offer.conditions).trim()) ? 'Conditions' : 'Accepted',
       status: 'Active',
       deal_type: isNewBuild ? 'new_build' : 'existing_home'
     };
@@ -1518,7 +1520,8 @@ const Pipeline = {
       mls_number: offer.mls_number || null,
       offer_amount: offer.offer_amount,
       acceptance_date: acceptDate,
-      stage: 'Accepted',
+      // Conditional offer → start in Conditions; clean offer → Accepted.
+      stage: (offer.conditions && String(offer.conditions).trim()) ? 'Conditions' : 'Accepted',
       status: 'Active'
     };
     const { data: pipelineRow, error } = await db.from('pipeline')
