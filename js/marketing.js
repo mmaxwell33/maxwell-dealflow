@@ -56,6 +56,10 @@ const Marketing = {
   // "Slim" swaps each zone to a lighter weight for a more elegant, airy look.
   slim:     { head: false, specs: false, name: false },
   WEIGHTS:  { head: [700, 300], specs: [700, 400], name: [800, 400] },  // [normal, slim]
+  // Each block drags only inside its own horizontal band (top band / photo /
+  // footer). Without this, blocks could be piled on top of each other into an
+  // unusable mess. [minY, maxY] on the 1080 card.
+  BOUNDS:   { head: [0, 196], specs: [196, 792], name: [792, 1080] },
   sizeZone: 'head',            // which zone the number box + drag handles target
   captionStyle: 'warm',
   _hits: {},                   // zone -> {x,y,w,h} hit boxes recorded during _draw
@@ -338,11 +342,21 @@ const Marketing = {
         if (!Marketing._drag) return;
         const q = toCard(ev);
         const d = Marketing._drag;
-        const M = 8;  // keep at least this many px on the card
+        const M = 8;  // keep at least this many px from the card edges
         let ox = d.ox + (q.x - d.startX);
         let oy = d.oy + (q.y - d.startY);
+
+        // Horizontal: stay on the card, and snap to dead-centre when close.
         ox = Math.max(M - d.natX, Math.min((1080 - M - d.w) - d.natX, ox));
-        oy = Math.max(M - d.natY, Math.min((1080 - M - d.h) - d.natY, oy));
+        const centredOx = (1080 - d.w) / 2 - d.natX;
+        if (Math.abs(ox - centredOx) < 18) ox = centredOx;
+
+        // Vertical: stay inside this block's own band so nothing piles up.
+        const [bTop, bBot] = Marketing.BOUNDS[d.zone];
+        const minOy = (bTop + 4) - d.natY;
+        const maxOy = (bBot - 4 - d.h) - d.natY;
+        oy = Math.max(minOy, Math.min(Math.max(minOy, maxOy), oy));
+
         Marketing.offsets[d.zone] = { x: Math.round(ox), y: Math.round(oy) };
         Marketing.render();
       };
