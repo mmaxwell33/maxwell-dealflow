@@ -810,6 +810,8 @@ const App = {
   requireDeletePin(opts = {}) {
     const title   = opts.title   || 'Confirm Delete';
     const message = opts.message || 'This cannot be undone.';
+    // Same PIN, reusable for non-delete gates (e.g. reopening a locked viewing).
+    const confirmText = opts.confirmText || '🗑 Confirm Delete';
     const hash = currentAgent?.delete_pin_hash || null;
     return new Promise((resolve) => {
       App._pinResolve = resolve;
@@ -819,7 +821,7 @@ const App = {
           <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${App.esc(message)}</div>
           <div style="font-size:11px;color:var(--text2);margin-bottom:14px;background:var(--bg);padding:8px 10px;border-radius:6px;">🔒 Tip: set a <strong>Delete Password</strong> in Settings to require a PIN before anyone can delete.</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <button class="btn btn-red" onclick="App._resolveDeletePin(true)">🗑 Delete</button>
+            <button class="btn btn-red" onclick="App._resolveDeletePin(true)">${confirmText}</button>
             <button class="btn btn-outline" onclick="App._resolveDeletePin(false)">Cancel</button>
           </div>`);
         return;
@@ -834,7 +836,7 @@ const App = {
         </div>
         <div id="del-pin-msg" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px;"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button class="btn btn-red" onclick="App._checkDeletePin()">🗑 Confirm Delete</button>
+          <button class="btn btn-red" onclick="App._checkDeletePin()">${confirmText}</button>
           <button class="btn btn-outline" onclick="App._resolveDeletePin(false)">Cancel</button>
         </div>`);
       setTimeout(() => document.getElementById('del-pin-input')?.focus(), 50);
