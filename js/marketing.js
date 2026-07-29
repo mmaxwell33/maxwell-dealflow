@@ -208,68 +208,14 @@ const Marketing = {
       }
     }
 
-    // centred white SQF · BED · BATH strip near the bottom of the photo
-    const specs = [];
-    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQF');
-    if (f.beds)  specs.push(f.beds + ' BED');
-    if (f.baths) specs.push(f.baths + ' BATH');
-    if (specs.length) {
-      const label = specs.join(DOT);
-      const sfs = SZ.specs;
-      ctx.font = `${wt('specs')} ${sfs}px Georgia, "Times New Roman", serif`;
-      const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
-      const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
-      ctx.fillStyle = 'rgba(255,255,255,.95)';
-      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 6); ctx.fill(); }
-      else ctx.fillRect(sx, sy, sw, sh);
-      ctx.fillStyle = TH.band; ctx.textAlign = 'center';
-      ctx.fillText(label, sx + sw / 2, sy + sh / 2 + sfs / 3);
-      ctx.textAlign = 'left';
-      Marketing._hits.specs = { x: sx, y: sy, w: sw, h: sh };
-    }
-
-    // top band: status word + wide accent rule
-    ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);
-    ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px Georgia, "Times New Roman", serif`;
-    const spaced = tpl.status.split('').join(' ');
-    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px Georgia, serif`; }
-    const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
-    ctx.fillText(spaced, headX, headY);
-    ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);
-    ctx.textAlign = 'left';
-    const headW = ctx.measureText(spaced).width;
-    Marketing._hits.head = { x: headX - headW / 2, y: headY - fs, w: headW, h: fs * 1.3 };
-
-    // bottom band
+    // ── LAYER 1: fixed chrome (bands, accent rule, eXp logo) ────────────────
+    // All of this is painted BEFORE the draggable text below. Draw order is
+    // z-order on a canvas, so if a band were filled after the title, dragging
+    // the title into that band would bury it and it would look deleted.
     const by = 1080 - BOT;
-    ctx.fillStyle = TH.band; ctx.fillRect(0, by, 1080, BOT);
-
-    // left: name / MLS / contact with blue dots
-    ctx.fillStyle = Marketing.WHITE;
-    // The whole left contact column moves together as the "Name" block.
-    const nx = 60 + OF.name.x, ny = by + 64 + OF.name.y;
-    // Auto-fit the name so it never runs into the eXp logo on the right.
-    const nameStr = agentName + ', REALTOR®';
-    let nfs = SZ.name;
-    ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`;
-    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`; }
-    ctx.fillText(nameStr, nx, ny);
-    const nameW = ctx.measureText(nameStr).width;
-    let ly = ny + 40;
-    if (f.mls) {
-      ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-      ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
-    }
-    const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
-    ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, nx + 22, ly);
-    const pw = ctx.measureText(phone).width;
-    dot(nx + 22 + pw + 28, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(email, nx + 22 + pw + 28 + 22, ly);
-    ly += 40;
-    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, nx + 22, ly);
-    Marketing._hits.name = { x: nx, y: ny - nfs, w: Math.max(nameW, 420), h: (ly + 12) - (ny - nfs) };
+    ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);        // top band
+    ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);   // accent rule
+    ctx.fillStyle = TH.band; ctx.fillRect(0, by, 1080, BOT);       // bottom band
 
     // right: official eXp logo (flipped to white for the navy footer) + location
     const logo = Marketing._expLogo;
@@ -294,6 +240,64 @@ const Marketing = {
       ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
       ctx.textAlign = 'left';
     }
+
+    // ── LAYER 2: the draggable text, always painted on top ──────────────────
+
+    // centred white SQF · BED · BATH strip
+    const specs = [];
+    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQF');
+    if (f.beds)  specs.push(f.beds + ' BED');
+    if (f.baths) specs.push(f.baths + ' BATH');
+    if (specs.length) {
+      const label = specs.join(DOT);
+      const sfs = SZ.specs;
+      ctx.font = `${wt('specs')} ${sfs}px Georgia, "Times New Roman", serif`;
+      const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
+      const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 6); ctx.fill(); }
+      else ctx.fillRect(sx, sy, sw, sh);
+      ctx.fillStyle = TH.band; ctx.textAlign = 'center';
+      ctx.fillText(label, sx + sw / 2, sy + sh / 2 + sfs / 3);
+      ctx.textAlign = 'left';
+      Marketing._hits.specs = { x: sx, y: sy, w: sw, h: sh };
+    }
+
+    // status word (title)
+    ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
+    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px Georgia, "Times New Roman", serif`;
+    const spaced = tpl.status.split('').join(' ');
+    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px Georgia, serif`; }
+    const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
+    ctx.fillText(spaced, headX, headY);
+    const headW = ctx.measureText(spaced).width;
+    ctx.textAlign = 'left';
+    Marketing._hits.head = { x: headX - headW / 2, y: headY - fs, w: headW, h: fs * 1.3 };
+
+    // name / MLS / contact column — moves together as the "Name" block
+    ctx.fillStyle = Marketing.WHITE;
+    const nx = 60 + OF.name.x, ny = by + 64 + OF.name.y;
+    // Auto-fit the name so it never runs into the eXp logo on the right.
+    const nameStr = agentName + ', REALTOR®';
+    let nfs = SZ.name;
+    ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`;
+    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`; }
+    ctx.fillText(nameStr, nx, ny);
+    const nameW = ctx.measureText(nameStr).width;
+    let ly = ny + 40;
+    if (f.mls) {
+      ctx.fillStyle = Marketing.GREY;
+      ctx.font = '600 24px -apple-system, system-ui, sans-serif';
+      ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
+    }
+    const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
+    ctx.font = '600 24px -apple-system, system-ui, sans-serif';
+    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, nx + 22, ly);
+    const pw = ctx.measureText(phone).width;
+    dot(nx + 22 + pw + 28, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(email, nx + 22 + pw + 28 + 22, ly);
+    ly += 40;
+    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, nx + 22, ly);
+    Marketing._hits.name = { x: nx, y: ny - nfs, w: Math.max(nameW, 420), h: (ly + 12) - (ny - nfs) };
 
     return canvas;
   },
