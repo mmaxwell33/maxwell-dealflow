@@ -2028,6 +2028,13 @@
     <!-- style controls: background colour + text size -->
     <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:16px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
       <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Style</span>
+        <div style="display:flex;gap:4px;">
+          <button class="mk-layout mk-size btn btn-outline btn-sm active" data-layout="branded" onclick="Marketing.setLayout('branded')">Branded</button>
+          <button class="mk-layout mk-size btn btn-outline btn-sm" data-layout="clean" onclick="Marketing.setLayout('clean')">Clean</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;">
         <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Background</span>
         <div style="display:flex;gap:7px;">
           <button class="mk-theme active" data-theme="navy"     title="Navy"       onclick="Marketing.setTheme('navy')"     style="width:24px;height:24px;border-radius:50%;background:#0C0F24;border:2px solid var(--border);cursor:pointer;padding:0;"></button>

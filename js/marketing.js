@@ -47,11 +47,15 @@ const Marketing = {
   },
 
   current: 'sold',
+  // 'branded' = the navy-band card (all contact details on the image).
+  // 'clean'   = full-bleed photo with one soft panel: status, specs, and who you
+  //             are. Far less busy; MLS/phone/email/website live in the caption.
+  layout: 'branded',
   theme: 'navy',
   // Real font sizes in px (what the number box shows) and drag offsets in canvas
   // px, per zone. Defaults reproduce the original layout exactly.
   sizes:    { head: 90, specs: 30, name: 42 },
-  offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } },
+  offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } },
   DEFAULTS: { head: 90, specs: 30, name: 42 },
   // "Slim" swaps each zone to a lighter weight for a more elegant, airy look.
   slim:     { head: false, specs: false, name: false },
@@ -59,7 +63,7 @@ const Marketing = {
   // Each block drags only inside its own horizontal band (top band / photo /
   // footer). Without this, blocks could be piled on top of each other into an
   // unusable mess. [minY, maxY] on the 1080 card.
-  BOUNDS:   { head: [0, 196], specs: [196, 792], name: [792, 1080] },
+  BOUNDS:   { head: [0, 196], specs: [196, 792], name: [792, 1080], panel: [0, 1080] },
   sizeZone: 'head',            // which zone the number box + drag handles target
   captionStyle: 'warm',
   _hits: {},                   // zone -> {x,y,w,h} hit boxes recorded during _draw
@@ -77,7 +81,7 @@ const Marketing = {
     Marketing._address  = prefill.address  || '';
     Marketing.theme = 'navy';
     Marketing.sizes = { ...Marketing.DEFAULTS };
-    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
+    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
     Marketing.slim = { head: false, specs: false, name: false };
     Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
@@ -121,6 +125,9 @@ const Marketing = {
       b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
       b.style.boxShadow   = on ? '0 0 0 2px var(--accent)' : 'none';
     });
+    m.querySelectorAll('.mk-layout').forEach(b => b.classList.toggle('active', b.dataset.layout === Marketing.layout));
+    // The per-zone resize buttons only apply to the branded card; the clean
+    // layout sizes its one panel from the same numbers.
     m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
     const box = m.querySelector('#mk-size-num');
     if (box) box.value = Marketing.sizes[Marketing.sizeZone];
@@ -142,9 +149,16 @@ const Marketing = {
     Marketing.slim[Marketing.sizeZone] = !Marketing.slim[Marketing.sizeZone];
     Marketing._setStyleUI(); Marketing.render();
   },
+  setLayout(l) {
+    Marketing.layout = l;
+    // Positions are layout-specific, so start the new layout from its defaults.
+    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
+    Marketing.sizeZone = 'head';
+    Marketing._setStyleUI(); Marketing.render();
+  },
   resetLayout() {
     Marketing.sizes = { ...Marketing.DEFAULTS };
-    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
+    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
     Marketing.slim = { head: false, specs: false, name: false };
     Marketing._setStyleUI(); Marketing.render();
   },
@@ -202,12 +216,85 @@ const Marketing = {
     const TOP = 196, BOT = 288, MIDy = TOP, MIDh = 1080 - TOP - BOT;
     const TH = Marketing._theme();          // chosen background theme
     const SZ = Marketing.sizes   || { ...Marketing.DEFAULTS };
-    const OF = Marketing.offsets || { head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0} };
+    const OF = Object.assign({ head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0}, panel:{x:0,y:0} }, Marketing.offsets || {});
     const SL = Marketing.slim    || { head:false, specs:false, name:false };
     const wt = z => Marketing.WEIGHTS[z][SL[z] ? 1 : 0];   // normal or slim weight
     Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
+
+    // ── CLEAN LAYOUT ────────────────────────────────────────────────────────
+    // Photo edge to edge, with a single soft panel carrying only what matters:
+    // the status, the specs, and who you are. Everything else (MLS, phone,
+    // email, website) belongs in the caption, which is what keeps this uncluttered.
+    if (Marketing.layout === 'clean') {
+      if (Marketing._photoImg && Marketing._photoDataUrl) {
+        const img = Marketing._photoImg;
+        const scale = Math.max(1080 / img.width, 1080 / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (1080 - w) / 2, (1080 - h) / 2, w, h);
+      } else {
+        const g = ctx.createLinearGradient(0, 0, 1080, 1080);
+        g.addColorStop(0, TH.band); g.addColorStop(1, TH.deep);
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1080);
+      }
+
+      const specsLine = [
+        f.sqft  ? f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQF' : '',
+        f.beds  ? f.beds  + ' BED'  : '',
+        f.baths ? f.baths + ' BATH' : ''
+      ].filter(Boolean).join('  ·  ');
+      const titleStr = tpl.status.split('').join(' ');
+      const brandStr = 'REALTOR® | eXp Realty';
+
+      // Size the panel around its contents.
+      let tFs = Math.round(SZ.head * 0.52); const sFs = Math.round(SZ.specs * 0.85), nFs = Math.round(SZ.name * 0.62);
+      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      let maxW = ctx.measureText(titleStr).width;
+      if (specsLine) { ctx.font = `${wt('specs')} ${sFs}px -apple-system, system-ui, sans-serif`; maxW = Math.max(maxW, ctx.measureText(specsLine).width); }
+      ctx.font = `${wt('name')} ${nFs}px Georgia, "Times New Roman", serif`;
+      maxW = Math.max(maxW, ctx.measureText(agentName).width);
+
+      const padX = 56, padY = 44;
+      const pw = Math.min(1080 - 80, Math.max(560, maxW + padX * 2));
+      // Never let the letterspaced status run past the panel edges.
+      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      while (ctx.measureText(titleStr).width > pw - padX * 2 && tFs > 16) {
+        tFs -= 1; ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      }
+      const ph = padY * 2 + tFs + (specsLine ? sFs + 26 : 0) + 34 + nFs + 26;
+      const px = (1080 - pw) / 2 + OF.panel.x;
+      const py = 1080 * 0.60 + OF.panel.y;
+
+      ctx.fillStyle = 'rgba(250,250,247,.90)';
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 4); ctx.fill(); }
+      else ctx.fillRect(px, py, pw, ph);
+
+      let cy = py + padY + tFs;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = `${wt('head')} ${tFs}px Georgia, "Times New Roman", serif`;
+      ctx.fillText(titleStr, px + pw / 2, cy);
+      if (specsLine) {
+        cy += sFs + 26;
+        ctx.fillStyle = '#4a4a4a';
+        ctx.font = `${wt('specs')} ${sFs}px -apple-system, system-ui, sans-serif`;
+        ctx.fillText(specsLine, px + pw / 2, cy);
+      }
+      // Name + brokerage, right-aligned inside the panel.
+      cy += 34 + nFs;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = `${wt('name')} ${nFs}px Georgia, "Times New Roman", serif`;
+      ctx.fillText(agentName, px + pw - padX, cy);
+      ctx.fillStyle = TH.rule;
+      ctx.font = `700 ${Math.round(nFs * 0.62)}px -apple-system, system-ui, sans-serif`;
+      ctx.fillText(brandStr, px + pw - padX, cy + Math.round(nFs * 0.82));
+      ctx.textAlign = 'left';
+
+      Marketing._hits.panel = { x: px, y: py, w: pw, h: ph };
+      return canvas;
+    }
 
     // middle: listing photo (cover) or branded navy fallback
     if (Marketing._photoImg && Marketing._photoDataUrl) {
