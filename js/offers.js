@@ -332,7 +332,15 @@ const Offers = {
                <button class="btn btn-block" style="background:var(--yellow);color:#000;font-weight:700;" onclick="App.closeModal();Offers.resumeAcceptance('${o.id}')">🔄 Resume Acceptance</button>
              </div>`
           : `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>`
-      ) : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : ''}
+      ) : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : o.status === 'Countered' ? `
+      <div style="background:var(--bg2);border:2px solid var(--purple);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--purple);">🔄 You countered — what did the seller decide?</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Once the seller responds to your counter, move the deal forward.</div>
+        <div style="display:grid;gap:8px;">
+          <button class="btn btn-green" onclick="Offers.counterAccepted('${o.id}')">✅ Seller accepted the counter — finalize</button>
+          <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}')">❌ Deal fell through</button>
+        </div>
+      </div>` : ''}
       <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px;">
         <button class="btn btn-outline" onclick="App.closeModal()">Close</button>
         <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="Offers.confirmDelete('${o.id}')">🗑️ Delete</button>
@@ -416,6 +424,48 @@ const Offers = {
     // closing details. Calling it here would duplicate the client's congrats email.
     App.closeModal();
     Pipeline.askAcceptanceDetails(o, client);
+    Offers.load(); Clients.load(); App.loadOverview();
+  },
+
+  // Seller accepted the counter you sent. Confirm the final price (prefilled
+  // from the counter stored in agent_notes), then flow into the SAME accepted
+  // sequence as a directly-accepted offer.
+  counterAccepted(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    // Prefill with the last "Counter: $X" recorded in notes, else the offer amount.
+    let amt = o.offer_amount;
+    const m = (o.agent_notes || '').match(/Counter:\s*\$?[\d.,]+/g);
+    if (m && m.length) {
+      const n = parseFloat(m[m.length - 1].replace(/[^\d.]/g, ''));
+      if (!isNaN(n)) amt = n;
+    }
+    App.openModal(`
+      <div class="modal-title">✅ Seller accepted the counter</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Confirm the final accepted price on <strong>${App.esc(o.property_address)}</strong>, then we'll start the paperwork.</div>
+      <div class="form-group">
+        <label class="form-label">Final accepted amount ($) *</label>
+        <input class="form-input" id="counter-final-amt" type="number" value="${amt || ''}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-green" onclick="Offers.counterFinalize('${id}')">Accept & start paperwork</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async counterFinalize(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const amt = parseFloat(document.getElementById('counter-final-amt')?.value);
+    if (!amt || isNaN(amt)) { App.toast('⚠️ Enter the final amount', 'var(--red)'); return; }
+    const client = Clients.all.find(c => c.id === o.client_id);
+    await db.from('offers').update({ offer_amount: amt, status: 'Accepted', updated_at: new Date().toISOString() }).eq('id', id);
+    await db.from('clients').update({ stage: 'Accepted' }).eq('id', o.client_id);
+    App.closeModal();
+    // Identical accepted sequence (dates -> documents -> pipeline) as sellerAccepted,
+    // using the confirmed counter price.
+    Pipeline.askAcceptanceDetails({ ...o, offer_amount: amt, status: 'Accepted' }, client);
     Offers.load(); Clients.load(); App.loadOverview();
   },
 
