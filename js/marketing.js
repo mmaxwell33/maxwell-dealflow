@@ -33,12 +33,33 @@ const Marketing = {
     accepted: { label: 'Offer Accepted', status: 'OFFER ACCEPTED', hint: 'Under contract — best posted once the deal is firm.' },
   },
 
+  // Background colour options for the top/bottom bands. Navy is the eXp default;
+  // the others are tasteful dark alternatives. White text + white logo work on
+  // all of them. `band` = the two bands, `deep` = the photo-fallback base,
+  // `rule` = the accent rule + contact dots.
+  THEMES: {
+    navy:     { label: 'Navy',       band: '#0C0F24', deep: '#0A1628', rule: '#19469D' },
+    black:    { label: 'Black',      band: '#000000', deep: '#050505', rule: '#19469D' },
+    charcoal: { label: 'Charcoal',   band: '#1B2130', deep: '#141922', rule: '#4A74B4' },
+    forest:   { label: 'Forest',     band: '#0F2A1E', deep: '#0A1F16', rule: '#2E7D53' },
+    burgundy: { label: 'Burgundy',   band: '#2A0F16', deep: '#1E0A10', rule: '#9B2D3D' },
+    royal:    { label: 'Royal Blue', band: '#10275E', deep: '#0A1A42', rule: '#4A74B4' },
+  },
+
   current: 'sold',
+  theme: 'navy',
+  fontScale: 1,
+  captionStyle: 'warm',
+
+  _theme() { return Marketing.THEMES[Marketing.theme] || Marketing.THEMES.navy; },
 
   openComposer(prefill = {}) {
     const m = document.getElementById('marketing-modal');
     if (!m) { alert('Marketing composer not found.'); return; }
     Marketing.current = prefill.template || 'sold';
+    Marketing.theme = 'navy';
+    Marketing.fontScale = 1;
+    Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
     m.querySelector('#mk-area').value  = prefill.area || '';
     m.querySelector('#mk-sqft').value  = prefill.sqft || '';
@@ -49,6 +70,7 @@ const Marketing = {
     m.querySelector('#mk-consent').checked = false;
     const fp = m.querySelector('#mk-photo'); if (fp) fp.value = '';
     Marketing._setTemplateUI();
+    Marketing._setStyleUI();
     Marketing._syncConsent();
     m.style.display = 'flex';
     Marketing.render();
@@ -66,6 +88,25 @@ const Marketing = {
     const hint = document.getElementById('mk-tpl-hint');
     if (hint) hint.textContent = Marketing.TEMPLATES[Marketing.current].hint;
   },
+
+  // Reflect the current background / text-size / caption-style choices on their
+  // buttons. Colour swatches get a ring via inline style (they aren't .btns).
+  _setStyleUI() {
+    const m = document.getElementById('marketing-modal');
+    if (!m) return;
+    m.querySelectorAll('.mk-theme').forEach(b => {
+      const on = b.dataset.theme === Marketing.theme;
+      b.classList.toggle('active', on);
+      b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+      b.style.boxShadow   = on ? '0 0 0 2px var(--accent)' : 'none';
+    });
+    m.querySelectorAll('.mk-size').forEach(b => b.classList.toggle('active', +b.dataset.size === Marketing.fontScale));
+    m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
+  },
+
+  setTheme(t)     { Marketing.theme = t; Marketing._setStyleUI(); Marketing.render(); },
+  setFontScale(k) { Marketing.fontScale = +k; Marketing._setStyleUI(); Marketing.render(); },
+  setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
 
   _syncConsent() {
     const ok = document.getElementById('mk-consent')?.checked;
@@ -104,8 +145,10 @@ const Marketing = {
     const ctx = canvas.getContext('2d');
 
     const TOP = 196, BOT = 288, MIDy = TOP, MIDh = 1080 - TOP - BOT;
+    const TH = Marketing._theme();          // chosen background theme
+    const k  = Marketing.fontScale || 1;    // headline / specs text scale
 
-    ctx.fillStyle = Marketing.DEEP; ctx.fillRect(0, 0, 1080, 1080);
+    ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
 
     // middle: listing photo (cover) or branded navy fallback
     if (Marketing._photoImg && Marketing._photoDataUrl) {
@@ -117,11 +160,11 @@ const Marketing = {
       ctx.restore();
     } else {
       const g = ctx.createLinearGradient(0, MIDy, 1080, MIDy + MIDh);
-      g.addColorStop(0, '#12203f'); g.addColorStop(1, Marketing.DEEP);
+      g.addColorStop(0, TH.band); g.addColorStop(1, TH.deep);
       ctx.fillStyle = g; ctx.fillRect(0, MIDy, 1080, MIDh);
       if (f.area) {
         ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-        ctx.font = '600 58px Georgia, "Times New Roman", serif';
+        ctx.font = `600 ${Math.round(58 * k)}px Georgia, "Times New Roman", serif`;
         ctx.fillText(f.area, 540, MIDy + MIDh / 2);
         ctx.textAlign = 'left';
       }
@@ -134,30 +177,30 @@ const Marketing = {
     if (f.baths) specs.push(f.baths + ' BATH');
     if (specs.length) {
       const label = specs.join(DOT);
-      ctx.font = '700 30px Georgia, "Times New Roman", serif';
+      ctx.font = `700 ${Math.round(30 * k)}px Georgia, "Times New Roman", serif`;
       const tw = ctx.measureText(label).width, padX = 42, sh = 72, sw = tw + padX * 2;
       const sx = (1080 - sw) / 2, sy = MIDy + MIDh - sh - 38;
       ctx.fillStyle = 'rgba(255,255,255,.95)';
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 6); ctx.fill(); }
       else ctx.fillRect(sx, sy, sw, sh);
-      ctx.fillStyle = Marketing.NAVY; ctx.textAlign = 'center';
+      ctx.fillStyle = TH.band; ctx.textAlign = 'center';
       ctx.fillText(label, 540, sy + sh / 2 + 11);
       ctx.textAlign = 'left';
     }
 
-    // top band: status word + wide blue rule
-    ctx.fillStyle = Marketing.NAVY; ctx.fillRect(0, 0, 1080, TOP);
+    // top band: status word + wide accent rule
+    ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);
     ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = 90; ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
+    let fs = Math.round(90 * k); ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
     const spaced = tpl.status.split('').join(' ');
     while (ctx.measureText(spaced).width > 960 && fs > 38) { fs -= 4; ctx.font = `700 ${fs}px Georgia, serif`; }
     ctx.fillText(spaced, 540, TOP / 2 + fs / 3);
-    ctx.fillStyle = Marketing.BLUE; ctx.fillRect(70, TOP - 28, 940, 5);
+    ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);
     ctx.textAlign = 'left';
 
     // bottom band
     const by = 1080 - BOT;
-    ctx.fillStyle = Marketing.NAVY; ctx.fillRect(0, by, 1080, BOT);
+    ctx.fillStyle = TH.band; ctx.fillRect(0, by, 1080, BOT);
 
     // left: name / MLS / contact with blue dots
     ctx.fillStyle = Marketing.WHITE;
@@ -169,7 +212,7 @@ const Marketing = {
       ctx.font = '600 24px -apple-system, system-ui, sans-serif';
       ctx.fillText('MLS® #' + f.mls, 60, ly); ly += 44;
     }
-    const dot = (x, y) => { ctx.fillStyle = Marketing.BLUE; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
+    const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
     ctx.font = '600 24px -apple-system, system-ui, sans-serif';
     dot(60, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, 82, ly);
     const pw = ctx.measureText(phone).width;
@@ -235,7 +278,12 @@ const Marketing = {
     const tpl = Marketing.TEMPLATES[Marketing.current];
     if (btn) { btn.disabled = true; btn.textContent = 'Writing…'; }
     const system = `You write Instagram captions for Maxwell Midodzi, a REALTOR® with eXp Realty in St. John's, Newfoundland. His voice: warm, sincere, gratitude-forward, plain-spoken — never hype. Rules: open with one short warm line; 2-4 short sentences; a soft call to action ("Thinking about buying or selling? Reach out."); NEVER mention a sale price; NEVER name the client; refer to the area only, not a street number; end with a contact block on its own lines "Maxwell Midodzi, REALTOR®", "eXp Realty | St. John's, NL", the phone, the email, and "maxwellmidodzi.com"; then 8-10 relevant hashtags (local St. John's/NL + category + brand). No emojis in the first line; at most one elsewhere.`;
-    const user = `Write a caption for a "${tpl.label}" post. Area: ${f.area || "St. John's"}. ${f.beds ? f.beds + ' bed. ' : ''}${f.baths ? f.baths + ' bath. ' : ''}${f.sqft ? f.sqft + ' sq ft.' : ''}`;
+    const styleMap = {
+      warm:         'Style: warm, sincere, gratitude-forward — his usual voice.',
+      short:        'Style: short and punchy — one or two crisp sentences before the contact block, confident and classy, no filler.',
+      professional: 'Style: polished and professional — understated, market-savvy, quietly confident.',
+    };
+    const user = `Write a caption for a "${tpl.label}" post. Area: ${f.area || "St. John's"}. ${f.beds ? f.beds + ' bed. ' : ''}${f.baths ? f.baths + ' bath. ' : ''}${f.sqft ? f.sqft + ' sq ft.' : ''} ${styleMap[Marketing.captionStyle] || styleMap.warm}`;
     try {
       const { data, error } = await db.functions.invoke('claude-chat', {
         body: { system, messages: [{ role: 'user', content: user }], model: 'claude-haiku-4-5', max_tokens: 600 }

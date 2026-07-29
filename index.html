@@ -2005,8 +2005,12 @@
 
 <!-- Marketing composer — turns a deal into a branded Instagram post. Never
      auto-posts; consent-gated; no sold price; area only (see js/marketing.js). -->
+<style>
+  #marketing-modal .mk-theme.active{ border-color:var(--accent)!important; box-shadow:0 0 0 2px var(--accent); }
+  #marketing-modal .mk-size.active, #marketing-modal .mk-capstyle.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+</style>
 <div id="marketing-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:880px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);margin:auto;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:1040px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);margin:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div style="font-size:18px;font-weight:800;color:var(--text);">Create a post</div>
       <span onclick="Marketing.close()" style="cursor:pointer;color:var(--text2);font-size:24px;line-height:1;">×</span>
@@ -2018,9 +2022,32 @@
       <button class="mk-tab btn btn-outline btn-sm active" data-tpl="sold" onclick="Marketing.setTemplate('sold')">Just Sold</button>
       <button class="mk-tab btn btn-outline btn-sm" data-tpl="accepted" onclick="Marketing.setTemplate('accepted')">Offer Accepted</button>
     </div>
-    <div id="mk-tpl-hint" style="font-size:11.5px;color:var(--text3);margin-bottom:16px;"></div>
+    <div id="mk-tpl-hint" style="font-size:11.5px;color:var(--text3);margin-bottom:12px;"></div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;">
+    <!-- style controls: background colour + text size -->
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:16px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Background</span>
+        <div style="display:flex;gap:7px;">
+          <button class="mk-theme active" data-theme="navy"     title="Navy"       onclick="Marketing.setTheme('navy')"     style="width:24px;height:24px;border-radius:50%;background:#0C0F24;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+          <button class="mk-theme"        data-theme="black"    title="Black"      onclick="Marketing.setTheme('black')"    style="width:24px;height:24px;border-radius:50%;background:#000000;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+          <button class="mk-theme"        data-theme="charcoal" title="Charcoal"   onclick="Marketing.setTheme('charcoal')" style="width:24px;height:24px;border-radius:50%;background:#1B2130;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+          <button class="mk-theme"        data-theme="forest"   title="Forest"     onclick="Marketing.setTheme('forest')"   style="width:24px;height:24px;border-radius:50%;background:#0F2A1E;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+          <button class="mk-theme"        data-theme="burgundy" title="Burgundy"   onclick="Marketing.setTheme('burgundy')" style="width:24px;height:24px;border-radius:50%;background:#2A0F16;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+          <button class="mk-theme"        data-theme="royal"    title="Royal Blue" onclick="Marketing.setTheme('royal')"    style="width:24px;height:24px;border-radius:50%;background:#10275E;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Text size</span>
+        <div style="display:flex;gap:5px;">
+          <button class="mk-size btn btn-outline btn-sm" data-size="0.85" onclick="Marketing.setFontScale(0.85)">S</button>
+          <button class="mk-size btn btn-outline btn-sm active" data-size="1" onclick="Marketing.setFontScale(1)">M</button>
+          <button class="mk-size btn btn-outline btn-sm" data-size="1.15" onclick="Marketing.setFontScale(1.15)">L</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:22px;align-items:start;">
       <!-- live preview -->
       <div>
         <div id="mk-preview" style="width:100%;aspect-ratio:1/1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;"></div>
@@ -2053,9 +2080,14 @@
         </div>
 
         <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;font-weight:600;color:var(--text2);">Caption</span>
-            <button id="mk-regen" class="btn btn-outline btn-sm" onclick="Marketing.genCaption()">↻ Regenerate caption</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span style="font-size:12px;font-weight:600;color:var(--text2);">Caption <span style="font-weight:400;color:var(--text3);">— pick a style</span></span>
+            <div style="display:flex;gap:5px;align-items:center;">
+              <button class="mk-capstyle btn btn-outline btn-sm active" data-style="warm" onclick="Marketing.setCaptionStyle('warm')">Warm</button>
+              <button class="mk-capstyle btn btn-outline btn-sm" data-style="short" onclick="Marketing.setCaptionStyle('short')">Short</button>
+              <button class="mk-capstyle btn btn-outline btn-sm" data-style="professional" onclick="Marketing.setCaptionStyle('professional')">Pro</button>
+              <button id="mk-regen" class="btn btn-outline btn-sm" onclick="Marketing.genCaption()" title="Regenerate">↻</button>
+            </div>
           </div>
           <textarea id="mk-caption" rows="6" placeholder="Tap “Regenerate caption” for an AI draft, then edit it." style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;"></textarea>
         </div>
