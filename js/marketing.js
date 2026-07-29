@@ -48,9 +48,15 @@ const Marketing = {
 
   current: 'sold',
   theme: 'navy',
-  scales: { head: 1, specs: 1, name: 1 },  // per-zone text sizing
-  sizeZone: 'head',                         // which zone the S/M/L buttons resize
+  // Real font sizes in px (what the number box shows) and drag offsets in canvas
+  // px, per zone. Defaults reproduce the original layout exactly.
+  sizes:    { head: 90, specs: 30, name: 42 },
+  offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } },
+  DEFAULTS: { head: 90, specs: 30, name: 42 },
+  sizeZone: 'head',            // which zone the number box + drag handles target
   captionStyle: 'warm',
+  _hits: {},                   // zone -> {x,y,w,h} hit boxes recorded during _draw
+  _drag: null,
 
   _theme() { return Marketing.THEMES[Marketing.theme] || Marketing.THEMES.navy; },
 
@@ -59,7 +65,8 @@ const Marketing = {
     if (!m) { alert('Marketing composer not found.'); return; }
     Marketing.current = prefill.template || 'sold';
     Marketing.theme = 'navy';
-    Marketing.scales = { head: 1, specs: 1, name: 1 };
+    Marketing.sizes = { ...Marketing.DEFAULTS };
+    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
     Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
@@ -103,14 +110,25 @@ const Marketing = {
       b.style.boxShadow   = on ? '0 0 0 2px var(--accent)' : 'none';
     });
     m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
-    const cur = Marketing.scales[Marketing.sizeZone] || 1;
-    m.querySelectorAll('.mk-size').forEach(b => b.classList.toggle('active', +b.dataset.size === cur));
+    const box = m.querySelector('#mk-size-num');
+    if (box) box.value = Marketing.sizes[Marketing.sizeZone];
     m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
   },
 
   setTheme(t)      { Marketing.theme = t; Marketing._setStyleUI(); Marketing.render(); },
-  setSizeZone(z)   { Marketing.sizeZone = z; Marketing._setStyleUI(); },
-  setFontScale(k)  { Marketing.scales[Marketing.sizeZone] = +k; Marketing._setStyleUI(); Marketing.render(); },
+  setSizeZone(z)   { Marketing.sizeZone = z; Marketing._setStyleUI(); Marketing.render(); },
+  // Font size as a real number (px on the 1080x1080 card).
+  setFontSize(px)  {
+    const n = Math.max(10, Math.min(200, parseInt(px, 10) || Marketing.DEFAULTS[Marketing.sizeZone]));
+    Marketing.sizes[Marketing.sizeZone] = n;
+    Marketing._setStyleUI(); Marketing.render();
+  },
+  nudgeFontSize(d) { Marketing.setFontSize(Marketing.sizes[Marketing.sizeZone] + d); },
+  resetLayout() {
+    Marketing.sizes = { ...Marketing.DEFAULTS };
+    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
+    Marketing._setStyleUI(); Marketing.render();
+  },
   setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
 
   _syncConsent() {
@@ -151,8 +169,9 @@ const Marketing = {
 
     const TOP = 196, BOT = 288, MIDy = TOP, MIDh = 1080 - TOP - BOT;
     const TH = Marketing._theme();          // chosen background theme
-    const S  = Marketing.scales || { head: 1, specs: 1, name: 1 };
-    const kh = S.head || 1, ks = S.specs || 1, kn = S.name || 1;  // per-zone scales
+    const SZ = Marketing.sizes   || { ...Marketing.DEFAULTS };
+    const OF = Marketing.offsets || { head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0} };
+    Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
 
@@ -170,7 +189,7 @@ const Marketing = {
       ctx.fillStyle = g; ctx.fillRect(0, MIDy, 1080, MIDh);
       if (f.area) {
         ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-        ctx.font = `600 ${Math.round(58 * ks)}px Georgia, "Times New Roman", serif`;
+        ctx.font = '600 58px Georgia, "Times New Roman", serif';
         ctx.fillText(f.area, 540, MIDy + MIDh / 2);
         ctx.textAlign = 'left';
       }
@@ -183,26 +202,31 @@ const Marketing = {
     if (f.baths) specs.push(f.baths + ' BATH');
     if (specs.length) {
       const label = specs.join(DOT);
-      ctx.font = `700 ${Math.round(30 * ks)}px Georgia, "Times New Roman", serif`;
-      const tw = ctx.measureText(label).width, padX = 42, sh = 72, sw = tw + padX * 2;
-      const sx = (1080 - sw) / 2, sy = MIDy + MIDh - sh - 38;
+      const sfs = SZ.specs;
+      ctx.font = `700 ${sfs}px Georgia, "Times New Roman", serif`;
+      const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
+      const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
       ctx.fillStyle = 'rgba(255,255,255,.95)';
       if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 6); ctx.fill(); }
       else ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = TH.band; ctx.textAlign = 'center';
-      ctx.fillText(label, 540, sy + sh / 2 + 11);
+      ctx.fillText(label, sx + sw / 2, sy + sh / 2 + sfs / 3);
       ctx.textAlign = 'left';
+      Marketing._hits.specs = { x: sx, y: sy, w: sw, h: sh };
     }
 
     // top band: status word + wide accent rule
     ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);
     ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = Math.round(90 * kh); ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
+    let fs = SZ.head; ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
     const spaced = tpl.status.split('').join(' ');
-    while (ctx.measureText(spaced).width > 960 && fs > 38) { fs -= 4; ctx.font = `700 ${fs}px Georgia, serif`; }
-    ctx.fillText(spaced, 540, TOP / 2 + fs / 3);
+    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `700 ${fs}px Georgia, serif`; }
+    const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
+    ctx.fillText(spaced, headX, headY);
     ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);
     ctx.textAlign = 'left';
+    const headW = ctx.measureText(spaced).width;
+    Marketing._hits.head = { x: headX - headW / 2, y: headY - fs, w: headW, h: fs * 1.3 };
 
     // bottom band
     const by = 1080 - BOT;
@@ -210,25 +234,29 @@ const Marketing = {
 
     // left: name / MLS / contact with blue dots
     ctx.fillStyle = Marketing.WHITE;
+    // The whole left contact column moves together as the "Name" block.
+    const nx = 60 + OF.name.x, ny = by + 64 + OF.name.y;
     // Auto-fit the name so it never runs into the eXp logo on the right.
     const nameStr = agentName + ', REALTOR®';
-    let nfs = Math.round(42 * kn);
+    let nfs = SZ.name;
     ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`;
-    while (ctx.measureText(nameStr).width > 720 && nfs > 22) { nfs -= 2; ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`; }
-    ctx.fillText(nameStr, 60, by + 64);
-    let ly = by + 104;
+    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`; }
+    ctx.fillText(nameStr, nx, ny);
+    const nameW = ctx.measureText(nameStr).width;
+    let ly = ny + 40;
     if (f.mls) {
       ctx.fillStyle = Marketing.GREY;
       ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-      ctx.fillText('MLS® #' + f.mls, 60, ly); ly += 44;
+      ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
     }
     const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
     ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-    dot(60, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, 82, ly);
+    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(phone, nx + 22, ly);
     const pw = ctx.measureText(phone).width;
-    dot(82 + pw + 28, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(email, 82 + pw + 28 + 22, ly);
+    dot(nx + 22 + pw + 28, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(email, nx + 22 + pw + 28 + 22, ly);
     ly += 40;
-    dot(60, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, 82, ly);
+    dot(nx, ly); ctx.fillStyle = Marketing.WHITE; ctx.fillText(web, nx + 22, ly);
+    Marketing._hits.name = { x: nx, y: ny - nfs, w: Math.max(nameW, 420), h: (ly + 12) - (ny - nfs) };
 
     // right: official eXp logo (flipped to white for the navy footer) + location
     const logo = Marketing._expLogo;
@@ -257,6 +285,48 @@ const Marketing = {
     return canvas;
   },
 
+  // Drag any text block straight on the preview. Pointer coords are converted
+  // from CSS pixels to the card's 1080x1080 space so dragging tracks the cursor
+  // exactly at any preview size.
+  _bindDrag(canvas) {
+    const toCard = (e) => {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * (1080 / r.width), y: (e.clientY - r.top) * (1080 / r.height) };
+    };
+    const zoneAt = (p) => {
+      // Topmost-first so an overlapping block picks the one you'd expect.
+      for (const z of ['specs', 'head', 'name']) {
+        const h = Marketing._hits[z];
+        if (h && p.x >= h.x - 10 && p.x <= h.x + h.w + 10 && p.y >= h.y - 8 && p.y <= h.y + h.h + 8) return z;
+      }
+      return null;
+    };
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const p = toCard(e);
+      const z = zoneAt(p);
+      if (!z) return;
+      e.preventDefault();
+      if (Marketing.sizeZone !== z) { Marketing.sizeZone = z; Marketing._setStyleUI(); }
+      Marketing._drag = { zone: z, startX: p.x, startY: p.y, ox: Marketing.offsets[z].x, oy: Marketing.offsets[z].y };
+
+      const onMove = (ev) => {
+        if (!Marketing._drag) return;
+        const q = toCard(ev);
+        const d = Marketing._drag;
+        Marketing.offsets[d.zone] = { x: Math.round(d.ox + (q.x - d.startX)), y: Math.round(d.oy + (q.y - d.startY)) };
+        Marketing.render();
+      };
+      const onUp = () => {
+        Marketing._drag = null;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  },
+
   render() {
     const host = document.getElementById('mk-preview');
     if (!host) return;
@@ -268,7 +338,20 @@ const Marketing = {
       host.innerHTML = '';
       canvas.style.width = '100%'; canvas.style.height = 'auto';
       canvas.style.borderRadius = '10px'; canvas.style.display = 'block';
+      canvas.style.cursor = 'move';
+      canvas.style.touchAction = 'none';
       host.appendChild(canvas);
+      // Selection outline is drawn on the PREVIEW canvas only — _draw() stays
+      // clean, so the downloaded/shared image never contains this guide.
+      const hit = Marketing._hits[Marketing.sizeZone];
+      if (hit) {
+        const c = canvas.getContext('2d');
+        c.save();
+        c.strokeStyle = 'rgba(124,124,255,.95)'; c.lineWidth = 3; c.setLineDash([10, 7]);
+        c.strokeRect(hit.x - 10, hit.y - 8, hit.w + 20, hit.h + 16);
+        c.restore();
+      }
+      Marketing._bindDrag(canvas);
     };
     if (Marketing._photoDataUrl && (!Marketing._photoImg || Marketing._photoImg.src !== Marketing._photoDataUrl)) {
       const img = new Image();
