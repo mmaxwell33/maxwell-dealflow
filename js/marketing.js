@@ -48,7 +48,8 @@ const Marketing = {
 
   current: 'sold',
   theme: 'navy',
-  fontScale: 1,
+  scales: { head: 1, specs: 1, name: 1 },  // per-zone text sizing
+  sizeZone: 'head',                         // which zone the S/M/L buttons resize
   captionStyle: 'warm',
 
   _theme() { return Marketing.THEMES[Marketing.theme] || Marketing.THEMES.navy; },
@@ -58,7 +59,8 @@ const Marketing = {
     if (!m) { alert('Marketing composer not found.'); return; }
     Marketing.current = prefill.template || 'sold';
     Marketing.theme = 'navy';
-    Marketing.fontScale = 1;
+    Marketing.scales = { head: 1, specs: 1, name: 1 };
+    Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
     m.querySelector('#mk-area').value  = prefill.area || '';
@@ -100,12 +102,15 @@ const Marketing = {
       b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
       b.style.boxShadow   = on ? '0 0 0 2px var(--accent)' : 'none';
     });
-    m.querySelectorAll('.mk-size').forEach(b => b.classList.toggle('active', +b.dataset.size === Marketing.fontScale));
+    m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
+    const cur = Marketing.scales[Marketing.sizeZone] || 1;
+    m.querySelectorAll('.mk-size').forEach(b => b.classList.toggle('active', +b.dataset.size === cur));
     m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
   },
 
-  setTheme(t)     { Marketing.theme = t; Marketing._setStyleUI(); Marketing.render(); },
-  setFontScale(k) { Marketing.fontScale = +k; Marketing._setStyleUI(); Marketing.render(); },
+  setTheme(t)      { Marketing.theme = t; Marketing._setStyleUI(); Marketing.render(); },
+  setSizeZone(z)   { Marketing.sizeZone = z; Marketing._setStyleUI(); },
+  setFontScale(k)  { Marketing.scales[Marketing.sizeZone] = +k; Marketing._setStyleUI(); Marketing.render(); },
   setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
 
   _syncConsent() {
@@ -146,7 +151,8 @@ const Marketing = {
 
     const TOP = 196, BOT = 288, MIDy = TOP, MIDh = 1080 - TOP - BOT;
     const TH = Marketing._theme();          // chosen background theme
-    const k  = Marketing.fontScale || 1;    // headline / specs text scale
+    const S  = Marketing.scales || { head: 1, specs: 1, name: 1 };
+    const kh = S.head || 1, ks = S.specs || 1, kn = S.name || 1;  // per-zone scales
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
 
@@ -164,7 +170,7 @@ const Marketing = {
       ctx.fillStyle = g; ctx.fillRect(0, MIDy, 1080, MIDh);
       if (f.area) {
         ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-        ctx.font = `600 ${Math.round(58 * k)}px Georgia, "Times New Roman", serif`;
+        ctx.font = `600 ${Math.round(58 * ks)}px Georgia, "Times New Roman", serif`;
         ctx.fillText(f.area, 540, MIDy + MIDh / 2);
         ctx.textAlign = 'left';
       }
@@ -177,7 +183,7 @@ const Marketing = {
     if (f.baths) specs.push(f.baths + ' BATH');
     if (specs.length) {
       const label = specs.join(DOT);
-      ctx.font = `700 ${Math.round(30 * k)}px Georgia, "Times New Roman", serif`;
+      ctx.font = `700 ${Math.round(30 * ks)}px Georgia, "Times New Roman", serif`;
       const tw = ctx.measureText(label).width, padX = 42, sh = 72, sw = tw + padX * 2;
       const sx = (1080 - sw) / 2, sy = MIDy + MIDh - sh - 38;
       ctx.fillStyle = 'rgba(255,255,255,.95)';
@@ -191,7 +197,7 @@ const Marketing = {
     // top band: status word + wide accent rule
     ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);
     ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = Math.round(90 * k); ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
+    let fs = Math.round(90 * kh); ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
     const spaced = tpl.status.split('').join(' ');
     while (ctx.measureText(spaced).width > 960 && fs > 38) { fs -= 4; ctx.font = `700 ${fs}px Georgia, serif`; }
     ctx.fillText(spaced, 540, TOP / 2 + fs / 3);
@@ -204,8 +210,12 @@ const Marketing = {
 
     // left: name / MLS / contact with blue dots
     ctx.fillStyle = Marketing.WHITE;
-    ctx.font = '800 42px Georgia, "Times New Roman", serif';
-    ctx.fillText(agentName + ', REALTOR®', 60, by + 64);
+    // Auto-fit the name so it never runs into the eXp logo on the right.
+    const nameStr = agentName + ', REALTOR®';
+    let nfs = Math.round(42 * kn);
+    ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`;
+    while (ctx.measureText(nameStr).width > 720 && nfs > 22) { nfs -= 2; ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`; }
+    ctx.fillText(nameStr, 60, by + 64);
     let ly = by + 104;
     if (f.mls) {
       ctx.fillStyle = Marketing.GREY;

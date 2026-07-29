@@ -2007,10 +2007,10 @@
      auto-posts; consent-gated; no sold price; area only (see js/marketing.js). -->
 <style>
   #marketing-modal .mk-theme.active{ border-color:var(--accent)!important; box-shadow:0 0 0 2px var(--accent); }
-  #marketing-modal .mk-size.active, #marketing-modal .mk-capstyle.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  #marketing-modal .mk-size.active, #marketing-modal .mk-capstyle.active, #marketing-modal .mk-zone.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 </style>
 <div id="marketing-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:9999;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:1040px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);margin:auto;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:1180px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);margin:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div style="font-size:18px;font-weight:800;color:var(--text);">Create a post</div>
       <span onclick="Marketing.close()" style="cursor:pointer;color:var(--text2);font-size:24px;line-height:1;">×</span>
@@ -2037,17 +2037,22 @@
           <button class="mk-theme"        data-theme="royal"    title="Royal Blue" onclick="Marketing.setTheme('royal')"    style="width:24px;height:24px;border-radius:50%;background:#10275E;border:2px solid var(--border);cursor:pointer;padding:0;"></button>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:9px;">
-        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Text size</span>
-        <div style="display:flex;gap:5px;">
-          <button class="mk-size btn btn-outline btn-sm" data-size="0.85" onclick="Marketing.setFontScale(0.85)">S</button>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;">Resize</span>
+        <div style="display:flex;gap:4px;">
+          <button class="mk-zone btn btn-outline btn-sm active" data-zone="head" onclick="Marketing.setSizeZone('head')">Title</button>
+          <button class="mk-zone btn btn-outline btn-sm" data-zone="specs" onclick="Marketing.setSizeZone('specs')">Details</button>
+          <button class="mk-zone btn btn-outline btn-sm" data-zone="name" onclick="Marketing.setSizeZone('name')">Name</button>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="mk-size btn btn-outline btn-sm" data-size="0.8" onclick="Marketing.setFontScale(0.8)">S</button>
           <button class="mk-size btn btn-outline btn-sm active" data-size="1" onclick="Marketing.setFontScale(1)">M</button>
-          <button class="mk-size btn btn-outline btn-sm" data-size="1.15" onclick="Marketing.setFontScale(1.15)">L</button>
+          <button class="mk-size btn btn-outline btn-sm" data-size="1.2" onclick="Marketing.setFontScale(1.2)">L</button>
         </div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:22px;align-items:start;">
+    <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:22px;align-items:start;">
       <!-- live preview -->
       <div>
         <div id="mk-preview" style="width:100%;aspect-ratio:1/1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;"></div>
