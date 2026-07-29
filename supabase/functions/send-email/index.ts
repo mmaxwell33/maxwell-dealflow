@@ -118,9 +118,13 @@ function buildRawMime(opts: {
     }
     lines.push('');
     if (opts.ics) {
-      // Name the .ics after the email type so a meeting invite isn't mislabelled
-      // "viewing.ics". Derived from the subject — no client changes needed.
-      const icsName = /meeting/i.test(opts.subject || '') ? 'meeting.ics' : 'viewing.ics';
+      // Name the .ics after the email type so it's never mislabelled (e.g. an
+      // appointment invite showing up as "viewing.ics"). Derived from the
+      // subject — no client changes needed.
+      const subj = opts.subject || '';
+      const icsName = /appointment/i.test(subj) ? 'appointment.ics'
+        : /meeting/i.test(subj) ? 'meeting.ics'
+        : 'viewing.ics';
       lines.push(`--${boundary}`);
       lines.push(`Content-Type: text/calendar; charset=UTF-8; method=REQUEST; name="${icsName}"`);
       lines.push('Content-Transfer-Encoding: base64');

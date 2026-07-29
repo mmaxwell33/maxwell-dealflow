@@ -514,42 +514,46 @@ const Approvals = {
     const cc = document.getElementById('edit-appr-cc')?.value.trim() || null;
 
     // Merge cc back into context_data without dropping html / ics / build_id / etc.
-    const { data: existing } = await db.from('approval_queue').select('context_data').eq('id', id).single();
+    const { data: existing } = await db.from('approval_queue').select('context_data, email_body').eq('id', id).single();
     let ctx = {};
     if (existing?.context_data) {
       try { ctx = typeof existing.context_data === 'string' ? JSON.parse(existing.context_data) : existing.context_data; } catch (_) { ctx = {}; }
     }
     ctx.cc = cc;
 
-    // Mail clients render the HTML part of the email, so an edit to the plain-text
-    // body alone never reaches the recipient (the stale ctx.html wins). Regenerate
-    // the HTML twin FROM the edited text so the edit is what ships. This flattens
-    // the rich template to branded formatted text once the agent edits — the edited
-    // words become the single source of truth, and it's the only way an edit can
-    // remove HTML-only elements (e.g. the broker-intro button).
-    // IMPORTANT: the edited body ALREADY ends with the signature + confidentiality
-    // notice (every template + the composer append signaturePlain/disclaimerPlain
-    // into email_body). So we must NOT use htmlEmail() here — it would append the
-    // signature + notice AGAIN, producing the double-signature bug (2026-07-25).
-    // Wrap the body as-is; approve()'s guard still guarantees a notice if missing.
-    try {
-      if (typeof EmailFormat !== 'undefined' && EmailFormat.bodyHTML) {
-        const freshHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
-          + '<meta name="viewport" content="width=device-width,initial-scale=1">'
-          + '<style>' + EmailFormat.styles() + '</style></head><body>'
-          + EmailFormat.bodyHTML(body) + '</body></html>';
-        ctx.html = btoa(unescape(encodeURIComponent(freshHtml)));
-        ctx.edited = true;
-      } else {
-        // Fallback: if the shared helper isn't available, don't ship a stale rich
-        // template over the edit — send as plain text (approve sends html:null).
+    // Only flatten the HTML when the agent actually changed the wording. Opening
+    // "Preview & Edit" just to look, tweak the CC, or fix the subject must NOT
+    // downgrade a rich template (Add-to-Calendar button, stop table, map block —
+    // e.g. viewing/builder-meeting/appointment invites) to plain wrapped text.
+    // Mail clients render the HTML part, so an edit to the plain-text body alone
+    // never reaches the recipient (the stale ctx.html wins) — regeneration is
+    // still required, but only when the text genuinely diverged from what's stored.
+    const bodyChanged = (existing?.email_body || '').trim() !== (body || '').trim();
+    if (bodyChanged) {
+      // IMPORTANT: the edited body ALREADY ends with the signature + confidentiality
+      // notice (every template + the composer append signaturePlain/disclaimerPlain
+      // into email_body). So we must NOT use htmlEmail() here — it would append the
+      // signature + notice AGAIN, producing the double-signature bug (2026-07-25).
+      // Wrap the body as-is; approve()'s guard still guarantees a notice if missing.
+      try {
+        if (typeof EmailFormat !== 'undefined' && EmailFormat.bodyHTML) {
+          const freshHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+            + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            + '<style>' + EmailFormat.styles() + '</style></head><body>'
+            + EmailFormat.bodyHTML(body) + '</body></html>';
+          ctx.html = btoa(unescape(encodeURIComponent(freshHtml)));
+          ctx.edited = true;
+        } else {
+          // Fallback: if the shared helper isn't available, don't ship a stale rich
+          // template over the edit — send as plain text (approve sends html:null).
+          ctx.html = null;
+          ctx.edited = true;
+        }
+      } catch (e) {
+        console.warn('[saveEdit] HTML regeneration failed, sending edit as plain text:', e?.message || e);
         ctx.html = null;
         ctx.edited = true;
       }
-    } catch (e) {
-      console.warn('[saveEdit] HTML regeneration failed, sending edit as plain text:', e?.message || e);
-      ctx.html = null;
-      ctx.edited = true;
     }
 
     await db.from('approval_queue').update({
