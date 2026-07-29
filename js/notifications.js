@@ -446,10 +446,17 @@ const Notify = {
       const gDetails = 'Appointment with ' + agentName + '\n' + stopLinesPlain.join('\n') + '\nPhone: ' + agentPhone + '\nEmail: ' + agentEmail;
       const gcalUrl = `https://calendar.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent('Appointment with ' + agentName)}&dates=${gStart}/${gEnd}&location=${encodeURIComponent(stops[0]?.address || '')}&details=${encodeURIComponent(gDetails)}`;
 
-      // Map links, exactly like the viewing template — one per stop, since each
-      // stop is a different place the client has to find.
-      const mapsPlain = stops.map(s => EmailFormat.mapLinkPlain(s.address)).join('');
-      const mapsHTML  = stops.map(s => EmailFormat.mapBlockHTML(s.address)).join('');
+      // Map links, exactly like the viewing template — one per place the client
+      // has to find. Two stops at the same address share one map (no point
+      // repeating it); genuinely different addresses each get their own.
+      const seenAddr = new Set();
+      const uniqueAddrs = stops.map(s => s.address).filter(a => {
+        const key = String(a || '').toLowerCase().replace(/\s+/g, ' ').replace(/[.,]+$/, '').trim();
+        if (!key || seenAddr.has(key)) return false;
+        seenAddr.add(key); return true;
+      });
+      const mapsPlain = uniqueAddrs.map(a => EmailFormat.mapLinkPlain(a)).join('');
+      const mapsHTML  = uniqueAddrs.map(a => EmailFormat.mapBlockHTML(a)).join('');
 
       const body = `Hi ${firstName},\n\nI've set up our appointment to pick out finishes. Here's the plan:\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.${mapsPlain}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
 
