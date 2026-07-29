@@ -13,19 +13,30 @@ const Analytics = {
       { data: viewings },
       { data: pipeline },
       { data: commissions },
-      { data: approvals }
+      { data: approvals },
+      { data: offers }
     ] = await Promise.all([
       db.from('clients').select('*').eq('agent_id', agentId),
       db.from('viewings').select('*, clients(full_name, email)').order('viewing_date', { ascending: false }).limit(500),
       db.from('pipeline').select('*').eq('agent_id', agentId),
       db.from('commissions').select('*').eq('agent_id', agentId),
-      db.from('approval_queue').select('*').eq('agent_id', agentId).eq('status', 'Pending')
+      db.from('approval_queue').select('*').eq('agent_id', agentId).eq('status', 'Pending'),
+      db.from('offers').select('client_id,status').eq('agent_id', agentId)
     ]);
 
     const cl = clients || [];
     const vi = viewings || [];
     const pi = pipeline || [];
     const ap = approvals || [];
+    const off = offers || [];
+
+    // Reflect each client's TRUE stage — derived from pipeline → offers →
+    // viewings, exactly like the Clients list — so Analytics never disagrees
+    // with the rest of the app. This overwrites the stale clients.stage column
+    // for every panel below (stat cards, stage charts, top leads, follow-up).
+    if (typeof Clients !== 'undefined' && Clients._deriveStage) {
+      cl.forEach(c => { c.stage = Clients._deriveStage(c, off, pi, vi); });
+    }
 
     // Stat cards
     const totalClients = cl.length;
@@ -349,12 +360,15 @@ const Analytics = {
     const getScore = stage => {
       if (!stage) return 5;
       const s = stage.toLowerCase();
-      if (s.includes('closed')) return 100;
-      if (s.includes('offer') || s.includes('in offer')) return 60;
-      if (s.includes('contract') || s.includes('under contract')) return 50;
-      if (s.includes('search') || s.includes('searching') || s.includes('active')) return 35;
-      if (s.includes('view') || s.includes('new')) return 15;
-      if (s.includes('lost')) return 5;
+      if (s.includes('closed'))                          return 100;
+      if (s.includes('closing'))                         return 90;
+      if (s.includes('condition'))                       return 85;
+      if (s.includes('contract'))                        return 80;  // Under Contract
+      if (s.includes('accept'))                          return 75;  // Accepted — deal in progress
+      if (s.includes('offer'))                           return 60;
+      if (s.includes('search') || s.includes('active'))  return 35;
+      if (s.includes('view') || s.includes('new'))       return 15;
+      if (s.includes('fell') || s.includes('lost'))      return 5;
       return 10;
     };
     const scored = clients
