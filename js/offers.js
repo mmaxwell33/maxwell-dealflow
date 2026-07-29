@@ -751,6 +751,20 @@ const Pipeline = {
       .order('created_at', { ascending: false });
     Pipeline.all = data || [];
 
+    // Self-heal existing deals: any deal still sitting at 'Accepted' that
+    // carries conditions (a financing or inspection date) belongs in the
+    // Conditions stage — advance it so every screen reflects the real phase.
+    // Firm/clean deals with no such dates stay at Accepted. Only writes the
+    // deals that actually need moving; steady state writes nothing.
+    for (const d of Pipeline.all.filter(x => x.stage === 'Accepted' &&
+        (x.financing_date || x.inspection_date || x.financing_deadline || x.inspection_deadline))) {
+      try {
+        await db.from('pipeline').update({ stage: 'Conditions', updated_at: new Date().toISOString() }).eq('id', d.id);
+        d.stage = 'Conditions';
+        if (d.client_id) await db.from('clients').update({ stage: 'Conditions' }).eq('id', d.client_id);
+      } catch (e) { console.warn('[auto-conditions] skipped', d.id, e?.message || e); }
+    }
+
     // Fetch deal_stakeholders for ALL deals in this load — used by the
     // per-card stakeholder strip + status badges.
     Pipeline._stakeholdersByPipelineId = {};
