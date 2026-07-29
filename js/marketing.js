@@ -53,6 +53,9 @@ const Marketing = {
   sizes:    { head: 90, specs: 30, name: 42 },
   offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } },
   DEFAULTS: { head: 90, specs: 30, name: 42 },
+  // "Slim" swaps each zone to a lighter weight for a more elegant, airy look.
+  slim:     { head: false, specs: false, name: false },
+  WEIGHTS:  { head: [700, 300], specs: [700, 400], name: [800, 400] },  // [normal, slim]
   sizeZone: 'head',            // which zone the number box + drag handles target
   captionStyle: 'warm',
   _hits: {},                   // zone -> {x,y,w,h} hit boxes recorded during _draw
@@ -67,6 +70,7 @@ const Marketing = {
     Marketing.theme = 'navy';
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
+    Marketing.slim = { head: false, specs: false, name: false };
     Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
@@ -112,6 +116,8 @@ const Marketing = {
     m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
     const box = m.querySelector('#mk-size-num');
     if (box) box.value = Marketing.sizes[Marketing.sizeZone];
+    const slimBtn = m.querySelector('#mk-slim');
+    if (slimBtn) slimBtn.classList.toggle('active', !!Marketing.slim[Marketing.sizeZone]);
     m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
   },
 
@@ -124,9 +130,14 @@ const Marketing = {
     Marketing._setStyleUI(); Marketing.render();
   },
   nudgeFontSize(d) { Marketing.setFontSize(Marketing.sizes[Marketing.sizeZone] + d); },
+  toggleSlim() {
+    Marketing.slim[Marketing.sizeZone] = !Marketing.slim[Marketing.sizeZone];
+    Marketing._setStyleUI(); Marketing.render();
+  },
   resetLayout() {
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
+    Marketing.slim = { head: false, specs: false, name: false };
     Marketing._setStyleUI(); Marketing.render();
   },
   setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
@@ -171,6 +182,8 @@ const Marketing = {
     const TH = Marketing._theme();          // chosen background theme
     const SZ = Marketing.sizes   || { ...Marketing.DEFAULTS };
     const OF = Marketing.offsets || { head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0} };
+    const SL = Marketing.slim    || { head:false, specs:false, name:false };
+    const wt = z => Marketing.WEIGHTS[z][SL[z] ? 1 : 0];   // normal or slim weight
     Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
@@ -203,7 +216,7 @@ const Marketing = {
     if (specs.length) {
       const label = specs.join(DOT);
       const sfs = SZ.specs;
-      ctx.font = `700 ${sfs}px Georgia, "Times New Roman", serif`;
+      ctx.font = `${wt('specs')} ${sfs}px Georgia, "Times New Roman", serif`;
       const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
       const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
       ctx.fillStyle = 'rgba(255,255,255,.95)';
@@ -218,9 +231,9 @@ const Marketing = {
     // top band: status word + wide accent rule
     ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);
     ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = SZ.head; ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
+    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px Georgia, "Times New Roman", serif`;
     const spaced = tpl.status.split('').join(' ');
-    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `700 ${fs}px Georgia, serif`; }
+    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px Georgia, serif`; }
     const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
     ctx.fillText(spaced, headX, headY);
     ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);
@@ -239,8 +252,8 @@ const Marketing = {
     // Auto-fit the name so it never runs into the eXp logo on the right.
     const nameStr = agentName + ', REALTOR®';
     let nfs = SZ.name;
-    ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`;
-    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `800 ${nfs}px Georgia, "Times New Roman", serif`; }
+    ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`;
+    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px Georgia, "Times New Roman", serif`; }
     ctx.fillText(nameStr, nx, ny);
     const nameW = ctx.measureText(nameStr).width;
     let ly = ny + 40;
@@ -308,13 +321,25 @@ const Marketing = {
       if (!z) return;
       e.preventDefault();
       if (Marketing.sizeZone !== z) { Marketing.sizeZone = z; Marketing._setStyleUI(); }
-      Marketing._drag = { zone: z, startX: p.x, startY: p.y, ox: Marketing.offsets[z].x, oy: Marketing.offsets[z].y };
+      const hit = Marketing._hits[z];
+      const off = Marketing.offsets[z];
+      Marketing._drag = {
+        zone: z, startX: p.x, startY: p.y, ox: off.x, oy: off.y,
+        // Where the block sits with NO offset, plus its size — used to keep it
+        // on the card while dragging (otherwise it slides off and looks deleted).
+        natX: hit.x - off.x, natY: hit.y - off.y, w: hit.w, h: hit.h
+      };
 
       const onMove = (ev) => {
         if (!Marketing._drag) return;
         const q = toCard(ev);
         const d = Marketing._drag;
-        Marketing.offsets[d.zone] = { x: Math.round(d.ox + (q.x - d.startX)), y: Math.round(d.oy + (q.y - d.startY)) };
+        const M = 8;  // keep at least this many px on the card
+        let ox = d.ox + (q.x - d.startX);
+        let oy = d.oy + (q.y - d.startY);
+        ox = Math.max(M - d.natX, Math.min((1080 - M - d.w) - d.natX, ox));
+        oy = Math.max(M - d.natY, Math.min((1080 - M - d.h) - d.natY, oy));
+        Marketing.offsets[d.zone] = { x: Math.round(ox), y: Math.round(oy) };
         Marketing.render();
       };
       const onUp = () => {
