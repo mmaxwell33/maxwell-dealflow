@@ -398,11 +398,12 @@ const Marketing = {
       ctx.font = '600 24px -apple-system, system-ui, sans-serif';
       ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
     }
-    // Contact lines stack vertically — phone, then email beneath it, then the
-    // website beneath that — matching Maxwell's real eXp posts.
+    // Footer keeps only the website alongside the name, MLS® # and the eXp logo.
+    // Phone and email were pulled off the image to cut the clutter; they live in
+    // the caption, where they are tappable anyway.
     const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
     ctx.font = '600 24px -apple-system, system-ui, sans-serif';
-    [phone, email, web].filter(Boolean).forEach((line, i) => {
+    [web].filter(Boolean).forEach((line, i) => {
       if (i) ly += 38;
       dot(nx, ly);
       ctx.fillStyle = Marketing.WHITE;
