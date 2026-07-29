@@ -935,6 +935,7 @@ const ClientDocs = {
     { key: 'rejected_offer', label: 'Rejected Offer' },
     { key: 'id_kyc',         label: 'ID / KYC' },
     { key: 'intake',         label: 'Intake / Info' },
+    { key: 'marketing',      label: 'Marketing / Social Post' },
     { key: 'other',          label: 'Other' },
   ],
   catLabel(k) { return (ClientDocs.CATEGORIES.find(c => c.key === k) || {}).label || k; },

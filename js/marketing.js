@@ -71,6 +71,10 @@ const Marketing = {
     const m = document.getElementById('marketing-modal');
     if (!m) { alert('Marketing composer not found.'); return; }
     Marketing.current = prefill.template || 'sold';
+    // Which client's folder the finished post gets filed into (null when the
+    // composer is opened standalone rather than from a deal).
+    Marketing._clientId = prefill.clientId || null;
+    Marketing._address  = prefill.address  || '';
     Marketing.theme = 'navy';
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 } };
@@ -451,16 +455,44 @@ const Marketing = {
 
   _toBlob() { return new Promise(res => Marketing._draw().toBlob(b => res(b), 'image/png')); },
 
+  // File the finished graphic into the client's folder (same bucket + table the
+  // Client Docs screen uses), so every post is kept with the deal it belongs to.
+  // Best-effort: a storage hiccup must never block the download itself.
+  async _saveToClientFolder(blob) {
+    if (!Marketing._clientId || !blob) return false;
+    try {
+      const user = await App.getAuthUser();
+      const uid = user?.id || currentAgent?.id;
+      if (!uid) return false;
+      const label = (Marketing._address || Marketing._fields().area || 'post').replace(/[^a-zA-Z0-9]+/g, '_');
+      const fileName = `${Marketing.current === 'sold' ? 'just-sold' : 'offer-accepted'}-${label}.png`;
+      const path = `${uid}/${Marketing._clientId}/${Date.now()}-${fileName}`;
+      const { error: upErr } = await db.storage.from('client-docs').upload(path, blob);
+      if (upErr) { console.warn('[marketing] folder upload failed:', upErr.message); return false; }
+      const { error: insErr } = await db.from('client_documents').insert({
+        agent_id: uid, client_id: Marketing._clientId, category: 'marketing', source: 'marketing',
+        file_path: path, file_name: fileName, file_size_bytes: blob.size,
+      });
+      if (insErr) { console.warn('[marketing] folder record failed:', insErr.message); return false; }
+      return true;
+    } catch (e) { console.warn('[marketing] folder save skipped:', e?.message || e); return false; }
+  },
+
   async download() {
     if (!document.getElementById('mk-consent')?.checked) return;
+    if (!Marketing._photoDataUrl) { App.toast('📷 Add a listing photo first', 'var(--yellow)'); return; }
     const blob = await Marketing._toBlob();
     if (!blob) { alert('Could not generate the image.'); return; }
+    // Save to the client folder first, then hand the file to the browser.
+    const filed = await Marketing._saveToClientFolder(blob);
     const name = `${Marketing.current}-${(Marketing._fields().area || 'post').replace(/[^a-z0-9]+/gi,'_')}.png`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     Marketing._log();
+    if (filed) App.toast('📁 Saved to the client folder', 'var(--green)');
+    else if (Marketing._clientId) App.toast('⬇ Downloaded (folder save skipped)', 'var(--yellow)');
   },
 
   async copyCaption() {
@@ -519,11 +551,11 @@ const Marketing = {
     const items = [];
     try {
       const { data: offers } = await db.from('offers')
-        .select('id, property_address, status, mls_number, clients(full_name)')
+        .select('id, client_id, property_address, status, mls_number, clients(full_name)')
         .in('status', ['Accepted','Conditions','Closing']);
       (offers || []).forEach(o => items.push({
         template: 'accepted', address: o.property_address || '', mls: o.mls_number || '',
-        client: o.clients?.full_name || '', tag: o.status,
+        client: o.clients?.full_name || '', clientId: o.client_id || null, tag: o.status,
       }));
     } catch (e) {}
     try {
@@ -533,8 +565,12 @@ const Marketing = {
         if (/clos(ed|ing)|sold|complete/i.test(stage)) {
           const addr = (p.property_address || '').trim();
           const existing = items.find(i => i.address.trim().toLowerCase() === addr.toLowerCase());
-          if (existing) { existing.template = 'sold'; existing.tag = 'Closed'; if (!existing.mls && p.mls_number) existing.mls = p.mls_number; }
-          else items.push({ template: 'sold', address: addr, mls: p.mls_number || '', client: '', tag: 'Closed' });
+          if (existing) {
+            existing.template = 'sold'; existing.tag = 'Closed';
+            if (!existing.mls && p.mls_number) existing.mls = p.mls_number;
+            if (!existing.clientId && p.client_id) existing.clientId = p.client_id;
+          }
+          else items.push({ template: 'sold', address: addr, mls: p.mls_number || '', client: p.client_name || '', clientId: p.client_id || null, tag: 'Closed' });
         }
       });
     } catch (e) {}
@@ -571,7 +607,10 @@ const Marketing = {
   prepareFromDraft(i) {
     const it = (Marketing._drafts || {})[i];
     if (!it) return Marketing.openComposer();
-    Marketing.openComposer({ template: it.template, area: Marketing._area(it.address), mls: it.mls || '' });
+    Marketing.openComposer({
+      template: it.template, area: Marketing._area(it.address), mls: it.mls || '',
+      clientId: it.clientId || null, address: it.address || ''
+    });
     setTimeout(() => Marketing.genCaption(), 100);
   },
 };
