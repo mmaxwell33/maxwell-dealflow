@@ -52,6 +52,10 @@ const Clients = {
     // Annotate each client with a derived stage reflecting real activity
     all.forEach(c => { c._derivedStage = Clients._deriveStage(c, offers, pipeline, viewings); });
 
+    // Self-heal: correct any stored clients.stage that has drifted from the
+    // true derived stage, so the accurate status persists everywhere.
+    Clients.reconcileStages(all).catch(() => {});
+
     Clients.all      = all.filter(c => c.status !== 'Archived');
     Clients.archived = all.filter(c => c.status === 'Archived');
 
@@ -566,6 +570,25 @@ const Clients = {
       if (s && s !== r.deal_stage) {
         await db.from('broker_referral_requests').update({ deal_stage: s }).eq('id', r.id);
       }
+    }
+  },
+
+  // Self-healing stage sync. The TRUE stage is derived from live activity
+  // (pipeline → offers → viewings); this writes that derived value back onto
+  // the stored clients.stage column whenever they disagree, so EVERY screen —
+  // including any that read the raw column — stays accurate, and a manual stage
+  // that has fallen out of date is corrected to match where the deal really is.
+  // Only drifted rows are touched (steady state writes nothing). updated_at is
+  // deliberately left alone so a stage correction never looks like fresh contact.
+  // Fire-and-forget, non-blocking.
+  async reconcileStages(clients) {
+    if (!currentAgent?.id || !clients || !clients.length) return;
+    const drift = clients.filter(c => c._derivedStage && c._derivedStage !== c.stage);
+    for (const c of drift) {
+      try {
+        await db.from('clients').update({ stage: c._derivedStage }).eq('id', c.id);
+        c.stage = c._derivedStage; // keep the in-memory copy consistent
+      } catch (e) { console.warn('[stage sync] skipped', c.id, e?.message || e); }
     }
   },
 
