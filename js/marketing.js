@@ -246,7 +246,9 @@ const Marketing = {
     const WG = Marketing.weights || { head:'bold', specs:'bold', name:'bold' };
     const wt = z => Marketing.WEIGHTS[z][Marketing.WEIGHT_IX[WG[z]] ?? 0];
     const FT = Marketing.FONTS[Marketing.font] || Marketing.FONTS.classic;
-    const SF = FT.serif, SS = FT.sans;
+    // One family for the entire card. Mixing the serif and sans slots was what
+    // made the status word and the footer details look like different designs.
+    const SF = FT.serif;
     Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
     ctx.fillStyle = TH.deep; ctx.fillRect(0, 0, 1080, 1080);
@@ -279,7 +281,7 @@ const Marketing = {
       let tFs = Math.round(SZ.head * 0.52); const sFs = Math.round(SZ.specs * 0.85), nFs = Math.round(SZ.name * 0.62);
       ctx.font = `${wt('head')} ${tFs}px ${SF}`;
       let maxW = ctx.measureText(titleStr).width;
-      if (specsLine) { ctx.font = `${wt('specs')} ${sFs}px ${SS}`; maxW = Math.max(maxW, ctx.measureText(specsLine).width); }
+      if (specsLine) { ctx.font = `${wt('specs')} ${sFs}px ${SF}`; maxW = Math.max(maxW, ctx.measureText(specsLine).width); }
       ctx.font = `${wt('name')} ${nFs}px ${SF}`;
       maxW = Math.max(maxW, ctx.measureText(agentName).width);
 
@@ -306,7 +308,7 @@ const Marketing = {
       if (specsLine) {
         cy += sFs + 26;
         ctx.fillStyle = '#4a4a4a';
-        ctx.font = `${wt('specs')} ${sFs}px ${SS}`;
+        ctx.font = `${wt('specs')} ${sFs}px ${SF}`;
         ctx.fillText(specsLine, px + pw / 2, cy);
       }
       // Name + brokerage, right-aligned inside the panel.
@@ -316,7 +318,7 @@ const Marketing = {
       ctx.font = `${wt('name')} ${nFs}px ${SF}`;
       ctx.fillText(agentName, px + pw - padX, cy);
       ctx.fillStyle = TH.rule;
-      ctx.font = `700 ${Math.round(nFs * 0.62)}px ${SS}`;
+      ctx.font = `700 ${Math.round(nFs * 0.62)}px ${SF}`;
       ctx.fillText(brandStr, px + pw - padX, cy + Math.round(nFs * 0.82));
       ctx.textAlign = 'left';
 
@@ -363,16 +365,16 @@ const Marketing = {
       ctx.restore();
       ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px ' + SS;
+      ctx.font = '600 20px ' + SF;
       ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 28 + lh + 30);
       ctx.textAlign = 'left';
     } else {
       ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.WHITE;
-      ctx.font = '800 46px ' + SS;
+      ctx.font = '800 46px ' + SF;
       ctx.fillText('eXp Realty', 1020, by + 68);
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px ' + SS;
+      ctx.font = '600 20px ' + SF;
       ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
       ctx.textAlign = 'left';
     }
@@ -423,14 +425,14 @@ const Marketing = {
     let ly = ny + 40;
     if (f.mls) {
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 24px ' + SS;
+      ctx.font = `${wt('name')} 24px ${SF}`;
       ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
     }
     // Footer keeps only the website alongside the name, MLS® # and the eXp logo.
     // Phone and email were pulled off the image to cut the clutter; they live in
     // the caption, where they are tappable anyway.
     const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
-    ctx.font = '600 24px ' + SS;
+    ctx.font = `${wt('name')} 24px ${SF}`;
     [web].filter(Boolean).forEach((line, i) => {
       if (i) ly += 38;
       dot(nx, ly);
