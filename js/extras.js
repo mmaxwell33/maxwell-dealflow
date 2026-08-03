@@ -595,6 +595,20 @@ const Approvals = {
       const agentId = user?.id || currentAgent?.id;
       if (!agentId) return html;
 
+      // Never rewrite links unless the track-click endpoint is actually live.
+      // Otherwise a deploy done in the wrong order would turn every link in a
+      // client's email into a dead page. Checked once per session.
+      if (Approvals._trackReady === undefined) {
+        Approvals._trackReady = await (async () => {
+          try {
+            const probe = await fetch(`${SUPABASE_URL}/functions/v1/track-click?l=probe`, { method: 'GET', redirect: 'manual' });
+            return probe.status !== 404;   // 302/200/opaque all mean it exists
+          } catch (_) { return false; }
+        })();
+        if (!Approvals._trackReady) console.warn('[track] track-click not deployed — links left untracked');
+      }
+      if (!Approvals._trackReady) return html;
+
       const found = [];
       // Capture href + the link text, so the UI can say WHICH link was clicked.
       const re = /<a\b([^>]*?)href=(["'])(https?:\/\/[^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi;
