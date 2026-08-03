@@ -1,0 +1,10 @@
+# Supabase project config.
+#
+# track-click is opened by a CLIENT clicking a link in their email, so it can
+# never carry a Supabase JWT. It must be publicly invokable or every tracked
+# link returns 401 and the recipient lands on an error instead of their
+# calendar. It is safe to expose: it accepts only a link id, resolves the
+# destination from the database, and redirects. It never takes a URL from the
+# query string, so it cannot be used as an open redirect.
+[functions.track-click]
+verify_jwt = false

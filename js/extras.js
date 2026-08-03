@@ -601,11 +601,16 @@ const Approvals = {
       if (Approvals._trackReady === undefined) {
         Approvals._trackReady = await (async () => {
           try {
+            // No auth header on purpose: this is exactly how a recipient's mail
+            // client will open the link. 401/403 means the function still
+            // requires a JWT, so a real click would fail — deploy it with
+            // --no-verify-jwt. 404 means it isn't deployed at all.
             const probe = await fetch(`${SUPABASE_URL}/functions/v1/track-click?l=probe`, { method: 'GET', redirect: 'manual' });
-            return probe.status !== 404;   // 302/200/opaque all mean it exists
+            const bad = [401, 403, 404, 500, 502, 503].includes(probe.status);
+            if (bad) console.warn(`[track] track-click probe returned ${probe.status} — links left untracked`);
+            return !bad;
           } catch (_) { return false; }
         })();
-        if (!Approvals._trackReady) console.warn('[track] track-click not deployed — links left untracked');
       }
       if (!Approvals._trackReady) return html;
 
