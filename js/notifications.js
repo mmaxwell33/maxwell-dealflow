@@ -1745,7 +1745,11 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // ── AUTO-APPROVE CHECK ──────────────────────────────────────────────
     const ap = JSON.parse(localStorage.getItem('df-auto-approve') || '{}');
     const t = type.toLowerCase();
-    const shouldAuto = (
+    // Anything asking a client for a review or a check-in ALWAYS waits for
+    // Maxwell. These go out asking a favour and are judged as his voice, so they
+    // must never leave on an auto-approve rule, whatever they get renamed to.
+    const neverAuto = /review|check-in|checkin|feedback|testimonial/.test(t);
+    const shouldAuto = !neverAuto && (
       (ap.viewing  && (t.startsWith('viewing') || t.startsWith('post-viewing'))) ||
       (ap.offer    && t.includes('offer')) ||
       (ap.reminder && (t.includes('reminder') || t.includes('countdown') || t.includes('closing day'))) ||
