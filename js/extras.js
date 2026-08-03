@@ -318,6 +318,15 @@ const Approvals = {
       }
     }
 
+    // ── CLICK TRACKING ───────────────────────────────────────────────────────
+    // Route each link through track-click so it's visible whether the client
+    // actually engaged. Deliberately clicks, not an open pixel: Apple Mail and
+    // Gmail pre-load images, so "opens" would mostly be false positives.
+    const messageKey = (crypto?.randomUUID) ? crypto.randomUUID() : null;
+    if (messageKey && outHtml) {
+      outHtml = await Approvals._trackLinks(outHtml, messageKey, toEmail);
+    }
+
     if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
       try {
@@ -378,6 +387,7 @@ const Approvals = {
             sent_html: outHtml || null,
             gmail_message_id: result.gmail_message_id || null,
             gmail_thread_id: result.gmail_thread_id || null,
+            message_key: messageKey,   // ties this email to its tracked links
             is_read: true,
             created_at: new Date().toISOString()
           });
@@ -570,6 +580,60 @@ const Approvals = {
     }).eq('id', id);
     App.closeModal();
     await Approvals.approve(id);
+  },
+
+  // Rewrite every http(s) link in an outgoing email to run through the
+  // track-click endpoint, so it's recorded when the client actually clicks.
+  // Each destination is stored in email_links and referenced by id, so the
+  // endpoint never takes a URL from the query string (no open-redirect hole).
+  // mailto:, tel: and already-tracked links are left alone. Best-effort: if the
+  // links can't be stored, the original HTML goes out untouched.
+  async _trackLinks(html, messageKey, recipientEmail) {
+    try {
+      if (!html) return html;
+      const user = await App.getAuthUser();
+      const agentId = user?.id || currentAgent?.id;
+      if (!agentId) return html;
+
+      const found = [];
+      // Capture href + the link text, so the UI can say WHICH link was clicked.
+      const re = /<a\b([^>]*?)href=(["'])(https?:\/\/[^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi;
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        const url = m[3];
+        if (url.includes('/functions/v1/track-click')) continue;   // already tracked
+        const label = (m[5] || '').replace(/<[^>]*>/g, '').trim().slice(0, 80);
+        if (!found.some(f => f.url === url)) found.push({ url, label });
+      }
+      if (!found.length) return html;
+
+      const rows = found.map(f => ({
+        agent_id: agentId, message_key: messageKey,
+        recipient_email: recipientEmail || null, url: f.url, label: f.label || null
+      }));
+      const { data: saved, error } = await db.from('email_links').insert(rows).select('id, url');
+      if (error || !saved?.length) {
+        console.warn('[track] link storage skipped:', error?.message || 'no rows');
+        return html;
+      }
+
+      const idByUrl = {};
+      saved.forEach(r => { idByUrl[r.url] = r.id; });
+      let out = html;
+      found.forEach(f => {
+        const linkId = idByUrl[f.url];
+        if (!linkId) return;
+        const tracked = `${SUPABASE_URL}/functions/v1/track-click?l=${linkId}`;
+        // Replace the exact href occurrences only, never other text.
+        out = out.split(`href="${f.url}"`).join(`href="${tracked}"`)
+                 .split(`href='${f.url}'`).join(`href='${tracked}'`);
+      });
+      Approvals._lastMessageKey = messageKey;
+      return out;
+    } catch (e) {
+      console.warn('[track] link rewrite skipped:', e?.message || e);
+      return html;
+    }
   },
 
   // Pre-send integrity guard. Detects a duplicated confidentiality notice (which
@@ -4106,7 +4170,7 @@ const Inbox = {
 
       const [emailRes, clientRes] = await Promise.all([
         db.from('email_inbox')
-          .select('id,direction,recipient_name,recipient_email,sender_name,sender_email,subject,body,created_at,gmail_thread_id,gmail_message_id,in_reply_to,is_read,gmail_internal_date')
+          .select('id,direction,recipient_name,recipient_email,sender_name,sender_email,subject,body,created_at,gmail_thread_id,gmail_message_id,in_reply_to,is_read,gmail_internal_date,message_key')
           .eq('agent_id', currentAgent.id)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
@@ -4130,6 +4194,21 @@ const Inbox = {
       });
       Inbox._clientEmails = clientEmails;
       Inbox._clientMap = clientMap;
+
+      // Click tracking: pull the tracked links for the sent emails on screen so
+      // each one can show whether the client actually clicked through.
+      Inbox._clicksByKey = {};
+      const keys = [...new Set(Inbox._all.map(e => e.message_key).filter(Boolean))];
+      if (keys.length) {
+        try {
+          const { data: links } = await db.from('email_links')
+            .select('message_key,label,url,click_count,last_clicked_at')
+            .in('message_key', keys);
+          (links || []).forEach(l => {
+            (Inbox._clicksByKey[l.message_key] ||= []).push(l);
+          });
+        } catch (_) { /* migration 085 not applied yet - just skip the badges */ }
+      }
 
       Inbox._threads = Inbox.groupIntoThreads(Inbox._all);
       Inbox.renderThreadList();
@@ -4290,6 +4369,21 @@ const Inbox = {
   },
 
   // ── RENDER THREAD LIST (WhatsApp-style) ───────────────────────────────────
+  // Click badge for a sent email. Shows what the client actually clicked, which
+  // is a real action, unlike an open pixel that Apple/Gmail trigger on their own.
+  clickBadge(msg) {
+    if (!msg || msg.direction !== 'sent') return '';
+    const links = Inbox._clicksByKey?.[msg.message_key];
+    if (!links || !links.length) return '';
+    const clicked = links.filter(l => (l.click_count || 0) > 0);
+    if (!clicked.length) {
+      return `<span title="Tracked, no clicks yet" style="font-size:10px;color:var(--text2);border:1px solid var(--border);border-radius:10px;padding:1px 7px;">Not clicked yet</span>`;
+    }
+    const last = clicked.map(l => l.last_clicked_at).filter(Boolean).sort().pop();
+    const what = clicked.length === 1 && clicked[0].label ? App.esc(clicked[0].label) : `${clicked.length} links`;
+    return `<span title="${App.esc(what)}" style="font-size:10px;color:var(--green);border:1px solid var(--green);border-radius:10px;padding:1px 7px;font-weight:700;">✓ Clicked${last ? ' · ' + App.timeAgo(last) : ''}</span>`;
+  },
+
   renderThreadList() {
     const el = document.getElementById('inbox-list');
     if (!el) return;
@@ -4314,7 +4408,7 @@ const Inbox = {
             <div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(t.subject)}</div>
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${isSent ? '↗ You: ' : ''}${App.esc(preview)}${preview.length >= 80 ? '…' : ''}</div>
-              ${unreadDot}
+              ${Inbox.clickBadge(t.latest)}${unreadDot}
             </div>
             ${client ? `<div style="font-size:10px;color:var(--accent2);margin-top:2px;">👤 ${App.esc(client.full_name)}</div>` : `<div style="font-size:10px;color:var(--text2);margin-top:2px;">${t.messages.length} message${t.messages.length > 1 ? 's' : ''}</div>`}
           </div>
