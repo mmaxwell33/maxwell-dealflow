@@ -110,6 +110,32 @@ const Marketing = {
     Marketing._syncConsent();
     m.style.display = 'flex';
     Marketing.render();
+    // If this property is one of Maxwell's OWN listings, its real specs are on
+    // file, so fill them in. Buyer-side deals have no stored specs, so those
+    // stay blank and get typed by hand rather than guessed.
+    Marketing._prefillSpecsFromListing(prefill.mls || '', prefill.address || '');
+  },
+
+  // Best-effort: never blocks the composer, never overwrites a typed value.
+  async _prefillSpecsFromListing(mls, address) {
+    if (!mls && !address) return;
+    try {
+      let q = db.from('listings').select('bedrooms, bathrooms, sqft, mls_number, property_address');
+      q = mls ? q.eq('mls_number', mls) : q.ilike('property_address', `%${address}%`);
+      const { data } = await q.limit(1);
+      const L = (data || [])[0];
+      if (!L) return;
+      const m = document.getElementById('marketing-modal');
+      if (!m || m.style.display === 'none') return;
+      const put = (id, val) => {
+        const el = m.querySelector('#' + id);
+        if (el && !el.value && val) el.value = String(val).trim();
+      };
+      put('mk-sqft',  L.sqft);
+      put('mk-beds',  L.bedrooms);
+      put('mk-baths', L.bathrooms);
+      Marketing.render();
+    } catch (e) { /* no listing match, or table unavailable — type them manually */ }
   },
 
   close() {
