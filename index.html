@@ -1121,6 +1121,11 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
         <div style="font-size:18px;font-weight:800;">📬 Inbox</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:4px;">
+            <button class="inbox-dir btn btn-outline btn-sm active" data-dir="all"      onclick="Inbox.setDirection('all')">All</button>
+            <button class="inbox-dir btn btn-outline btn-sm" data-dir="sent"     onclick="Inbox.setDirection('sent')">↗ Sent</button>
+            <button class="inbox-dir btn btn-outline btn-sm" data-dir="received" onclick="Inbox.setDirection('received')">↙ Received</button>
+          </div>
           <select class="form-input form-select" id="inbox-filter" style="width:130px;font-size:12px;" onchange="Inbox.load()">
             <option value="30">Last 30 Days</option>
             <option value="7">Last 7 Days</option>

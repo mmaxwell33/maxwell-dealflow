@@ -4149,6 +4149,9 @@ const Broadcast = {
 const Inbox = {
   _all: [],
   _threads: [],
+  // 'all' | 'sent' | 'received' — lets Maxwell find the emails HE sent (and
+  // their click badges) without digging through incoming Gmail noise.
+  _direction: 'all',
   _syncing: false,
   _lastSync: 0,
 
@@ -4371,6 +4374,13 @@ const Inbox = {
   // ── RENDER THREAD LIST (WhatsApp-style) ───────────────────────────────────
   // Click badge for a sent email. Shows what the client actually clicked, which
   // is a real action, unlike an open pixel that Apple/Gmail trigger on their own.
+  // The newest message Maxwell sent in this thread — the one whose links were
+  // tracked. Using t.latest would hide the badge as soon as the client replies.
+  latestSent(t) {
+    const sent = (t?.messages || []).filter(m => m.direction === 'sent');
+    return sent.length ? sent[sent.length - 1] : null;
+  },
+
   clickBadge(msg) {
     if (!msg || msg.direction !== 'sent') return '';
     const links = Inbox._clicksByKey?.[msg.message_key];
@@ -4384,12 +4394,25 @@ const Inbox = {
     return `<span title="${App.esc(what)}" style="font-size:10px;color:var(--green);border:1px solid var(--green);border-radius:10px;padding:1px 7px;font-weight:700;">✓ Clicked${last ? ' · ' + App.timeAgo(last) : ''}</span>`;
   },
 
+  setDirection(dir) {
+    Inbox._direction = dir;
+    document.querySelectorAll('.inbox-dir').forEach(b => b.classList.toggle('active', b.dataset.dir === dir));
+    Inbox.renderThreadList();
+  },
+
   renderThreadList() {
     const el = document.getElementById('inbox-list');
     if (!el) return;
-    const threads = Inbox._threads;
+    const dir = Inbox._direction || 'all';
+    // A thread counts as "sent" if it contains anything Maxwell sent.
+    const threads = dir === 'all'
+      ? Inbox._threads
+      : Inbox._threads.filter(t => (t.messages || []).some(m => m.direction === dir));
     if (!threads.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No conversations yet</div><div class="empty-sub">Send an email to a client, then sync Gmail to see replies.</div></div>';
+      const msg = dir === 'sent'
+        ? '<div class="empty-state"><div class="empty-icon">↗</div><div class="empty-text">No sent emails in this period</div><div class="empty-sub">Widen the date range, or send one from Approvals.</div></div>'
+        : '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">No conversations yet</div><div class="empty-sub">Send an email to a client, then sync Gmail to see replies.</div></div>';
+      el.innerHTML = msg;
       return;
     }
     el.innerHTML = threads.map(t => {
@@ -4408,7 +4431,7 @@ const Inbox = {
             <div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${App.esc(t.subject)}</div>
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${isSent ? '↗ You: ' : ''}${App.esc(preview)}${preview.length >= 80 ? '…' : ''}</div>
-              ${Inbox.clickBadge(t.latest)}${unreadDot}
+              ${Inbox.clickBadge(Inbox.latestSent(t))}${unreadDot}
             </div>
             ${client ? `<div style="font-size:10px;color:var(--accent2);margin-top:2px;">👤 ${App.esc(client.full_name)}</div>` : `<div style="font-size:10px;color:var(--text2);margin-top:2px;">${t.messages.length} message${t.messages.length > 1 ? 's' : ''}</div>`}
           </div>
