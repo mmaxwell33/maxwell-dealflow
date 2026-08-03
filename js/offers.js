@@ -654,6 +654,17 @@ const Pipeline = {
   all: [],
   currentFilter: 'all',  // 'all' | 'existing_home' | 'new_build'
   currentSideFilter: 'all',  // seller-side feature: 'all' | 'buy' | 'sell'
+  // Show/hide a card's secondary actions. Keeps the card down to the few
+  // decisions that move the deal, with the rest one tap away.
+  toggleMore(id) {
+    const box = document.getElementById('pl-more-' + id);
+    const btn = document.getElementById('pl-more-btn-' + id);
+    if (!box) return;
+    const open = box.style.display === 'none' || !box.style.display;
+    box.style.display = open ? 'flex' : 'none';
+    if (btn) btn.textContent = open ? '⌃ Less' : '⋯ More';
+  },
+
   currentStageFilter: 'all', // PR #28: 'all' | 'Accepted' | 'Conditions' | 'Closing' | 'Closed' | 'Fell Through'
 
   setFilter(key) {
@@ -1944,6 +1955,9 @@ const Pipeline = {
           ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date,'closing')}
         </div>
         ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">Save Dates</button>` : ''}
+        <!-- Only the decisions that move the deal stay on the card; everything
+             else sits behind "More" so a card is scannable instead of a wall of
+             thirteen buttons. -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${isClosed ? `<button class="btn btn-outline btn-sm" onclick="Reviews.request('${d.id}')">📝 Request Review</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
@@ -1951,8 +1965,11 @@ const Pipeline = {
           ${!isClosed && !isFell ? `
             <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">🏁 Mark Closed</button>
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
-            <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>
-            <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Reviews.requestPreClose('${d.id}')">📨 Pre-closing Check-in</button>` : ''}
+            <button class="btn btn-outline btn-sm" onclick="Pipeline.openStageModal('${d.id}')">📋 Stage</button>` : ''}
+          <button class="btn btn-outline btn-sm" id="pl-more-btn-${d.id}" onclick="Pipeline.toggleMore('${d.id}')">⋯ More</button>
+        </div>
+        <div id="pl-more-${d.id}" style="display:none;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
+          ${!isClosed && !isFell ? `<button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Reviews.requestPreClose('${d.id}')">📨 Pre-closing Check-in</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Pipeline.openChecklist('${d.id}')">☑️ Checklist</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
@@ -1961,7 +1978,7 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
           ${!d.transaction_id ? `<button class="btn btn-outline btn-sm" style="border-color:var(--purple);color:var(--purple);" onclick="Pipeline.linkDual('${d.id}')">🤝 Dual</button>` : ''}
-        <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Pipeline.confirmDeleteForever('${d.id}')">🗑️ Delete</button>
         </div>
         ${Pipeline.renderDealStakeholders(d.id)}
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
@@ -2160,6 +2177,9 @@ const Pipeline = {
         <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Pipeline.openBuildDetail('${d.id}')">🏗️ Manage Build</button>
         <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">✅ Mark Closed</button>
         <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>`}
+        <button class="btn btn-outline btn-sm" id="pl-more-btn-${d.id}" onclick="Pipeline.toggleMore('${d.id}')">⋯ More</button>
+      </div>
+      <div id="pl-more-${d.id}" style="display:none;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
         <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
         <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
