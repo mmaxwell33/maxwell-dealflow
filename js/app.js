@@ -1022,7 +1022,11 @@ const App = {
       { data: allClients },
       { data: recent },
       { data: deals },
-      { data: pendingOffers }
+      { data: pendingOffers },
+      { data: touchLog },
+      { data: touchViewings },
+      { data: touchEmails },
+      { data: touchPipeline }
     ] = await Promise.all([
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
@@ -1030,10 +1034,16 @@ const App = {
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('stage','Closed'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
-      db.from('clients').select('id,full_name,stage,updated_at').eq('agent_id',agentId).neq('status','Archived'),
+      db.from('clients').select('id,full_name,stage,email,updated_at').eq('agent_id',agentId).neq('status','Archived'),
       db.from('activity_log').select('*').eq('agent_id',agentId).order('created_at',{ascending:false}).limit(6),
       db.from('pipeline').select('*').eq('agent_id',agentId).not('stage','in','("Closed","Fell Through")').limit(3),
-      db.from('pending_offers').select('id, client_name, property_address, offer_amount, created_at').eq('agent_id',agentId).eq('status','Pending').order('created_at',{ascending:false})
+      db.from('pending_offers').select('id, client_name, property_address, offer_amount, created_at').eq('agent_id',agentId).eq('status','Pending').order('created_at',{ascending:false}),
+      // Real contact events. clients.updated_at is a row-modified timestamp, not
+      // a record of when Maxwell last engaged, so it is only used as a floor.
+      db.from('activity_log').select('client_id,created_at').eq('agent_id',agentId).order('created_at',{ascending:false}).limit(1000),
+      db.from('viewings').select('client_id,viewing_date').order('viewing_date',{ascending:false}).limit(1000),
+      db.from('email_inbox').select('recipient_email,created_at').eq('agent_id',agentId).eq('direction','sent').order('created_at',{ascending:false}).limit(1000),
+      db.from('pipeline').select('client_id,updated_at').eq('agent_id',agentId).order('updated_at',{ascending:false}).limit(500)
     ]);
 
     // Hero greeting (Phase 2.B.2)
@@ -1092,15 +1102,36 @@ const App = {
     // Needs follow-up, judged by the stage the client is actually in — a closed
     // deal never needs chasing, and a deal already in conditions is tracked by
     // its own deadlines rather than a blanket weekly nudge.
+    // Build a real "last engaged" date per client from actual events. Using
+    // clients.updated_at alone was wrong: it is a row-modified timestamp, so a
+    // one-off bulk write left every client reading the same age (125d) even when
+    // their deal had been worked on yesterday.
+    const lastTouch = {};
+    const bump = (key, ts) => {
+      if (!key || !ts) return;
+      const t = new Date(ts).getTime();
+      if (!isNaN(t) && (!lastTouch[key] || t > lastTouch[key])) lastTouch[key] = t;
+    };
+    (touchLog      || []).forEach(r => bump(r.client_id, r.created_at));
+    (touchViewings || []).forEach(r => bump(r.client_id, r.viewing_date));
+    (touchPipeline || []).forEach(r => bump(r.client_id, r.updated_at));
+    // Sent emails are keyed by address, so map them onto the client id.
+    const idByEmail = {};
+    (allClients || []).forEach(c => { if (c.email) idByEmail[c.email.toLowerCase()] = c.id; });
+    (touchEmails || []).forEach(r => bump(idByEmail[(r.recipient_email || '').toLowerCase()], r.created_at));
+
     const followups = (allClients || [])
-      .map(c => ({ ...c, _dueDays: App.followUpDays(c.stage) }))
+      .map(c => {
+        const touched = Math.max(lastTouch[c.id] || 0, new Date(c.updated_at || 0).getTime() || 0);
+        return { ...c, _dueDays: App.followUpDays(c.stage), _touched: touched || null };
+      })
       .filter(c => {
         if (c._dueDays === null) return false;          // finished or dead
-        if (!c.updated_at) return true;                 // never touched
-        return (now - new Date(c.updated_at)) > c._dueDays * 86400000;
+        if (!c._touched) return true;                   // never engaged at all
+        return (now - c._touched) > c._dueDays * 86400000;
       })
       // Most overdue first, so the top of the list is the most urgent.
-      .sort((a, b) => new Date(a.updated_at || 0) - new Date(b.updated_at || 0));
+      .sort((a, b) => (a._touched || 0) - (b._touched || 0));
     document.getElementById('stat-followup').textContent = followups.length;
 
     // Show follow-up alert if any
@@ -1113,7 +1144,7 @@ const App = {
           <div class="client-avatar" style="width:32px;height:32px;font-size:12px;background:${App.avatarColor(c.full_name)};">${App.initials(c.full_name)}</div>
           <div>
             <div style="font-size:13px;font-weight:700;">${App.esc(c.full_name)}</div>
-            <div style="font-size:11px;color:var(--text2);">${App.esc(c.stage || 'No stage')} · Last update ${App.timeAgo(c.updated_at)}</div>
+            <div style="font-size:11px;color:var(--text2);">${App.esc(c.stage || 'No stage')} · Last contact ${c._touched ? App.timeAgo(new Date(c._touched).toISOString()) : 'never'}</div>
           </div>
         </div>`).join('');
     } else {
