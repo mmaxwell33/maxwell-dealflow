@@ -937,7 +937,11 @@ const FormResponses = {
       ? '\n\n' + EmailFormat.signaturePlain(currentAgent)
       : '\n\nMaxwell Midodzi\nREALTOR, eXp Realty\n(709) 325-0545';
     const subject = 'A quick form to help me find the right fit for you';
-    const body = `Hi ${first},\n\nGreat to connect. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for and can help you properly:\n\nhttps://maxwellmidodzi.com/intake\n\nIt only takes about five minutes. Once it is in, I will follow up with your next steps.` + sig;
+    // ?a=<agent id> is what tells intake.html whose name/brokerage to show and
+    // which agent the submission belongs to (migration 087) — without it every
+    // invited agent's clients would see "Maxwell / eXp Realty" on the form.
+    const intakeUrl = `https://maxwellmidodzi.com/intake${currentAgent?.id ? '?a=' + currentAgent.id : ''}`;
+    const body = `Hi ${first},\n\nGreat to connect. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for and can help you properly:\n\n${intakeUrl}\n\nIt only takes about five minutes. Once it is in, I will follow up with your next steps.` + sig;
     await Notify.queue('Intake Link', null, r.full_name, r.email, subject, body, r.id);
     await db.from('client_intake').update({ status: 'Intake sent' }).eq('id', id);
     App.toast('📨 Intake link queued. Approve it in Approvals to send.', 'var(--green)');
