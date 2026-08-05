@@ -259,6 +259,7 @@ const App = {
       () => typeof Responses !== 'undefined' && Responses.updateBadge(),
       () => typeof Inbox !== 'undefined' && Inbox.updateBadge(),
       () => App.loadNotifications(),
+      () => typeof ProductUpdates !== 'undefined' && ProductUpdates.checkForNew(),
       () => typeof Notify !== 'undefined' && Notify.checkConditionDeadlines(),
       () => typeof Notify !== 'undefined' && Notify.checkCompletedViewings(),
       () => typeof PendingOffers !== 'undefined' && PendingOffers.load(),

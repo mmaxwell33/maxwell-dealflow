@@ -1197,6 +1197,28 @@
         </div>
         <div id="ap-agents-list"><div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No agents deployed yet</div></div></div>
       </div>
+
+      <!-- Post a Product Update — pushes to every deployed agent's devices,
+           like an App Store "What's New" note. Founder only. -->
+      <div class="card" style="margin-top:16px;">
+        <div style="font-size:15px;font-weight:800;margin-bottom:6px;">📣 Post an Update</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;">Every agent using this app gets a push notification and sees the full note next time they open it — same idea as an app store update.</div>
+        <div class="form-group"><label class="form-label">TITLE *</label><input class="form-input" id="pu-title" placeholder="e.g. New: viewing lock + reopen with PIN"></div>
+        <div class="form-group"><label class="form-label">WHAT CHANGED *</label><textarea class="form-input" id="pu-body" rows="3" placeholder="A couple of sentences on what's new and why it helps."></textarea></div>
+        <button class="btn btn-green" onclick="AgentPortal.broadcastUpdate()">Post &amp; Notify Everyone</button>
+        <div id="pu-msg" style="margin-top:10px;font-size:13px;text-align:center;"></div>
+      </div>
+    </div>
+
+    <!-- "What's New" card — shown once per agent per announcement. -->
+    <div id="whatsnew-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,20,.85);backdrop-filter:blur(6px);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 24px 48px rgba(0,0,0,.6);text-align:center;">
+        <div style="font-size:34px;margin-bottom:8px;">🎉</div>
+        <div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">What's New</div>
+        <div id="whatsnew-title" style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:10px;"></div>
+        <div id="whatsnew-body" style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px;white-space:pre-wrap;"></div>
+        <button class="btn btn-primary btn-block" onclick="ProductUpdates.dismiss()">Got it</button>
+      </div>
     </div>
 
     <!-- CLEANUP SCREEN -->
