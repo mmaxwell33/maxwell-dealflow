@@ -5004,6 +5004,75 @@ ${brokerage}`;
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
     App.toast('📋 Delete sent to Approvals for your approval');
     if (typeof Notify !== 'undefined') Notify.updateBadge();
+  },
+
+  // Post a "What's New" announcement — every agent (including invited agents
+  // on their own isolated accounts) gets a push notification, then sees the
+  // full note in-app once, the App Store update-note idea. Founder only; the
+  // edge function re-checks this server-side so it can't be bypassed.
+  async broadcastUpdate() {
+    if (currentAgent && currentAgent.isFounder === false) { App.toast('Only the account owner can post an update.', 'var(--red)'); return; }
+    const title = document.getElementById('pu-title')?.value.trim();
+    const body  = document.getElementById('pu-body')?.value.trim();
+    const msg = document.getElementById('pu-msg');
+    const set = (t, c) => { if (msg) { msg.style.color = c; msg.textContent = t; } };
+    if (!title || !body) { set('⚠️ Enter both a title and a description', 'var(--red)'); return; }
+    set('Posting…', 'var(--text2)');
+    const { data, error } = await db.functions.invoke('broadcast-update', { body: { title, body } });
+    if (error || data?.error) {
+      set('⚠️ ' + ((data && data.error) || error.message || 'Could not post the update'), 'var(--red)');
+      return;
+    }
+    document.getElementById('pu-title').value = '';
+    document.getElementById('pu-body').value = '';
+    set(`✅ Posted — pushed to ${data.notified || 0} device${data.notified === 1 ? '' : 's'}. Every agent sees the full note next time they open the app.`, 'var(--green)');
+    App.toast('📣 Update posted');
+  }
+};
+
+// ── PRODUCT UPDATES ("What's New") ──────────────────────────────────────────
+// Every signed-in agent — Maxwell and anyone he's invited — checks once per
+// session whether there's an announcement they haven't acknowledged yet, and
+// if so shows it as a dismissible card, mirroring an App Store update note.
+// The ack is stored server-side (product_update_acks) so it persists across
+// devices, unlike a localStorage flag.
+const ProductUpdates = {
+  async checkForNew() {
+    try {
+      const user = await App.getAuthUser();
+      if (!user) return;
+      const { data: latest } = await db.from('product_updates')
+        .select('id, title, body, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();   // no rows yet (nothing posted) must not throw
+      if (!latest) return;
+      const { data: ack } = await db.from('product_update_acks')
+        .select('update_id').eq('update_id', latest.id).eq('agent_id', user.id).maybeSingle();
+      if (ack) return;   // already seen this one
+      ProductUpdates._show(latest);
+    } catch (e) { /* non-critical — never blocks the app loading */ }
+  },
+
+  _show(update) {
+    const host = document.getElementById('whatsnew-modal');
+    if (!host) return;
+    document.getElementById('whatsnew-title').textContent = update.title;
+    document.getElementById('whatsnew-body').textContent = update.body;
+    host.dataset.updateId = update.id;
+    host.style.display = 'flex';
+  },
+
+  async dismiss() {
+    const host = document.getElementById('whatsnew-modal');
+    const updateId = host?.dataset.updateId;
+    host.style.display = 'none';
+    if (!updateId) return;
+    try {
+      const user = await App.getAuthUser();
+      if (!user) return;
+      await db.from('product_update_acks').insert({ update_id: updateId, agent_id: user.id });
+    } catch (e) { /* if this fails it just shows again next session — harmless */ }
   }
 };
 
