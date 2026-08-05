@@ -1089,11 +1089,18 @@ const App = {
       }
     } catch(e) { /* banner is non-critical */ }
 
-    // Needs follow-up: clients not updated in 7+ days
-    const followups = (allClients || []).filter(c => {
-      if (!c.updated_at) return true;
-      return (now - new Date(c.updated_at)) > 7*24*60*60*1000;
-    });
+    // Needs follow-up, judged by the stage the client is actually in — a closed
+    // deal never needs chasing, and a deal already in conditions is tracked by
+    // its own deadlines rather than a blanket weekly nudge.
+    const followups = (allClients || [])
+      .map(c => ({ ...c, _dueDays: App.followUpDays(c.stage) }))
+      .filter(c => {
+        if (c._dueDays === null) return false;          // finished or dead
+        if (!c.updated_at) return true;                 // never touched
+        return (now - new Date(c.updated_at)) > c._dueDays * 86400000;
+      })
+      // Most overdue first, so the top of the list is the most urgent.
+      .sort((a, b) => new Date(a.updated_at || 0) - new Date(b.updated_at || 0));
     document.getElementById('stat-followup').textContent = followups.length;
 
     // Show follow-up alert if any
@@ -1596,6 +1603,25 @@ const App = {
     };
     const parts = [maskEmail(email), maskPhone(phone)].filter(Boolean);
     return parts.join(' · ');
+  },
+
+  // How long a client in a given stage can go quiet before they genuinely need
+  // chasing. Returns null when follow-up makes no sense at all.
+  //
+  // A flat "7 days since any update" rule was telling Maxwell to chase clients
+  // whose deals had already closed. The stage is the real signal:
+  //   closed / fell through / lost  → never, the deal is over
+  //   offer out                     → 3 days, a live offer is time-sensitive
+  //   accepted / conditions / closing → 14 days, the Pipeline already tracks
+  //                                     these deadlines, so weekly nudges are noise
+  //   searching / viewings / new    → 7 days, actively looking and needs contact
+  followUpDays(stage) {
+    const s = String(stage || '').toLowerCase().trim();
+    if (!s) return 7;
+    if (/closed|fell\s*through|lost|withdrawn|done|archiv/.test(s)) return null;
+    if (/accept|under\s*contract|condition|closing|financ/.test(s)) return 14;
+    if (/offer/.test(s)) return 3;
+    return 7;
   },
 
   fmtDate(d) {

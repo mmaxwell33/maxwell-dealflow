@@ -59,10 +59,11 @@ const Analytics = {
     }).length;
     const pendingApprovals = ap.length;
     const newClients30d = cl.filter(c => new Date(c.created_at) >= monthAgo).length;
+    // Same stage-aware rule the Overview uses, so the two screens never disagree.
     const followUp = cl.filter(c => {
-      const s = (c.stage || '').toLowerCase();
-      if (s.includes('closed') || s.includes('lost')) return false;
-      return !c.updated_at || (now - new Date(c.updated_at)) > 7 * 24 * 60 * 60 * 1000;
+      const d = App.followUpDays(c.stage);
+      if (d === null) return false;
+      return !c.updated_at || (now - new Date(c.updated_at)) > d * 86400000;
     }).length;
 
     document.getElementById('analytics-stats').innerHTML = `
@@ -404,13 +405,11 @@ const Analytics = {
   renderNeedsFollowUp(clients) {
     const now = new Date();
     const overdue = clients
-      .filter(c => {
-        const s = (c.stage || '').toLowerCase();
-        // Skip only truly closed/lost clients
-        return !s.includes('closed') && !s.includes('lost');
-      })
-      .map(c => ({ ...c, days: c.updated_at ? Math.floor((now - new Date(c.updated_at)) / 86400000) : 999 }))
-      .filter(c => c.days >= 7)
+      .map(c => ({ ...c,
+        days: c.updated_at ? Math.floor((now - new Date(c.updated_at)) / 86400000) : 999,
+        due: App.followUpDays(c.stage) }))
+      // Overdue relative to what THIS stage warrants, not a flat 7 days.
+      .filter(c => c.due !== null && c.days >= c.due)
       .sort((a, b) => b.days - a.days);
     const el = document.getElementById('analytics-followup');
     if (!el) return;
