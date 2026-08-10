@@ -53,7 +53,7 @@ const Viewings = {
           <div class="card2-title" style="flex:1;margin-right:8px;">${v.property_address || 'No address'}</div>
           <span class="pill2 ${statusPill[st]||'pill2-neutral'}">${st}</span>
         </div>
-        <div class="card2-sub" style="margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}</div>
+        <div class="card2-sub" style="margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}${(Clients.all.find(c => c.id === v.client_id) || {}).is_guest ? ' <span class="pill2 pill2-amber">Guest</span>' : ''}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
           <span style="color:var(--text2);">📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
           ${v.list_price ? `<span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(v.list_price)}</span>` : ''}
@@ -76,19 +76,62 @@ const Viewings = {
     setTimeout(() => Viewings._showForm(clientId, clientName, null), 300);
   },
 
+  // 'client' = pick from the roster, 'guest' = type a name for someone who
+  // isn't in the system yet. Reset every time the form opens.
+  _who: 'client',
+
+  _setWho(mode) {
+    Viewings._who = (mode === 'guest') ? 'guest' : 'client';
+    const sel   = document.getElementById('vf-client');
+    const guest = document.getElementById('vf-guest-fields');
+    const bC    = document.getElementById('vf-who-client');
+    const bG    = document.getElementById('vf-who-guest');
+    if (sel)   sel.style.display   = (Viewings._who === 'guest') ? 'none' : '';
+    if (guest) guest.style.display = (Viewings._who === 'guest') ? '' : 'none';
+    if (bC) bC.setAttribute('aria-pressed', Viewings._who === 'client' ? 'true' : 'false');
+    if (bG) bG.setAttribute('aria-pressed', Viewings._who === 'guest'  ? 'true' : 'false');
+    if (Viewings._who === 'guest') document.getElementById('vf-guest-name')?.focus();
+  },
+
   _showForm(clientId, clientName, viewing) {
     const today = new Date().toISOString().slice(0,10);
+    Viewings._who = 'client';
     const clientOptions = Clients.all.map(c =>
-      `<option value="${c.id}" ${c.id===clientId?'selected':''}>${c.full_name}</option>`
+      `<option value="${c.id}" ${c.id===clientId?'selected':''}>${App.esc(c.full_name)}${c.is_guest ? ' (guest)' : ''}</option>`
     ).join('');
+    // Guest mode is offered on NEW bookings only. Editing an existing viewing
+    // already has a clients row behind it — swapping that for a typed name
+    // would orphan the confirmation email and the feedback token.
+    const whoToggle = viewing ? '' : `
+      <div style="display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:4px;gap:4px;margin-bottom:8px;">
+        <button type="button" class="cl-chip" id="vf-who-client" aria-pressed="true"  onclick="Viewings._setWho('client')">👤 My client</button>
+        <button type="button" class="cl-chip" id="vf-who-guest"  aria-pressed="false" onclick="Viewings._setWho('guest')">✨ Guest</button>
+      </div>`;
     App.openModal(`
       <div class="modal-title">📅 ${viewing ? 'Edit' : 'Book'} Viewing</div>
       <div class="form-group">
         <label class="form-label">Client *</label>
+        ${whoToggle}
         <select class="form-input form-select" id="vf-client">
           <option value="">-- Select Client --</option>
           ${clientOptions}
         </select>
+        <div id="vf-guest-fields" style="display:none;">
+          <input class="form-input" id="vf-guest-name" placeholder="Guest's full name *" style="margin-bottom:8px;">
+          <div class="form-row" style="margin-bottom:0;">
+            <div class="form-group" style="margin-bottom:0;">
+              <input class="form-input" id="vf-guest-email" type="email" placeholder="Email (for the confirmation)">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <input class="form-input" id="vf-guest-phone" type="tel" placeholder="Phone">
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-top:8px;">
+            Books exactly like a normal viewing, including the confirmation email and
+            feedback link. They stay off your client roster and out of Broadcast until
+            you promote them, which is one button on the viewing.
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Property Address *</label>
@@ -186,16 +229,58 @@ const Viewings = {
     `);
   },
 
+  // Create the minimal clients row that backs a guest viewing. Returns the new
+  // row, or null on failure (the caller shows the message).
+  //
+  // email_consent is 'none' ON PURPOSE: this person asked for one showing, so
+  // the transactional confirmation for that showing is fine, but they must
+  // never land in a Broadcast send. Promotion (Clients.promoteGuest) is what
+  // moves them to 'implied'.
+  async _createGuest(msgEl) {
+    const name  = document.getElementById('vf-guest-name')?.value.trim();
+    const email = document.getElementById('vf-guest-email')?.value.trim() || '';
+    const phone = document.getElementById('vf-guest-phone')?.value.trim() || '';
+    if (!name) {
+      if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = "⚠️ Guest's name is required"; }
+      return null;
+    }
+    const { data, error } = await db.from('clients').insert({
+      agent_id: currentAgent.id,
+      full_name: name, email, phone,
+      stage: 'Searching', status: 'Active',
+      is_guest: true, guest_since: new Date().toISOString(),
+      email_consent: 'none', consent_source: 'guest viewing request',
+      notes: 'Guest. Booked a viewing before joining the roster.'
+    }).select().single();
+    if (error) {
+      if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; }
+      return null;
+    }
+    await App.logActivity('GUEST_VIEWING_BOOKED', name, email || null,
+      `Guest added from a viewing booking: ${name}`, data.id);
+    return data;
+  },
+
   async save(existingId = null) {
-    const clientId = document.getElementById('vf-client').value;
     const address = document.getElementById('vf-address').value.trim();
     const msgEl = document.getElementById('vf-msg');
-    if (!clientId || !address) {
+    const isGuest = !existingId && Viewings._who === 'guest';
+    let clientId = isGuest ? '' : document.getElementById('vf-client').value;
+    if ((!isGuest && !clientId) || !address) {
       if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = '⚠️ Client and address required'; }
       return;
     }
-    const client = Clients.all.find(c => c.id === clientId);
     if (msgEl) { msgEl.style.color='var(--text2)'; msgEl.textContent = 'Saving...'; }
+    // A guest becomes a real (flagged) clients row first, so everything below —
+    // the insert, the confirmation email, the feedback token — runs unchanged.
+    let guestRow = null;
+    if (isGuest) {
+      guestRow = await Viewings._createGuest(msgEl);
+      if (!guestRow) return;
+      clientId = guestRow.id;
+      Clients.all.push({ ...guestRow, _derivedStage: 'Searching' });
+    }
+    const client = guestRow || Clients.all.find(c => c.id === clientId);
     const payload = {
       client_id: clientId,
       property_address: address,
@@ -247,7 +332,10 @@ const Viewings = {
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
-        if (typeof Notify !== "undefined" && newViewing) {
+        // Guests are often booked from a phone call with no email on file —
+        // queuing a confirmation with no recipient would just leave a dead row
+        // in Approvals. Roster clients keep their existing behaviour.
+        if (typeof Notify !== "undefined" && newViewing && !(isGuest && !client.email)) {
           await Notify.onViewingBooked(newViewing, client);
         }
       }
@@ -258,8 +346,11 @@ const Viewings = {
     // Approvals). Keep-searching / Pass never email the client.
     if (error) { if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; } return; }
     App.closeModal();
-    App.toast(existingId ? '✅ Viewing updated!' : '✅ Viewing booked!');
+    App.toast(existingId ? '✅ Viewing updated!'
+      : isGuest ? `✅ Viewing booked for ${client.full_name.split(' ')[0]} (guest)`
+      : '✅ Viewing booked!');
     Viewings.load(); App.loadOverview();
+    if (isGuest && typeof Clients !== 'undefined') Clients.load();
   },
 
   // Deadline that drives the viewing lock: the offer due date/time you set, or
@@ -298,6 +389,21 @@ const Viewings = {
     const isCompleted = v.viewing_status === 'Completed';
     const hasFeedback = !!v.client_feedback;
 
+    // Guest viewings: one button turns the guest into a real client. Shown
+    // whether or not the viewing is locked, because the decision to come on
+    // board often lands after the showing is settled.
+    const guestSection = client?.is_guest ? `
+      <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span style="font-size:18px;">✨</span>
+          <div style="flex:1;min-width:0;">
+            <div class="fw-700" style="font-size:13px;">${App.esc(clientName)} is a guest</div>
+            <div style="font-size:12px;color:var(--text2);">Not on your roster yet. Promote to add them as a client and unlock offers, pipeline and Broadcast.</div>
+          </div>
+        </div>
+        <button class="btn2 btn2-primary" style="justify-content:center;width:100%;margin-top:10px;" onclick="Clients.promoteGuest('${v.client_id}')">⭐ Promote to client</button>
+      </div>` : '';
+
     // Phase 2.B.8: Post-viewing feedback section \u2014 card2 wrappers,
     // btn2 variants preserve color semantics (primary/ghost/coral).
     const feedbackSection = isCompleted && hasFeedback ? `
@@ -334,6 +440,7 @@ const Viewings = {
         ${v.sellers_direction?`<div class="card2" style="padding:10px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
       </div>
       ${v.agent_notes ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
+      ${guestSection}
       ${feedbackSection}
       ${locked ? `
       <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);display:flex;gap:10px;align-items:center;">

@@ -2019,6 +2019,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         .select('id, full_name, email, phone, stage, status, client_type, preapproval, preferred_areas, updated_at')
         .eq('agent_id', agent.id)
         .neq('status', 'Archived')
+        // Viewing guests (migration 088) never get "still searching?" nudges —
+        // they asked for one showing, not a nurture sequence. Promote them and
+        // they join this pool like any other client.
+        .eq('is_guest', false)
         .lt('updated_at', cutoff)
         .not('email', 'is', null)
         .limit(20);

@@ -265,6 +265,13 @@ const Offers = {
     await App.logActivity('OFFER_SUBMITTED', client?.full_name, client?.email,
       `Offer submitted: ${App.fmtMoney(amount)} on ${address}`, clientId);
 
+    // Guest viewings (migration 088): writing an offer for someone settles the
+    // question of whether they're a client. Promote silently so the roster and
+    // consent record catch up without Maxwell having to remember the button.
+    if (client?.is_guest && typeof Clients?.promoteGuest === 'function') {
+      await Clients.promoteGuest(clientId, { silent: true });
+    }
+
     // Update client stage
     if (client) {
       const stageMap = { Submitted:'Offers', Accepted:'Accepted', Conditions:'Conditions' };

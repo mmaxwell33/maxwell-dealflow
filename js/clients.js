@@ -9,6 +9,9 @@ const Clients = {
   // Read at load time, written on every chip click or sort change.
   filter: 'All',
   sort: 'name',
+  // True only while the search box has text — makes guests searchable without
+  // putting them on the roster (see _applyView).
+  _searchActive: false,
   // Stage list mirrors the pipeline lifecycle so a client's displayed stage
   // matches the most-advanced deal stage everywhere in the app. Order = the
   // path a deal walks: Searching → Viewings → Offers → Accepted →
@@ -87,10 +90,13 @@ const Clients = {
     const toolbar = document.getElementById('clients-toolbar');
     if (toolbar) toolbar.style.display = (Clients.viewMode === 'archived') ? 'none' : 'flex';
 
-    // Count clients per derived stage
-    const counts = { All: Clients.all.length };
+    // Count clients per derived stage. Guests (migration 088) are counted on
+    // their own chip only — "All" means the real roster, which is the whole
+    // point of keeping guests separate.
+    const roster = Clients.all.filter(c => !c.is_guest);
+    const counts = { All: roster.length, Guest: Clients.all.length - roster.length };
     Clients._STAGE_ORDER.forEach(s => counts[s] = 0);
-    Clients.all.forEach(c => {
+    roster.forEach(c => {
       const stage = c._derivedStage || c.stage || 'Searching';
       if (counts.hasOwnProperty(stage)) counts[stage]++;
     });
@@ -104,8 +110,8 @@ const Clients = {
               </button>`;
     };
 
-    const chips = ['All', ...Clients._STAGE_ORDER]
-      // Hide zero-count stage chips to reduce noise (always keep "All")
+    const chips = ['All', ...Clients._STAGE_ORDER, 'Guest']
+      // Hide zero-count chips to reduce noise (always keep "All")
       .filter(s => s === 'All' || counts[s] > 0)
       .map(s => chip(s, counts[s]))
       .join('');
@@ -128,8 +134,16 @@ const Clients = {
   // Apply current filter + sort to a list. Pure function — no DOM writes.
   _applyView(list) {
     let out = list;
-    if (Clients.filter && Clients.filter !== 'All') {
-      out = out.filter(c => (c._derivedStage || c.stage || 'Searching') === Clients.filter);
+    // Viewing guests (migration 088) are kept off the roster until promoted.
+    // They surface on the "Guest" chip, and always in search results — a name
+    // you typed must never come back empty just because they're a guest.
+    if (Clients.filter === 'Guest') {
+      out = out.filter(c => c.is_guest);
+    } else {
+      if (!Clients._searchActive) out = out.filter(c => !c.is_guest);
+      if (Clients.filter && Clients.filter !== 'All') {
+        out = out.filter(c => (c._derivedStage || c.stage || 'Searching') === Clients.filter);
+      }
     }
     if (Clients.sort === 'recent') {
       // Newest created_at first; missing dates sink to the bottom
@@ -276,7 +290,7 @@ const Clients = {
             <div class="client-name">${App.privateName(c.full_name)}</div>
             <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
           </div>
-          ${stagePill(c._derivedStage || c.stage)}
+          ${c.is_guest ? `<span class="pill2 pill2-amber">✨ Guest</span>` : stagePill(c._derivedStage || c.stage)}
         </div>`).join('') + `</div>`;
   },
 
@@ -336,6 +350,8 @@ const Clients = {
           </div>`).join('') + `</div>`;
       return;
     }
+    // While a query is active, guests are searchable too (see _applyView).
+    Clients._searchActive = !!q.trim();
     const filtered = Clients.all.filter(c =>
       c.full_name?.toLowerCase().includes(q.toLowerCase()) ||
       c.email?.toLowerCase().includes(q.toLowerCase()) ||
@@ -426,6 +442,57 @@ const Clients = {
     App.loadOverview();
   },
 
+  // ── Guest viewings (migration 088) ──────────────────────────────────────
+  // Turn a viewing guest into a real client. This is the "one button" — the
+  // clients row already exists and already carries the viewing, so nothing has
+  // to be copied or re-keyed; the flag flips and they appear on the roster.
+  //
+  // Called two ways:
+  //   • explicitly, from the guest card on the viewing (opts.silent falsy)
+  //   • automatically, when an offer is written for a guest — at that point
+  //     they are unambiguously a client (opts.silent = true, no toast)
+  //
+  // The .eq('is_guest', true) guard makes this a no-op for anyone who is
+  // already a full client, so the automatic call can never overwrite the
+  // consent record of an established client.
+  async promoteGuest(id, opts = {}) {
+    const now = new Date();
+    const { data, error } = await db.from('clients').update({
+      is_guest: false,
+      promoted_at: now.toISOString(),
+      // They are now in an ongoing business relationship, so the same implied
+      // consent every other client carries applies, dated from TODAY.
+      email_consent: 'implied',
+      consent_source: 'promoted from viewing guest',
+      consent_at: now.toISOString(),
+      consent_expires_at: new Date(now.getTime() + 730 * 86400000).toISOString()
+    }).eq('id', id).eq('is_guest', true).select();
+
+    if (error) {
+      if (!opts.silent) App.toast('⚠️ ' + error.message, 'var(--red)');
+      return false;
+    }
+    if (!data?.length) return false; // already a full client — nothing to do
+
+    const row = data[0];
+    await App.logActivity('GUEST_PROMOTED', row.full_name, row.email || null,
+      `Guest promoted to client: ${row.full_name}`, id);
+    const local = Clients.all.find(x => x.id === id);
+    if (local) { local.is_guest = false; local.promoted_at = row.promoted_at; }
+
+    if (!opts.silent) {
+      App.closeModal();
+      App.toast(`⭐ ${row.full_name.split(' ')[0]} is now a client`, 'var(--green)');
+      await Clients.load();
+      // Land them on the client record so the budget / area / notes that a
+      // guest booking never asked for can be filled in right away.
+      setTimeout(() => Clients.openDetail(id), 300);
+    } else {
+      Clients.load();
+    }
+    return true;
+  },
+
   async openDetail(id) {
     const c = Clients.all.find(x => x.id === id);
     if (!c) return;
@@ -505,6 +572,12 @@ const Clients = {
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
       ${finHTML}
+      ${c.is_guest ? `
+      <div class="card2" style="margin-top:12px;padding:12px;border-color:var(--accent2);">
+        <div class="fw-700" style="font-size:13px;">✨ Viewing guest</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">Booked a showing without joining the roster. Kept out of the stage list and Broadcast until promoted.</div>
+        <button class="btn2 btn2-primary" style="justify-content:center;width:100%;margin-top:10px;" onclick="Clients.promoteGuest('${c.id}')">⭐ Promote to client</button>
+      </div>` : ''}
       <div class="card2" style="margin-top:12px;padding:12px;">
         <div class="fw-800" style="font-size:14px;margin-bottom:8px;">📁 Client Folder</div>
         <div id="client-folder-${c.id}"><div style="font-size:12px;color:var(--text2);">Loading…</div></div>
