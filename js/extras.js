@@ -1453,6 +1453,21 @@ const Commission = {
   feeOf(c) { return (c._brokerFee != null) ? c._brokerFee : (Number(c.brokerage_fees) || 0); },
   netOf(c) { return (c._net       != null) ? c._net       : (Number(c.agent_net)      || 0); },
 
+  // Money formatting for this screen. App.fmtMoney hands the raw number to
+  // toLocaleString, which is fine for stored 2-decimal values but not for the
+  // figures allocated here: they carry long tails (a cap remainder of
+  // 2299.954...) and drop trailing zeros ($30,187.5). Rounds to cents and pads
+  // to two decimals, while leaving whole amounts clean ($16,000, not $16,000.00)
+  // and deferring to fmtMoney's placeholder for zero.
+  money(n) {
+    const v = Math.round((Number(n) || 0) * 100) / 100;
+    if (!v) return App.fmtMoney(v);
+    return '$' + Math.abs(v).toLocaleString('en-CA', {
+      minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  },
+
   // Cap progress for the CURRENT calendar year.
   capInfo() {
     const cap = Number(Commission.cap) || 0;
@@ -1482,8 +1497,8 @@ const Commission = {
       ${capped
         ? `<div style="background:var(--green-soft,rgba(34,197,94,0.12));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--green);font-weight:700;">✅ Capped for ${year}! You keep 100% of your commission for the rest of the year.</div>`
         : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
-             <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Paid to cap</div><div style="font-size:18px;font-weight:900;color:var(--coral);">${App.fmtMoney(paid)}</div></div>
-             <div style="text-align:right;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Left to pay</div><div style="font-size:18px;font-weight:900;color:var(--accent2);">${App.fmtMoney(remaining)}</div></div>
+             <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Paid to cap</div><div style="font-size:18px;font-weight:900;color:var(--coral);">${Commission.money(paid)}</div></div>
+             <div style="text-align:right;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Left to pay</div><div style="font-size:18px;font-weight:900;color:var(--accent2);">${Commission.money(remaining)}</div></div>
            </div>`}
       <div style="height:10px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border);">
         <div style="height:100%;width:${pct}%;background:${barColor};border-radius:6px;transition:width 0.3s;"></div>
@@ -1547,7 +1562,7 @@ const Commission = {
     const capNote = capped
       ? `<span style="grid-column:1/-1;color:var(--green);font-size:12px;font-weight:700;padding-top:2px;">🎯 Capped for the year — you keep 100% ($0 brokerage on this deal).</span>`
       : (brokerFee < rawFee - 0.01
-          ? `<span style="grid-column:1/-1;color:var(--accent2);font-size:12px;padding-top:2px;">🎯 This deal reaches your cap — only ${App.fmtMoney(brokerFee)} of the ${App.fmtMoney(rawFee)} fee is charged; the rest is 100% yours.</span>`
+          ? `<span style="grid-column:1/-1;color:var(--accent2);font-size:12px;padding-top:2px;">🎯 This deal reaches your cap — only ${Commission.money(brokerFee)} of the ${Commission.money(rawFee)} fee is charged; the rest is 100% yours.</span>`
           : '');
     prev.style.display = 'block';
     prev.innerHTML = `
@@ -1587,17 +1602,114 @@ const Commission = {
     const closedDeals = active.filter(c => Commission.statusFrom(c) === 'Paid').length;
 
     const banner = document.getElementById('comm-net-display');
-    if (banner) banner.textContent = App.fmtMoney(netEarnings);
+    if (banner) banner.textContent = Commission.money(netEarnings);
+    Commission.renderBreakdown(active, { totalVolume, grossComm, hst, beforeBrokerage, brokerFees, netEarnings, capKept });
 
     document.getElementById('commissions-summary').innerHTML = `
       <div class="stat2"><div class="stat2-lbl">Total Volume Sold</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(totalVolume)}</div></div>
       <div class="stat2"><div class="stat2-lbl">Gross Commission</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div></div>
       <div class="stat2"><div class="stat2-lbl">HST / Tax</div><div class="stat2-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div></div>
       <div class="stat2"><div class="stat2-lbl">Before Brokerage Cut</div><div class="stat2-num" style="font-size:18px;color:var(--accent2);">${App.fmtMoney(beforeBrokerage)}</div></div>
-      <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${App.fmtMoney(brokerFees)}</div>${
-        capKept > 0.01 ? `<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;">🎯 Capped. ${App.fmtMoney(capKept)} kept</div>` : ''
+      <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${Commission.money(brokerFees)}</div>${
+        capKept > 0.01 ? `<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;">🎯 Capped. ${Commission.money(capKept)} kept</div>` : ''
       }</div>
       <div class="stat2" style="border-left:3px solid var(--green);"><div class="stat2-lbl">Closed Deals</div><div class="stat2-num" style="color:var(--green);">${closedDeals}</div></div>`;
+  },
+
+  // ── Earnings breakdown ────────────────────────────────────────────────────
+  // The stat tiles show the same figures, but side by side they don't tell you
+  // how one becomes the next. This reads top to bottom as the money actually
+  // moves: what the homes sold for, what was commissioned on that, tax on top,
+  // the brokerage's capped cut, and what is left. Plus the same chain per year,
+  // because the cap is annual.
+  renderBreakdown(active, t) {
+    const el = document.getElementById('comm-breakdown');
+    if (!el) return;
+    if (!active.length) { el.style.display = 'none'; return; }
+    el.style.display = '';
+
+    const row = (label, value, opts = {}) => {
+      const color  = opts.color || 'var(--text1)';
+      const weight = opts.strong ? '800' : '600';
+      const size   = opts.big ? '17px' : '14px';
+      const border = opts.rule ? 'border-top:1px solid var(--border);' : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:9px 0;${border}">
+                <div style="font-size:13px;color:var(--text2);">${label}${opts.sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${opts.sub}</div>` : ''}</div>
+                <div style="font-size:${size};font-weight:${weight};color:${color};white-space:nowrap;">${value}</div>
+              </div>`;
+    };
+
+    // Effective rates, so the percentages shown are the real blended ones rather
+    // than whatever is currently typed into the form above.
+    const commPct = t.totalVolume > 0 ? (t.grossComm / t.totalVolume * 100) : 0;
+    const hstPct  = t.grossComm   > 0 ? (t.hst / t.grossComm * 100)         : 0;
+    const feePct  = t.beforeBrokerage > 0 ? (t.brokerFees / t.beforeBrokerage * 100) : 0;
+    const keepPct = t.beforeBrokerage > 0 ? (t.netEarnings / t.beforeBrokerage * 100) : 0;
+    const pct = (n) => `${(Math.round(n * 10) / 10)}%`;
+
+    // Per-year chain. The cap resets every calendar year, so each year has its
+    // own fees-vs-cap story worth seeing separately.
+    const years = {};
+    active.forEach(c => {
+      const y = Commission.capYearOf(c);
+      const b = years[y] || (years[y] = { deals: 0, volume: 0, gross: 0, hst: 0, fees: 0, net: 0, kept: 0 });
+      b.deals++;
+      b.volume += Number(c.sale_price) || 0;
+      b.gross  += Number(c.gross_commission) || 0;
+      b.hst    += Number(c.hst_collected) || 0;
+      b.fees   += Commission.feeOf(c);
+      b.net    += Commission.netOf(c);
+      b.kept   += c._capAdj || 0;
+    });
+    const yearKeys = Object.keys(years).sort((a, b) => b - a);
+    const cap = Number(Commission.cap) || 0;
+    const yearRows = yearKeys.map(y => {
+      const b = years[y];
+      const capped = cap > 0 && b.fees >= cap - 0.01;
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:9px 10px 9px 0;font-weight:800;white-space:nowrap;">${y}${capped ? ` <span style="font-size:9px;font-weight:800;color:var(--green);">CAPPED</span>` : ''}</td>
+        <td style="padding:9px 10px;text-align:right;color:var(--text2);white-space:nowrap;">${b.deals}</td>
+        <td style="padding:9px 10px;text-align:right;color:var(--text2);white-space:nowrap;">${Commission.money(b.volume)}</td>
+        <td style="padding:9px 10px;text-align:right;white-space:nowrap;">${Commission.money(b.gross + b.hst)}</td>
+        <td style="padding:9px 10px;text-align:right;color:var(--coral);white-space:nowrap;">${b.fees > 0.005 ? '-' + Commission.money(b.fees) : '$0'}</td>
+        <td style="padding:9px 0 9px 10px;text-align:right;font-weight:900;color:var(--green);white-space:nowrap;">${Commission.money(b.net)}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">📊 Where the money went</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">All ${active.length} deal${active.length !== 1 ? 's' : ''} on record, top to bottom.</div>
+
+      ${row('Homes sold', Commission.money(t.totalVolume), { sub: 'Total value of the properties closed' })}
+      ${row(`Your commission on that`, Commission.money(t.grossComm), { sub: `${pct(commPct)} of the sale prices`, color: 'var(--text1)' })}
+      ${row('HST collected', '+' + Commission.money(t.hst), { sub: `${pct(hstPct)} on the commission, held for the CRA`, color: 'var(--yellow)' })}
+      ${row('<strong>Invoiced before the brokerage cut</strong>', Commission.money(t.beforeBrokerage), { strong: true, rule: true })}
+      ${row('Brokerage fees paid to eXp', '-' + Commission.money(t.brokerFees), { sub: `${pct(feePct)} of the invoiced amount`, color: 'var(--coral)' })}
+      ${t.capKept > 0.01 ? row('🎯 Saved by your cap', '+' + Commission.money(t.capKept), { sub: `Fee the ${Commission.money(cap)} cap stopped. It stays with you.`, color: 'var(--green)' }) : ''}
+      ${row('<strong>Your net</strong>', Commission.money(t.netEarnings), { strong: true, big: true, rule: true, color: 'var(--green)', sub: `You keep ${pct(keepPct)} of what was invoiced` })}
+
+      <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5;">
+        Net still has HST in it, that portion is the CRA's. Set aside ${Commission.money(t.hst)} and your own income tax.
+      </div>
+
+      ${yearKeys.length ? `
+      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Year by year</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Your cap resets every January, so each year pays its own fees up to ${Commission.money(cap)}.</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px;">
+            <thead><tr>
+              <th style="padding:0 10px 6px 0;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Year</th>
+              <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Deals</th>
+              <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Homes sold</th>
+              <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Invoiced</th>
+              <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">eXp fees</th>
+              <th style="padding:0 0 6px 10px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Net</th>
+            </tr></thead>
+            <tbody>${yearRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}`;
   },
 
   render(list) {
@@ -1646,13 +1758,13 @@ const Commission = {
               <td style="padding:11px 14px;text-align:right;color:var(--red);white-space:nowrap;">${
                 // fmtMoney renders 0 as an em-dash placeholder, which would print
                 // "-—" on a deal the cap zeroed out. Say $0 plainly instead.
-                Commission.feeOf(c) > 0.005 ? '-' + App.fmtMoney(Commission.feeOf(c)) : '$0'
+                Commission.feeOf(c) > 0.005 ? '-' + Commission.money(Commission.feeOf(c)) : '$0'
               }${
                 (c._capAdj || 0) > 0.01
-                  ? ` <span title="Reduced by your ${App.fmtMoney(Commission.cap)} eXp cap. Full fee would have been ${App.fmtMoney(c._rawFee)}." style="color:var(--green);font-size:11px;cursor:help;">🎯</span>`
+                  ? ` <span title="Reduced by your ${Commission.money(Commission.cap)} eXp cap. Full fee would have been ${Commission.money(c._rawFee)}." style="color:var(--green);font-size:11px;cursor:help;">🎯</span>`
                   : ''
               }</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(Commission.netOf(c))}</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${Commission.money(Commission.netOf(c))}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
               <td style="padding:11px 14px;text-align:center;">
                 <span class="pill2 ${status==='Paid'?'pill2-green':status==='Closed'?'pill2-neutral':'pill2-amber'}">${status}</span>
