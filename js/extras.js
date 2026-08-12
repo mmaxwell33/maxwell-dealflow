@@ -1677,8 +1677,23 @@ const Commission = {
     }).join('');
 
     el.innerHTML = `
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">📊 Where the money went</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">All ${active.length} deal${active.length !== 1 ? 's' : ''} on record, top to bottom.</div>
+      <style>
+        #comm-breakdown summary::-webkit-details-marker { display: none; }
+        #comm-breakdown details:not([open]) .cm-caret { transform: rotate(-90deg); }
+      </style>
+      <details ${Commission._breakdownOpen() ? 'open' : ''} ontoggle="Commission._setBreakdownOpen(this.open)">
+        <summary style="cursor:pointer;list-style:none;outline:none;display:flex;align-items:center;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:16px;font-weight:800;">📊 Where the money went</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">All ${active.length} deal${active.length !== 1 ? 's' : ''} on record, top to bottom.</div>
+          </div>
+          <div style="text-align:right;white-space:nowrap;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Your net</div>
+            <div style="font-size:15px;font-weight:900;color:var(--green);">${Commission.money(t.netEarnings)}</div>
+          </div>
+          <span class="cm-caret" style="font-size:16px;color:var(--text2);transition:transform 0.2s;flex:none;">▾</span>
+        </summary>
+        <div style="margin-top:12px;">
 
       ${row('Homes sold', Commission.money(t.totalVolume), { sub: 'Total value of the properties closed' })}
       ${row(`Your commission on that`, Commission.money(t.grossComm), { sub: `${pct(commPct)} of the sale prices`, color: 'var(--text1)' })}
@@ -1709,7 +1724,18 @@ const Commission = {
             <tbody>${yearRows}</tbody>
           </table>
         </div>
-      </div>` : ''}`;
+      </div>` : ''}
+        </div>
+      </details>`;
+  },
+
+  // Collapsed state of the breakdown card, remembered across reloads. The card is
+  // tall, so a collapse that reopens on every visit is not a collapse.
+  _breakdownOpen() {
+    try { return localStorage.getItem('mdf-comm-breakdown') !== 'closed'; } catch (_) { return true; }
+  },
+  _setBreakdownOpen(open) {
+    try { localStorage.setItem('mdf-comm-breakdown', open ? 'open' : 'closed'); } catch (_) {}
   },
 
   render(list) {
