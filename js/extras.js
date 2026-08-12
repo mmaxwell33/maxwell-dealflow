@@ -1371,9 +1371,12 @@ const Commission = {
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
     Commission.all = data || [];
-    Commission.renderSummary(data || []);
+    // Allocate the year's brokerage fees against the cap BEFORE anything renders,
+    // so the summary, the cap card and the history table all read the same numbers.
+    Commission.applyCap(Commission.all);
+    Commission.renderSummary(Commission.all);
     Commission.renderCapCard();
-    Commission.render(data || []);
+    Commission.render(Commission.all);
     Commission.populateClients();
   },
 
@@ -1385,13 +1388,78 @@ const Commission = {
     return isNaN(y) ? new Date().getFullYear() : y;
   },
 
+  // ── eXp cap allocation ────────────────────────────────────────────────────
+  // eXp caps the brokerage's annual cut. Once the cap is paid for the year the
+  // agent keeps 100% of everything after it, so a year's brokerage fees can
+  // never total more than the cap.
+  //
+  // The stored brokerage_fees column cannot be trusted to respect that on its
+  // own: saveNew() clamps against whatever room was left at the time, but the
+  // edit form and the rows auto-recorded from Pipeline and Listings all just
+  // charge the flat percentage. Three deals at 20% add up to more than a
+  // $16,000 cap, and the summary was reporting that whole amount as a real
+  // deduction while the cap card said "Capped for 2026".
+  //
+  // So the fee is ALLOCATED here rather than trusted: for each cap year, walk
+  // that year's deals oldest first and charge each one its full percentage
+  // until the cap is used up, then charge $0. Whatever the cap swallows goes
+  // back into net, which is what capping means. Rows are annotated in place and
+  // every read below (summary, history table, cap card) uses the annotations
+  // instead of the raw columns, so all three can never disagree again.
+  applyCap(rows) {
+    const cap = Number(Commission.cap) || 0;   // 0 / unset = no cap, charge in full
+    const years = {};
+    (rows || []).forEach(c => {
+      const grossPlusTax = (Number(c.gross_commission) || 0) + (Number(c.hst_collected) || 0);
+      // Derive the uncapped fee from the RATE where it is stored, so that raising
+      // the cap later re-charges correctly on deals a lower cap had zeroed out.
+      const rate = (c.brokerage_fee_rate != null) ? Number(c.brokerage_fee_rate) : null;
+      c._grossPlusTax = grossPlusTax;
+      c._rawFee = (rate != null && grossPlusTax > 0)
+        ? grossPlusTax * rate / 100
+        : (Number(c.brokerage_fees) || 0);
+      // Archived (fell-through) deals are already out of every total, so they
+      // must not eat cap room either.
+      if (Commission.statusFrom(c) === 'Archived') {
+        c._brokerFee = Number(c.brokerage_fees) || 0;
+        c._net       = Number(c.agent_net) || 0;
+        c._capAdj    = 0;
+        return;
+      }
+      const y = Commission.capYearOf(c);
+      (years[y] = years[y] || []).push(c);
+    });
+    Object.keys(years).forEach(y => {
+      // Oldest first, so the deal that crosses the cap is the one charged in part.
+      const list = years[y].sort((a, b) =>
+        new Date(a.close_date || a.created_at || 0) - new Date(b.close_date || b.created_at || 0));
+      let paid = 0;
+      list.forEach(c => {
+        const room = cap > 0 ? Math.max(0, cap - paid) : Infinity;
+        const fee  = Math.min(c._rawFee, room);
+        paid += fee;
+        c._brokerFee = fee;
+        c._capAdj    = c._rawFee - fee;
+        c._net = c._grossPlusTax > 0
+          ? c._grossPlusTax - fee
+          : (Number(c.agent_net) || 0) + c._capAdj;
+      });
+    });
+    return rows;
+  },
+
+  // Fee / net actually owed on a row, after the cap allocation above. Falls back
+  // to the stored columns for any row applyCap() has not annotated yet.
+  feeOf(c) { return (c._brokerFee != null) ? c._brokerFee : (Number(c.brokerage_fees) || 0); },
+  netOf(c) { return (c._net       != null) ? c._net       : (Number(c.agent_net)      || 0); },
+
   // Cap progress for the CURRENT calendar year.
   capInfo() {
     const cap = Number(Commission.cap) || 0;
     const year = new Date().getFullYear();
     const paid = (Commission.all || [])
       .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === year)
-      .reduce((s, c) => s + (c.brokerage_fees || 0), 0);
+      .reduce((s, c) => s + Commission.feeOf(c), 0);
     const remaining = Math.max(0, cap - paid);
     return { cap, year, paid, remaining, capped: cap > 0 && remaining <= 0 };
   },
@@ -1433,7 +1501,12 @@ const Commission = {
     if (error) { if (msg){ msg.style.color='var(--red)'; msg.textContent='Could not save: ' + error.message; } return; }
     Commission.cap = val;
     if (currentAgent) currentAgent.commission_cap = val;
+    // Changing the cap changes what every deal owes, so re-allocate and redraw
+    // the totals too, not just this card.
+    Commission.applyCap(Commission.all);
+    Commission.renderSummary(Commission.all);
     Commission.renderCapCard();
+    Commission.render(Commission.all);
     Commission.calcPreview();
     App.toast('✅ Cap saved');
   },
@@ -1505,8 +1578,11 @@ const Commission = {
     const totalVolume = active.reduce((s, c) => s + (c.sale_price || 0), 0);
     const grossComm = active.reduce((s, c) => s + (c.gross_commission || 0), 0);
     const hst = active.reduce((s, c) => s + (c.hst_collected || 0), 0);
-    const brokerFees = active.reduce((s, c) => s + (c.brokerage_fees || 0), 0);
-    const netEarnings = active.reduce((s, c) => s + (c.agent_net || 0), 0);
+    // Cap-allocated, never the raw columns (see applyCap). capKept is what the
+    // cap saved you: fee that would have been charged and now stays in net.
+    const brokerFees = active.reduce((s, c) => s + Commission.feeOf(c), 0);
+    const netEarnings = active.reduce((s, c) => s + Commission.netOf(c), 0);
+    const capKept = active.reduce((s, c) => s + (c._capAdj || 0), 0);
     const beforeBrokerage = grossComm + hst;  // total received before the brokerage's cut is deducted
     const closedDeals = active.filter(c => Commission.statusFrom(c) === 'Paid').length;
 
@@ -1518,7 +1594,9 @@ const Commission = {
       <div class="stat2"><div class="stat2-lbl">Gross Commission</div><div class="stat2-num" style="font-size:18px;">${App.fmtMoney(grossComm)}</div></div>
       <div class="stat2"><div class="stat2-lbl">HST / Tax</div><div class="stat2-num" style="font-size:18px;color:var(--yellow);">${App.fmtMoney(hst)}</div></div>
       <div class="stat2"><div class="stat2-lbl">Before Brokerage Cut</div><div class="stat2-num" style="font-size:18px;color:var(--accent2);">${App.fmtMoney(beforeBrokerage)}</div></div>
-      <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${App.fmtMoney(brokerFees)}</div></div>
+      <div class="stat2"><div class="stat2-lbl">Brokerage Fees</div><div class="stat2-num" style="font-size:18px;color:var(--coral);">-${App.fmtMoney(brokerFees)}</div>${
+        capKept > 0.01 ? `<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;">🎯 Capped. ${App.fmtMoney(capKept)} kept</div>` : ''
+      }</div>
       <div class="stat2" style="border-left:3px solid var(--green);"><div class="stat2-lbl">Closed Deals</div><div class="stat2-num" style="color:var(--green);">${closedDeals}</div></div>`;
   },
 
@@ -1565,8 +1643,16 @@ const Commission = {
               <td style="padding:11px 14px;text-align:right;font-weight:700;color:var(--text2);">${App.fmtMoney(c.sale_price||0)}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
               <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
-              <td style="padding:11px 14px;text-align:right;color:var(--red);">-${App.fmtMoney(c.brokerage_fees||0)}</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(c.agent_net||0)}</td>
+              <td style="padding:11px 14px;text-align:right;color:var(--red);white-space:nowrap;">${
+                // fmtMoney renders 0 as an em-dash placeholder, which would print
+                // "-—" on a deal the cap zeroed out. Say $0 plainly instead.
+                Commission.feeOf(c) > 0.005 ? '-' + App.fmtMoney(Commission.feeOf(c)) : '$0'
+              }${
+                (c._capAdj || 0) > 0.01
+                  ? ` <span title="Reduced by your ${App.fmtMoney(Commission.cap)} eXp cap. Full fee would have been ${App.fmtMoney(c._rawFee)}." style="color:var(--green);font-size:11px;cursor:help;">🎯</span>`
+                  : ''
+              }</td>
+              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${App.fmtMoney(Commission.netOf(c))}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
               <td style="padding:11px 14px;text-align:center;">
                 <span class="pill2 ${status==='Paid'?'pill2-green':status==='Closed'?'pill2-neutral':'pill2-amber'}">${status}</span>
