@@ -1674,7 +1674,14 @@ const Pipeline = {
     // fills below still use the time-elapsed logic to drive the visual segments.
     const N = segments.length;
     const m = Pipeline.milestonesDone(d);
-    const overallFill = Math.round((m.done / m.total) * 100);
+    // A closed deal reads 100%. milestonesDone() counts DATES that have passed,
+    // and deals closed before all five dates were tracked only have one or two
+    // filled in — which is why a finished deal could show "✅ Deal Complete",
+    // a CLOSED badge and five ✓ stages next to something like 20%. The segments
+    // above already ignore missing dates once isFullyClosed, so the headline
+    // has to agree with them. Everywhere else (the card's own pct, the Overview
+    // snapshot) already forces 100 for closed; this was the one that didn't.
+    const overallFill = isFullyClosed ? 100 : Math.round((m.done / m.total) * 100);
 
     let sections = '';
     let labels = '';
