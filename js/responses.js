@@ -5,22 +5,55 @@
 const Responses = {
   all: [],
 
-  async load() {
-    const agentId = currentAgent?.id;
-    if (!agentId) return;
+  // This screen used to read `client_responses`, a legacy table nothing has ever
+  // written to, so it was permanently empty. The real answers land in
+  // `viewing_responses` (written by respond.html). Because pending_offers is only
+  // written on 'make_offer', "keep searching" and "not a fit" reached Maxwell
+  // nowhere at all until this screen was pointed at the right table.
+  //
+  // The column names differ, so rows are normalised here into the shape the
+  // renderer already expects, rather than rewriting the renderer.
+  //   decision -> response_type      client_note -> client_notes
+  //   agent_status -> status         responded_at -> the real event time
+  _normalise(r) {
+    return {
+      ...r,
+      response_type: r.decision === 'not_a_fit' ? 'pass' : (r.decision || 'pass'),
+      client_notes:  r.client_note || null,
+      status:        r.agent_status || 'new',
+      created_at:    r.responded_at || r.created_at
+    };
+  },
 
-    const { data, error } = await db.from('client_responses')
+  async load() {
+    if (!currentAgent?.id) return;
+    const el = document.getElementById('responses-list');
+
+    // No agent_id filter: RLS already scopes these to Maxwell's own clients, and
+    // some early rows were written before agent_id was denormalised onto the
+    // table (migration 016). Filtering on it would hide exactly the oldest
+    // responses, which are the ones that have been invisible the longest.
+    // responded_at NOT NULL is what separates a real answer from a token that
+    // was issued and never used.
+    const { data, error } = await db.from('viewing_responses')
       .select('*')
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: false });
+      .not('responded_at', 'is', null)
+      .order('responded_at', { ascending: false });
 
     if (error) {
       console.error('Responses load error:', error);
-      document.getElementById('responses-list').innerHTML = '<div class="empty-state">Could not load responses</div>';
+      // A query failure must never render as "no responses" — that is the exact
+      // shape of the bug this screen is being fixed for.
+      if (el) el.innerHTML = `<div class="empty-state" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px;">Could not load client responses</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.5;">${App.esc(error.message || 'Unknown error')}</div>
+        <button class="btn2 btn2-ghost" style="margin-top:14px;" onclick="Responses.load()">Try again</button>
+      </div>`;
       return;
     }
 
-    Responses.all = data || [];
+    Responses.all = (data || []).map(Responses._normalise);
     Responses.render();
     Responses.updateBadge();
   },
@@ -110,6 +143,7 @@ const Responses = {
             <div style="font-size:15px;font-weight:700;color:var(--text);">${listStr}</div>
           </div>` : ''}
         </div>` : ''}
+        ${r.not_fit_reason ? `<div style="background:var(--bg);padding:8px 10px;border-radius:8px;margin-top:8px;font-size:12px;color:var(--text2);"><span style="font-weight:700;">Why it wasn't a fit:</span> ${App.esc(r.not_fit_reason)}</div>` : ''}
         ${r.client_notes ? `<div style="background:var(--bg);padding:8px 10px;border-radius:8px;margin-top:8px;font-size:12px;color:var(--text2);"><span style="font-weight:700;">Notes:</span> ${App.esc(r.client_notes)}</div>` : ''}
       </div>`;
   },
@@ -138,7 +172,7 @@ const Responses = {
 
     // Mark as reviewed if new — log activity and update client notes
     if (r.status === 'new') {
-      await db.from('client_responses').update({ status: 'reviewed', updated_at: new Date().toISOString() }).eq('id', id);
+      await db.from('viewing_responses').update({ agent_status: 'reviewed' }).eq('id', id);
       r.status = 'reviewed';
       Responses.updateBadge();
 
@@ -186,6 +220,12 @@ const Responses = {
         </div>
       </div>` : ''}
 
+      ${r.not_fit_reason ? `
+      <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Why it wasn't a fit</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.5;">${App.esc(r.not_fit_reason)}</div>
+      </div>` : ''}
+
       ${r.client_notes ? `
       <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Client Notes</div>
@@ -205,7 +245,7 @@ const Responses = {
   },
 
   async markActioned(id) {
-    await db.from('client_responses').update({ status: 'actioned', updated_at: new Date().toISOString() }).eq('id', id);
+    await db.from('viewing_responses').update({ agent_status: 'actioned' }).eq('id', id);
     App.toast('Response marked as actioned');
     App.closeModal();
     await Responses.load();
@@ -216,15 +256,12 @@ const Responses = {
     let newCount = 0;
     if (Responses.all.length > 0) {
       newCount = Responses.all.filter(r => r.status === 'new').length;
-    } else {
-      const agentId = currentAgent?.id;
-      if (agentId) {
-        const { count } = await db.from('client_responses')
-          .select('*', { count: 'exact', head: true })
-          .eq('agent_id', agentId)
-          .eq('status', 'new');
-        newCount = count || 0;
-      }
+    } else if (currentAgent?.id) {
+      const { count } = await db.from('viewing_responses')
+        .select('*', { count: 'exact', head: true })
+        .not('responded_at', 'is', null)
+        .eq('agent_status', 'new');
+      newCount = count || 0;
     }
     const badge = document.getElementById('responses-badge');
     if (badge) {

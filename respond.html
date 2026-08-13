@@ -279,10 +279,11 @@ async function submitDecision(choice){
       notFitReason=sel?.value==='other'?(document.getElementById('notfit-other').value.trim()||'Not specified'):sel?.value||null;
     }
 
-    // Mark response as used
-    await sb(`viewing_responses?id=eq.${rec.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({decision,offer_amount:offerAmount,client_note:clientNote,not_fit_reason:notFitReason,responded_at:new Date().toISOString(),expired:true})});
-
-    // If offer — create pending_offer for agent dashboard
+    // ORDER MATTERS. The pending_offers row is what puts this in front of Maxwell,
+    // so it is written FIRST. Burning the token first (as this used to do) meant a
+    // failure here left the client's offer recorded but invisible, while the client
+    // was told it was received and a reload said "already received". A duplicate
+    // request in the Requests tab is a nuisance; a silently lost offer is not.
     if(decision==='make_offer'){
       await sb('pending_offers',{method:'POST',prefer:'return=minimal',body:JSON.stringify({
         viewing_id:rec.viewing_id, client_id:rec.client_id, agent_id:rec.agent_id,
@@ -291,6 +292,11 @@ async function submitDecision(choice){
         list_price:rec.list_price, offer_amount:offerAmount, client_note:clientNote, status:'Pending'
       })});
     }
+
+    // Now record the answer and burn the token. agent_status 'new' is what makes
+    // this appear on the Client Responses screen — every decision lands there,
+    // not just offers (migration 089).
+    await sb(`viewing_responses?id=eq.${rec.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({decision,offer_amount:offerAmount,client_note:clientNote,not_fit_reason:notFitReason,responded_at:new Date().toISOString(),expired:true,agent_status:'new'})});
 
     // Show confirmation
     if(decision==='make_offer'){
