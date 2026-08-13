@@ -832,6 +832,35 @@ const Pipeline = {
       });
     }
 
+    // Amendment index. Moving a financing / inspection deadline and moving the
+    // closing date are the same kind of act — an amendment to the agreement —
+    // so both logs feed one timeline the card can count and open. Best-effort:
+    // a database without migration 090 yet simply reports no amendments.
+    Pipeline._amendmentsByDeal = {};
+    if (Pipeline.all.length) {
+      const pipelineIds = Pipeline.all.map(d => d.id);
+      const [condRes, reschRes] = await Promise.all([
+        db.from('deal_condition_events')
+          .select('id, pipeline_id, condition, action, reason, notes, date_from, date_to, created_at')
+          .in('pipeline_id', pipelineIds).eq('action', 'extend')
+          .order('created_at', { ascending: false })
+          .then(r => r, () => ({ data: [] })),
+        db.from('pipeline_reschedules')
+          .select('id, pipeline_id, date_from, date_to, reason, notes, created_at')
+          .in('pipeline_id', pipelineIds)
+          .order('created_at', { ascending: false })
+          .then(r => r, () => ({ data: [] }))
+      ]);
+      const add = (row, kind) => {
+        if (!Pipeline._amendmentsByDeal[row.pipeline_id]) Pipeline._amendmentsByDeal[row.pipeline_id] = [];
+        Pipeline._amendmentsByDeal[row.pipeline_id].push(Object.assign({ kind }, row));
+      };
+      (condRes?.data  || []).forEach(r => add(r, r.condition));
+      (reschRes?.data || []).forEach(r => add(r, 'closing'));
+      Object.values(Pipeline._amendmentsByDeal).forEach(list =>
+        list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    }
+
     Pipeline.render(Pipeline.all);
   },
 
@@ -1751,8 +1780,9 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;" onclick="Pipeline.askConditionOutcome('${d.id}','${key}')">Answer now</button>
         </div>`;
       } else if (state === 'extended') {
-        rows += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:11px;color:var(--text2);">
-          ${meta.icon} ${meta.label} extended to <strong style="color:var(--text1);">${due}</strong>${reason ? ` — ${App.esc(reason)}` : ''}${note}
+        rows += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:11px;color:var(--text2);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span>${meta.icon} ${meta.label} extended to <strong style="color:var(--text1);">${due}</strong>${reason ? ` — ${App.esc(reason)}` : ''}${note}</span>
+          <a href="#" onclick="event.preventDefault();Pipeline.openAmendments('${d.id}')" style="color:var(--accent);font-size:11px;white-space:nowrap;">📜 Amendment</a>
         </div>`;
       } else if (state === 'cleared' && d[key + '_status'] === 'cleared') {
         rows += `<div style="padding:6px 10px;background:rgba(34,197,94,0.08);border:1px solid var(--green);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -1931,9 +1961,159 @@ const Pipeline = {
       App.toast(`⏰ Will ask again ${App.fmtDate(updates[key + '_snooze_until'])}`);
     }
 
-    Pipeline.render(Pipeline.all);
+    // An extension just added an amendment — reload so the Amendments count and
+    // history pick it up, not just the date on the card.
+    if (action === 'extend') await Pipeline.load(); else Pipeline.render(Pipeline.all);
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
     if (action === 'fell_through') Pipeline.markFellThrough(id);
+  },
+
+  // ── AMENDMENTS ─────────────────────────────────────────────────────────────
+  // Every deadline you move is an amendment to the agreement. The log rows are
+  // written automatically by _submitConditionIssue / _submitReschedule; these
+  // functions are how you SEE that history, correct the last entry, and file
+  // the signed amendment against the deal.
+  amendmentsFor(dealId) {
+    return (Pipeline._amendmentsByDeal || {})[dealId] || [];
+  },
+
+  _amendmentKindLabel(kind) {
+    return kind === 'financing'  ? '🏦 Financing deadline'
+         : kind === 'inspection' ? '🔍 Inspection deadline'
+         :                         '📅 Closing date';
+  },
+
+  _amendmentReasonLabel(a) {
+    if (a.kind === 'closing') {
+      return {
+        lender_delay: 'Lender / financing delay', lawyer_title: 'Lawyer / title issue',
+        buyer_docs: 'Buyer documentation outstanding', seller_delay: 'Seller-side delay',
+        property_condition: 'Property condition / inspection issue',
+        insurance: 'Insurance not finalized', other: 'Other'
+      }[a.reason] || a.reason || '';
+    }
+    return Pipeline.CONDITIONS[a.kind]?.reasons?.[a.reason] || a.reason || '';
+  },
+
+  async openAmendments(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) { App.toast('⚠️ Deal not found'); return; }
+    const list = Pipeline.amendmentsFor(dealId);
+    const papers = (Pipeline._docsByDeal?.[dealId] || []).filter(x => x.doc_type === 'amendment');
+
+    // Only the newest entry of each kind can be corrected — older ones are
+    // history and stay untouched, same rule the closing reschedule log follows.
+    const newestByKind = {};
+    list.forEach(a => { if (!newestByKind[a.kind]) newestByKind[a.kind] = a.id; });
+
+    const rows = list.map(a => {
+      const editable = newestByKind[a.kind] === a.id;
+      const fix = !editable ? ''
+        : a.kind === 'closing'
+          ? `<a href="#" onclick="event.preventDefault();Pipeline.editLastReschedule('${dealId}')" style="color:var(--accent);font-size:11px;">✏️ Correct</a>`
+          : `<a href="#" onclick="event.preventDefault();Pipeline.editLastConditionAmendment('${dealId}','${a.kind}')" style="color:var(--accent);font-size:11px;">✏️ Correct</a>`;
+      const reason = Pipeline._amendmentReasonLabel(a);
+      return `<div style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text1);">${Pipeline._amendmentKindLabel(a.kind)}</div>
+          ${fix}
+        </div>
+        <div style="font-size:12px;color:var(--text1);margin-top:3px;">
+          ${a.date_from ? App.fmtDate(a.date_from) : '—'} <span style="color:var(--text3);">→</span> <strong>${a.date_to ? App.fmtDate(a.date_to) : '—'}</strong>
+        </div>
+        ${reason ? `<div style="font-size:11px;color:var(--text2);margin-top:2px;">${App.esc(reason)}</div>` : ''}
+        ${a.notes ? `<div style="font-size:11px;color:var(--text2);margin-top:2px;font-style:italic;">${App.esc(a.notes)}</div>` : ''}
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Recorded ${new Date(a.created_at).toLocaleString()}</div>
+      </div>`;
+    }).join('');
+
+    App.openModal(`
+      <div class="modal-title">📜 Amendments</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+        ${App.esc(d.client_name || 'This deal')} — every deadline change on this agreement, oldest at the bottom.
+      </div>
+      ${rows || '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">No deadlines have been moved on this deal yet.</div>'}
+
+      <div style="margin-top:14px;padding:11px;border:1px dashed var(--accent);border-radius:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Signed paperwork</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">
+          ${papers.length
+            ? `📎 ${papers.length} signed amendment${papers.length > 1 ? 's' : ''} on file.`
+            : 'No signed amendment filed against this deal yet. The log above is your record of the change; the signed form is the paper behind it.'}
+        </div>
+        <button class="btn btn-outline btn-block" style="font-size:12px;" onclick="Pipeline.openDocs('${dealId}','amendment')">📤 Attach signed amendment</button>
+      </div>
+
+      <button class="btn btn-outline btn-block" style="margin-top:12px;" onclick="App.closeModal()">Done</button>
+    `);
+  },
+
+  // Correct the most recent extension of a condition — a mistyped new date, the
+  // wrong reason. UPDATES that log row in place instead of stacking a second
+  // amendment on top of it (mirrors editLastReschedule).
+  async editLastConditionAmendment(dealId, key) {
+    const meta = Pipeline.CONDITIONS[key];
+    const rec  = Pipeline.all?.find(x => x.id === dealId);
+    if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    const { data: latest, error } = await db.from('deal_condition_events')
+      .select('id, date_from, date_to, reason, notes')
+      .eq('pipeline_id', dealId).eq('condition', key).eq('action', 'extend')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (error || !latest) { App.toast('⚠️ No extension on file to correct'); return; }
+
+    const reasonOpts = Object.entries(meta.reasons)
+      .map(([code, label]) => `<option value="${code}" ${latest.reason === code ? 'selected' : ''}>${label}</option>`).join('');
+
+    App.openModal(`
+      <h3 style="margin:0 0 6px;">✏️ Correct the ${meta.label.toLowerCase()} amendment</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">
+        Originally ${latest.date_from ? App.fmtDate(latest.date_from) : '—'} → ${latest.date_to ? App.fmtDate(latest.date_to) : '—'}
+      </div>
+
+      <label class="form-label">Reason</label>
+      <select id="cam-reason" class="form-input">${reasonOpts}</select>
+
+      <label class="form-label" style="margin-top:12px;">Corrected deadline</label>
+      <input id="cam-date" type="date" class="form-input" value="${latest.date_to || ''}">
+
+      <label class="form-label" style="margin-top:12px;">Notes</label>
+      <textarea id="cam-notes" class="form-input" rows="3">${App.esc(latest.notes || '')}</textarea>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitConditionAmendmentEdit('${dealId}','${key}','${latest.id}')">Save correction</button>
+      </div>
+    `);
+  },
+
+  async _submitConditionAmendmentEdit(dealId, key, eventId) {
+    const meta = Pipeline.CONDITIONS[key];
+    const rec  = Pipeline.all?.find(x => x.id === dealId);
+    if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    const newDate = document.getElementById('cam-date')?.value || '';
+    const reason  = document.getElementById('cam-reason')?.value || 'other';
+    const notes   = (document.getElementById('cam-notes')?.value || '').trim();
+    if (!newDate) { App.toast('⚠️ Pick a date'); return; }
+
+    const { error: evErr } = await db.from('deal_condition_events')
+      .update({ date_to: newDate, reason, notes: notes || null }).eq('id', eventId);
+    if (evErr) { App.toast(`⚠️ ${evErr.message}`); return; }
+
+    const now = new Date().toISOString();
+    const updates = {
+      [meta.dateCol]: newDate, [meta.deadlineCol]: newDate,   // migration 063: both pairs
+      [key + '_status_reason']: reason,
+      [key + '_status_note']: notes || null,
+      updated_at: now
+    };
+    const { error: pErr } = await db.from('pipeline').update(updates).eq('id', dealId);
+    if (pErr) { App.toast(`⚠️ ${pErr.message}`); return; }
+    Object.assign(rec, updates);
+
+    App.closeModal();
+    App.toast(`✏️ ${meta.label} amendment corrected to ${App.fmtDate(newDate)}`);
+    await Pipeline.load();
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
 
   // Append-only audit row. Best-effort — the pipeline write above is the one
@@ -2324,6 +2504,7 @@ const Pipeline = {
           <button class="btn btn-outline btn-sm" onclick="Pipeline.sharePortal('${d.id}')">🔗 Portal</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.inviteStakeholder('${d.id}')">👥 Add Stakeholder</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.openDocs('${d.id}')">📄 Docs</button>
+          <button class="btn btn-outline btn-sm" onclick="Pipeline.openAmendments('${d.id}')">📜 Amendments${Pipeline.amendmentsFor(d.id).length ? ` (${Pipeline.amendmentsFor(d.id).length})` : ''}</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.resendPortal('${d.id}')">📨 Resend</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.exportPdf('${d.id}')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" style="border-color:var(--yellow);color:var(--yellow);" onclick="Pipeline.archive('${d.id}')">📦 Archive</button>
@@ -4729,15 +4910,20 @@ REALTOR® · eXp Realty · (709) 325-0545`;
   DOC_VISIBILITY: {
     accepted_offer: ['client','mortgage_broker','lawyer','builder'],          // NOT inspector
     mls_listing:    ['client','mortgage_broker','inspector','lawyer','builder'],
+    // Signed amendments carry price and terms — same audience as the offer.
+    amendment:      ['client','mortgage_broker','lawyer','builder'],          // NOT inspector
     other:          ['client','mortgage_broker','inspector','lawyer','builder'],
   },
   DOC_TYPE_LABELS: {
     accepted_offer: '📄 Accepted Offer',
     mls_listing:    '🏠 MLS Listing',
+    amendment:      '📜 Signed Amendment',
     other:          '📎 Other Document',
   },
 
-  async openDocs(dealId) {
+  // presetType preselects the document type — used by the Amendments modal so
+  // "Attach signed amendment" lands on the right type without a second choice.
+  async openDocs(dealId, presetType) {
     const d = (Pipeline.all || []).find(x => x.id === dealId);
     if (!d) return;
     const { data: docs } = await db.from('deal_documents')
@@ -4780,9 +4966,10 @@ REALTOR® · eXp Realty · (709) 325-0545`;
         <div class="form-group" style="margin-bottom:8px;">
           <label class="form-label" style="font-size:11px;">DOCUMENT TYPE</label>
           <select class="form-input" id="dd-type" onchange="Pipeline._refreshDocVisibilityHint()">
-            <option value="accepted_offer">📄 Accepted Offer (broker + lawyer only — not inspector)</option>
-            <option value="mls_listing">🏠 MLS Listing (everyone)</option>
-            <option value="other">📎 Other Document (everyone)</option>
+            <option value="accepted_offer" ${presetType === 'accepted_offer' ? 'selected' : ''}>📄 Accepted Offer (broker + lawyer only — not inspector)</option>
+            <option value="mls_listing" ${presetType === 'mls_listing' ? 'selected' : ''}>🏠 MLS Listing (everyone)</option>
+            <option value="amendment" ${presetType === 'amendment' ? 'selected' : ''}>📜 Signed Amendment (broker + lawyer only — not inspector)</option>
+            <option value="other" ${presetType === 'other' ? 'selected' : ''}>📎 Other Document (everyone)</option>
           </select>
           <div id="dd-vis-hint" style="font-size:10px;color:var(--accent2);margin-top:4px;"></div>
         </div>
