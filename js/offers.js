@@ -940,10 +940,12 @@ const Pipeline = {
     if (d.stage === 'Closed' || d.stage === 'Fell Through' || d.stage === 'Withdrawn') return '';
     const firstName = (d?.client_name || '').split(' ')[0] || 'there';
 
-    // Compute display-stage like the badge does — financing date passed = under contract
+    // Financing / inspection only read as complete once they've been CONFIRMED —
+    // this line is client-facing copy, so a passed deadline on a silent lender
+    // must never make it say "financing locked in". Walkthrough stays date-driven.
     const today = new Date(new Date().toDateString());
-    const finPast = d.financing_date && new Date(d.financing_date+'T00:00:00') <= today;
-    const insPast = d.inspection_date && new Date(d.inspection_date+'T00:00:00') <= today;
+    const finPast = Pipeline.conditionState(d, 'financing')  === 'cleared';
+    const insPast = ['cleared','skipped'].includes(Pipeline.conditionState(d, 'inspection'));
     const walkPast = d.walkthrough_date && new Date(d.walkthrough_date+'T00:00:00') <= today;
 
     if (walkPast) return `🔑 Final walkthrough complete — closing day is almost here. We're nearly home, ${firstName}.`;
@@ -1636,6 +1638,319 @@ const Pipeline = {
     await db.from('deal_checklist').insert(rows);
   },
 
+  // ── CONDITION CONFIRMATIONS (financing / inspection) ───────────────────────
+  // A deadline arriving is not the same thing as a lender approving. Financing
+  // and Inspection therefore wait on an explicit yes/no from Maxwell before the
+  // bar ticks them off — everything else on the card stays date-driven.
+  //
+  //   pending  → date is still in the future, nothing to answer yet
+  //   asking   → date has arrived and no answer is on file (the prompt shows)
+  //   snoozed  → answered "ask me again on <date>"
+  //   blocked  → answered "not yet" and the deal is waiting on a decision
+  //   extended → deadline was moved out; will ask again on the new date
+  //   cleared  → approved / passed / waived — this is the only ✓ state
+  //   skipped  → inspection was explicitly skipped on the card
+  CONDITIONS: {
+    financing: {
+      label: 'Financing', icon: '🏦',
+      dateCol: 'financing_date', deadlineCol: 'financing_deadline',
+      question: 'Has financing been approved?',
+      yesLabel: '✅ Yes, approved', clearedWord: 'Approved',
+      reasons: {
+        awaiting_lender: 'Still waiting on the lender',
+        lender_docs:     'Lender needs more documents',
+        appraisal_low:   'Appraisal came in low',
+        underwriting:    'Underwriting / credit issue',
+        lender_change:   'Client is switching lenders',
+        declined:        'Financing was declined',
+        other:           'Other'
+      }
+    },
+    inspection: {
+      label: 'Inspection', icon: '🔍',
+      dateCol: 'inspection_date', deadlineCol: 'inspection_deadline',
+      question: 'Did the inspection clear?',
+      yesLabel: '✅ Yes, cleared', clearedWord: 'Cleared',
+      reasons: {
+        not_done:       'Inspection has not happened yet',
+        report_pending: 'Inspector report not back yet',
+        repairs_needed: 'Repairs needed / negotiating',
+        major_defect:   'Major defect found',
+        reinspection:   'Re-inspection required',
+        other:          'Other'
+      }
+    }
+  },
+
+  // Attention amber. NOT var(--yellow) — that token is a muted grey in this
+  // theme (css/app.css :root), which reads as "inert" on a question that is
+  // holding the whole deal up. #f59e0b is the same amber the notification bell
+  // and the Overview "Pending Now" tiles already use.
+  _ASK_COLOR: '#f59e0b',
+
+  conditionState(d, key) {
+    const meta = Pipeline.CONDITIONS[key];
+    if (!meta || !d) return 'none';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const raw0 = d[meta.dateCol];
+    const past = (v) => !!v && new Date(String(v).slice(0,10) + 'T00:00:00') <= today;
+    // Finished deals are history — never prompt on them. Closed reads fully
+    // cleared; fell-through keeps the old date-driven read so a dead deal's bar
+    // looks exactly like it did before conditions became answer-driven.
+    if (['Closed','Done'].includes(d.stage)) return 'cleared';
+    if (d.stage === 'Fell Through') return past(raw0) ? 'cleared' : 'none';
+    if (key === 'inspection' && d.inspection_skipped) return 'skipped';
+    const status = d[key + '_status'];
+    if (status === 'cleared') return 'cleared';
+    if (status === 'blocked') return 'blocked';
+    const raw = raw0;
+    if (!raw) return 'none';
+    const due = new Date(String(raw).slice(0,10) + 'T00:00:00');
+    if (due > today) return d[key + '_status_reason'] ? 'extended' : 'pending';
+    const snooze = d[key + '_snooze_until'];
+    if (snooze && new Date(String(snooze).slice(0,10) + 'T00:00:00') > today) return 'snoozed';
+    return 'asking';
+  },
+
+  // One compact row per condition, sitting above the dates grid. Only renders
+  // conditions that have something to say — a question, a block, an extension,
+  // or a recorded ✓ — so a brand-new deal shows nothing at all.
+  conditionStripHtml(d, keys) {
+    if (!d || ['Closed','Fell Through'].includes(d.stage)) return '';
+    let rows = '';
+    (keys || ['financing','inspection']).forEach(key => {
+      const meta  = Pipeline.CONDITIONS[key];
+      const state = Pipeline.conditionState(d, key);
+      const due   = d[meta.dateCol] ? App.fmtDate(d[meta.dateCol]) : '';
+      const reason = d[key + '_status_reason']
+        ? (meta.reasons[d[key + '_status_reason']] || 'Other') : '';
+      const note = d[key + '_status_note'] ? ` — ${App.esc(d[key + '_status_note'])}` : '';
+
+      if (state === 'asking') {
+        const amber = Pipeline._ASK_COLOR;
+        rows += `<div style="padding:8px 10px;background:rgba(245,158,11,0.10);border:1px solid ${amber};border-radius:8px;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:${amber};margin-bottom:2px;">${meta.icon} ${meta.question}</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:7px;">Deadline was ${due}. The bar will not tick this off until you answer.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-green btn-sm" style="font-size:11px;padding:4px 10px;" onclick="Pipeline.confirmCondition('${d.id}','${key}')">${meta.yesLabel}</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;border-color:${amber};color:${amber};" onclick="Pipeline.askConditionOutcome('${d.id}','${key}')">Not yet</button>
+          </div>
+        </div>`;
+      } else if (state === 'blocked') {
+        rows += `<div style="padding:8px 10px;background:rgba(220,38,38,0.10);border:1px solid var(--red);border-radius:8px;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:2px;">${meta.icon} ${meta.label} not cleared</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:7px;">${App.esc(reason || 'Waiting on a decision')}${note}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-green btn-sm" style="font-size:11px;padding:4px 10px;" onclick="Pipeline.confirmCondition('${d.id}','${key}')">${meta.yesLabel}</button>
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px;" onclick="Pipeline.askConditionOutcome('${d.id}','${key}')">Update</button>
+          </div>
+        </div>`;
+      } else if (state === 'snoozed') {
+        rows += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text2);">${meta.icon} ${meta.label} — asking again ${App.fmtDate(d[key + '_snooze_until'])}</span>
+          <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;" onclick="Pipeline.askConditionOutcome('${d.id}','${key}')">Answer now</button>
+        </div>`;
+      } else if (state === 'extended') {
+        rows += `<div style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:11px;color:var(--text2);">
+          ${meta.icon} ${meta.label} extended to <strong style="color:var(--text1);">${due}</strong>${reason ? ` — ${App.esc(reason)}` : ''}${note}
+        </div>`;
+      } else if (state === 'cleared' && d[key + '_status'] === 'cleared') {
+        rows += `<div style="padding:6px 10px;background:rgba(34,197,94,0.08);border:1px solid var(--green);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--green);font-weight:600;">${meta.icon} ${meta.label}: ${meta.clearedWord}${d[key + '_status_at'] ? ' ' + App.fmtDate(d[key + '_status_at']) : ''}</span>
+          <button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px;" onclick="Pipeline.reopenCondition('${d.id}','${key}')">Undo</button>
+        </div>`;
+      }
+    });
+    return rows;
+  },
+
+  // "Yes" — the condition cleared. Records the answer, ticks the bar off.
+  async confirmCondition(id, key) {
+    const meta = Pipeline.CONDITIONS[key];
+    const rec  = Pipeline.all?.find(x => x.id === id);
+    if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    const now = new Date().toISOString();
+    const updates = {
+      [key + '_status']:        'cleared',
+      [key + '_status_at']:     now,
+      [key + '_status_reason']: null,
+      [key + '_snooze_until']:  null,
+      updated_at: now
+    };
+    const { error } = await db.from('pipeline').update(updates).eq('id', id);
+    if (error) { App.toast(`⚠️ ${error.message}`); return; }
+    Object.assign(rec, updates);
+    await Pipeline._logConditionEvent(id, key, {
+      outcome: 'cleared',
+      date_from: rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : null
+    });
+    App.toast(`✅ ${meta.label}: ${meta.clearedWord.toLowerCase()}`);
+    Pipeline.render(Pipeline.all);
+  },
+
+  // Undo a "Yes" recorded by mistake — puts the question back on the card.
+  async reopenCondition(id, key) {
+    const rec = Pipeline.all?.find(x => x.id === id);
+    if (!rec) { App.toast('⚠️ Deal not found'); return; }
+    const now = new Date().toISOString();
+    const updates = { [key + '_status']: null, [key + '_status_at']: null, [key + '_snooze_until']: null, updated_at: now };
+    const { error } = await db.from('pipeline').update(updates).eq('id', id);
+    if (error) { App.toast(`⚠️ ${error.message}`); return; }
+    Object.assign(rec, updates);
+    Pipeline.render(Pipeline.all);
+  },
+
+  // "Not yet" — ask why, then what to do about it.
+  askConditionOutcome(id, key) {
+    const meta = Pipeline.CONDITIONS[key];
+    const rec  = Pipeline.all?.find(x => x.id === id);
+    if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    const current = rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : '';
+    const plus = (base, n) => {
+      const dt = base ? new Date(base + 'T00:00:00') : new Date();
+      dt.setDate(dt.getDate() + n);
+      return dt.toISOString().slice(0,10);
+    };
+    const reasonOpts = Object.entries(meta.reasons)
+      .map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+    // Remembered so flipping the action dropdown back to "Extend" restores the
+    // deadline suggestion instead of leaving yesterday's snooze date in the box.
+    Pipeline._condModal = { id, key, extendDefault: plus(current, 7) };
+
+    App.openModal(`
+      <h3 style="margin:0 0 6px;">${meta.icon} ${meta.label} — what is holding it up?</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:14px;">${App.esc(rec.client_name || '')} — ${App.esc(rec.property_address || '')}</div>
+      ${current ? `<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Current ${meta.label.toLowerCase()} date: <strong style="color:var(--text1);">${App.fmtDate(current)}</strong></div>` : ''}
+
+      <label class="form-label">Reason</label>
+      <select id="cond-reason" class="form-input">${reasonOpts}</select>
+
+      <label class="form-label" style="margin-top:12px;">What happens next</label>
+      <select id="cond-action" class="form-input" onchange="Pipeline._condActionChanged()">
+        <option value="extend">Extend the deadline</option>
+        <option value="snooze">Nothing changes — ask me again later</option>
+        <option value="waive">Condition satisfied anyway (waive it)</option>
+        <option value="fell_through">The deal is falling through</option>
+      </select>
+
+      <div id="cond-date-row" style="margin-top:12px;">
+        <label class="form-label" id="cond-date-label">New ${meta.label.toLowerCase()} deadline</label>
+        <input id="cond-date" type="date" class="form-input" value="${plus(current, 7)}">
+      </div>
+
+      <label class="form-label" style="margin-top:12px;">Notes (optional)</label>
+      <textarea id="cond-notes" class="form-input" rows="3" placeholder="e.g. 'Lender needs the updated employment letter before Friday'"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitConditionIssue('${id}','${key}')">Save</button>
+      </div>
+    `);
+  },
+
+  // Swaps the date row between "new deadline" and "remind me on" — and hides it
+  // entirely for the two actions that need no date.
+  _condActionChanged() {
+    const action = document.getElementById('cond-action')?.value;
+    const row    = document.getElementById('cond-date-row');
+    const label  = document.getElementById('cond-date-label');
+    const input  = document.getElementById('cond-date');
+    if (!row || !label || !input) return;
+    if (action === 'extend') {
+      row.style.display = 'block';
+      label.textContent = 'New deadline';
+      if (Pipeline._condModal?.extendDefault) input.value = Pipeline._condModal.extendDefault;
+    } else if (action === 'snooze') {
+      row.style.display = 'block';
+      label.textContent = 'Ask me again on';
+      const t = new Date(); t.setDate(t.getDate() + 1);
+      input.value = t.toISOString().slice(0,10);
+    } else {
+      row.style.display = 'none';
+    }
+  },
+
+  async _submitConditionIssue(id, key) {
+    const meta = Pipeline.CONDITIONS[key];
+    const rec  = Pipeline.all?.find(x => x.id === id);
+    if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    const action  = document.getElementById('cond-action')?.value || 'extend';
+    const reason  = document.getElementById('cond-reason')?.value || 'other';
+    const notes   = (document.getElementById('cond-notes')?.value || '').trim();
+    const picked  = document.getElementById('cond-date')?.value || '';
+    const oldDate = rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : null;
+
+    const now = new Date().toISOString();
+    const updates = {
+      [key + '_status_reason']: reason,
+      [key + '_status_note']:   notes || null,
+      [key + '_status_at']:     now,
+      updated_at: now
+    };
+    let outcome = 'blocked';
+    let newDate = null;
+
+    if (action === 'extend') {
+      if (!picked) { App.toast('⚠️ Pick a new deadline'); return; }
+      if (oldDate && picked === oldDate) { App.toast('⚠️ That is the same date as now'); return; }
+      newDate = picked;
+      // Migration 063: always write BOTH date column pairs.
+      updates[meta.dateCol]           = newDate;
+      updates[meta.deadlineCol]       = newDate;
+      updates[key + '_status']        = null;   // ask again when the new date lands
+      updates[key + '_snooze_until']  = null;
+    } else if (action === 'snooze') {
+      const t = new Date(); t.setDate(t.getDate() + 1);
+      updates[key + '_status']       = null;
+      updates[key + '_snooze_until'] = picked || t.toISOString().slice(0,10);
+    } else if (action === 'waive') {
+      updates[key + '_status']       = 'cleared';
+      updates[key + '_snooze_until'] = null;
+      outcome = 'cleared';
+    } else {
+      updates[key + '_status']       = 'blocked';
+      updates[key + '_snooze_until'] = null;
+    }
+
+    const { error } = await db.from('pipeline').update(updates).eq('id', id);
+    if (error) { console.error('condition update:', error); App.toast(`⚠️ ${error.message}`); return; }
+    Object.assign(rec, updates);
+
+    await Pipeline._logConditionEvent(id, key, {
+      outcome, action, reason, notes,
+      date_from: oldDate, date_to: newDate || oldDate
+    });
+
+    App.closeModal();
+    if (action === 'extend') {
+      App.toast(`↻ ${meta.label} deadline moved to ${App.fmtDate(newDate)}`);
+      try { App.pushNotify?.(`${meta.label} extended`, `${rec.client_name || 'Deal'} — new deadline ${App.fmtDate(newDate)}`, 'pipeline'); } catch (e) {}
+    } else if (action === 'waive') {
+      App.toast(`✅ ${meta.label} condition waived`);
+    } else if (action === 'snooze') {
+      App.toast(`⏰ Will ask again ${App.fmtDate(updates[key + '_snooze_until'])}`);
+    }
+
+    Pipeline.render(Pipeline.all);
+    if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+    if (action === 'fell_through') Pipeline.markFellThrough(id);
+  },
+
+  // Append-only audit row. Best-effort — the pipeline write above is the one
+  // that matters, so a logging failure never blocks the answer.
+  async _logConditionEvent(id, key, fields) {
+    try {
+      const user = await App.getAuthUser();
+      const agentId = user?.id || currentAgent?.id;
+      if (!agentId) return;
+      await db.from('deal_condition_events').insert(Object.assign({
+        pipeline_id: id, agent_id: agentId, condition: key
+      }, fields));
+    } catch (e) {
+      console.warn('condition event log (non-fatal):', e);
+    }
+  },
+
   // Renders a segmented stage progress bar (additive — sits below the existing bar).
   // Each segment fills based on time elapsed within that stage.  Same logic as the
   // client portal so the agent and the buyer see identical visualizations.
@@ -1643,8 +1958,8 @@ const Pipeline = {
     const today = new Date();
     const stages = [
       { label: 'Accepted',    date: d.acceptance_date,  skipped: false },
-      { label: 'Financing',   date: d.financing_date,   skipped: false },
-      { label: 'Inspection',  date: d.inspection_date,  skipped: !!d.inspection_skipped },
+      { label: 'Financing',   date: d.financing_date,   skipped: false, confirm: 'financing' },
+      { label: 'Inspection',  date: d.inspection_date,  skipped: !!d.inspection_skipped, confirm: 'inspection' },
       { label: 'Walkthrough', date: d.walkthrough_date, skipped: !!d.walkthrough_skipped },
       { label: 'Closing',     date: d.closing_date,     skipped: false }
     ];
@@ -1658,6 +1973,16 @@ const Pipeline = {
       const sd = s.date ? new Date(s.date + 'T00:00:00') : null;
       if (s.skipped) return Object.assign({}, s, { fill: 100, status: 'skipped' });
       if (!sd)       return Object.assign({}, s, { fill: 0,   status: 'pending' });
+      // Financing / Inspection are answer-driven, not date-driven: the segment
+      // fills amber the day the deadline lands and only turns accent-✓ once
+      // Maxwell confirms it cleared. See Pipeline.conditionState().
+      if (s.confirm) {
+        const cs = Pipeline.conditionState(d, s.confirm);
+        if (cs === 'cleared') { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'done' }); }
+        if (cs === 'asking' || cs === 'snoozed') { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'awaiting' }); }
+        if (cs === 'blocked') { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'blocked' }); }
+        // 'pending' / 'extended' fall through to the normal date logic below
+      }
       if (sd <= today) { prevDate = sd; return Object.assign({}, s, { fill: 100, status: 'done' }); }
       if (!currentMarked) {
         currentMarked = true;
@@ -1686,24 +2011,31 @@ const Pipeline = {
     let sections = '';
     let labels = '';
     segments.forEach((s, i) => {
-      const segColor = s.status === 'skipped' ? 'rgba(124,124,255,0.35)'
-                     : s.status === 'done'    ? 'var(--accent)'
-                     : s.status === 'current' ? 'var(--accent2)'
-                     :                          'transparent';
+      const segColor = s.status === 'skipped'  ? 'rgba(124,124,255,0.35)'
+                     : s.status === 'done'     ? 'var(--accent)'
+                     : s.status === 'awaiting' ? Pipeline._ASK_COLOR
+                     : s.status === 'blocked'  ? 'var(--red)'
+                     : s.status === 'current'  ? 'var(--accent2)'
+                     :                           'transparent';
       sections += `<div style="flex:1;height:100%;position:relative;${i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : ''}">
                      <div style="width:${s.fill}%;height:100%;background:${segColor};transition:width 0.4s;"></div>
                    </div>`;
-      const labelColor = s.status === 'done'    ? 'var(--text1)'
-                       : s.status === 'current' ? 'var(--accent2)'
-                       : s.status === 'skipped' ? 'var(--text3)'
-                       :                          'var(--text3)';
-      const fontWeight = s.status === 'current' ? '700' : '500';
+      const labelColor = s.status === 'done'     ? 'var(--text1)'
+                       : s.status === 'awaiting' ? Pipeline._ASK_COLOR
+                       : s.status === 'blocked'  ? 'var(--red)'
+                       : s.status === 'current'  ? 'var(--accent2)'
+                       : s.status === 'skipped'  ? 'var(--text3)'
+                       :                           'var(--text3)';
+      const fontWeight = (s.status === 'current' || s.status === 'awaiting' || s.status === 'blocked') ? '700' : '500';
       // For skipped stages, write out "No <stage>" instead of just a dash
       const skippedLabel = s.label === 'Inspection'  ? 'No inspection'
                          : s.label === 'Walkthrough' ? 'No walkthrough'
                          :                              s.label;
       const visibleLabel = s.status === 'skipped' ? skippedLabel : s.label;
-      const indicator    = s.status === 'done' ? ' ✓' : s.status === 'current' ? ' ·' : '';
+      const indicator    = s.status === 'done'     ? ' ✓'
+                         : s.status === 'awaiting' ? ' ?'
+                         : s.status === 'blocked'  ? ' ✕'
+                         : s.status === 'current'  ? ' ·' : '';
       labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
                    ${visibleLabel}${indicator}
                  </div>`;
@@ -1735,12 +2067,15 @@ const Pipeline = {
     // do them, so they shouldn't drag the progress bar down. Total always = 5.
     const milestones = [
       { date: d.acceptance_date,  skipped: false },
-      { date: d.financing_date,   skipped: false },
-      { date: d.inspection_date,  skipped: !!d.inspection_skipped },
+      { date: d.financing_date,   skipped: false, confirm: 'financing' },
+      { date: d.inspection_date,  skipped: !!d.inspection_skipped, confirm: 'inspection' },
       { date: d.walkthrough_date, skipped: !!d.walkthrough_skipped },
       { date: d.closing_date,     skipped: false }
     ];
-    const doneInt = milestones.filter(m => m.skipped || isPast(m.date)).length;
+    // Financing and Inspection only count once the agent has confirmed they
+    // actually cleared — a passed deadline is a question, not a milestone.
+    const doneInt = milestones.filter(m => m.skipped ||
+      (m.confirm ? Pipeline.conditionState(d, m.confirm) === 'cleared' : isPast(m.date))).length;
     let done = doneInt;
     // Continuous creep: between milestones, bar climbs gradually toward closing.
     if (d.closing_date && d.acceptance_date) {
@@ -1950,7 +2285,7 @@ const Pipeline = {
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
-          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString())) ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
+          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : Pipeline.conditionState(d, 'financing') === 'cleared' ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
         </div>
         <!-- Hidden legacy single-bar (kept for compatibility with code that updates pl-bar-* / pl-pct-lbl-* / pl-milestone-lbl-*) -->
         <span id="pl-bar-${d.id}" data-pct="${pct}" style="display:none;"></span>
@@ -1961,6 +2296,7 @@ const Pipeline = {
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
         ${depositBlock}
+        ${Pipeline.conditionStripHtml(d)}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
@@ -2223,6 +2559,7 @@ const Pipeline = {
         <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 12px;" onclick="Pipeline.saveNewBuildFinancing('${d.id}')">Save</button>
       </div>
       <div style="margin-top:7px;">${docBtn}</div>
+      ${(() => { const s = Pipeline.conditionStripHtml(d, ['financing']); return s ? `<div style="margin-top:8px;">${s}</div>` : ''; })()}
     </div>`;
   },
 

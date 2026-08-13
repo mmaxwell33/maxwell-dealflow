@@ -2150,6 +2150,28 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     for (const deal of deals) {
       const client = deal.clients || { full_name: deal.client_name, email: deal.client_email, id: deal.client_id };
 
+      // ── Condition answer prompts (migration 090) ─────────────────────────
+      // The financing / inspection deadline has arrived and no answer is on
+      // file. This one is for Maxwell only — a Web Push, never a client email,
+      // so it does NOT go through the approval queue. One ask per deal per day.
+      if (typeof Pipeline !== 'undefined' && Pipeline.conditionState) {
+        const todayKey = new Date().toISOString().slice(0, 10);
+        for (const key of ['financing', 'inspection']) {
+          if (Pipeline.conditionState(deal, key) !== 'asking') continue;
+          const meta = Pipeline.CONDITIONS[key];
+          const stamp = `cond-ask:${deal.id}:${key}`;
+          try {
+            if (localStorage.getItem(stamp) === todayKey) continue;
+            localStorage.setItem(stamp, todayKey);
+          } catch (e) { /* storage unavailable — still worth asking */ }
+          App.pushNotify(
+            `${meta.label} — needs your answer`,
+            `${client.full_name || deal.client_name || 'A deal'}: ${meta.question}`,
+            'pipeline'
+          );
+        }
+      }
+
       // Check financing deadline
       if (deal.financing_date) {
         const finDate = new Date(deal.financing_date);

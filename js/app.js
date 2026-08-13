@@ -580,7 +580,8 @@ const App = {
       { data: pending },
       { data: recentClients },
       { data: needFeedback },
-      referralRes
+      referralRes,
+      conditionRes
     ] = await Promise.all([
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', today).neq('viewing_status', 'Completed'),
       db.from('viewings').select('*, clients(full_name)').eq('viewing_date', tomorrow).neq('viewing_status', 'Completed'),
@@ -596,10 +597,34 @@ const App = {
       db.from('broker_referral_requests').select('id,client_id,client_name,client_email,client_phone,status,source,broker_id,snapshot_max_amount,snapshot_status,snapshot_rate_hold,snapshot_updated_at,approved_by')
         .eq('agent_id', currentAgent.id).in('status', ['requested', 'pending', 'approved', 'sent'])
         .order('created_at', { ascending: false }).limit(15)
+        .then(r => r, () => ({ data: [] })),
+      // Live deals whose financing / inspection deadline has arrived with no
+      // answer on file. Best-effort — pre-migration-090 databases return [].
+      db.from('pipeline').select('*')
+        .eq('agent_id', currentAgent.id).is('archived_at', null)
+        .neq('stage', 'Closed').neq('stage', 'Fell Through')
         .then(r => r, () => ({ data: [] }))
     ]);
     const referrals = referralRes?.data || [];
     const items = [];
+    // Condition answers come first: a financing or inspection deadline has
+    // arrived and the deal is sitting on an unanswered question. Nothing in the
+    // pipeline advances until Maxwell says whether it actually cleared.
+    if (typeof Pipeline !== 'undefined' && Pipeline.conditionState) {
+      (conditionRes?.data || []).forEach(d => {
+        ['financing','inspection'].forEach(key => {
+          if (Pipeline.conditionState(d, key) !== 'asking') return;
+          const meta = Pipeline.CONDITIONS[key];
+          items.push({
+            icon: meta.icon, bg: 'rgba(234,179,8,0.18)', color: '#f59e0b',
+            title: `${meta.label} — needs your answer`,
+            text: `${d.client_name || 'Client'} — ${meta.question}`,
+            tag: 'Action',
+            action: `App.closeNotifPanel();App.switchTab('pipeline')`
+          });
+        });
+      });
+    }
     // Broker-intro requests sit at the very top — the client raised their hand,
     // so this is hot. Clicking sends the intro (through Approvals) and clears it.
     const _STAT = { pre_approved: 'Pre-approved', conditional: 'Conditional', soft_prequal: 'Soft pre-qual', declined: 'Declined' };
@@ -763,7 +788,7 @@ const App = {
         ? '\n\n' + EmailFormat.signaturePlain(currentAgent)
         : '\n\nMaxwell Midodzi\nREALTOR, eXp Realty\n(709) 325-0545';
       const subject = 'A quick form to help me find the right home for you';
-      const body = `Hi ${first},\n\nGreat news, your mortgage broker tells me you're pre-approved and ready to start looking. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for:\n\nhttps://maxwellmidodzi.com/intake\n\nOnce it is in, I will follow up with your next steps.` + sig;
+      const body = `Hi ${first},\n\nGreat news, your mortgage broker tells me you're pre-approved and ready to start looking. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for:\n\n${App.intakeUrl()}\n\nOnce it is in, I will follow up with your next steps.` + sig;
       await Notify.queue('Intake Link', null, r.client_name, r.client_email, subject, body, r.id);
       queued++;
     }
@@ -1248,7 +1273,11 @@ const App = {
         }
         const isClosed = d.stage === 'Closed';
         const isFell   = d.stage === 'Fell Through';
-        const finPast  = d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString());
+        // "Under contract" means financing was CONFIRMED approved, not that the
+        // financing deadline happened to pass (Pipeline.conditionState).
+        const finPast  = (typeof Pipeline !== 'undefined' && Pipeline.conditionState)
+          ? Pipeline.conditionState(d, 'financing') === 'cleared'
+          : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString()));
         const badgeLabel = isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : finPast ? 'UNDER CONTRACT' : 'IN PROGRESS';
         const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
         const fillPct  = isClosed ? 100 : isFell ? 0 : pct;
@@ -1635,6 +1664,18 @@ const App = {
     };
     const parts = [maskEmail(email), maskPhone(phone)].filter(Boolean);
     return parts.join(' · ');
+  },
+
+  // The public buyer-intake link for the CURRENTLY SIGNED-IN agent.
+  //
+  // The ?a=<agent id> is what makes the form show that agent's own name and
+  // brokerage, and what files the submission under them (migration 087).
+  // Without it, an invited agent's client sees "Maxwell / eXp Realty" on the
+  // consent statement. This was hardcoded in five separate places, so it lives
+  // in one helper now to stop them drifting apart again.
+  intakeUrl() {
+    const id = (typeof currentAgent !== 'undefined' && currentAgent) ? currentAgent.id : null;
+    return `https://maxwellmidodzi.com/intake${id ? '?a=' + id : ''}`;
   },
 
   // How long a client in a given stage can go quiet before they genuinely need
