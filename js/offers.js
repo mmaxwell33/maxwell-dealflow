@@ -2491,7 +2491,8 @@ const Pipeline = {
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${isClosed ? `<button class="btn btn-outline btn-sm" onclick="Reviews.request('${d.id}')">📝 Request Review</button>
           <button class="btn btn-outline btn-sm" onclick="Pipeline.revertClose('${d.id}')">🔄 Revert Close</button>` : ''}
-          ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>` : ''}
+          ${isFell ? `<button class="btn btn-outline btn-sm" onclick="Pipeline.reactivate('${d.id}')">🔄 Reactivate</button>
+          <button class="btn btn-outline btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="Pipeline.sendCollapseNotice('${d.id}')">📨 Notify Parties</button>` : ''}
           ${!isClosed && !isFell ? `
             <button class="btn btn-green btn-sm" onclick="Pipeline.closeDeal('${d.id}')">🏁 Mark Closed</button>
             <button class="btn btn-red btn-sm" onclick="Pipeline.markFellThrough('${d.id}')">❌ Fell Through</button>
@@ -3413,6 +3414,103 @@ const Pipeline = {
     App.toast(`❌ Deal fell through — client${stakesNotified ? ` and ${stakesNotified} stakeholder${stakesNotified === 1 ? '' : 's'}` : ''} notified (check Approvals)`);
     Pipeline.load(); Clients.load(); App.loadOverview();
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+  },
+
+  // ── COLLAPSE NOTICE — catch-up send on a deal that already fell through ────
+  // A dead deal is usually only half-notified: the client got the automatic
+  // letter, but the lawyer (or whoever) was never added to the pipeline, so
+  // nobody ever told them to stop work. This is the catch-up. Tick whoever
+  // still needs the notice, type in anyone who was never a stakeholder on the
+  // file, and optionally copy the client so they can see what was sent on
+  // their behalf. Every notice lands in Approvals as its own draft.
+  sendCollapseNotice(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) { App.toast('⚠️ Deal not found'); return; }
+    const stakes = ((Pipeline._stakeholdersByPipelineId || {})[dealId] || []).filter(s => s.email);
+
+    const stakeRows = stakes.length ? stakes.map(s => `
+      <label style="display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
+        <input type="checkbox" class="cn-stake" checked value="${App.esc(s.email)}"
+               data-name="${App.esc(s.name || '')}" data-role="${App.esc(s.role || '')}" style="margin-top:3px;">
+        <span style="font-size:12px;line-height:1.5;">
+          <strong>${Pipeline.ROLE_LABELS[s.role] || s.role || 'Stakeholder'}</strong> · ${App.esc(s.name || '')}
+          <div style="font-size:11px;color:var(--text2);">${App.esc(s.email)}</div>
+        </span>
+      </label>`).join('')
+      : `<div style="font-size:12px;color:var(--text2);padding:9px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:6px;">
+           Nobody with an email address is attached to this deal. Add the recipient below.
+         </div>`;
+
+    const roleOpts = Object.entries(Pipeline.ROLE_LABELS)
+      .map(([code, label]) => `<option value="${code}"${code === 'lawyer' ? ' selected' : ''}>${label}</option>`)
+      .join('') + '<option value="other">Other party</option>';
+
+    App.openModal(`
+      <h3 style="margin:0 0 6px;">📨 Who still needs to know?</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:16px;">${App.esc(d.client_name || '')} — ${App.esc(d.property_address || '')}</div>
+
+      <label class="form-label">On this deal</label>
+      ${stakeRows}
+
+      <label class="form-label" style="margin-top:14px;">Someone who was never added to the deal</label>
+      <div style="padding:10px;border:1px solid var(--border);border-radius:8px;">
+        <select id="cn-x-role" class="form-input" style="margin-bottom:8px;">${roleOpts}</select>
+        <input id="cn-x-name" class="form-input" style="margin-bottom:8px;" placeholder="Name (e.g. Adwoa Boateng)">
+        <input id="cn-x-email" type="email" class="form-input" placeholder="Email address">
+        <div style="font-size:11px;color:var(--text2);margin-top:7px;">Leave the email blank to skip this. They are not added to the deal, this just sends them the notice.</div>
+      </div>
+
+      ${d.client_email ? `
+      <label style="display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="cn-cc-client" checked>
+        <span>Copy ${App.esc(d.client_name?.split(' ')[0] || 'the client')} (${App.esc(d.client_email)}) on every notice</span>
+      </label>` : ''}
+
+      <div style="font-size:11px;color:var(--text2);margin-top:14px;">Each notice is queued in Approvals. Nothing sends until you approve it.</div>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="Pipeline._submitCollapseNotice('${d.id}')">Queue notices</button>
+      </div>
+    `);
+  },
+
+  async _submitCollapseNotice(dealId) {
+    const d = (Pipeline.all || []).find(x => x.id === dealId);
+    if (!d) { App.toast('⚠️ Deal not found'); return; }
+    const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
+    const ccClient = !!document.getElementById('cn-cc-client')?.checked;
+
+    const picked = Array.from(document.querySelectorAll('.cn-stake:checked')).map(el => ({
+      email: el.value, name: el.dataset.name, role: el.dataset.role
+    }));
+
+    const xEmail = (document.getElementById('cn-x-email')?.value || '').trim();
+    if (xEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(xEmail)) { App.toast('⚠️ That email address does not look right'); return; }
+      picked.push({
+        email: xEmail,
+        name:  (document.getElementById('cn-x-name')?.value || '').trim(),
+        role:  document.getElementById('cn-x-role')?.value || 'other'
+      });
+    }
+    if (!picked.length) { App.toast('⚠️ Pick at least one person to notify'); return; }
+
+    // One notice per address, so a party who is both a stakeholder and typed in
+    // by hand does not get the same letter twice.
+    const seen = new Set();
+    let queued = 0;
+    for (const r of picked) {
+      const addr = r.email?.trim().toLowerCase();
+      if (!addr || seen.has(addr)) continue;
+      seen.add(addr);
+      if (await Notify.queueCollapseNotice(d, client, r, { ccClient })) queued++;
+    }
+
+    App.closeModal();
+    await App.logActivity('DEAL_FELL_THROUGH_NOTICE', d.client_name, d.client_email,
+      `Collapse notice queued for ${queued} part${queued === 1 ? 'y' : 'ies'}: ${d.property_address}`, d.client_id);
+    App.toast(`📨 ${queued} notice${queued === 1 ? '' : 's'} queued in Approvals${ccClient ? ' (client copied)' : ''}`);
   },
 
   async reactivate(id) {

@@ -2157,14 +2157,35 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     );
   },
 
+  // Queue ONE collapse notice. Shared by the automatic fan-out at the moment a
+  // deal dies and by the manual "Notify Parties" catch-up send on a deal that
+  // already fell through, so both produce the identical letter. ccClient puts
+  // the buyer on the copy line when Maxwell wants them to see exactly what the
+  // professionals on the file were told.
+  async queueCollapseNotice(deal, client, recipient, opts = {}) {
+    if (!deal?.id || !recipient?.email) return false;
+    const agent = currentAgent;
+    const tmpl = Notify.templates.deal_fell_through_stakeholder(
+      recipient.name, recipient.role, client, deal, agent
+    );
+    await Notify.queue(
+      `Deal Fell Through → ${String(recipient.role || 'stakeholder').replace('_', ' ')} 💔`,
+      deal.client_id || client?.id || null, recipient.name, recipient.email,
+      tmpl.subject, tmpl.body, deal.id,
+      null, null,
+      (opts.ccClient && client?.email) ? client.email : null
+    );
+    return true;
+  },
+
   // Fan-out of the collapse notice to every non-client stakeholder still active
   // on the deal — the same people who were invited onto this file and were sent
   // the offer paperwork. Mirrors the closing thank-you fan-out in
   // Pipeline.closeDeal(). Every one of these lands in Approvals as its own
   // draft; nothing sends until Maxwell taps approve. Returns how many queued.
+  // No cc here: the client gets their own dedicated letter at the same moment.
   async onDealFellThroughStakeholders(deal, client) {
     if (!deal?.id) return 0;
-    const agent = currentAgent;
     const { data: stakes, error } = await db.from('deal_stakeholders')
       .select('role, name, email')
       .eq('pipeline_id', deal.id)
@@ -2183,13 +2204,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const addr = s.email?.trim().toLowerCase();
       if (!addr || seen.has(addr)) continue;
       seen.add(addr);
-      const tmpl = Notify.templates.deal_fell_through_stakeholder(s.name, s.role, client, deal, agent);
-      await Notify.queue(
-        `Deal Fell Through → ${String(s.role || 'stakeholder').replace('_', ' ')} 💔`,
-        deal.client_id || client?.id || null, s.name, s.email,
-        tmpl.subject, tmpl.body, deal.id
-      );
-      queued++;
+      if (await Notify.queueCollapseNotice(deal, client, s)) queued++;
     }
     return queued;
   },
