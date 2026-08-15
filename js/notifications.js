@@ -1100,6 +1100,50 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
+    // ── DEAL FELL THROUGH — notice fan-out to every stakeholder on the deal ──
+    // The people invited onto this file (broker, inspector, lawyer, builder)
+    // are mid-work when a deal dies. This is the same collapse notice the
+    // client gets, rewritten for a working professional: what happened, that
+    // the file is closed, and what to do with anything still open on their side.
+    // Deliberately does NOT carry the client's reason for the collapse (a
+    // declined mortgage, a credit issue) — that is the client's private
+    // financial information and these are third parties. Maxwell can add
+    // whatever detail a specific party needs when he reviews the draft in
+    // Approvals.
+    deal_fell_through_stakeholder: (stakeholderName, role, client, deal, agent) => {
+      const first = stakeholderName?.split(' ')[0] || 'there';
+      const roleNote = role === 'mortgage_broker'
+            ? 'If you have an application open with the lender, please withdraw it at your convenience.'
+        : role === 'inspector'
+            ? 'If an inspection is still booked, please cancel it, and send along any invoice for work already completed.'
+        : role === 'lawyer'
+            ? 'Please close the file on your end and let me know about anything held in trust or any account to settle.'
+        : role === 'builder'
+            ? 'Please release the lot or unit back to inventory, and let me know about any deposit or paperwork still outstanding.'
+            : 'Please close the file on your end and let me know about anything still outstanding.';
+      return {
+        subject: `File Closed: ${deal.property_address} is not proceeding`,
+        body: `Hi ${first},
+
+I wanted to let you know directly, rather than leave you waiting on an update: the purchase of ${deal.property_address} is not going ahead. The agreement has been terminated and the file is now closed on our end.
+
+📍 Property: ${deal.property_address}
+👤 Buyer: ${client?.full_name || 'my client'}
+📌 Status: Terminated, no longer proceeding
+
+${roleNote}
+
+Nothing further is needed from you beyond that. Thank you for the work you put into this one, it was appreciated, and I will be in touch on the next file.
+
+If anything on your side needs a conversation, call or email me anytime.
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
     post_closing_referral: (client, deal, agent) => ({
       subject: `Congratulations Again - and a Small Favour - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
@@ -2111,6 +2155,43 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, deal.id
     );
+  },
+
+  // Fan-out of the collapse notice to every non-client stakeholder still active
+  // on the deal — the same people who were invited onto this file and were sent
+  // the offer paperwork. Mirrors the closing thank-you fan-out in
+  // Pipeline.closeDeal(). Every one of these lands in Approvals as its own
+  // draft; nothing sends until Maxwell taps approve. Returns how many queued.
+  async onDealFellThroughStakeholders(deal, client) {
+    if (!deal?.id) return 0;
+    const agent = currentAgent;
+    const { data: stakes, error } = await db.from('deal_stakeholders')
+      .select('role, name, email')
+      .eq('pipeline_id', deal.id)
+      .is('revoked_at', null)
+      .neq('role', 'client');
+    if (error) { console.error('[onDealFellThroughStakeholders]', error); return 0; }
+
+    // One notice per address. Guards against the same person sitting on the
+    // deal twice, and against mailing the client a second copy of a letter
+    // written for a third party.
+    const seen = new Set();
+    if (client?.email) seen.add(client.email.trim().toLowerCase());
+
+    let queued = 0;
+    for (const s of (stakes || [])) {
+      const addr = s.email?.trim().toLowerCase();
+      if (!addr || seen.has(addr)) continue;
+      seen.add(addr);
+      const tmpl = Notify.templates.deal_fell_through_stakeholder(s.name, s.role, client, deal, agent);
+      await Notify.queue(
+        `Deal Fell Through → ${String(s.role || 'stakeholder').replace('_', ' ')} 💔`,
+        deal.client_id || client?.id || null, s.name, s.email,
+        tmpl.subject, tmpl.body, deal.id
+      );
+      queued++;
+    }
+    return queued;
   },
 
   async onPostClosingReferral(deal, client) {

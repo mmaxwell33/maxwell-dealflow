@@ -3396,13 +3396,21 @@ const Pipeline = {
       await db.from('clients').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', d.client_id);
     }
     // Queue encouraging email to client
+    const client = { id: d?.client_id, full_name: d?.client_name, email: d?.client_email };
     if (typeof Notify !== "undefined" && d?.client_email) {
-      const client = { id: d.client_id, full_name: d.client_name, email: d.client_email };
       await Notify.onDealFellThrough(d, client, null);
     }
+    // The client is not the only one who was working this file. Everyone we
+    // brought onto the deal (broker, inspector, lawyer, builder) gets the same
+    // collapse notice so nobody keeps working a dead file or waits on an update
+    // that is never coming. Each one is its own draft in Approvals.
+    let stakesNotified = 0;
+    if (typeof Notify !== "undefined" && Notify.onDealFellThroughStakeholders) {
+      stakesNotified = await Notify.onDealFellThroughStakeholders(d, client);
+    }
     await App.logActivity('DEAL_FELL_THROUGH', d?.client_name, d?.client_email,
-      `Deal fell through: ${d?.property_address}`, d?.client_id);
-    App.toast('❌ Deal fell through — client notified (check Approvals)');
+      `Deal fell through: ${d?.property_address}${stakesNotified ? ` · ${stakesNotified} stakeholder notice${stakesNotified === 1 ? '' : 's'} queued` : ''}`, d?.client_id);
+    App.toast(`❌ Deal fell through — client${stakesNotified ? ` and ${stakesNotified} stakeholder${stakesNotified === 1 ? '' : 's'}` : ''} notified (check Approvals)`);
     Pipeline.load(); Clients.load(); App.loadOverview();
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
   },
