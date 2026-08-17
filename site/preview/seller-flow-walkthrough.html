@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Seller side, start to finish</title>
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  body { background: var(--bg); color: var(--text1); margin: 0; padding: 18px 14px 40px;
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: var(--text2); margin: 0 0 18px; line-height: 1.6; }
+
+  /* ── Player chrome ── */
+  .bar { height: 4px; background: var(--bg2); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent2); border-radius: 99px; }
+
+  .stage { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+           padding: 18px; min-height: 366px; position: relative; overflow: hidden; }
+
+  .scene-no { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+              color: var(--accent2); margin-bottom: 6px; }
+  .scene-title { font-size: 17px; font-weight: 800; margin-bottom: 5px; line-height: 1.3; }
+  .scene-cap { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+
+  .ctrls { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .ctrls .btn { padding: 7px 13px; font-size: 13px; }
+  .clock { font-size: 12px; color: var(--text2); margin-left: auto; }
+
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 12px; }
+  .chip { font-size: 10.5px; padding: 4px 8px; border-radius: 99px; cursor: pointer;
+          background: var(--bg2); color: var(--text2); border: 1px solid transparent; white-space: nowrap; }
+  .chip.on { background: var(--accent); color: #fff; }
+  .chip:hover { border-color: var(--accent2); }
+
+  /* ── Reusable bits inside scenes ── */
+  .r { opacity: 0; transform: translateY(9px); animation: rise .42s ease forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @keyframes pulseIn { 0% { transform: scale(.9); opacity: 0 } 60% { transform: scale(1.04) } 100% { transform: scale(1); opacity: 1 } }
+
+  .tile { background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+          padding: 11px 13px; margin-bottom: 8px; font-size: 13px; }
+  .tile b { display: block; font-size: 13.5px; margin-bottom: 2px; }
+  .tile span { color: var(--text2); font-size: 12px; }
+
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+         padding: 8px 11px; border-radius: 9px; background: var(--bg); margin-bottom: 6px; font-size: 12.5px; }
+  .row .amt { font-weight: 800; white-space: nowrap; }
+  .win { background: rgba(34,197,94,.14); border: 1px solid var(--green); }
+  .dec { opacity: .5; }
+
+  .green { color: var(--green); } .red { color: var(--red); }
+  .yellow { color: var(--yellow); } .accent { color: var(--accent2); }
+
+  .mail { background: #fff; color: #202124; border-radius: 10px; padding: 13px 15px; font-size: 12.5px;
+          line-height: 1.6; box-shadow: 0 8px 26px rgba(0,0,0,.3); }
+  .mail h4 { margin: 0 0 7px; font-size: 13.5px; color: #111; }
+  .mail .meta { font-size: 11px; color: #5f6368; margin-bottom: 9px; }
+  /* Label above, bar below. Side by side, the label wraps under its own bar. */
+  .mail .barrow { margin: 7px 0; font-size: 11.5px; }
+  .mail .barrow em { display: block; font-style: normal; margin-bottom: 3px; }
+  .mail .barrow i { display: block; height: 13px; border-radius: 4px; background: #8a8f98; }
+  .mail .barrow i.top { background: #157347; }
+
+  .push { background: #1c1c1e; border: 1px solid rgba(255,255,255,.14); border-radius: 13px;
+          padding: 11px 13px; font-size: 12.5px; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+          animation: pulseIn .5s ease forwards; }
+  .push b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .push span { color: #a1a1a6; font-size: 11.5px; }
+
+  .drop { border: 1.5px dashed var(--accent2); border-radius: 11px; padding: 16px; text-align: center;
+          font-size: 12.5px; color: var(--text2); background: rgba(124,124,255,.07); }
+  .pdf { display: inline-flex; align-items: center; gap: 7px; background: var(--bg); border: 1px solid var(--border);
+         border-radius: 8px; padding: 7px 11px; font-size: 12px; animation: drops 1.1s ease forwards; }
+  @keyframes drops { 0% { transform: translateY(-52px) rotate(-7deg); opacity: 0 } 70% { transform: translateY(4px) rotate(0) } 100% { transform: none; opacity: 1 } }
+
+  .fld { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; background: var(--bg);
+         border-radius: 7px; margin-bottom: 5px; font-size: 12.5px; }
+  .fld span { color: var(--text2); }
+  .fld b { font-weight: 700; }
+
+  .stagebar { display: flex; gap: 3px; margin: 4px 0 10px; }
+  .stagebar div { flex: 1; height: 7px; border-radius: 99px; background: var(--bg2); }
+  .stagebar div.done { background: var(--accent); }
+
+  .gap { display: flex; gap: 9px; align-items: flex-start; padding: 9px 11px; border-radius: 9px;
+         background: var(--bg); margin-bottom: 7px; font-size: 12.5px; border-left: 2px solid var(--yellow); }
+
+  .note { font-size: 12px; color: var(--text2); margin-top: 14px; line-height: 1.6;
+          border-top: 1px solid var(--border); padding-top: 12px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .r, .pdf, .push { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>The seller side, start to finish</h1>
+  <p class="sub">Every step from the day they fill in your form to the day the deal lands in your pipeline.
+     Made-up names and a made-up property. It plays on its own, or step through it yourself.</p>
+
+  <div class="bar"><i id="prog"></i></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="ctrls">
+    <button class="btn btn-outline btn-sm" onclick="Show.prev()">‹ Back</button>
+    <button class="btn btn-primary btn-sm" id="pp" onclick="Show.toggle()">⏸ Pause</button>
+    <button class="btn btn-outline btn-sm" onclick="Show.next()">Next ›</button>
+    <button class="btn btn-outline btn-sm" onclick="Show.go(0)">↻ Replay</button>
+    <span class="clock" id="clock"></span>
+  </div>
+
+  <div class="chips" id="chips"></div>
+</div>
+
+<script>
+const money = n => '$' + Number(n).toLocaleString();
+
+const SCENES = [
+  {
+    tag: 'The front door',
+    title: 'A seller fills in your form',
+    cap: 'Your seller intake form, the one on your site. It lands in Form Responses with the property already on it.',
+    dur: 5200,
+    html: `
+      <div class="tile r" style="animation-delay:.05s"><b>Dana Whitcombe</b>
+        <span>dana.whitcombe@example.com · 709 555 0132</span></div>
+      <div class="tile r" style="animation-delay:.35s"><b>48 Harbourview Crescent, St. John's</b>
+        <span>Detached · 3 bed · 2 bath · 1,640 sq ft</span></div>
+      <div class="tile r" style="animation-delay:.65s"><b>Reason and timing</b>
+        <span>Upsizing · wants to be sold within 3 months · thinking around $430K</span></div>
+      <div class="tile r" style="animation-delay:.95s"><b>Consent recorded</b>
+        <span class="green">Agreed to be contacted, with the date and time stored</span></div>`
+  },
+  {
+    tag: 'One tap',
+    title: 'You tap Add as Client',
+    cap: 'Four things happen off that one tap. None of them are yours to remember.',
+    dur: 5600,
+    html: `
+      <div class="tile r" style="animation-delay:.1s"><b>👤 Client created</b><span>Dana Whitcombe, filed as a seller</span></div>
+      <div class="tile r" style="animation-delay:.6s"><b>🏷️ Listing created</b><span>48 Harbourview Crescent, sitting at Pre-Listing</span></div>
+      <div class="tile r" style="animation-delay:1.1s"><b>📁 Folder started</b><span>Her intake summary filed on day one</span></div>
+      <div class="tile r" style="animation-delay:1.6s"><b>📨 Welcome email drafted</b>
+        <span class="accent">Waiting in Approvals. Nothing sends without you.</span></div>`
+  },
+  {
+    tag: 'Getting to market',
+    title: 'Pre-listing through to live on MLS',
+    cap: 'You move it along as the work gets done. Mark Listed on MLS asks for the number and stamps the date.',
+    dur: 5200,
+    html: `
+      <div class="r">
+        <div class="stagebar">
+          <div class="done"></div><div class="done"></div><div class="done"></div>
+          <div class="done"></div><div class="done"></div><div></div><div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;">
+          <span class="accent" style="font-weight:800;">📍 Active on MLS</span><span>Stage 5 of 7</span>
+        </div>
+      </div>
+      <div class="tile r" style="animation-delay:.5s;margin-top:14px;"><b>MLS# 1302884</b><span>Listed Aug 5 · asking ${money(429000)}</span></div>
+      <div class="tile r" style="animation-delay:1s"><b>⏰ Offers presented</b>
+        <span class="yellow">Aug 18 at 6:00 PM. Bidding closes at that moment, not at midnight.</span></div>`
+  },
+  {
+    tag: 'On the market',
+    title: 'Showings get logged as they come in',
+    cap: 'Booking stays in BrokerBay. When the confirmation lands, two taps: date and time from dropdowns, brokerage fills itself in from ones you have used before.',
+    dur: 6400,
+    html: `
+      <div class="row r" style="animation-delay:.1s"><span>🚪 Aug 8, 2:30 PM · Royal LePage</span><span class="green">Completed</span></div>
+      <div class="row r" style="animation-delay:.7s"><span>🚪 Aug 9, 11:00 AM · Hanlon Realty</span><span class="green">Completed</span></div>
+      <div class="row r" style="animation-delay:1.3s"><span>🚪 Aug 11, 5:00 PM · RE/MAX</span><span class="green">Completed</span></div>
+      <div class="row r" style="animation-delay:1.9s"><span>🚪 Aug 13, 6:30 PM · eXp Realty</span><span class="green">Completed</span></div>
+      <div class="row r" style="animation-delay:2.5s"><span>🚪 Aug 14, 1:00 PM · Keller Williams</span><span class="yellow">Booked</span></div>
+      <div class="note r" style="animation-delay:3.1s">Five showings on the record. Nobody has to remember who came through.</div>`
+  },
+  {
+    tag: 'What they said',
+    title: 'Feedback, kept honest',
+    cap: 'Their words stay their words. Your read on it stays separate, so the seller report can quote one and summarise the other.',
+    dur: 5600,
+    html: `
+      <div class="tile r" style="animation-delay:.1s"><b>Hanlon Realty · Aug 9</b>
+        <span>"Buyers liked the layout, thought the kitchen dates it. Price felt fair."</span></div>
+      <div class="tile r" style="animation-delay:.6s"><b>RE/MAX · Aug 11</b>
+        <span>"Second viewing likely. They are comparing against two others on the same street."</span></div>
+      <div class="tile r" style="animation-delay:1.1s" style2=""><b>Your read</b>
+        <span class="accent">Kitchen keeps coming up. Worth raising before we talk price.</span></div>`
+  },
+  {
+    tag: 'The weekly answer',
+    title: 'The seller gets the picture, not a phone call',
+    cap: 'Send Showing Report builds it from the record. It goes to Approvals first, so you edit it before it goes.',
+    dur: 7000,
+    html: `
+      <div class="mail r" style="animation-delay:.15s">
+        <h4>Your week at 48 Harbourview Crescent</h4>
+        <div class="meta">To Dana Whitcombe · from Maxwell Midodzi, eXp Realty</div>
+        Hi Dana,<br><br>
+        <b>5 showings</b> in the last 7 days, up from 3 the week before.<br><br>
+        Aug 8 · Royal LePage<br>
+        Aug 9 · Hanlon Realty<br>
+        Aug 11 · RE/MAX<br>
+        Aug 13 · eXp Realty<br>
+        Aug 14 · Keller Williams<br><br>
+        What agents said: the layout is landing well, and the kitchen came up twice.
+        Nobody has raised the price as a problem.
+      </div>
+      <div class="tile r" style="animation-delay:1.5s;margin-top:12px;"><b>📨 Sitting in Approvals</b>
+        <span class="accent">You read it, change what you want, tap Approve. Then it sends.</span></div>`
+  },
+  {
+    tag: 'The nudge',
+    title: 'The deadline comes to you',
+    cap: 'Three days out, the board says so and your phone says so. You do not have to keep the date in your head.',
+    dur: 5600,
+    html: `
+      <div class="push r" style="animation-delay:.2s">
+        <b>⏰ Offers presented in 3 days</b>
+        <span>48 Harbourview Crescent · Aug 18 at 6:00 PM · 5 showings this week</span>
+      </div>
+      <div class="tile r" style="animation-delay:1s;margin-top:14px;"><b>✍️ Draft seller email</b>
+        <span>One tap writes Dana a note about what is coming, with the week's numbers already in it. Straight to Approvals to edit.</span></div>`
+  },
+  {
+    tag: 'Offer day',
+    title: 'You drop the offer in',
+    cap: 'You download it from BrokerBay and drag it onto the listing. On your phone you tap and choose it.',
+    dur: 6200,
+    html: `
+      <div class="drop r" style="animation-delay:.05s">
+        <div style="margin-bottom:11px;">📄 Drop the offer PDF here</div>
+        <div class="pdf" style="animation-delay:.5s">📕 Offer-48Harbourview-Costigan.pdf</div>
+      </div>
+      <div class="tile r" style="animation-delay:1.7s;margin-top:14px;"><b>Reading it…</b>
+        <span>Amount, deposit, buyer, their agent, brokerage, conditions and the condition dates.</span></div>`
+  },
+  {
+    tag: 'It fills itself in',
+    title: 'The figures come out of the document',
+    cap: 'Then you check them against the page. Nothing is recorded until you do, because the offer amount is the one number that cannot be wrong.',
+    dur: 7000,
+    html: `
+      <div class="fld r" style="animation-delay:.1s"><span>Offer amount</span><b>${money(441500)} <span class="green">+2.9% vs asking</span></b></div>
+      <div class="fld r" style="animation-delay:.45s"><span>Deposit</span><b>${money(25000)}</b></div>
+      <div class="fld r" style="animation-delay:.8s"><span>Buyer</span><b>R. and M. Costigan</b></div>
+      <div class="fld r" style="animation-delay:1.15s"><span>Buyer's agent</span><b>T. Regan, Hanlon Realty</b></div>
+      <div class="fld r" style="animation-delay:1.5s"><span>Agent email</span><b>t.regan@example.com</b></div>
+      <div class="fld r" style="animation-delay:1.85s"><span>Conditions</span><b>Financing, inspection</b></div>
+      <div class="fld r" style="animation-delay:2.2s"><span>Closing</span><b>Oct 13, 2026</b></div>
+      <div class="note r" style="animation-delay:2.6s">The PDF stays attached to the offer, so any figure can be traced back to the page it came off.</div>`
+  },
+  {
+    tag: 'The rest arrive',
+    title: 'Three more come in before six',
+    cap: 'Drop them all at once and it works through them one at a time. Ranking updates as each one lands.',
+    dur: 6000,
+    html: `
+      <div class="row r" style="animation-delay:.1s"><span>📄 Offer #1 · Buyer A · financing, inspection</span><span class="amt">${money(421000)}</span></div>
+      <div class="row r" style="animation-delay:.6s"><span>📄 Offer #2 · Costigan · financing</span><span class="amt">${money(441500)}</span></div>
+      <div class="row r" style="animation-delay:1.1s"><span>📄 Offer #3 · Buyer C · none</span><span class="amt">${money(452000)}</span></div>
+      <div class="row r" style="animation-delay:1.6s"><span>📄 Offer #4 · Buyer D · inspection</span><span class="amt">${money(437000)}</span></div>`
+  },
+  {
+    tag: '6:00 PM',
+    title: 'Bidding closes on its own',
+    cap: 'The presentation time is the close. Nothing late slips in, and the offers rank themselves against asking.',
+    dur: 6400,
+    html: `
+      <div class="r" style="font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--text2);margin-bottom:8px;">
+        OFFERS (4) · <span class="yellow">BIDDING CLOSED, RANKED</span></div>
+      <div class="row win r" style="animation-delay:.3s"><span>🏆 Offer #3 · Buyer C · unconditional</span>
+        <span class="amt">${money(452000)}<br><span class="green" style="font-size:11px;">+5.4%</span></span></div>
+      <div class="row r" style="animation-delay:.7s"><span>#2 Offer #2 · Costigan · financing</span>
+        <span class="amt">${money(441500)}<br><span class="green" style="font-size:11px;">+2.9%</span></span></div>
+      <div class="row r" style="animation-delay:1.1s"><span>#3 Offer #4 · Buyer D · inspection</span>
+        <span class="amt">${money(437000)}<br><span class="green" style="font-size:11px;">+1.9%</span></span></div>
+      <div class="row r" style="animation-delay:1.5s"><span>#4 Offer #1 · Buyer A · financing, inspection</span>
+        <span class="amt">${money(421000)}<br><span class="red" style="font-size:11px;">-1.9%</span></span></div>
+      <div class="note r" style="animation-delay:2s">Highest is not automatically best. Conditions and deposit sit right next to the number so the seller sees the whole picture.</div>`
+  },
+  {
+    tag: 'Presenting',
+    title: 'Dana sees every offer, drawn out',
+    cap: 'The snapshot email charts all four against her asking price. It goes through Approvals like everything else.',
+    dur: 6400,
+    html: `
+      <div class="mail r" style="animation-delay:.15s">
+        <h4>Offer summary, 48 Harbourview Crescent</h4>
+        <div class="meta">4 offers · asking ${money(429000)}</div>
+        <div class="barrow"><em>Asking ${money(429000)}</em><i style="width:95%"></i></div>
+        <div class="barrow"><em>🏆 Offer #3 — <b>${money(452000)}</b> <b style="color:#157347">(+5.4%)</b></em><i class="top" style="width:100%"></i></div>
+        <div class="barrow"><em>Offer #2 — <b>${money(441500)}</b> (+2.9%)</em><i style="width:97.7%"></i></div>
+        <div class="barrow"><em>Offer #4 — <b>${money(437000)}</b> (+1.9%)</em><i style="width:96.7%"></i></div>
+        <div class="barrow"><em>Offer #1 — <b>${money(421000)}</b> (-1.9%)</em><i style="width:93.1%"></i></div>
+        <div style="margin-top:9px;font-size:11.5px;color:#5f6368;">
+          The highest offer is not always the strongest. Nothing is decided without you.</div>
+      </div>`
+  },
+  {
+    tag: 'She picks',
+    title: 'One tap turns it into a deal',
+    cap: 'Pick Winner does the bookkeeping so you can get on the phone.',
+    dur: 6200,
+    html: `
+      <div class="row win r" style="animation-delay:.1s"><span>🏆 <b>WINNER</b> · Offer #3 · Buyer C</span><span class="amt">${money(452000)}</span></div>
+      <div class="row dec r" style="animation-delay:.5s"><span>DECLINED · Offer #2</span><span class="amt">${money(441500)}</span></div>
+      <div class="row dec r" style="animation-delay:.75s"><span>DECLINED · Offer #4</span><span class="amt">${money(437000)}</span></div>
+      <div class="row dec r" style="animation-delay:1s"><span>DECLINED · Offer #1</span><span class="amt">${money(421000)}</span></div>
+      <div class="tile r" style="animation-delay:1.5s;margin-top:12px;"><b>🏠 Listing moved to Under Contract</b>
+        <span>Sell-side deal opened in your Pipeline · 2.5% commission recorded on the sell side</span></div>`
+  },
+  {
+    tag: 'Not built yet',
+    title: 'Where it still stops',
+    cap: 'This is the honest end of the walkthrough. Everything above works. These four do not, yet.',
+    dur: 9000,
+    html: `
+      <div class="gap r" style="animation-delay:.1s"><span>1.</span><div><b>The other agents hear nothing.</b>
+        You still write the winner and the three declines yourself.</div></div>
+      <div class="gap r" style="animation-delay:.6s"><span>2.</span><div><b>The sell-side deal lands with no task list.</b>
+        The 22-task checklist only builds on the buy side, and those are buyer tasks anyway.</div></div>
+      <div class="gap r" style="animation-delay:1.1s"><span>3.</span><div><b>It shows buyer stages.</b>
+        Twelve seller stages are written but wired to nothing.</div></div>
+      <div class="gap r" style="animation-delay:1.6s"><span>4.</span><div><b>No deposit or financing-letter tracking on the sell side.</b>
+        The bit you asked for, from winner through to closing.</div></div>
+      <div class="note r" style="animation-delay:2.2s">Next build takes these in order, so the run from "she picked someone" to closing day is covered.</div>`
+  },
+];
+
+const Show = {
+  i: -1, playing: true, t: null, raf: null, started: 0,
+
+  boot() {
+    document.getElementById('chips').innerHTML = SCENES.map((s, n) =>
+      `<span class="chip" id="chip-${n}" onclick="Show.go(${n})">${n + 1}. ${s.tag}</span>`).join('');
+    Show.go(0);
+  },
+
+  go(n) {
+    clearTimeout(Show.t); cancelAnimationFrame(Show.raf);
+    Show.i = (n + SCENES.length) % SCENES.length;
+    const s = SCENES[Show.i];
+    document.getElementById('stage').innerHTML =
+      `<div class="scene-no">${Show.i + 1} of ${SCENES.length} · ${s.tag}</div>
+       <div class="scene-title">${s.title}</div>
+       <div class="scene-cap">${s.cap}</div>${s.html}`;
+    SCENES.forEach((_, k) => document.getElementById('chip-' + k)
+      .classList.toggle('on', k === Show.i));
+    Show.started = performance.now();
+    Show.tick();
+    if (Show.playing) Show.t = setTimeout(Show.next, s.dur);
+  },
+
+  tick() {
+    const s = SCENES[Show.i];
+    const step = () => {
+      const el = Math.min(performance.now() - Show.started, s.dur);
+      document.getElementById('prog').style.width = (el / s.dur * 100) + '%';
+      document.getElementById('clock').textContent =
+        Show.playing ? `${Math.ceil((s.dur - el) / 1000)}s` : 'paused';
+      if (Show.playing && el < s.dur) Show.raf = requestAnimationFrame(step);
+    };
+    step();
+  },
+
+  next() { Show.go(Show.i + 1); },
+  prev() { Show.go(Show.i - 1); },
+
+  toggle() {
+    Show.playing = !Show.playing;
+    document.getElementById('pp').textContent = Show.playing ? '⏸ Pause' : '▶ Play';
+    clearTimeout(Show.t);
+    if (Show.playing) Show.go(Show.i); else cancelAnimationFrame(Show.raf);
+  },
+};
+
+Show.boot();
+</script>
+</body>
+</html>
