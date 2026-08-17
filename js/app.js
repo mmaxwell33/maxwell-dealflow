@@ -279,6 +279,7 @@ const App = {
     setInterval(() => { if (typeof Inbox !== 'undefined') Inbox.syncGmail(true); }, 5 * 60 * 1000);
     setInterval(() => { if (typeof Offers !== 'undefined') Offers.checkFollowUps(); }, 5 * 60 * 1000);
     setInterval(() => { if (typeof Notify !== 'undefined') Notify.checkInactiveClients(7); }, 6 * 60 * 60 * 1000);
+    setInterval(() => { if (typeof Listings !== 'undefined') Listings.checkDeadlines(); }, 6 * 60 * 60 * 1000);
   },
 
   // Drain a queue of zero-arg job functions one at a time, yielding to the

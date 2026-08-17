@@ -80,6 +80,11 @@ serve(async (req) => {
     const messages   = Array.isArray(body.messages) ? body.messages : [];
     const model      = typeof body.model === 'string' ? body.model : 'claude-haiku-4-5';
     const maxTokens  = Number.isFinite(body.max_tokens) ? body.max_tokens : 1500;
+    // Structured outputs: callers that need guaranteed-parseable JSON (the offer
+    // PDF reader) pass output_config.format with a json_schema. Forwarded as-is
+    // when present; omitted entirely otherwise so ordinary chat is unchanged.
+    const outputConfig = (body.output_config && typeof body.output_config === 'object')
+      ? body.output_config : null;
 
     if (!messages.length) return json({ error: 'No messages provided' }, 400);
 
@@ -100,6 +105,7 @@ serve(async (req) => {
         max_tokens: maxTokens,
         system,
         messages,
+        ...(outputConfig ? { output_config: outputConfig } : {}),
       }),
     });
 
@@ -109,8 +115,13 @@ serve(async (req) => {
     }
 
     const data = await res.json();
-    const text = data.content?.[0]?.text || '';
-    return json({ text }, 200);
+    // Take the first TEXT block, not content[0]. On models where thinking is on
+    // by default the first block is a thinking block whose text is empty, so
+    // indexing [0] returned '' and the caller saw a silent empty answer.
+    const text = (Array.isArray(data.content)
+      ? data.content.find((b: { type?: string }) => b?.type === 'text')?.text
+      : '') || '';
+    return json({ text, stop_reason: data.stop_reason ?? null }, 200);
   } catch (err) {
     return json({ error: (err as Error).message || 'Unexpected error' }, 500);
   }

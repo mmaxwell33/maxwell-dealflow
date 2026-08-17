@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PREVIEW — Listing showings + seller report</title>
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  body { background: var(--bg); color: var(--text1); padding: 20px; max-width: 780px; margin: 0 auto; }
+  .pv-head { border: 1px dashed var(--text2); border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; }
+  .pv-head h1 { font-size: 16px; margin: 0 0 6px; }
+  .pv-head p { font-size: 13px; color: var(--text2); margin: 0; line-height: 1.6; }
+  .pv-sec { margin: 28px 0 12px; font-size: 12px; font-weight: 800; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--accent2); }
+  .pv-note { font-size: 12.5px; color: var(--text2); margin-bottom: 10px; line-height: 1.6; }
+  iframe { width: 100%; height: 720px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+  #modal-host:empty { display: none; }
+  #modal-host { background: var(--card); border: 1px solid var(--accent); border-radius: 12px;
+                padding: 18px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div class="pv-head">
+  <h1>Preview only — nothing here is live</h1>
+  <p>Real <code>js/listings.js</code> and <code>js/showings.js</code> rendering against fake data.
+     The database is stubbed, so buttons draw the real screens but save nothing.
+     Names and the address are invented.</p>
+</div>
+
+<div class="pv-sec">1. The listing board, with the deadline nudge on top</div>
+<div class="pv-note">The banner appears by itself when the offer review date is within 3 days.
+  Under the offers, the new showings block: counts, the last few showings, and the two buttons.</div>
+<div id="listings-list"></div>
+
+<div class="pv-sec">2. Log Showing — the two-tap capture</div>
+<div class="pv-note">This is what opens when a confirmation lands from your showing app.
+  Date and time are dropdowns, brokerage remembers what you have used before
+  (the chips under the field are one tap).</div>
+<button class="btn btn-primary" onclick="Showings.quickLog('L1')">👀 Open the Log Showing screen</button>
+<button class="btn btn-outline" onclick="Showings.reportModal('L1')">📈 Open the Send Report screen</button>
+<button class="btn btn-outline" onclick="Listings.draftDeadlineEmail('L1')">✍️ Draft the deadline email</button>
+<div id="modal-host"></div>
+
+<div class="pv-sec">3. What the seller receives</div>
+<div class="pv-note">Generated from the logged showings, then queued to Approvals.
+  You can edit every word there before it sends.</div>
+<iframe id="mail" title="Seller showing report preview"></iframe>
+
+<script>
+// ── Stubs: just enough of the app for the two real modules to run ──────────
+const currentAgent = { id: 'preview-agent', full_name: 'Maxwell Delali Midodzi',
+                       email: 'Maxwell.Midodzi@exprealty.com', phone: '709-325-0545' };
+
+const _chain = () => { const c = {}; ['select','eq','in','not','gte','lte','order','limit','update','insert','delete']
+  .forEach(m => c[m] = () => c); c.then = r => r({ data: [], error: null }); c.maybeSingle = c.single = async () => ({ data: null, error: null }); return c; };
+const db = { from: _chain, storage: { from: () => ({ upload: async () => ({}) }) }, rpc: async () => ({ data: null }) };
+
+const App = {
+  esc: s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+  fmtDate: d => d ? new Date(String(d).slice(0,10) + 'T00:00:00')
+      .toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+  fmtMoney: n => '$' + Number(n || 0).toLocaleString(),
+  openModal: html => { document.getElementById('modal-host').innerHTML = html;
+                       document.getElementById('modal-host').scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+  closeModal: () => { document.getElementById('modal-host').innerHTML = ''; },
+  toast: m => alert('Toast: ' + m),
+  getAuthUser: async () => ({ id: 'preview-agent' }),
+  pushNotify: () => {},
+  logActivity: () => {},
+};
+
+const EmailFormat = {
+  styles: () => `body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;color:#202124;padding:22px;}p{margin:0 0 14px;}`,
+  signatureHTML: a => `<div style="border-top:1px solid #e0e3e7;padding-top:12px;margin-top:18px;font-size:13px;color:#5f6368;">
+      <strong style="color:#202124;">${a.full_name}</strong><br>REALTOR® · eXp Realty<br>709-325-0545</div>`,
+  disclaimerHTML: () => `<div style="font-size:11px;color:#9aa0a6;margin-top:14px;">Sent through Maxwell DealFlow. Reply to this email to reach Maxwell directly.</div>`,
+  signaturePlain: a => `${a.full_name}\nREALTOR® · eXp Realty\n709-325-0545`,
+  disclaimerPlain: () => `\n\nSent through Maxwell DealFlow.`,
+};
+
+const Notify = { queue: async () => { alert('Queued to Approvals (stubbed in this preview)'); return true; } };
+</script>
+
+<script src="/js/listings.js"></script>
+<script src="/js/showings.js"></script>
+
+<script>
+// ── Fake data: one active listing, 5 showings, 2 offers, deadline in 2 days ──
+const _iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,10);
+const dAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return _iso(d); };
+const dIn  = n => { const d = new Date(); d.setDate(d.getDate() + n); return _iso(d); };
+
+Listings.all = [{
+  id: 'L1',
+  property_address: '48 Harbourview Crescent, St. John\'s',
+  clients: { full_name: 'Dana Whitcombe', email: 'dana.whitcombe@example.com' },
+  asking_price: 429000,
+  mls_number: '1302884',
+  listing_status: 'active',
+  listed_at: dAgo(11),
+  offer_review_deadline: dIn(2),
+  target_sold_date: dIn(46),
+  bidding_closed_at: null,
+  client_id: 'C1',
+  last_seller_report_at: dAgo(7),
+}];
+
+Listings._offers = { L1: [
+  { id: 'O1', listing_id: 'L1', offer_no: 1, amount: 421000, buyer_name: 'Buyer A', conditions: 'Financing, inspection' },
+  { id: 'O2', listing_id: 'L1', offer_no: 2, amount: 435500, buyer_name: 'Buyer B', conditions: 'Financing' },
+]};
+
+Showings._byListing = { L1: [
+  { id: 'S1', listing_id: 'L1', showing_date: dAgo(0), showing_time: '17:30', brokerage: 'Royal LePage',
+    showing_agent: 'K. Nolan', status: 'booked', feedback: null, feedback_rating: null },
+  { id: 'S2', listing_id: 'L1', showing_date: dAgo(1), showing_time: '13:00', brokerage: 'RE/MAX',
+    showing_agent: null, status: 'completed', feedback_rating: 'interested',
+    feedback: 'Buyers loved the kitchen and the light. Second visit likely this week.' },
+  { id: 'S3', listing_id: 'L1', showing_date: dAgo(1), showing_time: '10:30', brokerage: 'Hanlon Realty',
+    showing_agent: 'T. Regan', status: 'completed', feedback_rating: 'maybe',
+    feedback: 'Nice house, they felt the yard was small for the asking price.' },
+  { id: 'S4', listing_id: 'L1', showing_date: dAgo(2), showing_time: '16:00', brokerage: 'eXp Realty',
+    showing_agent: null, status: 'completed', feedback_rating: 'not_a_fit',
+    feedback: 'Wanted a garage, moving on.' },
+  { id: 'S5', listing_id: 'L1', showing_date: dAgo(5), showing_time: '11:00', brokerage: 'Keller Williams',
+    showing_agent: null, status: 'completed', feedback: null, feedback_rating: null },
+]};
+Showings._brokerages = ['Royal LePage', 'RE/MAX', 'Hanlon Realty', 'eXp Realty', 'Keller Williams'];
+
+Listings.render();
+
+// Render the actual generated email into the iframe
+const rep = Showings.buildReport(Listings.all[0], 3);
+document.getElementById('mail').srcdoc = rep ? rep.html : '<p style="font-family:sans-serif;padding:20px;">No showings in window.</p>';
+</script>
+</body>
+</html>

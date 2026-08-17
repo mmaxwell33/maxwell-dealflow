@@ -46,6 +46,8 @@ const Listings = {
         .select('*').in('listing_id', ids).order('offer_no', { ascending: true });
       if (offErr) console.warn('[Listings] listing_offers unavailable (run migration 058):', offErr.message);
       (offs || []).forEach(o => { (Listings._offers[o.listing_id] = Listings._offers[o.listing_id] || []).push(o); });
+      // Showings on these listings (migration 091) — non-fatal if not migrated yet.
+      if (typeof Showings !== 'undefined') await Showings.loadFor(ids);
     }
     Listings.render();
   },
@@ -57,7 +59,115 @@ const Listings = {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">No listings yet</div><div class="empty-sub">When a seller submits their intake form and you add them as a client, their property appears here automatically.</div></div>`;
       return;
     }
-    el.innerHTML = Listings.all.map(l => Listings.card(l)).join('');
+    el.innerHTML = Listings.deadlineBanner() + Listings.all.map(l => Listings.card(l)).join('');
+  },
+
+  // ── Offer deadline watcher ────────────────────────────────────────────────
+  // An offer review deadline that only sits on a card is a deadline you find
+  // out about afterwards. Anything landing within 3 days shows a banner at the
+  // top of the board and offers a seller email, DRAFTED not sent: it goes to
+  // Approvals like everything else, where it can be edited before it leaves.
+  DEADLINE_WINDOW_DAYS: 3,
+
+  _daysUntil(d) {
+    if (!d) return null;
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const x = new Date(String(d).slice(0, 10) + 'T00:00:00');
+    return Math.round((x - t) / 86400000);
+  },
+
+  dueSoon() {
+    return Listings.all.filter(l => {
+      if (['sold', 'withdrawn'].includes(l.listing_status)) return false;
+      if (l.bidding_closed_at) return false;   // already reviewing, no nudge needed
+      const n = Listings._daysUntil(l.offer_review_deadline);
+      return n !== null && n >= 0 && n <= Listings.DEADLINE_WINDOW_DAYS;
+    });
+  },
+
+  deadlineBanner() {
+    const due = Listings.dueSoon();
+    if (!due.length) return '';
+    return due.map(l => {
+      const n = Listings._daysUntil(l.offer_review_deadline);
+      const when = n === 0 ? 'TODAY' : n === 1 ? 'TOMORROW' : `in ${n} days`;
+      const nOffers = (Listings._offers[l.id] || []).length;
+      return `
+        <div style="background:rgba(234,179,8,0.12);border:1px solid var(--yellow);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:800;color:var(--yellow);margin-bottom:4px;">⏰ Offer review ${when} — ${Listings.esc(l.property_address)}</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-bottom:9px;">
+            ${Listings.fmtD(l.offer_review_deadline)} · ${nOffers} offer${nOffers === 1 ? '' : 's'} logged${typeof Showings !== 'undefined' ? ` · ${Showings.countSince(l.id, 7)} showing${Showings.countSince(l.id, 7) === 1 ? '' : 's'} in the last 7 days` : ''}
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Listings.draftDeadlineEmail('${l.id}')">✍️ Draft seller email</button>
+            <button class="btn btn-outline btn-sm" onclick="Listings.setDates('${l.id}')">📅 Move the date</button>
+          </div>
+        </div>`;
+    }).join('');
+  },
+
+  // Background check — runs on an interval from app.js, so the nudge arrives
+  // even when the Listings tab is closed. Pushes once per listing per day.
+  async checkDeadlines() {
+    if (!currentAgent?.id) return;
+    // Local calendar dates, not UTC — see Showings._localISO for why.
+    const localISO = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const today = localISO(new Date());
+    const limit = new Date(); limit.setDate(limit.getDate() + Listings.DEADLINE_WINDOW_DAYS);
+    const { data, error } = await db.from('listings')
+      .select('id, property_address, offer_review_deadline, offer_deadline_alert_at, listing_status, bidding_closed_at')
+      .eq('agent_id', currentAgent.id)
+      .not('offer_review_deadline', 'is', null)
+      .gte('offer_review_deadline', today)
+      .lte('offer_review_deadline', localISO(limit));
+    if (error || !data?.length) return;
+    for (const l of data) {
+      if (['sold', 'withdrawn'].includes(l.listing_status) || l.bidding_closed_at) continue;
+      // Once a day at most
+      if (l.offer_deadline_alert_at && (Date.now() - new Date(l.offer_deadline_alert_at).getTime()) < 20 * 3600 * 1000) continue;
+      const n = Listings._daysUntil(l.offer_review_deadline);
+      const when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+      if (App.pushNotify) App.pushNotify('⏰ Offer review ' + when, l.property_address, 'listings');
+      await db.from('listings').update({ offer_deadline_alert_at: new Date().toISOString() }).eq('id', l.id);
+    }
+  },
+
+  // Drafts the "we review offers on X" note to the seller. Queued to Approvals,
+  // never sent from here — Approvals has Edit Email for the final wording.
+  async draftDeadlineEmail(listingId) {
+    const l = Listings.all.find(x => x.id === listingId);
+    if (!l) return;
+    const sellerEmail = l.clients?.email;
+    if (!sellerEmail) { App.toast('⚠️ This seller has no email on file — add it on their client record first', 'var(--red)'); return; }
+    if (typeof Notify === 'undefined' || !Notify.queue) { App.toast('⚠️ Email system not loaded — reload and retry', 'var(--red)'); return; }
+
+    const first = (l.clients?.full_name || 'there').split(' ')[0];
+    const n = Listings._daysUntil(l.offer_review_deadline);
+    const when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+    const nOffers = (Listings._offers[listingId] || []).length;
+    const nShow = (typeof Showings !== 'undefined') ? Showings.countSince(listingId, 7) : 0;
+
+    const body =
+      `Hi ${first},\n\n` +
+      `A quick note that we review offers on ${l.property_address} ${when}, on ${Listings.fmtD(l.offer_review_deadline)}.\n\n` +
+      `Where things stand right now:\n` +
+      `  • ${nOffers} offer${nOffers === 1 ? '' : 's'} received so far\n` +
+      (nShow ? `  • ${nShow} showing${nShow === 1 ? '' : 's'} in the last 7 days\n` : '') +
+      `\nOn the day I will walk you through every offer side by side, the price alongside the conditions and the deposit, so you can see the whole picture before you decide anything. Nothing gets accepted or declined without you.\n\n` +
+      `If you would like to talk before then, call me any time.\n\n` +
+      `Best regards,\n` +
+      ((typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain) ? EmailFormat.signaturePlain(currentAgent) : (currentAgent?.full_name || 'Maxwell Delali Midodzi')) +
+      ((typeof EmailFormat !== 'undefined' && EmailFormat.disclaimerPlain) ? EmailFormat.disclaimerPlain() : '');
+
+    const ok = await Notify.queue('Offer Review Reminder', l.client_id,
+      l.clients?.full_name || 'Seller', sellerEmail,
+      `Offer review ${when} for ${l.property_address}`, body, l.id);
+    if (ok) {
+      App.toast('✍️ Draft queued — open Approvals to edit and send', 'var(--green)');
+      if (App.pushNotify) App.pushNotify('✍️ Seller draft ready', l.property_address, 'approvals');
+    } else {
+      App.toast('⚠️ Could not queue the draft', 'var(--red)');
+    }
   },
 
   // ── Lifecycle progress bar (7 fixed stages, labelled) ──
@@ -92,20 +202,53 @@ const Listings = {
       </div>`;
   },
 
+  // ── When bidding actually ends ────────────────────────────────────────────
+  // Offers are not accepted up to midnight on the deadline date. They are
+  // presented to the seller at a set time, and that instant is the close. So
+  // bidding is closed once EITHER the agent closed it by hand, OR the
+  // presentation time has arrived. Time is plain 'HH:MM' in local time and is
+  // read as local here, which is what "2 PM" on a listing agreement means.
+  presentationAt(l) {
+    if (!l.offer_review_deadline) return null;
+    const d = String(l.offer_review_deadline).slice(0, 10);
+    const t = /^\d{1,2}:\d{2}$/.test(l.offer_review_time || '') ? l.offer_review_time : null;
+    if (!t) return null;                       // date with no time never auto-closes
+    const dt = new Date(`${d}T${t.padStart(5, '0')}:00`);
+    return isNaN(dt.getTime()) ? null : dt;
+  },
+
+  biddingClosed(l) {
+    if (l.bidding_closed_at) return true;
+    const at = Listings.presentationAt(l);
+    return !!at && Date.now() >= at.getTime();
+  },
+
+  fmtTime(t) {
+    if (!/^\d{1,2}:\d{2}$/.test(t || '')) return '';
+    const [h, m] = t.split(':');
+    const H = parseInt(h, 10);
+    return `${H % 12 === 0 ? 12 : H % 12}:${m} ${H >= 12 ? 'PM' : 'AM'}`;
+  },
+
   // ── Offers section (Phase 2) ──
   offersSection(l) {
     const offers = Listings._offers[l.id] || [];
     const asking = Number(l.asking_price || l.list_price || 0);
-    const closed = !!l.bidding_closed_at;
+    const closed = Listings.biddingClosed(l);
+    const autoClosed = closed && !l.bidding_closed_at;
     let rows = '';
     if (!offers.length) {
       rows = `<div style="font-size:12px;color:var(--text2);padding:4px 0;">No offers logged yet.</div>`;
     } else if (!closed) {
       // Bidding open — show in the order received
       rows = offers.map(o => `
-        <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <span>📄 Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}</span>
-          <span class="fw-700">${Listings.money(o.amount)}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>📄 Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}${o.document_path ? ` · <a href="javascript:void(0)" onclick="OfferDrop.openDoc('${Listings.esc(o.document_path)}')" style="font-size:11px;color:var(--accent2);">PDF</a>` : ''}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <span class="fw-700">${Listings.money(o.amount)}</span>
+            <button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10.5px;" onclick="Listings.editOffer('${o.id}')">✏️</button>
+            <button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10.5px;border-color:var(--red);color:var(--red);" onclick="Listings.deleteOffer('${o.id}')">🗑</button>
+          </span>
         </div>`).join('');
     } else {
       // Bidding closed — auto-rank highest → lowest with % vs asking.
@@ -130,8 +273,9 @@ const Listings = {
           : '';
         return `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;border-radius:8px;font-size:13px;${style}">
-            <span>${tag}Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}</span>
-            <span style="display:flex;align-items:center;gap:8px;"><span style="text-align:right;"><span class="fw-800">${Listings.money(o.amount)}</span><br>${pctTxt}</span>${pickBtn}</span>
+            <span>${tag}Offer #${o.offer_no}${o.buyer_name ? ' · ' + Listings.esc(o.buyer_name) : ''}${o.conditions ? ' · <span style="color:var(--text2);font-size:11px;">' + Listings.esc(o.conditions) + '</span>' : ''}${o.document_path ? ` · <a href="javascript:void(0)" onclick="OfferDrop.openDoc('${Listings.esc(o.document_path)}')" style="font-size:11px;color:var(--accent2);">PDF</a>` : ''}</span>
+            <span style="display:flex;align-items:center;gap:8px;"><span style="text-align:right;"><span class="fw-800">${Listings.money(o.amount)}</span><br>${pctTxt}</span>
+              ${winner ? '' : `<button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10.5px;" onclick="Listings.editOffer('${o.id}')">✏️</button>`}${pickBtn}</span>
           </div>`;
       }).join('');
     }
@@ -146,11 +290,105 @@ const Listings = {
     return `
       <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div style="font-size:12px;font-weight:800;letter-spacing:0.04em;color:var(--text2);">OFFERS (${offers.length})${closed ? ' · <span style="color:var(--yellow);">BIDDING CLOSED — RANKED</span>' : ''}</div>
+          <div style="font-size:12px;font-weight:800;letter-spacing:0.04em;color:var(--text2);">OFFERS (${offers.length})${closed ? ' · <span style="color:var(--yellow);">BIDDING CLOSED, RANKED</span>' : ''}</div>
         </div>
+        ${autoClosed ? `<div style="font-size:11.5px;color:var(--yellow);margin-bottom:6px;">⏰ Closed automatically at the presentation time${l.offer_review_time ? ', ' + Listings.fmtTime(l.offer_review_time) : ''}. Move the date or time to take more offers.</div>` : ''}
         ${rows}
+        ${closed ? '' : (typeof OfferDrop !== 'undefined' ? OfferDrop.zone(l.id) : '')}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">${bidBtns}</div>
       </div>`;
+  },
+
+  // ── Edit / delete a logged offer ──────────────────────────────────────────
+  // Anything read off a PDF or typed in a hurry can be wrong. Every field on a
+  // logged offer stays editable right up until a winner is picked.
+  editOffer(offerId) {
+    let o = null, listingId = null;
+    Object.keys(Listings._offers).forEach(lid => {
+      const f = (Listings._offers[lid] || []).find(x => x.id === offerId);
+      if (f) { o = f; listingId = lid; }
+    });
+    if (!o) return;
+    const l = Listings.all.find(x => x.id === listingId);
+    const d = v => v ? String(v).slice(0, 10) : '';
+    App.openModal(`
+      <div class="modal-title">✏️ Edit Offer #${o.offer_no}${l ? ' — ' + Listings.esc(l.property_address) : ''}</div>
+      ${o.document_name ? `<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Read from ${Listings.esc(o.document_name)}${o.document_path ? ` · <a href="javascript:void(0)" onclick="OfferDrop.openDoc('${Listings.esc(o.document_path)}')" style="color:var(--accent2);">open the PDF</a>` : ''}</div>` : ''}
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Offer Amount ($) *</label>
+          <input class="form-input" type="number" id="oe-amount" value="${o.amount || ''}"></div>
+        <div class="form-group"><label class="form-label">Deposit ($)</label>
+          <input class="form-input" type="number" id="oe-deposit" value="${o.deposit || ''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Buyer</label>
+          <input class="form-input" id="oe-buyer" value="${Listings.esc(o.buyer_name || '')}"></div>
+        <div class="form-group"><label class="form-label">Buyer's Agent</label>
+          <input class="form-input" id="oe-agent" value="${Listings.esc(o.buyer_agent || '')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Agent Email</label>
+          <input class="form-input" type="email" id="oe-agent-email" value="${Listings.esc(o.buyer_agent_email || '')}"></div>
+        <div class="form-group"><label class="form-label">Brokerage</label>
+          <input class="form-input" id="oe-brokerage" value="${Listings.esc(o.brokerage || '')}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Conditions</label>
+        <input class="form-input" id="oe-cond" value="${Listings.esc(o.conditions || '')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Inspection deadline</label>
+          <input class="form-input" type="date" id="oe-insp" value="${d(o.inspection_date)}"></div>
+        <div class="form-group"><label class="form-label">Financing deadline</label>
+          <input class="form-input" type="date" id="oe-fin" value="${d(o.financing_date)}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Closing date</label>
+          <input class="form-input" type="date" id="oe-close" value="${d(o.closing_date)}"></div>
+        <div class="form-group"><label class="form-label">Irrevocable until</label>
+          <input class="form-input" id="oe-irrev" value="${Listings.esc(o.irrevocable_until || '')}"></div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="Listings.saveOfferEdit('${offerId}')">Save Offer #${o.offer_no}</button>
+      <div id="oe-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async saveOfferEdit(offerId) {
+    const msg = document.getElementById('oe-msg');
+    const amount = parseFloat(document.getElementById('oe-amount')?.value);
+    if (!amount || amount <= 0) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Offer amount is required'; } return; }
+    const val = id => document.getElementById(id)?.value.trim() || null;
+    const patch = {
+      amount,
+      deposit: parseFloat(document.getElementById('oe-deposit')?.value) || null,
+      buyer_name:        val('oe-buyer'),
+      buyer_agent:       val('oe-agent'),
+      buyer_agent_email: val('oe-agent-email'),
+      brokerage:         val('oe-brokerage'),
+      conditions:        val('oe-cond'),
+      inspection_date:   val('oe-insp'),
+      financing_date:    val('oe-fin'),
+      closing_date:      val('oe-close'),
+      irrevocable_until: val('oe-irrev'),
+    };
+    let { error } = await db.from('listing_offers').update(patch).eq('id', offerId);
+    if (error) {
+      // Pre-092 schema: save what the old shape can hold rather than nothing.
+      ['buyer_agent_email','brokerage','inspection_date','financing_date','closing_date','irrevocable_until']
+        .forEach(k => delete patch[k]);
+      ({ error } = await db.from('listing_offers').update(patch).eq('id', offerId));
+      if (!error) App.toast('⚠️ Saved, but the extra fields need migration 092', 'var(--yellow)');
+    }
+    if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
+    App.closeModal();
+    App.toast('✏️ Offer updated', 'var(--green)');
+    Listings.load();
+  },
+
+  async deleteOffer(offerId) {
+    if (!confirm('Delete this offer? The attached PDF stays in the deal files.')) return;
+    const { error } = await db.from('listing_offers').delete().eq('id', offerId);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    App.toast('🗑 Offer deleted', 'var(--text2)');
+    Listings.load();
   },
 
   card(l) {
@@ -172,7 +410,7 @@ const Listings = {
         ${Listings.stageBar(l)}
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0;font-size:12px;">
           <div>📅 Listed<br><strong>${Listings.fmtD(l.listed_at)}</strong></div>
-          <div>⏰ Offer deadline<br><strong style="color:var(--yellow);">${Listings.fmtD(l.offer_review_deadline)}</strong></div>
+          <div>⏰ Offers presented<br><strong style="color:var(--yellow);">${Listings.fmtD(l.offer_review_deadline)}</strong>${l.offer_review_time ? `<br><span style="color:var(--yellow);font-size:11px;">${Listings.fmtTime(l.offer_review_time)}</span>` : ''}</div>
           <div>🎯 Target sold<br><strong>${Listings.fmtD(l.target_sold_date)}</strong></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -183,6 +421,7 @@ const Listings = {
           <button class="btn btn-outline btn-sm" style="border-color:var(--red);color:var(--red);" onclick="Listings.deleteListing('${l.id}')">🗑 Delete</button>
         </div>
         ${Listings.offersSection(l)}
+        ${typeof Showings !== 'undefined' ? Showings.section(l) : ''}
       </div>`;
   },
 
@@ -226,8 +465,15 @@ const Listings = {
       <div class="modal-title">📅 Listing Dates — ${Listings.esc(l.property_address)}</div>
       <div class="form-group"><label class="form-label">Listed on MLS</label>
         <input class="form-input" type="date" id="ld-listed" value="${l.listed_at || ''}"></div>
-      <div class="form-group"><label class="form-label">Offer review deadline (when you review all offers with the seller)</label>
-        <input class="form-input" type="date" id="ld-deadline" value="${l.offer_review_deadline || ''}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Offer presentation date</label>
+          <input class="form-input" type="date" id="ld-deadline" value="${l.offer_review_deadline || ''}"></div>
+        <div class="form-group"><label class="form-label">Presentation time</label>
+          <input class="form-input" type="time" id="ld-time" value="${l.offer_review_time || ''}"></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text2);margin:-6px 0 14px;line-height:1.5;">
+        This is when you sit down with the seller and go through the offers. Bidding closes at that moment, so anything after it is late. Leave the time blank and nothing closes on its own.
+      </div>
       <div class="form-group"><label class="form-label">Target sold date</label>
         <input class="form-input" type="date" id="ld-target" value="${l.target_sold_date || ''}"></div>
       <button class="btn btn-primary btn-block" onclick="Listings.saveDates('${l.id}')">Save Dates</button>
@@ -238,10 +484,23 @@ const Listings = {
     const { error } = await db.from('listings').update({
       listed_at:             document.getElementById('ld-listed')?.value || null,
       offer_review_deadline: document.getElementById('ld-deadline')?.value || null,
+      offer_review_time:     document.getElementById('ld-time')?.value || null,
       target_sold_date:      document.getElementById('ld-target')?.value || null,
       updated_at: new Date().toISOString(),
     }).eq('id', id);
-    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    if (error) {
+      // Pre-092 schema: keep the dates rather than lose the whole save.
+      if (/offer_review_time/.test(error.message || '')) {
+        const { error: e2 } = await db.from('listings').update({
+          listed_at:             document.getElementById('ld-listed')?.value || null,
+          offer_review_deadline: document.getElementById('ld-deadline')?.value || null,
+          target_sold_date:      document.getElementById('ld-target')?.value || null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', id);
+        if (!e2) { App.closeModal(); App.toast('📅 Dates saved. The time needs migration 092.', 'var(--yellow)'); Listings.load(); return; }
+      }
+      App.toast('⚠️ ' + error.message, 'var(--red)'); return;
+    }
     App.closeModal();
     App.toast('📅 Dates saved', 'var(--green)');
     Listings.load();
@@ -303,7 +562,12 @@ const Listings = {
   addOffer(listingId) {
     const l = Listings.all.find(x => x.id === listingId);
     if (!l) return;
-    if (l.bidding_closed_at) { App.toast('Bidding is closed — reopen it to log more offers', 'var(--yellow)'); return; }
+    if (Listings.biddingClosed(l)) {
+      App.toast(l.bidding_closed_at
+        ? 'Bidding is closed. Reopen it to log more offers.'
+        : 'The presentation time has passed. Move the date or time to take more offers.', 'var(--yellow)');
+      return;
+    }
     const n = (Listings._offers[listingId] || []).length + 1;
     App.openModal(`
       <div class="modal-title">➕ Log Offer #${n} — ${Listings.esc(l.property_address)}</div>
@@ -363,6 +627,15 @@ const Listings = {
   async reopenBidding(listingId) {
     if ((Listings._offers[listingId] || []).some(o => o.status === 'winner')) {
       App.toast('A winner has already been picked — bidding can\'t be reopened', 'var(--yellow)'); return;
+    }
+    // Clearing the manual close is not enough if the presentation time itself
+    // has passed — that instant is the real close, so it has to move.
+    const l = Listings.all.find(x => x.id === listingId);
+    const at = l ? Listings.presentationAt(l) : null;
+    if (at && Date.now() >= at.getTime()) {
+      App.toast('The presentation time has passed. Open Set Dates and move it to reopen.', 'var(--yellow)');
+      Listings.setDates(listingId);
+      return;
     }
     const { error } = await db.from('listings').update({ bidding_closed_at: null, updated_at: new Date().toISOString() }).eq('id', listingId);
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }

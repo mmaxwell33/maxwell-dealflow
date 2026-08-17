@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PREVIEW — Offer presentation time + PDF intake</title>
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  body { background: var(--bg); color: var(--text1); padding: 20px; max-width: 820px; margin: 0 auto; }
+  .pv-head { border: 1px dashed var(--text2); border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; }
+  .pv-head h1 { font-size: 16px; margin: 0 0 6px; }
+  .pv-head p { font-size: 13px; color: var(--text2); margin: 0 0 6px; line-height: 1.6; }
+  .pv-sec { margin: 26px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--accent2); }
+  .pv-note { font-size: 12.5px; color: var(--text2); margin-bottom: 12px; line-height: 1.6; }
+  #modal-host:empty { display: none; }
+  #modal-host { background: var(--card); border: 1px solid var(--accent); border-radius: 12px;
+                padding: 18px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="pv-head">
+  <h1>Preview only — nothing here is live</h1>
+  <p>Real <code>js/listings.js</code> and <code>js/offerdrop.js</code> against fake data. The database is
+     stubbed, so nothing saves.</p>
+  <p><strong>The PDF reader is stubbed too.</strong> Drop any PDF and you will get the same canned
+     extraction, so you can see the flow and judge the form. The live version sends the document to
+     Claude through your existing <code>claude-chat</code> function.</p>
+</div>
+
+<div class="pv-sec">1. Presentation time, and bidding closing on it</div>
+<div class="pv-note">Two listings. The first is presented in two days, so bidding is open and the drop
+  zone is there. The second had its presentation time pass an hour ago, so it closed itself and ranked
+  the offers. Try Log Offer on the closed one.</div>
+<div id="listings-list"></div>
+
+<div class="pv-sec">2. Drop an offer PDF</div>
+<div class="pv-note">Use the drop zone on the open listing above, or the button below. Drag any PDF from
+  your desktop, or tap to choose one on a phone. Watch what it does with several files at once.</div>
+<button class="btn btn-primary" onclick="document.getElementById('od-file-L1').click()">📄 Choose a PDF to try it</button>
+<button class="btn btn-outline" onclick="Listings.editOffer('O2')">✏️ Open the edit-offer screen</button>
+<button class="btn btn-outline" onclick="Listings.setDates('L1')">📅 Open Set Dates</button>
+<div id="modal-host"></div>
+
+<script>
+// ── Stubs ──────────────────────────────────────────────────────────────────
+const currentAgent = { id: 'preview-agent', full_name: 'Maxwell Delali Midodzi' };
+
+const _chain = () => {
+  const c = {};
+  ['select','eq','in','not','gte','lte','order','limit','update','insert','delete','neq','is','ilike']
+    .forEach(m => c[m] = () => c);
+  c.then = r => r({ data: [], error: null });
+  c.maybeSingle = c.single = async () => ({ data: null, error: null });
+  return c;
+};
+
+// Canned extraction — stands in for the Claude call.
+const CANNED = {
+  amount: '441500', deposit: '25000',
+  buyer_name: 'R. and M. Costigan',
+  buyer_agent: 'T. Regan', buyer_agent_email: 't.regan@example.com', buyer_agent_phone: '709-555-0148',
+  brokerage: 'Hanlon Realty',
+  conditions: 'Financing, Inspection',
+  inspection_date: '', financing_date: '', closing_date: '', irrevocable_until: 'Aug 18, 2026 at 5:00 PM',
+};
+
+const db = {
+  from: _chain,
+  rpc: async () => ({ data: null }),
+  storage: { from: () => ({
+    upload: async () => ({ error: null }),
+    createSignedUrl: async () => ({ data: { signedUrl: '#' }, error: null }),
+  })},
+  functions: { invoke: async () => {
+    await new Promise(r => setTimeout(r, 1400));       // feel the real latency
+    const c = { ...CANNED };
+    c.inspection_date = dIn(9);
+    c.financing_date  = dIn(12);
+    c.closing_date    = dIn(58);
+    return { data: { text: JSON.stringify(c) }, error: null };
+  }},
+};
+
+const App = {
+  esc: s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+  fmtDate: d => d ? new Date(String(d).slice(0,10) + 'T00:00:00')
+      .toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+  fmtMoney: n => '$' + Number(n || 0).toLocaleString(),
+  openModal: html => { const h = document.getElementById('modal-host'); h.innerHTML = html;
+                       h.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+  closeModal: () => { document.getElementById('modal-host').innerHTML = ''; },
+  toast: m => alert('Toast: ' + m),
+  getAuthUser: async () => ({ id: 'preview-agent' }),
+  pushNotify: () => {},
+  logActivity: () => {},
+};
+
+const EmailFormat = {
+  styles: () => '', signatureHTML: () => '', disclaimerHTML: () => '',
+  signaturePlain: a => a.full_name, disclaimerPlain: () => '',
+};
+const Notify = { queue: async () => true };
+</script>
+
+<script src="/js/listings.js"></script>
+<script src="/js/offerdrop.js"></script>
+
+<script>
+const _iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,10);
+function dIn(n) { const d = new Date(); d.setDate(d.getDate() + n); return _iso(d); }
+function dAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return _iso(d); }
+
+// An hour ago, as HH:MM — makes the second listing auto-close in the preview.
+const anHourAgo = (() => { const d = new Date(); d.setHours(d.getHours() - 1);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); })();
+
+Listings.all = [
+  {
+    id: 'L1',
+    property_address: '48 Harbourview Crescent, St. John\'s',
+    clients: { full_name: 'Dana Whitcombe', email: 'dana.whitcombe@example.com' },
+    asking_price: 429000, mls_number: '1302884', listing_status: 'active',
+    listed_at: dAgo(11), offer_review_deadline: dIn(2), offer_review_time: '18:00',
+    target_sold_date: dIn(46), bidding_closed_at: null, client_id: 'C1',
+  },
+  {
+    id: 'L2',
+    property_address: '7 Beothuk Place, Mount Pearl',
+    clients: { full_name: 'Alan Pomeroy', email: 'alan.pomeroy@example.com' },
+    asking_price: 615000, mls_number: '1301990', listing_status: 'active',
+    listed_at: dAgo(19), offer_review_deadline: _iso(new Date()), offer_review_time: anHourAgo,
+    target_sold_date: dIn(60), bidding_closed_at: null, client_id: 'C2',
+  },
+];
+
+Listings._offers = {
+  L1: [
+    { id: 'O1', listing_id: 'L1', offer_no: 1, amount: 421000, buyer_name: 'Buyer A',
+      conditions: 'Financing, inspection', buyer_agent: 'K. Nolan', brokerage: 'Royal LePage' },
+    { id: 'O2', listing_id: 'L1', offer_no: 2, amount: 435500, buyer_name: 'R. and M. Costigan',
+      conditions: 'Financing', buyer_agent: 'T. Regan', buyer_agent_email: 't.regan@example.com',
+      brokerage: 'Hanlon Realty', deposit: 25000, inspection_date: dIn(9), closing_date: dIn(58),
+      document_name: 'Offer-7Beothuk-Costigan.pdf', document_path: 'preview/fake.pdf' },
+  ],
+  L2: [
+    { id: 'O3', listing_id: 'L2', offer_no: 1, amount: 604000, buyer_name: 'Buyer C',
+      conditions: 'Financing, inspection', brokerage: 'RE/MAX' },
+    { id: 'O4', listing_id: 'L2', offer_no: 2, amount: 631000, buyer_name: 'Buyer D',
+      conditions: 'None', brokerage: 'eXp Realty', deposit: 40000 },
+    { id: 'O5', listing_id: 'L2', offer_no: 3, amount: 618500, buyer_name: 'Buyer E',
+      conditions: 'Inspection', brokerage: 'Keller Williams' },
+  ],
+};
+
+if (typeof Showings !== 'undefined') Showings._byListing = {};
+
+// Preview only: the real load() refetches from Supabase, which is stubbed here
+// and would blank the board on save. Keep the fake data and just re-render.
+Listings.load = async function () { Listings.render(); };
+
+Listings.render();
+</script>
+</body>
+</html>
