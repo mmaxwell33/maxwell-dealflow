@@ -718,6 +718,111 @@ const Listings = {
     }
   },
 
+  // ── The two emails that go out the moment the seller decides ──────────────
+  // One to the agent whose offer was accepted, three to the ones whose were not.
+  // Both are queued to Approvals, never sent from here, so they can be added to
+  // before they go.
+  //
+  // What the declines deliberately do NOT carry: the winning price, who won, or
+  // anything about the other offers. Saying it was competitive and how many came
+  // in is normal and useful to the agent on the other end. Anything past that is
+  // the seller's business, not theirs.
+  async queueOutcomeEmails(listingId, winnerOfferId) {
+    const l = Listings.all.find(x => x.id === listingId);
+    const offers = Listings._offers[listingId] || [];
+    const winner = offers.find(o => o.id === winnerOfferId);
+    if (!l || !winner) return { queued: 0, missing: [] };
+    if (typeof Notify === 'undefined' || !Notify.queue) return { queued: 0, missing: [] };
+
+    const n = offers.length;
+    const addr = l.property_address;
+    const agent = currentAgent;
+    const sig = (typeof EmailFormat !== 'undefined') ? EmailFormat.signatureHTML(agent) : '';
+    const dis = (typeof EmailFormat !== 'undefined') ? EmailFormat.disclaimerHTML() : '';
+    const styles = (typeof EmailFormat !== 'undefined' && EmailFormat.styles) ? EmailFormat.styles() : '';
+    const sigP = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain) ? EmailFormat.signaturePlain(agent) : (agent.full_name || 'Maxwell Delali Midodzi');
+    const disP = (typeof EmailFormat !== 'undefined' && EmailFormat.disclaimerPlain) ? EmailFormat.disclaimerPlain() : '';
+    const wrap = inner => `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${styles}</style></head><body>${inner}${sig}${dis}</body></html>`;
+    // Agents sign offers as "C. Squires" as often as "Cathy Squires". Taking the
+    // first token blindly greets them as "Hi C.," so an initial keeps the surname.
+    const first = full => {
+      const s = String(full || '').trim();
+      if (!s) return 'there';
+      const parts = s.split(/\s+/);
+      return (parts.length > 1 && /^[A-Za-z]\.?$/.test(parts[0])) ? s : parts[0];
+    };
+
+    // How busy it was, in words. Only said when it is actually true.
+    const competitive = n > 1
+      ? `We received ${n} offers on this property, so it was a competitive review.`
+      : '';
+
+    let queued = 0;
+    const missing = [];
+
+    // ── The winning agent ──
+    if (winner.buyer_agent_email) {
+      const wName = winner.buyer_agent || 'there';
+      const subject = `Offer accepted — ${addr}`;
+      const plain =
+`Hi ${first(wName)},
+
+Good news. Your clients' offer on ${addr} has been accepted by the seller.
+
+I will send the executed documents shortly. In the meantime, please confirm:
+
+- The deposit, so it reaches our brokerage within the agreed time
+- Your lawyer's details for the file
+${winner.conditions ? `- Your timeline for ${winner.conditions.toLowerCase()}\n` : ''}
+Congratulations to you and your clients. Call me any time.
+
+${sigP}${disP}`;
+      const html = wrap(`
+        <p>Hi ${Listings.esc(first(wName))},</p>
+        <p>Good news. Your clients' offer on <strong>${Listings.esc(addr)}</strong> has been accepted by the seller.</p>
+        <p>I will send the executed documents shortly. In the meantime, please confirm:</p>
+        <ul>
+          <li>The deposit, so it reaches our brokerage within the agreed time</li>
+          <li>Your lawyer's details for the file</li>
+          ${winner.conditions ? `<li>Your timeline for ${Listings.esc(winner.conditions.toLowerCase())}</li>` : ''}
+        </ul>
+        <p>Congratulations to you and your clients. Call me any time.</p>`);
+      const ok = await Notify.queue('Offer accepted → buyer agent 📨', l.client_id,
+        wName, winner.buyer_agent_email, subject, plain, l.id, html);
+      if (ok) queued++;
+    } else {
+      missing.push(`${winner.buyer_agent || 'the winning agent'} (accepted)`);
+    }
+
+    // ── Everyone else ──
+    for (const o of offers) {
+      if (o.id === winnerOfferId) continue;
+      if (!o.buyer_agent_email) { missing.push(o.buyer_agent || `Offer #${o.offer_no}`); continue; }
+      const name = o.buyer_agent || 'there';
+      const subject = `Thank you for your offer — ${addr}`;
+      const plain =
+`Hi ${first(name)},
+
+Thank you for bringing your clients to ${addr}, and for the work that went into your offer.
+
+The seller has reviewed everything and has accepted another offer, and that agent has been notified. ${competitive}
+
+I am sorry it did not go your way this time. Please do pass on my thanks to your clients. If they are still looking, tell me what they are after and I will let you know the moment something suitable comes up.
+
+${sigP}${disP}`;
+      const html = wrap(`
+        <p>Hi ${Listings.esc(first(name))},</p>
+        <p>Thank you for bringing your clients to <strong>${Listings.esc(addr)}</strong>, and for the work that went into your offer.</p>
+        <p>The seller has reviewed everything and has accepted another offer, and that agent has been notified. ${Listings.esc(competitive)}</p>
+        <p>I am sorry it did not go your way this time. Please do pass on my thanks to your clients. If they are still looking, tell me what they are after and I will let you know the moment something suitable comes up.</p>`);
+      const ok = await Notify.queue('Offer declined → buyer agent 📨', l.client_id,
+        name, o.buyer_agent_email, subject, plain, l.id, html);
+      if (ok) queued++;
+    }
+
+    return { queued, missing };
+  },
+
   // ── Phase 4: pick the winning offer → sell-side pipeline deal ──────────────
   // Marks the chosen offer 'winner' (others 'declined'), moves the listing to
   // Under Contract, and creates a SELL-side pipeline deal for the seller with
@@ -864,8 +969,21 @@ const Listings = {
       App.logActivity('OFFER_WON', l.clients?.full_name, l.clients?.email,
         `Accepted Offer #${o.offer_no} (${Listings.money(o.amount)}) on ${l.property_address} — sell-side deal created`, l.client_id);
     }
+    // Notify the agents on both sides. Best effort: the deal is already made,
+    // so a mail failure must never undo it, but it does get said out loud.
+    let outcome = { queued: 0, missing: [] };
+    try {
+      outcome = await Listings.queueOutcomeEmails(listingId, offerId);
+    } catch (e) { console.warn('[confirmWinner] outcome emails skipped:', e?.message || e); }
+
     App.closeModal();
     App.toast(`🏆 Offer #${o.offer_no} accepted — deal in Pipeline${cErr ? '' : ` + ${rate}% commission recorded`}`, 'var(--green)');
+    if (outcome.queued) {
+      App.toast(`📨 ${outcome.queued} agent email${outcome.queued === 1 ? '' : 's'} waiting in Approvals`, 'var(--accent2)');
+    }
+    if (outcome.missing.length) {
+      App.toast(`⚠️ No email on file for ${outcome.missing.join(', ')} — you'll need to call them`, 'var(--yellow)');
+    }
     if (App.pushNotify) App.pushNotify('🏆 Offer accepted', `${l.property_address} · ${Listings.money(o.amount)}`, 'approvals');
     Listings.load();
     if (typeof Pipeline !== 'undefined' && typeof currentTab !== 'undefined' && currentTab === 'pipeline') Pipeline.load();
