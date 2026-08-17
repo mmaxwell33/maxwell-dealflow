@@ -885,7 +885,7 @@ ${sigP}${disP}`;
     // 3. Sell-side pipeline deal — agent_id MUST be auth.uid() for RLS (same as buy side)
     const user = await App.getAuthUser();
     const uid = user?.id || currentAgent.id;
-    const { data: newDeal, error: e3 } = await db.from('pipeline').insert({
+    const dealRow = {
       pipeline_id: (crypto.randomUUID ? crypto.randomUUID() : 'SELL-' + Date.now()),
       agent_id: uid,
       client_id: l.client_id || null,
@@ -903,7 +903,16 @@ ${sigP}${disP}`;
       deal_type: 'existing_home',
       deal_side: 'sell',
       listing_id: listingId,
-    }).select('id').single();
+      // Deposits are due within 24 hours of acceptance unless the offer said
+      // otherwise. Carried onto the deal so it can be asked about, not assumed.
+      deposit_due_date: (() => { const d = new Date(acc + 'T00:00:00'); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })(),
+    };
+    let { data: newDeal, error: e3 } = await db.from('pipeline').insert(dealRow).select('id').single();
+    if (e3 && /deposit_due_date/.test(e3.message || '')) {
+      // Pre-093 schema. The deal matters more than the deposit date.
+      delete dealRow.deposit_due_date;
+      ({ data: newDeal, error: e3 } = await db.from('pipeline').insert(dealRow).select('id').single());
+    }
     if (e3) {
       if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Deal not created: ' + e3.message + ' — the winner IS marked; add the deal manually in Pipeline.'; }
       console.error('[confirmWinner] pipeline insert failed:', e3);
@@ -969,6 +978,15 @@ ${sigP}${disP}`;
       App.logActivity('OFFER_WON', l.clients?.full_name, l.clients?.email,
         `Accepted Offer #${o.offer_no} (${Listings.money(o.amount)}) on ${l.property_address} — sell-side deal created`, l.client_id);
     }
+    // The sell-side task list. Best effort, same as the commission: a checklist
+    // that fails to build must not undo an accepted offer.
+    if (newDeal?.id && typeof Pipeline !== 'undefined' && Pipeline.generateSellerChecklist) {
+      try {
+        await Pipeline.generateSellerChecklist(newDeal.id,
+          { ...dealRow, id: newDeal.id }, l.clients, acc);
+      } catch (e) { console.warn('[confirmWinner] seller checklist skipped:', e?.message || e); }
+    }
+
     // Notify the agents on both sides. Best effort: the deal is already made,
     // so a mail failure must never undo it, but it does get said out loud.
     let outcome = { queued: 0, missing: [] };

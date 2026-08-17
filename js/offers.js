@@ -637,24 +637,23 @@ const Offers = {
   }
 };
 
-// ── SELLER-SIDE PIPELINE STAGES ──────────────────────────────────────────
-// Stage labels for sell-side pipeline rows (deal_side='sell'). Buyer stages
-// remain free-form per existing behaviour — these are referenced by the
-// stage dropdown in the seller-side detail view (added in a later pass).
-const SELLER_STAGES = [
-  'Lead / Consultation Booked',
-  'CMA Delivered',
-  'Listing Agreement Signed',
-  'Pre-Listing Prep',
-  'Active on MLS',
-  'Showings & Open Houses',
-  'Offer Received',
-  'Negotiating',
-  'Conditional Sale',
-  'Firm Sale',
-  'Closing Prep',
-  'Closed'
-];
+// A SELLER_STAGES list used to sit here, twelve listing-lifecycle labels waiting
+// for a "seller-side detail view" that was never built. It has been removed
+// rather than wired up, because wiring it up would have been the wrong fix:
+//
+//   • Its first eight stages (lead, CMA, agreement, prep, active, showings,
+//     offer received, negotiating) all happen BEFORE a pipeline row exists. A
+//     sell-side deal is only created when the seller accepts an offer.
+//   • That lifecycle is already tracked, on the listing itself, by
+//     listings.listing_status and the 7-stage bar on the Listings board.
+//   • Pipeline stages are deliberately coarse (Accepted → Conditions → Closing
+//     → Closed) and are load-bearing: the stage filter, the clients.stage sync
+//     map in updateStage, and the overview counts all key off those exact
+//     strings. Feeding twelve different labels into that dropdown would have
+//     broken all three.
+//
+// The listing tracks the road to an offer. The pipeline tracks the road to a
+// closing. Two different journeys, and they each already have their own stages.
 
 // ── PIPELINE ──
 const Pipeline = {
@@ -1667,6 +1666,67 @@ const Pipeline = {
     await db.from('deal_checklist').insert(rows);
   },
 
+  // ── The sell-side list ────────────────────────────────────────────────────
+  // A sell-side deal used to land in the pipeline with nothing on it, because
+  // generateChecklist only ever ran on the buy path — and its 22 tasks are buyer
+  // tasks anyway ("client must prepare bank draft", "coordinate key handover
+  // with listing agent", which on a listing is Maxwell himself).
+  //
+  // This is the same job seen from the other side of the table: chasing the
+  // other side's deposit and financing, getting the seller's own lawyer and
+  // paperwork moving, emptying the house, and handing over the keys.
+  async generateSellerChecklist(pipelineId, deal, client, acceptDate) {
+    if (!currentAgent?.id || !pipelineId) return;
+
+    const addDays = (base, n) => {
+      const d = new Date(String(base).slice(0, 10) + 'T00:00:00');
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+    const close = deal?.closing_date || null;
+    const beforeClose = n => close ? addDays(close, -n) : addDays(acceptDate, 25);
+
+    const tasks = [
+      // Getting it firm
+      { title: "Send the accepted offer to the seller's lawyer",            category: 'Legal',      due: addDays(acceptDate, 1) },
+      { title: 'Confirm the deposit reached the brokerage trust account',   category: 'Legal',      due: deal?.deposit_due_date || addDays(acceptDate, 1) },
+      { title: "Chase the buyer's financing letter",                        category: 'Financing',  due: deal?.financing_date || addDays(acceptDate, 10) },
+      { title: 'Coordinate access for the home inspection',                 category: 'Inspection', due: addDays(acceptDate, 5) },
+      { title: 'Go through the inspection outcome with the seller',         category: 'Inspection', due: addDays(acceptDate, 9) },
+      { title: 'Get every condition waived in writing',                     category: 'Legal',      due: addDays(acceptDate, 12) },
+      { title: 'Update the MLS status',                                     category: 'General',    due: addDays(acceptDate, 2) },
+
+      // The seller's own move
+      { title: 'Remind the seller to book movers',                          category: 'Moving',     due: addDays(acceptDate, 14) },
+      { title: 'Remind the seller to cancel or transfer utilities',         category: 'General',    due: beforeClose(7) },
+      { title: 'Remind the seller to cancel home insurance from closing',   category: 'General',    due: beforeClose(5) },
+      { title: 'Remind the seller to redirect mail',                        category: 'General',    due: beforeClose(10) },
+      { title: 'Confirm what stays with the house and what goes',           category: 'General',    due: addDays(acceptDate, 7) },
+
+      // Closing
+      { title: "Confirm closing figures with the seller's lawyer",          category: 'Legal',      due: beforeClose(3) },
+      { title: 'Arrange the final walkthrough with the buyer\'s agent',     category: 'General',    due: beforeClose(1) },
+      { title: 'Arrange key handover',                                      category: 'General',    due: close || addDays(acceptDate, 30) },
+      { title: 'Confirm the commission was released to the brokerage',      category: 'Legal',      due: close ? addDays(close, 2) : addDays(acceptDate, 32) },
+      { title: 'Post-closing: thank the seller and ask for a review',       category: 'General',    due: close ? addDays(close, 3) : addDays(acceptDate, 33) },
+    ];
+
+    const rows = tasks.map(t => ({
+      agent_id: currentAgent.id,
+      pipeline_id: pipelineId,
+      client_id: deal?.client_id || null,
+      client_name: client?.full_name || deal?.client_name || '',
+      title: t.title,
+      category: t.category,
+      due_date: t.due,
+      done: false
+    }));
+
+    const { error } = await db.from('deal_checklist').insert(rows);
+    if (error) console.warn('[generateSellerChecklist] insert failed:', error.message);
+    return !error;
+  },
+
   // ── CONDITION CONFIRMATIONS (financing / inspection) ───────────────────────
   // A deadline arriving is not the same thing as a lender approving. Financing
   // and Inspection therefore wait on an explicit yes/no from Maxwell before the
@@ -1680,10 +1740,29 @@ const Pipeline = {
   //   cleared  → approved / passed / waived — this is the only ✓ state
   //   skipped  → inspection was explicitly skipped on the card
   CONDITIONS: {
+    // Deposit — sell side only (migration 093). Same shape as the others, so it
+    // rides the existing strip, prompts, and amendment history for free.
+    deposit: {
+      label: 'Deposit', icon: '💰',
+      dateCol: 'deposit_due_date', deadlineCol: 'deposit_due_date',
+      question: 'Has the deposit been received?',
+      yesLabel: '✅ Yes, it is in', clearedWord: 'Received',
+      reasons: {
+        not_sent:        "Buyer's side has not sent it",
+        in_transit:      'Sent, not landed yet',
+        wrong_amount:    'Wrong amount came through',
+        awaiting_trust:  'Waiting on the brokerage trust account',
+        buyer_delay:     'Buyer asked for more time',
+        other:           'Other'
+      }
+    },
     financing: {
       label: 'Financing', icon: '🏦',
       dateCol: 'financing_date', deadlineCol: 'financing_deadline',
       question: 'Has financing been approved?',
+      // On a listing, the same milestone arrives as a letter from the other side.
+      sellQuestion: "Has the buyer's financing letter come in?",
+      sellYesLabel: '✅ Yes, letter received',
       yesLabel: '✅ Yes, approved', clearedWord: 'Approved',
       reasons: {
         awaiting_lender: 'Still waiting on the lender',
@@ -1747,8 +1826,16 @@ const Pipeline = {
   conditionStripHtml(d, keys) {
     if (!d || ['Closed','Fell Through'].includes(d.stage)) return '';
     let rows = '';
-    (keys || ['financing','inspection']).forEach(key => {
-      const meta  = Pipeline.CONDITIONS[key];
+    // Sell-side deals ask about the deposit and the financing letter. Inspection
+    // is the buyer's condition to clear, not the listing side's to chase.
+    const isSell = (d.deal_side || 'buy') === 'sell';
+    const defaults = isSell ? ['deposit','financing'] : ['financing','inspection'];
+    (keys || defaults).forEach(key => {
+      const meta0 = Pipeline.CONDITIONS[key];
+      // Same milestone, different words depending on which side of it you sit.
+      const meta = (isSell && meta0.sellQuestion)
+        ? { ...meta0, question: meta0.sellQuestion, yesLabel: meta0.sellYesLabel || meta0.yesLabel }
+        : meta0;
       const state = Pipeline.conditionState(d, key);
       const due   = d[meta.dateCol] ? App.fmtDate(d[meta.dateCol]) : '';
       const reason = d[key + '_status_reason']
