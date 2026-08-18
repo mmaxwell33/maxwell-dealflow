@@ -5291,6 +5291,38 @@ const ProductUpdates = {
     host.style.display = 'flex';
   },
 
+  // Read any past update again. The one-shot card is the tap on the shoulder;
+  // this is where the instructions actually live afterwards. Open to every
+  // agent, not just the owner — they are the ones being taught.
+  async history() {
+    App.openModal('<div class="modal-title">\uD83D\uDCE3 What\u2019s new</div><div class="loading"><div class="spinner"></div> Loading\u2026</div>');
+    const { data, error } = await db.from('product_updates')
+      .select('id, title, body, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) {
+      App.openModal(`<div class="modal-title">\uD83D\uDCE3 What\u2019s new</div>
+        <div style="font-size:13px;color:var(--red);">Could not load updates: ${App.esc(error.message)}</div>`);
+      return;
+    }
+    if (!data || !data.length) {
+      App.openModal(`<div class="modal-title">\uD83D\uDCE3 What\u2019s new</div>
+        <div style="font-size:13px;color:var(--text2);">Nothing posted yet.</div>`);
+      return;
+    }
+    // esc() everything: an update body is plain text written by the owner and
+    // must never be able to inject markup into this list.
+    const items = data.map(u => `
+      <div style="border-bottom:1px solid var(--border);padding:13px 0;">
+        <div style="font-size:14.5px;font-weight:800;margin-bottom:3px;">${App.esc(u.title)}</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">${App.fmtDate(u.created_at)}</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.65;white-space:pre-wrap;">${App.esc(u.body)}</div>
+      </div>`).join('');
+    App.openModal(`<div class="modal-title">\uD83D\uDCE3 What\u2019s new</div>
+      <div style="max-height:60vh;overflow-y:auto;">${items}</div>
+      <button class="btn btn-outline btn-block" style="margin-top:14px;" onclick="App.closeModal()">Close</button>`);
+  },
+
   async dismiss() {
     const host = document.getElementById('whatsnew-modal');
     const updateId = host?.dataset.updateId;

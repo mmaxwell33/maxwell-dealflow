@@ -1573,6 +1573,14 @@
 
       <!-- PROFILE TAB -->
       <div id="stab-profile" class="stab-panel">
+        <!-- Past updates. Every agent sees this, not just the owner: a "how to
+             use it" note is worthless if it can only ever be read once, and the
+             What's New card disappears the moment it is dismissed. -->
+        <div class="settings-card">
+          <div class="settings-card-title">📣 What's new</div>
+          <div class="settings-card-sub">Every update posted for this app, newest first. Handy when you want to reread how a feature works.</div>
+          <button class="btn btn-outline btn-sm" onclick="ProductUpdates.history()">Read past updates</button>
+        </div>
         <div class="settings-card">
           <div class="settings-card-title">Agent Profile</div>
           <div class="settings-card-sub">This information appears on reports and emails sent to clients.</div>
