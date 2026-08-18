@@ -1279,3 +1279,55 @@ footer li { margin-bottom: 8px; line-height: 1.5; }
 }
 .circle-cta:hover .cc-arrow{transform:translateX(5px);}
 @media(max-width:600px){.circle-cta{width:132px;height:132px;font-size:11.5px;}}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CONTACT WIDGET — floating button, bottom right, on every page.
+   Expands to WhatsApp / Call / Text. Markup and behaviour are injected by
+   /site/js/contact-widget.js so this lives in one place instead of being
+   pasted into ten static pages.
+   ══════════════════════════════════════════════════════════════════════════ */
+.mmc { position: fixed; right: 24px; bottom: 24px; z-index: 900;
+       display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+.mmc-menu { display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+            opacity: 0; visibility: hidden; transform: translateY(8px);
+            transition: opacity 160ms ease, transform 160ms ease, visibility 160ms; }
+.mmc.is-open .mmc-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+
+.mmc-item { display: flex; align-items: center; gap: 11px; text-decoration: none;
+            background: #fff; border: 1px solid var(--border-strong);
+            border-radius: var(--r-md); padding: 9px 14px 9px 10px;
+            box-shadow: var(--shadow-2); min-width: 194px;
+            transition: transform 120ms ease, border-color 120ms ease; }
+.mmc-item:hover { transform: translateY(-1px); border-color: var(--border-ink); text-decoration: none; }
+.mmc-ico { flex: none; width: 34px; height: 34px; border-radius: 50%;
+           background: var(--brand); color: #fff;
+           display: flex; align-items: center; justify-content: center; }
+.mmc-ico svg { width: 17px; height: 17px; fill: currentColor; display: block; }
+.mmc-tx { line-height: 1.25; }
+.mmc-tx b { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.mmc-tx span { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+
+.mmc-fab { width: 58px; height: 58px; border-radius: 50%; border: 1px solid var(--border-ink);
+           background: var(--brand); color: #fff; cursor: pointer; padding: 0;
+           display: flex; align-items: center; justify-content: center;
+           /* 2px warm-white ring: reads as a halo over the dark hero and footer,
+              disappears against the warm-white body sections. */
+           box-shadow: 0 0 0 2px var(--bg), var(--shadow-3);
+           transition: transform 140ms ease, background 140ms ease; }
+.mmc-fab:hover { background: var(--brand-dark); transform: translateY(-2px); }
+.mmc-fab:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.mmc-item:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mmc-fab svg { width: 25px; height: 25px; fill: currentColor; display: block; }
+.mmc-fab .mmc-x { display: none; }
+.mmc.is-open .mmc-fab .mmc-x { display: block; }
+.mmc.is-open .mmc-fab .mmc-open-ico { display: none; }
+
+@media (max-width: 720px) {
+  .mmc { right: 16px; bottom: 16px; }
+  .mmc-fab { width: 54px; height: 54px; }
+  .mmc-item { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mmc-menu, .mmc-item, .mmc-fab { transition: none; }
+}
