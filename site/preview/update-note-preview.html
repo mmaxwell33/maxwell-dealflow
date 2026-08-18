@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PREVIEW — What agents see when the update lands</title>
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  body { background: var(--bg); color: var(--text); padding: 20px 14px 50px; margin: 0;
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  .pv { border: 1px dashed var(--text2); border-radius: 10px; padding: 13px 15px; margin-bottom: 22px;
+        font-size: 12.5px; color: var(--text2); line-height: 1.6; }
+  .pv b { color: var(--text); }
+  h2 { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+       color: var(--accent2); margin: 26px 0 4px; }
+  .cap { font-size: 12.5px; color: var(--text2); margin: 0 0 12px; line-height: 1.6; }
+
+  /* iOS-style lock screen push */
+  .phone { background: linear-gradient(160deg,#1b2735,#0f1620); border-radius: 26px; padding: 26px 14px 20px;
+           border: 1px solid rgba(255,255,255,.10); }
+  .lock-time { text-align: center; color: #fff; font-size: 40px; font-weight: 300; letter-spacing: -1px; }
+  .lock-date { text-align: center; color: rgba(255,255,255,.65); font-size: 12.5px; margin-bottom: 20px; }
+  .push { background: rgba(38,38,41,.94); border-radius: 15px; padding: 11px 13px; color: #fff;
+          box-shadow: 0 8px 26px rgba(0,0,0,.45); display: flex; gap: 10px; align-items: flex-start; }
+  .push .ico { width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+               display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
+  .push .t { font-size: 13px; font-weight: 700; }
+  .push .b { font-size: 12.5px; color: rgba(255,255,255,.82); line-height: 1.4; margin-top: 1px; }
+  .push .w { font-size: 11px; color: rgba(255,255,255,.5); margin-left: auto; flex: none; }
+
+  #modal-host:empty { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="pv">
+    <b>Preview only.</b> Exactly what another agent sees when you post the update, using the real note
+    text and the real card markup. Nothing here posts anything.
+  </div>
+
+  <h2>1. On their phone, straight away</h2>
+  <p class="cap">The push fires the moment you tap Post &amp; Notify Everyone, to every device that has
+     notifications turned on.</p>
+  <div class="phone">
+    <div class="lock-time">6:41</div>
+    <div class="lock-date">Tuesday, 18 August</div>
+    <div class="push">
+      <div class="ico">🏠</div>
+      <div>
+        <div class="t">DealFlow</div>
+        <div class="b">Seller side: showings, offer PDFs and automatic bidding close</div>
+      </div>
+      <div class="w">now</div>
+    </div>
+  </div>
+
+  <h2>2. Next time they open the app</h2>
+  <p class="cap">Shown once, then acknowledged per agent so it never nags. This is the real card, with the
+     real note in it. Scroll it.</p>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;margin:0 auto;box-shadow:0 24px 48px rgba(0,0,0,.6);text-align:center;">
+    <div style="font-size:34px;margin-bottom:8px;">🎉</div>
+    <div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">What's New</div>
+    <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:10px;">Seller side: showings, offer PDFs and automatic bidding close</div>
+    <div style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px;white-space:pre-wrap;text-align:left;max-height:340px;overflow-y:auto;">The seller side now works the way the buyer side does. What is new, and how to use each piece.
+
+SHOWINGS
+Listings, pick the property, tap Log Showing. Date and time come from dropdowns, and the brokerage fills itself in from ones you have used before. Afterwards tap Feedback and record what the agent said and, separately, your own read on it.
+
+THE SELLER REPORT
+On the listing tap Send Showing Report and choose 3, 7 or 14 days. It writes the note from your record: how many showings, up or down on the stretch before, every showing by date and brokerage, the feedback, and any offers so far. It lands in Approvals. Read it, change what you want, approve it.
+
+PRESENTATION TIME
+Set Dates now takes a time as well as a date. That is when you sit down with your seller, and bidding closes on it by itself. Leave the time blank if you do not want that.
+
+DROPPING OFFERS IN
+Download the offer, then drag the PDF onto the listing. On a phone, tap the box and choose it. It reads the amount, deposit, buyer, their agent and email, brokerage, conditions and the condition dates, and works out the percentage over or under asking. Check every figure against the document before saving. Nothing is recorded until you do. Drop several at once and it takes them one at a time.
+
+WHEN YOUR SELLER PICKS
+Tap Pick on the winning offer. The listing goes Under Contract, the deal opens in your Pipeline with a 17 task seller checklist, your commission is recorded, and the notes to the winning and unsuccessful agents are drafted in Approvals for you to add to.
+
+DEPOSIT AND FINANCING
+Your sell side deal now asks whether the deposit has landed and whether the buyer's financing letter has arrived, instead of assuming. Nothing ticks off just because a date went by.
+
+Reread this any time: Settings, Profile, What's new.</div>
+    <button class="btn btn-primary btn-block" onclick="alert('Marks it read for this agent. It never shows again.')">Got it</button>
+  </div>
+
+  <h2>3. When they need it again</h2>
+  <p class="cap">Settings, Profile, Read past updates. The new bit: a how-to that vanishes on dismiss is no
+     use, so every agent can reopen any note.</p>
+  <button class="btn btn-outline" onclick="ProductUpdates.history()">Read past updates</button>
+  <div id="modal-host"></div>
+</div>
+
+<script>
+const NOTE = {"title": "Seller side: showings, offer PDFs and automatic bidding close", "body": "The seller side now works the way the buyer side does. What is new, and how to use each piece.\n\nSHOWINGS\nListings, pick the property, tap Log Showing. Date and time come from dropdowns, and the brokerage fills itself in from ones you have used before. Afterwards tap Feedback and record what the agent said and, separately, your own read on it.\n\nTHE SELLER REPORT\nOn the listing tap Send Showing Report and choose 3, 7 or 14 days. It writes the note from your record: how many showings, up or down on the stretch before, every showing by date and brokerage, the feedback, and any offers so far. It lands in Approvals. Read it, change what you want, approve it.\n\nPRESENTATION TIME\nSet Dates now takes a time as well as a date. That is when you sit down with your seller, and bidding closes on it by itself. Leave the time blank if you do not want that.\n\nDROPPING OFFERS IN\nDownload the offer, then drag the PDF onto the listing. On a phone, tap the box and choose it. It reads the amount, deposit, buyer, their agent and email, brokerage, conditions and the condition dates, and works out the percentage over or under asking. Check every figure against the document before saving. Nothing is recorded until you do. Drop several at once and it takes them one at a time.\n\nWHEN YOUR SELLER PICKS\nTap Pick on the winning offer. The listing goes Under Contract, the deal opens in your Pipeline with a 17 task seller checklist, your commission is recorded, and the notes to the winning and unsuccessful agents are drafted in Approvals for you to add to.\n\nDEPOSIT AND FINANCING\nYour sell side deal now asks whether the deposit has landed and whether the buyer's financing letter has arrived, instead of assuming. Nothing ticks off just because a date went by.\n\nReread this any time: Settings, Profile, What's new."};
+const db = { from: () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: [
+  { id:'u3', title: NOTE.title, body: NOTE.body, created_at: new Date().toISOString() },
+  { id:'u2', title:'Dead deals: notify everyone who was missed',
+    body:'Marking a deal dead now offers to tell the lawyer, broker and inspector, and copies your client.',
+    created_at:'2026-08-11' },
+  { id:'u1', title:'Viewing lock and reopen with PIN',
+    body:'A completed viewing locks so feedback cannot be overwritten by accident. Reopen it with your PIN.',
+    created_at:'2026-07-29' },
+], error: null }) }) }) }) };
+const App = {
+  esc: s => String(s ?? '').replace(/[&<>"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"\'":'&#39;'}[c])),
+  fmtDate: d => new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'}),
+  openModal: h => { const n=document.getElementById('modal-host');
+    n.innerHTML = '<div style="background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:18px;margin-top:12px;">'+h+'</div>';
+    n.scrollIntoView({behavior:'smooth',block:'nearest'}); },
+  closeModal: () => { document.getElementById('modal-host').innerHTML=''; },
+  getAuthUser: async () => ({ id:'a' }),
+};
+</script>
+<script src="/js/extras.js"></script>
+</body>
+</html>
