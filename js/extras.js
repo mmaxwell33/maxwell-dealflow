@@ -725,8 +725,8 @@ const FormResponses = {
     const formLinkCard = `
       <div class="card" style="margin-top:16px;padding:16px;">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">📋 Your Intake Form Link</div>
-        <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">https://maxwellmidodzi.com/intake</div>
-        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
+        <div style="font-size:13px;background:var(--bg);padding:10px 12px;border-radius:8px;word-break:break-all;color:var(--accent2);font-family:monospace;">${App.intakeUrl()}</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="navigator.clipboard.writeText('${App.intakeUrl()}').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>`;
 
     // A query ERROR must NEVER render as "no submissions" — collapsing the two
@@ -795,8 +795,8 @@ const FormResponses = {
     el.innerHTML = `
       <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);">
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">📋 Your Intake Form Link — Share This With Clients</div>
-        <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">https://maxwellmidodzi.com/intake</div>
-        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('https://maxwellmidodzi.com/intake').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
+        <div style="font-size:12px;background:var(--bg);padding:8px 10px;border-radius:6px;word-break:break-all;color:var(--accent2);font-family:monospace;margin-bottom:8px;">${App.intakeUrl()}</div>
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${App.intakeUrl()}').then(()=>App.toast('✅ Link copied!'))">Copy Link</button>
       </div>
       <div style="display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;gap:4px;margin-bottom:8px;">
         ${tabBtn('reached','📨 Reached out', reached.length)}${tabBtn('intake','📋 Intake completed', completed.length)}
@@ -940,7 +940,7 @@ const FormResponses = {
     // ?a=<agent id> is what tells intake.html whose name/brokerage to show and
     // which agent the submission belongs to (migration 087) — without it every
     // invited agent's clients would see "Maxwell / eXp Realty" on the form.
-    const intakeUrl = `https://maxwellmidodzi.com/intake${currentAgent?.id ? '?a=' + currentAgent.id : ''}`;
+    const intakeUrl = App.intakeUrl();
     const body = `Hi ${first},\n\nGreat to connect. When you have a few minutes, please fill out this short form so I understand exactly what you're looking for and can help you properly:\n\n${intakeUrl}\n\nIt only takes about five minutes. Once it is in, I will follow up with your next steps.` + sig;
     await Notify.queue('Intake Link', null, r.full_name, r.email, subject, body, r.id);
     await db.from('client_intake').update({ status: 'Intake sent' }).eq('id', id);
@@ -5238,6 +5238,18 @@ ${brokerage}`;
   // on their own isolated accounts) gets a push notification, then sees the
   // full note in-app once, the App Store update-note idea. Founder only; the
   // edge function re-checks this server-side so it can't be bypassed.
+  // The edge function slices title at 120 and body at 2000 without saying so.
+  // A note that stops mid-sentence is worse than one that was never sent, so
+  // the overrun is visible while it is still being typed.
+  countUpdate() {
+    const el = document.getElementById('pu-body');
+    const out = document.getElementById('pu-count');
+    if (!el || !out) return;
+    const n = el.value.length;
+    out.textContent = `${n} / 2000` + (n > 2000 ? ` — ${n - 2000} too many, the end would be cut off` : '');
+    out.style.color = n > 2000 ? 'var(--red)' : (n > 1900 ? 'var(--yellow)' : 'var(--text2)');
+  },
+
   async broadcastUpdate() {
     if (currentAgent && currentAgent.isFounder === false) { App.toast('Only the account owner can post an update.', 'var(--red)'); return; }
     const title = document.getElementById('pu-title')?.value.trim();
@@ -5245,6 +5257,8 @@ ${brokerage}`;
     const msg = document.getElementById('pu-msg');
     const set = (t, c) => { if (msg) { msg.style.color = c; msg.textContent = t; } };
     if (!title || !body) { set('⚠️ Enter both a title and a description', 'var(--red)'); return; }
+    if (body.length > 2000) { set(`⚠️ ${body.length - 2000} characters too long — the end would be cut off`, 'var(--red)'); return; }
+    if (title.length > 120) { set(`⚠️ Title is ${title.length - 120} characters too long`, 'var(--red)'); return; }
     set('Posting…', 'var(--text2)');
     const { data, error } = await db.functions.invoke('broadcast-update', { body: { title, body } });
     if (error || data?.error) {

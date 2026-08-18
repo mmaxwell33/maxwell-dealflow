@@ -1207,7 +1207,10 @@
         <div style="font-size:15px;font-weight:800;margin-bottom:6px;">📣 Post an Update</div>
         <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;">Every agent using this app gets a push notification and sees the full note next time they open it — same idea as an app store update.</div>
         <div class="form-group"><label class="form-label">TITLE *</label><input class="form-input" id="pu-title" placeholder="e.g. New: viewing lock + reopen with PIN"></div>
-        <div class="form-group"><label class="form-label">WHAT CHANGED *</label><textarea class="form-input" id="pu-body" rows="3" placeholder="A couple of sentences on what's new and why it helps."></textarea></div>
+        <div class="form-group"><label class="form-label">WHAT CHANGED *</label><textarea class="form-input" id="pu-body" rows="3" placeholder="What's new, and the taps to actually use it." oninput="AgentPortal.countUpdate()"></textarea>
+          <!-- The edge function silently slices the body at 2000 characters, so
+               an overrun would post a note that stops mid-sentence. -->
+          <div id="pu-count" style="font-size:11.5px;color:var(--text2);margin-top:5px;">0 / 2000</div></div>
         <button class="btn btn-green" onclick="AgentPortal.broadcastUpdate()">Post &amp; Notify Everyone</button>
         <div id="pu-msg" style="margin-top:10px;font-size:13px;text-align:center;"></div>
       </div>
