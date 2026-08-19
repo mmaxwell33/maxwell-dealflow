@@ -442,6 +442,64 @@ const Clients = {
     App.loadOverview();
   },
 
+  // ── Returning clients (migration 090) ───────────────────────────────────
+  // Send a past client a personal intake link so a new enquiry attaches to the
+  // record they already have, instead of arriving as a second copy of them.
+  //
+  // The link carries their intake_token. That token is what proves identity, so
+  // the public form never has to look anyone up from a typed email, which would
+  // turn it into a client-list harvester for anyone who found the page.
+  async sendIntakeInvite(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    if (!c.email) { App.toast('⚠️ No email on file for this client', 'var(--red)'); return; }
+
+    // The token lives on the client row. Older rows created before migration 090
+    // have one from the column default, but fetch rather than assume.
+    const { data: row, error } = await db.from('clients')
+      .select('intake_token').eq('id', id).single();
+    if (error || !row?.intake_token) {
+      App.toast('⚠️ ' + (error?.message || 'No invite token on this client. Has migration 090 been applied?'), 'var(--red)');
+      return;
+    }
+
+    const url = `${App.intakeUrl()}${App.intakeUrl().includes('?') ? '&' : '?'}c=${row.intake_token}`;
+    const first = (c.full_name || '').split(' ')[0] || 'there';
+    const sig = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain)
+      ? '\n\n' + EmailFormat.signaturePlain(currentAgent)
+      : '\n\nMaxwell Midodzi\nREALTOR, eXp Realty\n(709) 325-0545';
+
+    const subject = 'A quick form before we get started';
+    const body = `Hi ${first},\n\nGreat to hear from you again. When you have a few minutes, please fill out this short form so I have the details of what you are planning this time:\n\n${url}\n\nIt already has your contact details on it, so you only need to change anything that has moved. Once it is in, I will follow up with your next steps.` + sig;
+
+    App.openModal(`
+      <div class="modal-title">📨 Send intake form</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+        This link is personal to <strong>${App.esc(c.full_name)}</strong>. When they open it the form
+        greets them by name, fills in what you already hold, and files whatever they send
+        against their existing record rather than creating a second ${App.esc(c.full_name.split(' ')[0])}.
+      </div>
+      <div style="font-size:12px;font-family:monospace;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;word-break:break-all;color:var(--accent2);margin-bottom:14px;">${App.esc(url)}</div>
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Clients._queueIntakeInvite('${id}','${App.escAttr(subject)}')">📧 Queue the email for approval</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="navigator.clipboard.writeText('${App.escAttr(url)}').then(()=>App.toast('✅ Link copied'))">🔗 Just copy the link</button>
+      <div id="ci-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+    Clients._pendingInvite = { id, subject, body, client: c };
+  },
+
+  async _queueIntakeInvite(id) {
+    const p = Clients._pendingInvite;
+    if (!p || p.id !== id) { App.toast('⚠️ Something went stale, try again', 'var(--red)'); return; }
+    const msg = document.getElementById('ci-msg');
+    if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Queueing...'; }
+    if (typeof Notify === 'undefined') { App.toast('⚠️ Email system unavailable', 'var(--red)'); return; }
+    await Notify.queue('Intake Link', p.client.id, p.client.full_name, p.client.email, p.subject, p.body, p.client.id);
+    await App.logActivity('INTAKE_INVITE_SENT', p.client.full_name, p.client.email,
+      `Personal intake link queued for ${p.client.full_name}`, p.client.id);
+    App.closeModal();
+    App.toast('📧 Queued in Approvals for you to send');
+  },
+
   // ── Guest viewings (migration 088) ──────────────────────────────────────
   // Turn a viewing guest into a real client. This is the "one button" — the
   // clients row already exists and already carries the viewing, so nothing has
@@ -586,6 +644,7 @@ const Clients = {
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Viewings.openAddForClient('${c.id}','${c.full_name}')">📅 Book Viewing</button>
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Offers.openAddForClient('${c.id}','${c.full_name}')">📄 Add Offer</button>
       </div>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent2);color:var(--accent2);" onclick="Clients.sendIntakeInvite('${c.id}')">📨 Send intake form (they're coming back)</button>
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="Clients.openEdit('${c.id}')">✏️ Edit Client</button>
       <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;border-color:var(--accent);color:var(--accent);" onclick="App.closeModal();Reviews.requestSearch('${c.id}')">📨 Mid-search Check-in</button>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="App.closeModal();Clients.sendWelcome('${c.id}')">📧 Send Welcome Email</button>

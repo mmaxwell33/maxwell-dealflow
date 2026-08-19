@@ -144,27 +144,55 @@
   (function () {
     var qp = new URLSearchParams(location.search);
     var skipRouter = qp.get('type') === 'buy';
+    // The returning-client gate (migration 090) runs BEFORE the buy/sell
+    // router: who you are comes first, what you want to do comes second.
+    // Skipped for the seller "both" hand-off, which already asked.
+    window.__routerSkipped = skipRouter;
     document.addEventListener('DOMContentLoaded', function () {
+      var r  = document.getElementById('router-screen');
+      var pw = document.querySelector('.progress-wrap');
+      var w  = document.querySelector('.wrap');
       if (skipRouter) {
-        // Came from seller-intake.html "both" flow — show buyer form directly
-        var r = document.getElementById('router-screen'); if (r) r.style.display = 'none';
-      } else {
-        // Hide buyer intake until visitor picks "I'm Buying"
-        var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = 'none';
-        var w  = document.querySelector('.wrap');          if (w)  w.style.display  = 'none';
+        if (r) r.style.display = 'none';
+        return;                       // seller flow already identified them
       }
+      // Hide both the router and the form; the gate decides what comes next.
+      if (r)  r.style.display  = 'none';
+      if (pw) pw.style.display = 'none';
+      if (w)  w.style.display  = '';   // the gate lives inside .wrap
+      if (typeof initReturningGate === 'function') initReturningGate();
     });
+
+    // Called by the gate once the visitor has said who they are.
+    window.showRouteChoice = function () {
+      var r  = document.getElementById('router-screen'); if (r)  r.style.display  = '';
+      var w  = document.querySelector('.wrap');          if (w)  w.style.display  = 'none';
+      var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
     window.chooseRoute = function (type) {
       // Carry the agent context (?a=) forward — otherwise a client routed to
       // seller-intake.html loses track of which agent sent them the link.
       var aParam = qp.get('a');
-      var carry = aParam ? ('a=' + encodeURIComponent(aParam)) : '';
+      var parts = [];
+      if (aParam) parts.push('a=' + encodeURIComponent(aParam));
+      // Carry the personal invite token across to the seller form. This is the
+      // whole point of the feature: a past BUYER coming back to SELL. Drop the
+      // token here and their sale would land as a brand new stranger.
+      var cParam = qp.get('c');
+      if (cParam) parts.push('c=' + encodeURIComponent(cParam));
+      var carry = parts.join('&');
       if (type === 'sell') { location.href = 'seller-intake.html' + (carry ? '?' + carry : ''); return; }
       if (type === 'both') { location.href = 'seller-intake.html?then=buy' + (carry ? '&' + carry : ''); return; }
       // 'buy' — reveal existing buyer intake
       var r  = document.getElementById('router-screen'); if (r)  r.style.display  = 'none';
       var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = '';
       var w  = document.querySelector('.wrap');          if (w)  w.style.display  = '';
+      // The gate cleared every section's active class on its way past, so a
+      // section must be named explicitly here or the form renders blank.
+      // A returning client who confirmed their details has already given us the
+      // contact step, so open at the next one instead.
+      if (typeof showSection === 'function') showSection(window.__skipContact ? 2 : 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
   })();
@@ -184,6 +212,53 @@
 <div class="wrap">
 
 <!-- ══ SECTION 1 — ABOUT YOU ══════════════════════════════════════════ -->
+<!-- ══ RETURNING CLIENT GATE (migration 090) ═══════════════════════════════
+     Shown before the form. Two states:
+       #rt-known  a personal invite link resolved, so we greet them by name
+       #rt-ask    a generic link, so we ask whether we have worked together
+     This never reveals anyone's details from something the visitor typed.
+     Details only appear when they arrived holding a token Maxwell sent.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section" id="sec-return">
+
+  <div id="rt-known" style="display:none;">
+    <div class="section-hdr">
+      <h2 id="rt-hello">Welcome back</h2>
+      <p>Good to hear from you again. A quick check before we start.</p>
+    </div>
+    <div style="background:rgba(124,157,214,.10);border:1px solid rgba(124,157,214,.4);border-radius:14px;padding:16px 18px;margin-bottom:18px;">
+      <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7C9DD6;font-weight:700;margin-bottom:10px;">What I have on file</div>
+      <div id="rt-details" style="font-size:14px;line-height:1.9;"></div>
+    </div>
+    <button type="button" class="btn btn-primary" style="width:100%;" onclick="returningContinue(true)">Yes, that's still right</button>
+    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="returningContinue(false)">Something has changed</button>
+  </div>
+
+  <div id="rt-ask" style="display:none;">
+    <div class="section-hdr">
+      <h2>Have we worked together before?</h2>
+      <p>Just so I file this in the right place.</p>
+    </div>
+    <div class="choice-card" onclick="setReturning(true)">
+      <div class="choice-icon">👋</div>
+      <div class="choice-body">
+        <div class="choice-title">We've worked together</div>
+        <div class="choice-desc">You've bought or sold with me before.</div>
+      </div>
+      <div class="choice-arrow">→</div>
+    </div>
+    <div class="choice-card" onclick="setReturning(false)">
+      <div class="choice-icon">✨</div>
+      <div class="choice-body">
+        <div class="choice-title">This is my first time</div>
+        <div class="choice-desc">We haven't worked together yet.</div>
+      </div>
+      <div class="choice-arrow">→</div>
+    </div>
+  </div>
+
+</div>
+
 <div class="section active" id="sec-1">
   <div class="section-hdr">
     <h2> Tell me about yourself</h2>
@@ -652,6 +727,97 @@ function goNext(from) {
 
 function goBack(from) { showSection(from - 1); }
 
+// ══ RETURNING CLIENT (migration 090) ═════════════════════════════════════════
+// window.__inviteToken  the ?c= token, if this was a personal link
+// window.__isReturning  whether they are a past client (claimed, or proved by token)
+// Both are sent with the payload and re-checked server-side in submit_intake.
+
+function _rtShowGate(which) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-return').classList.add('active');
+  document.getElementById('rt-known').style.display = which === 'known' ? '' : 'none';
+  document.getElementById('rt-ask').style.display   = which === 'ask'   ? '' : 'none';
+  // The progress bar counts the form's own steps; this gate sits before them.
+  const pw = document.querySelector('.progress-wrap');
+  if (pw) pw.style.display = 'none';
+}
+
+function _rtLeaveGate() {
+  document.getElementById('sec-return')?.classList.remove('active');
+  // Progress bar stays hidden here on purpose: the buy/sell choice comes next,
+  // and chooseRoute() restores it when the form itself is revealed.
+}
+
+// Identity is settled, so hand off to the buy/sell choice. That order is the
+// point of this feature: who you are first, what you want to do second.
+function _rtNext() {
+  if (window.__routerSkipped) {        // seller "both" hand-off: no router
+    showSection(window.__skipContact ? 2 : 1);
+    return;
+  }
+  window.showRouteChoice();
+}
+
+// Generic link: they told us whether they are returning. Nothing is looked up
+// and nothing is shown back — the claim is just recorded for Maxwell.
+function setReturning(isReturning) {
+  window.__isReturning = !!isReturning;
+  window.__skipContact = false;
+  _rtLeaveGate();
+  _rtNext();
+}
+
+// Personal link: they either confirmed the details or want to edit them.
+// Confirming skips the contact step, since we already have all of it.
+function returningContinue(unchanged) {
+  window.__isReturning = true;
+  window.__skipContact = !!unchanged;
+  _rtLeaveGate();
+  _rtNext();
+}
+
+// Resolve a personal invite link. The RPC returns this one client's own details
+// and only ever in exchange for a valid token, so nothing here can be used to
+// probe for someone else's information.
+async function initReturningGate() {
+  const token = new URLSearchParams(location.search).get('c');
+  if (!token) { _rtShowGate('ask'); return; }
+
+  try {
+    const { data, error } = await db.rpc('resolve_intake_invite', { p_token: token });
+    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
+    if (!rec) { _rtShowGate('ask'); return; }   // bad or stale token: ask instead
+
+    window.__inviteToken = token;
+    window.__isReturning = true;
+    if (rec.agent_id) window.__intakeAgentId = rec.agent_id;
+
+    // Pre-fill the contact step so "something has changed" opens it ready to edit.
+    const parts = (rec.full_name || '').trim().split(/\s+/);
+    const fEl = document.getElementById('f-firstname');
+    const lEl = document.getElementById('f-lastname');
+    const eEl = document.getElementById('f-email');
+    const pEl = document.getElementById('f-phone');
+    if (fEl) fEl.value = parts[0] || '';
+    if (lEl) lEl.value = parts.slice(1).join(' ');
+    if (eEl) eEl.value = rec.email || '';
+    if (pEl) pEl.value = rec.phone || '';
+
+    const esc = s => String(s == null ? '' : s)
+      .replace(/[<>&"]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
+    document.getElementById('rt-hello').textContent =
+      'Welcome back, ' + (parts[0] || 'there');
+    document.getElementById('rt-details').innerHTML =
+      `<div><strong>${esc(rec.full_name || '')}</strong></div>` +
+      (rec.email ? `<div style="color:#94a3b8;">${esc(rec.email)}</div>` : '') +
+      (rec.phone ? `<div style="color:#94a3b8;">${esc(rec.phone)}</div>` : '');
+
+    _rtShowGate('known');
+  } catch (e) {
+    _rtShowGate('ask');   // never leave the visitor stuck on a blank screen
+  }
+}
+
 function showSection(n) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-' + n).classList.add('active');
@@ -766,7 +932,12 @@ async function submitIntake() {
     submitted_at:    new Date().toISOString(),
     // Which agent this submission belongs to — set by applyAgentBranding()
     // from ?a= and re-validated server-side in submit_intake (migration 087).
-    agent_id:        window.__intakeAgentId || null
+    agent_id:        window.__intakeAgentId || null,
+    // Returning client (migration 090). The token is re-checked server-side and
+    // is what attaches this submission to an existing client record. is_returning
+    // on its own is only a claim, and produces a match for Maxwell to confirm.
+    invite_token:    window.__inviteToken || null,
+    is_returning:    !!window.__isReturning
   };
 
   // Submissions route through the submit_intake() RPC (migration 043). The

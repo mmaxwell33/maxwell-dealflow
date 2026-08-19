@@ -995,6 +995,98 @@ const FormResponses = {
     if (window.App?.switchTab) App.switchTab('approvals');
   },
 
+  // ── Returning client: attach an enquiry to the record they already have ──
+  // Maxwell decides, never the form. A match computed from a typed email is a
+  // suggestion; only a personal invite link is proof.
+  async confirmAttach(intakeId, clientId, proven) {
+    const r = FormResponses.all.find(x => x.id === intakeId);
+    const { data: c } = await db.from('clients')
+      .select('id, full_name, email, phone, client_type, stage').eq('id', clientId).single();
+    if (!c) { App.toast('⚠️ Could not load that client', 'var(--red)'); return; }
+
+    const wants = r?.intake_type === 'seller' ? 'sell' : 'buy';
+    const nowType = (c.client_type === 'both' || (c.client_type === 'buyer' && wants === 'buy')
+                     || (c.client_type === 'seller' && wants === 'sell'))
+                    ? c.client_type : 'both';
+
+    App.openModal(`
+      <div class="modal-title">🔁 Returning client</div>
+      <div class="card2" style="padding:14px;margin-bottom:12px;${proven ? 'border-color:var(--green);' : 'border-color:var(--yellow);'}">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">
+          ${proven ? '✅ Confirmed by their personal link' : '⚠️ Looks like the same person'}
+        </div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.55;">
+          ${proven
+            ? `They opened the invite you sent to <strong>${App.esc(c.full_name)}</strong>, so this is definitely them.`
+            : `This submission matches <strong>${App.esc(c.full_name)}</strong> on contact details. Check it is really the same person before attaching.`}
+        </div>
+      </div>
+      <div style="font-size:13px;line-height:1.9;margin-bottom:14px;">
+        <div><span style="color:var(--text2);">On file:</span> <strong>${App.esc(c.full_name)}</strong></div>
+        <div><span style="color:var(--text2);">Email:</span> ${App.esc(c.email || '—')}</div>
+        <div><span style="color:var(--text2);">Now wants to:</span> <strong>${wants === 'sell' ? 'Sell' : 'Buy'}</strong></div>
+        ${nowType !== c.client_type ? `<div style="color:var(--accent2);font-size:12.5px;margin-top:4px;">Their type becomes “both”, since they have now done each side.</div>` : ''}
+      </div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.55;">
+        Attaching keeps one person with two deals. Their earlier transaction keeps its own
+        dates, documents and commission untouched; this becomes a separate deal on their record.
+      </div>
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="FormResponses.doAttach('${intakeId}','${clientId}','${nowType}')">🔗 Attach to ${App.escAttr(c.full_name)}</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="FormResponses.attachAsNew('${intakeId}')">👤 No, this is a different person</button>
+      <div id="fa-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async doAttach(intakeId, clientId, newType) {
+    const msg = document.getElementById('fa-msg');
+    if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Attaching...'; }
+    const r = FormResponses.all.find(x => x.id === intakeId);
+
+    // Append what they just told us onto the client's notes, so the new enquiry
+    // is actually readable on their record rather than only in the intake row.
+    const { data: c } = await db.from('clients').select('notes, full_name, email').eq('id', clientId).single();
+    const stamp = new Date().toLocaleDateString('en-CA');
+    const wants = r?.intake_type === 'seller' ? 'selling' : 'buying';
+    const detail = [
+      r?.property_address ? `Property: ${r.property_address}` : '',
+      r?.sell_timeline    ? `Timeline: ${r.sell_timeline}`   : '',
+      r?.timeline         ? `Timeline: ${r.timeline}`        : '',
+      r?.budget_max       ? `Budget: ${r.budget_max}`        : '',
+      r?.notes            ? `Notes: ${r.notes}`              : ''
+    ].filter(Boolean).join(' · ');
+    const line = `[${stamp}] Returned via intake form — now ${wants}.${detail ? ' ' + detail : ''}`;
+
+    const { error: cErr } = await db.from('clients').update({
+      notes: (c?.notes ? c.notes + '\n' : '') + line,
+      client_type: newType,
+      updated_at: new Date().toISOString()
+    }).eq('id', clientId);
+    if (cErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = cErr.message; } return; }
+
+    const { error: iErr } = await db.from('client_intake')
+      .update({ status: 'Added', client_id: clientId }).eq('id', intakeId);
+    if (iErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = iErr.message; } return; }
+
+    await App.logActivity('INTAKE_ATTACHED', c?.full_name, c?.email,
+      `Returning client enquiry attached (${wants})`, clientId);
+
+    App.closeModal();
+    App.toast(`🔗 Attached to ${c?.full_name || 'client'}`, 'var(--green)');
+    FormResponses.load();
+    if (typeof Clients !== 'undefined') Clients.load();
+  },
+
+  // They looked like a match but are not. Clear the guess and create fresh.
+  async attachAsNew(intakeId) {
+    await db.from('client_intake')
+      .update({ matched_client_id: null, is_returning: false }).eq('id', intakeId);
+    const r = FormResponses.all.find(x => x.id === intakeId);
+    if (r) { r.matched_client_id = null; r.client_id = null; r.is_returning = false; }
+    App.closeModal();
+    App.toast('Creating as a new person...');
+    FormResponses.addAsClient(intakeId);
+  },
+
   async addAsClient(id) {
     const r = FormResponses.all.find(x => x.id === id);
     if (!r || !currentAgent?.id) return;
@@ -1003,18 +1095,31 @@ const FormResponses = {
     const btn = document.querySelector(`button[onclick="FormResponses.addAsClient('${id}')"]`);
     if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
 
-    // ── DUPLICATE CHECK — block if client with same email already exists ───
+    // ── RETURNING CLIENT (migration 090) ──────────────────────────────────
+    // This used to be a dead end: on a duplicate email it said "already in your
+    // clients list", marked the intake Added, and discarded everything the
+    // client had just told us about the home they now want to sell. A past
+    // client coming back is the normal case, not an error.
+    //
+    // r.client_id  they arrived on a personal invite link, so identity is proven
+    // r.matched_client_id  a server-side guess for a self-declared returning
+    //                      visitor, which Maxwell confirms rather than trusting
+    const linked = r.client_id || r.matched_client_id || null;
+    if (linked) {
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Add as Client'; }
+      return FormResponses.confirmAttach(id, linked, !!r.client_id);
+    }
+
+    // ── DUPLICATE CHECK — same person, but nothing linked them ────────────
     const { data: existing } = await db.from('clients')
       .select('id, full_name')
       .eq('agent_id', currentAgent.id)
       .eq('email', r.email)
       .limit(1);
     if (existing?.length) {
-      App.toast(`⚠️ ${r.full_name} is already in your clients list!`, 'var(--red)');
-      // Mark intake as Added so it won't show again
-      await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
-      FormResponses.load();
-      return;
+      // Offer the attach rather than discarding the submission.
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Add as Client'; }
+      return FormResponses.confirmAttach(id, existing[0].id, false);
     }
 
     // Seller-side feature: build notes + client row differently for sellers.

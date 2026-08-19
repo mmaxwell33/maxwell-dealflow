@@ -583,7 +583,12 @@ async function submitIntake() {
     asking_price:      askingPrice,
     notes:             document.getElementById('f-notes').value.trim() || null,
     status:            'New',
-    submitted_at:      new Date().toISOString()
+    submitted_at:      new Date().toISOString(),
+    // Returning client (migration 090). This is the main path for the feature:
+    // a past buyer coming back to sell arrives here carrying ?c= from intake.html.
+    // Re-checked server-side; the token is what attaches this sale to their record.
+    invite_token:      new URLSearchParams(location.search).get('c') || null,
+    is_returning:      !!new URLSearchParams(location.search).get('c')
   };
 
   // Submissions route through the submit_intake() RPC (migration 043). The
