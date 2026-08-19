@@ -826,7 +826,7 @@ async function submitIntake() {
         phone:   payload.phone,
         message: 'SELLER INTAKE completed' + (window.__isReturning ? ' by a RETURNING client' : '') +
                  (payload.property_address ? ' for ' + payload.property_address : '') +
-                 '. Open Form Responses to review.'
+                 '. Check Form Responses. If it is not there, the submission was stored but misrouted, tell your developer.'
       })
     }).catch(function () {});
   } catch (_) { /* never let the ping break the submission */ }

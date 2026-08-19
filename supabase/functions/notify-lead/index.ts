@@ -65,7 +65,16 @@ Deno.serve(async (req: Request) => {
   //    Maxwell's Gmail. Backed by the lead_rate_limit table (service-role only,
   //    migration 060). Fail-open: if the limiter errors we still send, so a
   //    real lead is never blocked by an infra hiccup.
-  const LIMIT = 5, WINDOW_MIN = 60;
+  // Raised from 5 to 20 (boardroom session 11). LIMIT was sized when exactly one
+  // public contact form called this. There are now SIX call sites — two on the
+  // homepage, two on the contact page, and one each on the buyer and seller
+  // intake forms — so the old ceiling was below the number of ways a single
+  // person can legitimately reach out. One household on one connection could
+  // exhaust it: lender opt-in, contact form, then the intake link Maxwell texts
+  // them. Over the limit this returns ok:true and drops the alert SILENTLY,
+  // which is the exact failure shape as the incident this alert exists to
+  // prevent. Twenty still stops a script; five was stopping clients.
+  const LIMIT = 20, WINDOW_MIN = 60;
   const ip = ((req.headers.get('x-forwarded-for') || '').split(',')[0].trim())
           || req.headers.get('cf-connecting-ip') || 'unknown';
   try {
