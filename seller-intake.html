@@ -90,6 +90,20 @@
 
     .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
     .footer a{color:#475569;text-decoration:none;}
+
+    /* ── Returning-client gate (migrations 090/091) ──────────────────────── */
+    .choice-card{background:#131c30;border:1.5px solid rgba(148,163,184,.18);border-radius:14px;padding:22px 20px;cursor:pointer;transition:all .2s;margin-bottom:12px;display:flex;align-items:center;gap:16px;}
+    .choice-card:hover{border-color:#7C9DD6;}
+    .choice-card .choice-icon{font-size:34px;flex-shrink:0;}
+    .choice-card .choice-body{flex:1;}
+    .choice-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;}
+    .choice-desc{font-size:13px;color:#94a3b8;line-height:1.5;}
+    .choice-arrow{font-size:22px;color:#7C9DD6;flex-shrink:0;}
+    /* The gate reuses .btn; give it the same weight as the form's own buttons. */
+    .btn{width:100%;padding:15px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:1.5px solid transparent;font-family:inherit;}
+    .btn-primary{background:linear-gradient(135deg,#0F172A,#0A0F1E);color:#fff;box-shadow:0 4px 14px rgba(15,23,42,.35);}
+    .btn-secondary{background:transparent;border-color:rgba(148,163,184,.25);color:#94a3b8;}
+    .btn-secondary:hover{border-color:#7C9DD6;color:#7C9DD6;}
   </style>
 </head>
 <body>
@@ -117,6 +131,69 @@
 <div class="wrap">
 
 <!-- ══ SECTION 1 — CONTACT ════════════════════════════════════════════ -->
+<!-- ══ RETURNING CLIENT GATE (migrations 090 / 091) ════════════════════════
+     The seller form is the main destination for this feature: a past BUYER
+     coming back to SELL lands here, either carrying ?c= from intake.html or
+     arriving directly. Without this they were asked for every detail again.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section" id="sec-return">
+
+  <div id="rt-known" style="display:none;">
+    <div class="section-hdr">
+      <h2 id="rt-hello">Welcome back</h2>
+      <p>Good to hear from you again. A quick check before we start.</p>
+    </div>
+    <div style="background:rgba(124,157,214,.10);border:1px solid rgba(124,157,214,.4);border-radius:14px;padding:16px 18px;margin-bottom:18px;">
+      <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7C9DD6;font-weight:700;margin-bottom:10px;">What I have on file</div>
+      <div id="rt-details" style="font-size:14px;line-height:1.9;"></div>
+    </div>
+    <button type="button" class="btn btn-primary" style="width:100%;" onclick="returningContinue(true)">Yes, that's still right</button>
+    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="returningContinue(false)">Something has changed</button>
+  </div>
+
+  <div id="rt-ask" style="display:none;">
+    <div class="section-hdr">
+      <h2>Have we worked together before?</h2>
+      <p>Just so I file this with your existing details.</p>
+    </div>
+    <div class="choice-card" onclick="showLookup()">
+      <div class="choice-icon">👋</div>
+      <div class="choice-body">
+        <div class="choice-title">We've worked together</div>
+        <div class="choice-desc">You've bought or sold with me before.</div>
+      </div>
+      <div class="choice-arrow">→</div>
+    </div>
+    <div class="choice-card" onclick="setReturning(false)">
+      <div class="choice-icon">✨</div>
+      <div class="choice-body">
+        <div class="choice-title">This is my first time</div>
+        <div class="choice-desc">We haven't worked together yet.</div>
+      </div>
+      <div class="choice-arrow">→</div>
+    </div>
+  </div>
+
+  <div id="rt-lookup" style="display:none;">
+    <div class="section-hdr">
+      <h2>Let me find your file</h2>
+      <p>Two quick things and I'll fill the rest in for you.</p>
+    </div>
+    <div class="field">
+      <label class="field-label" for="lk-surname">Last name <span class="req">*</span></label>
+      <input type="text" id="lk-surname" placeholder="Boateng" autocomplete="family-name">
+    </div>
+    <div class="field">
+      <label class="field-label" for="lk-contact">Email or phone <span class="req">*</span></label>
+      <input type="text" id="lk-contact" placeholder="you@email.com or (709) 555-1234" autocomplete="email">
+    </div>
+    <button type="button" class="btn btn-primary" style="width:100%;" onclick="doLookup()" id="lk-btn">Find my details</button>
+    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="lookupSkip()">Skip, I'll type them in</button>
+    <div id="lk-msg" style="text-align:center;margin-top:10px;font-size:13px;min-height:18px;"></div>
+  </div>
+
+</div>
+
 <div class="section active" id="sec-1">
   <div class="section-hdr">
     <h2> Tell me about yourself</h2>
@@ -495,8 +572,131 @@ function showSection(n) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ══ RETURNING CLIENT GATE (migrations 090 / 091) ══════════════════════════════
+// This form is the main destination for the feature: a past buyer coming back
+// to sell. Same behaviour as intake.html, including the rule that the lookup
+// needs two matching facts so it cannot be used to harvest the client list.
+
+function _rtShowGate(which) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-return').classList.add('active');
+  document.getElementById('rt-known').style.display  = which === 'known'  ? '' : 'none';
+  document.getElementById('rt-ask').style.display    = which === 'ask'    ? '' : 'none';
+  document.getElementById('rt-lookup').style.display = which === 'lookup' ? '' : 'none';
+  const pw = document.querySelector('.progress-wrap');
+  if (pw) pw.style.display = 'none';
+}
+
+function _rtLeaveGate(startAt) {
+  const pw = document.querySelector('.progress-wrap');
+  if (pw) pw.style.display = '';
+  showSection(startAt);   // must name a section: the gate cleared them all
+}
+
+function setReturning(isReturning) {
+  window.__isReturning = !!isReturning;
+  _rtLeaveGate(1);
+}
+
+function showLookup() {
+  window.__isReturning = true;
+  _rtShowGate('lookup');
+  setTimeout(() => document.getElementById('lk-surname')?.focus(), 60);
+}
+
+function lookupSkip() {
+  window.__isReturning = true;
+  _rtLeaveGate(1);
+}
+
+// Confirmed details means we already hold the contact step, so open at step 2.
+function returningContinue(unchanged) {
+  window.__isReturning = true;
+  _rtLeaveGate(unchanged ? 2 : 1);
+}
+
+function _rtFill(rec) {
+  const parts = (rec.full_name || '').trim().split(/\s+/);
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+  set('f-firstname', parts[0] || '');
+  set('f-lastname',  parts.slice(1).join(' '));
+  set('f-email',     rec.email || '');
+  set('f-phone',     rec.phone || '');
+
+  const esc = s => String(s == null ? '' : s)
+    .replace(/[<>&"]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
+  document.getElementById('rt-hello').textContent = 'Welcome back, ' + (parts[0] || 'there');
+  document.getElementById('rt-details').innerHTML =
+    `<div><strong>${esc(rec.full_name || '')}</strong></div>` +
+    (rec.email ? `<div style="color:#94a3b8;">${esc(rec.email)}</div>` : '') +
+    (rec.phone ? `<div style="color:#94a3b8;">${esc(rec.phone)}</div>` : '');
+}
+
+async function doLookup() {
+  const surname = (document.getElementById('lk-surname')?.value || '').trim();
+  const contact = (document.getElementById('lk-contact')?.value || '').trim();
+  const msg = document.getElementById('lk-msg');
+  const btn = document.getElementById('lk-btn');
+
+  if (surname.length < 2 || !contact) {
+    msg.style.color = '#fbbf24';
+    msg.textContent = 'Please fill in both, so I match the right person.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Looking...';
+  msg.textContent = '';
+
+  try {
+    const { data, error } = await db.rpc('lookup_returning_client', {
+      p_agent_id: new URLSearchParams(location.search).get('a') || null,
+      p_surname:  surname,
+      p_contact:  contact
+    });
+    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
+    btn.disabled = false; btn.textContent = 'Find my details';
+
+    if (!rec) {
+      // Same message for every kind of miss, so it reveals nothing.
+      msg.style.color = '#fbbf24';
+      msg.innerHTML = "I couldn't match that. Check the spelling, or just " +
+        '<a href="#" onclick="lookupSkip();return false;" style="color:#7C9DD6;">type your details in</a>.';
+      return;
+    }
+    window.__lookupSurname = surname;
+    window.__lookupContact = contact;
+    window.__isReturning   = true;
+    _rtFill(rec);
+    _rtShowGate('known');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Find my details';
+    msg.style.color = '#fbbf24';
+    msg.innerHTML = "Couldn't check just now. Please " +
+      '<a href="#" onclick="lookupSkip();return false;" style="color:#7C9DD6;">type your details in</a>.';
+  }
+}
+
+// A personal invite link, or one carried over from intake.html when they chose
+// "I'm selling". Without this hand-off a returning buyer's SALE would arrive as
+// a brand new stranger, which is the exact case this feature exists for.
+async function initReturningGate() {
+  const token = new URLSearchParams(location.search).get('c');
+  if (!token) { _rtShowGate('ask'); return; }
+  try {
+    const { data, error } = await db.rpc('resolve_intake_invite', { p_token: token });
+    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
+    if (!rec) { _rtShowGate('ask'); return; }
+    window.__inviteToken = token;
+    window.__isReturning = true;
+    _rtFill(rec);
+    _rtShowGate('known');
+  } catch (e) {
+    _rtShowGate('ask');
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  if (typeof initReturningGate === 'function') initReturningGate();
   const tsEl = document.getElementById('hp-timestamp');
   if (tsEl) tsEl.value = String(Date.now());
 
@@ -587,8 +787,11 @@ async function submitIntake() {
     // Returning client (migration 090). This is the main path for the feature:
     // a past buyer coming back to sell arrives here carrying ?c= from intake.html.
     // Re-checked server-side; the token is what attaches this sale to their record.
-    invite_token:      new URLSearchParams(location.search).get('c') || null,
-    is_returning:      !!new URLSearchParams(location.search).get('c')
+    invite_token:      window.__inviteToken || new URLSearchParams(location.search).get('c') || null,
+    is_returning:      !!window.__isReturning,
+    // The two facts a lookup matched on, re-verified server-side (migration 091).
+    lookup_surname:    window.__lookupSurname || null,
+    lookup_contact:    window.__lookupContact || null
   };
 
   // Submissions route through the submit_intake() RPC (migration 043). The

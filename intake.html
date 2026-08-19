@@ -261,7 +261,7 @@
       <h2>Have we worked together before?</h2>
       <p>Just so I file this in the right place.</p>
     </div>
-    <div class="choice-card" onclick="setReturning(true)">
+    <div class="choice-card" onclick="showLookup()">
       <div class="choice-icon">👋</div>
       <div class="choice-body">
         <div class="choice-title">We've worked together</div>
@@ -277,6 +277,27 @@
       </div>
       <div class="choice-arrow">→</div>
     </div>
+  </div>
+
+  <!-- Look yourself up. Two facts, not one: a surname on its own or an email on
+       its own would let anyone probe this form for whether a person is a client
+       and collect their phone number. -->
+  <div id="rt-lookup" style="display:none;">
+    <div class="section-hdr">
+      <h2>Let me find your file</h2>
+      <p>Two quick things and I'll fill the rest in for you.</p>
+    </div>
+    <div class="field">
+      <label class="field-label" for="lk-surname">Last name <span class="req">*</span></label>
+      <input type="text" id="lk-surname" placeholder="Boateng" autocomplete="family-name">
+    </div>
+    <div class="field">
+      <label class="field-label" for="lk-contact">Email or phone <span class="req">*</span></label>
+      <input type="text" id="lk-contact" placeholder="you@email.com or (709) 555-1234" autocomplete="email">
+    </div>
+    <button type="button" class="btn btn-primary" style="width:100%;" onclick="doLookup()" id="lk-btn">Find my details</button>
+    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="lookupSkip()">Skip, I'll type them in</button>
+    <div id="lk-msg" style="text-align:center;margin-top:10px;font-size:13px;min-height:18px;"></div>
   </div>
 
 </div>
@@ -757,11 +778,96 @@ function goBack(from) { showSection(from - 1); }
 function _rtShowGate(which) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-return').classList.add('active');
-  document.getElementById('rt-known').style.display = which === 'known' ? '' : 'none';
-  document.getElementById('rt-ask').style.display   = which === 'ask'   ? '' : 'none';
+  document.getElementById('rt-known').style.display  = which === 'known'  ? '' : 'none';
+  document.getElementById('rt-ask').style.display    = which === 'ask'    ? '' : 'none';
+  const lk = document.getElementById('rt-lookup');
+  if (lk) lk.style.display = which === 'lookup' ? '' : 'none';
   // The progress bar counts the form's own steps; this gate sits before them.
   const pw = document.querySelector('.progress-wrap');
   if (pw) pw.style.display = 'none';
+}
+
+// "We've worked together" — offer to find their file rather than making them
+// retype everything, which was the whole point of the request.
+function showLookup() {
+  window.__isReturning = true;
+  _rtShowGate('lookup');
+  setTimeout(() => document.getElementById('lk-surname')?.focus(), 60);
+}
+
+// They'd rather just type it. Their claim of being a returning client stands,
+// and Maxwell gets a probable match to confirm on his side.
+function lookupSkip() {
+  window.__isReturning = true;
+  window.__skipContact = false;
+  _rtLeaveGate();
+  _rtNext();
+}
+
+async function doLookup() {
+  const sEl = document.getElementById('lk-surname');
+  const cEl = document.getElementById('lk-contact');
+  const msg = document.getElementById('lk-msg');
+  const btn = document.getElementById('lk-btn');
+  const surname = (sEl?.value || '').trim();
+  const contact = (cEl?.value || '').trim();
+
+  if (surname.length < 2 || !contact) {
+    msg.style.color = '#fbbf24';
+    msg.textContent = 'Please fill in both, so I match the right person.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Looking...';
+  msg.style.color = '#94a3b8'; msg.textContent = '';
+
+  try {
+    const { data, error } = await db.rpc('lookup_returning_client', {
+      p_agent_id: window.__intakeAgentId || null,
+      p_surname:  surname,
+      p_contact:  contact
+    });
+    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
+
+    btn.disabled = false; btn.textContent = 'Find my details';
+
+    if (!rec) {
+      // Deliberately vague and identical for every kind of miss, so this can't
+      // be used to work out whether an address belongs to a client.
+      msg.style.color = '#fbbf24';
+      msg.innerHTML = "I couldn't match that. Check the spelling, or just " +
+        '<a href="#" onclick="lookupSkip();return false;" style="color:#7C9DD6;">type your details in</a>.';
+      return;
+    }
+
+    // Matched. Keep the two facts so the server can re-verify them on submit;
+    // no id or token is ever handed to the browser.
+    window.__lookupSurname = surname;
+    window.__lookupContact = contact;
+    window.__isReturning   = true;
+
+    const parts = (rec.full_name || '').trim().split(/\s+/);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    set('f-firstname', parts[0] || '');
+    set('f-lastname',  parts.slice(1).join(' '));
+    set('f-email',     rec.email || '');
+    set('f-phone',     rec.phone || '');
+
+    const esc = s => String(s == null ? '' : s)
+      .replace(/[<>&"]/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c]));
+    document.getElementById('rt-hello').textContent = 'Welcome back, ' + (parts[0] || 'there');
+    document.getElementById('rt-details').innerHTML =
+      `<div><strong>${esc(rec.full_name || '')}</strong></div>` +
+      (rec.email ? `<div style="color:#94a3b8;">${esc(rec.email)}</div>` : '') +
+      (rec.phone ? `<div style="color:#94a3b8;">${esc(rec.phone)}</div>` : '');
+    _rtShowGate('known');
+
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Find my details';
+    msg.style.color = '#fbbf24';
+    msg.innerHTML = "Couldn't check just now. Please " +
+      '<a href="#" onclick="lookupSkip();return false;" style="color:#7C9DD6;">type your details in</a>.';
+  }
 }
 
 function _rtLeaveGate() {
@@ -959,7 +1065,11 @@ async function submitIntake() {
     // is what attaches this submission to an existing client record. is_returning
     // on its own is only a claim, and produces a match for Maxwell to confirm.
     invite_token:    window.__inviteToken || null,
-    is_returning:    !!window.__isReturning
+    is_returning:    !!window.__isReturning,
+    // The two facts a lookup matched on. Re-checked server-side before anything
+    // is attached, so sending them proves nothing on its own (migration 091).
+    lookup_surname:  window.__lookupSurname || null,
+    lookup_contact:  window.__lookupContact || null
   };
 
   // Submissions route through the submit_intake() RPC (migration 043). The
