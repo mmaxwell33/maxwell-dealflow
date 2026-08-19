@@ -91,7 +91,7 @@
     .footer{text-align:center;margin-top:48px;font-size:12px;color:#334155;padding:0 16px;}
     .footer a{color:#475569;text-decoration:none;}
 
-    /* ── Returning-client gate (migrations 090/091) ──────────────────────── */
+    /* ── Returning-client gate (migrations 094/095) ──────────────────────── */
     .choice-card{background:#131c30;border:1.5px solid rgba(148,163,184,.18);border-radius:14px;padding:22px 20px;cursor:pointer;transition:all .2s;margin-bottom:12px;display:flex;align-items:center;gap:16px;}
     .choice-card:hover{border-color:#7C9DD6;}
     .choice-card .choice-icon{font-size:34px;flex-shrink:0;}
@@ -131,7 +131,7 @@
 <div class="wrap">
 
 <!-- ══ SECTION 1 — CONTACT ════════════════════════════════════════════ -->
-<!-- ══ RETURNING CLIENT GATE (migrations 090 / 091) ════════════════════════
+<!-- ══ RETURNING CLIENT GATE (migrations 094 / 095) ════════════════════════
      The seller form is the main destination for this feature: a past BUYER
      coming back to SELL lands here, either carrying ?c= from intake.html or
      arriving directly. Without this they were asked for every detail again.
@@ -572,7 +572,7 @@ function showSection(n) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ══ RETURNING CLIENT GATE (migrations 090 / 091) ══════════════════════════════
+// ══ RETURNING CLIENT GATE (migrations 094 / 095) ══════════════════════════════
 // This form is the main destination for the feature: a past buyer coming back
 // to sell. Same behaviour as intake.html, including the rule that the lookup
 // needs two matching facts so it cannot be used to harvest the client list.
@@ -784,12 +784,12 @@ async function submitIntake() {
     notes:             document.getElementById('f-notes').value.trim() || null,
     status:            'New',
     submitted_at:      new Date().toISOString(),
-    // Returning client (migration 090). This is the main path for the feature:
+    // Returning client (migration 094). This is the main path for the feature:
     // a past buyer coming back to sell arrives here carrying ?c= from intake.html.
     // Re-checked server-side; the token is what attaches this sale to their record.
     invite_token:      window.__inviteToken || new URLSearchParams(location.search).get('c') || null,
     is_returning:      !!window.__isReturning,
-    // The two facts a lookup matched on, re-verified server-side (migration 091).
+    // The two facts a lookup matched on, re-verified server-side (migration 095).
     lookup_surname:    window.__lookupSurname || null,
     lookup_contact:    window.__lookupContact || null
   };

@@ -442,7 +442,7 @@ const Clients = {
     App.loadOverview();
   },
 
-  // ── Returning clients (migration 090) ───────────────────────────────────
+  // ── Returning clients (migration 094) ───────────────────────────────────
   // Send a past client a personal intake link so a new enquiry attaches to the
   // record they already have, instead of arriving as a second copy of them.
   //
@@ -454,12 +454,12 @@ const Clients = {
     if (!c) return;
     if (!c.email) { App.toast('⚠️ No email on file for this client', 'var(--red)'); return; }
 
-    // The token lives on the client row. Older rows created before migration 090
+    // The token lives on the client row. Older rows created before migration 094
     // have one from the column default, but fetch rather than assume.
     const { data: row, error } = await db.from('clients')
       .select('intake_token').eq('id', id).single();
     if (error || !row?.intake_token) {
-      App.toast('⚠️ ' + (error?.message || 'No invite token on this client. Has migration 090 been applied?'), 'var(--red)');
+      App.toast('⚠️ ' + (error?.message || 'No invite token on this client. Has migration 094 been applied?'), 'var(--red)');
       return;
     }
 

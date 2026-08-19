@@ -1095,7 +1095,7 @@ const FormResponses = {
     const btn = document.querySelector(`button[onclick="FormResponses.addAsClient('${id}')"]`);
     if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
 
-    // ── RETURNING CLIENT (migration 090) ──────────────────────────────────
+    // ── RETURNING CLIENT (migration 094) ──────────────────────────────────
     // This used to be a dead end: on a duplicate email it said "already in your
     // clients list", marked the intake Added, and discarded everything the
     // client had just told us about the home they now want to sell. A past

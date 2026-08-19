@@ -1,4 +1,4 @@
--- 091_returning_client_lookup.sql
+-- 095_returning_client_lookup.sql
 -- Let a returning client pull up their own details on the public form instead of
 -- typing everything again. Requested twice by Maxwell; this is that feature.
 --
@@ -88,7 +88,7 @@ grant  execute on function public.lookup_returning_client(uuid, text, text) to a
 -- ══════════════════════════════════════════════════════════════════════════
 -- 2. Attaching on submit, re-verified server-side
 -- ══════════════════════════════════════════════════════════════════════════
--- Extends migration 090's submit_intake. A payload may now claim a lookup
+-- Extends migration 094's submit_intake. A payload may now claim a lookup
 -- match by sending back the surname and contact it matched on. Those two facts
 -- are checked again here against the same rules, so the claim is worthless
 -- unless it is true. Everything else in 090 is preserved exactly.
@@ -110,6 +110,9 @@ declare
   v_surname     text;
   v_contact     text;
   v_digits      text;
+  founder       uuid;
+  v_broker_email text;
+  v_broker_id   uuid;
   returning_flag boolean := coalesce((payload->>'is_returning')::boolean, false);
 begin
   if payload is null or jsonb_typeof(payload) <> 'object' then
@@ -124,7 +127,7 @@ begin
     raise exception 'submit_intake: full_name or first_name is required';
   end if;
 
-  -- ── Invite token (migration 090) ──
+  -- ── Invite token (migration 094) ──
   begin
     invite := nullif(payload->>'invite_token', '')::uuid;
   exception when others then
@@ -215,6 +218,48 @@ begin
 
   insert into public.client_intake
   select * from jsonb_populate_record(null::public.client_intake, payload);
+
+  -- ── Website lender lead → pending broker referral, auto-linked ────────────
+  -- RESTORED FROM MIGRATION 078. Migration 087 rebuilt submit_intake and
+  -- silently dropped this block, so depending on which migration was applied
+  -- last, website lender leads may have stopped reaching the broker's portal
+  -- automatically. Carried forward here so that this rewrite cannot be the
+  -- thing that loses it again. Behaviour is 078's, unchanged.
+  if lower(coalesce(payload->>'referral_source', '')) like '%lender%'
+     or lower(coalesce(payload->>'referral_source', '')) like '%mortgage%' then
+
+    select id into founder from public.agents where created_by is null limit 1;
+
+    -- The founder's ACTIVE broker: the email saved in Settings, matched to a
+    -- broker-role account. NULL if none is set up, and then it stays unlinked.
+    select lower(broker_email) into v_broker_email from public.agents where id = founder;
+    if v_broker_email is not null then
+      select id into v_broker_id
+        from public.agents
+       where role = 'broker' and lower(email) = v_broker_email
+       limit 1;
+    end if;
+
+    begin
+      insert into public.broker_referral_requests
+        (agent_id, client_id, broker_id, client_name, client_email, client_phone, token, status, source)
+      values
+        (founder, null, v_broker_id,
+         nullif(payload->>'full_name', ''),
+         nullif(payload->>'email', ''),
+         nullif(payload->>'phone', ''),
+         gen_random_uuid()::text,
+         'pending', 'website');
+    exception when unique_violation then
+      -- An active referral for this email already exists; make sure it is linked
+      -- to the current broker so it still surfaces in the portal.
+      update public.broker_referral_requests
+         set broker_id = v_broker_id
+       where lower(client_email) = lower(nullif(payload->>'email', ''))
+         and status in ('pending', 'approved')
+         and broker_id is null;
+    end;
+  end if;
 
   return jsonb_build_object('id', new_id);
 end;

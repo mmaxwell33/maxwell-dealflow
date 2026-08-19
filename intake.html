@@ -150,7 +150,7 @@
   (function () {
     var qp = new URLSearchParams(location.search);
     var skipRouter = qp.get('type') === 'buy';
-    // The returning-client gate (migration 090) runs BEFORE the buy/sell
+    // The returning-client gate (migration 094) runs BEFORE the buy/sell
     // router: who you are comes first, what you want to do comes second.
     // Skipped for the seller "both" hand-off, which already asked.
     window.__routerSkipped = skipRouter;
@@ -234,7 +234,7 @@
 <div class="wrap">
 
 <!-- ══ SECTION 1 — ABOUT YOU ══════════════════════════════════════════ -->
-<!-- ══ RETURNING CLIENT GATE (migration 090) ═══════════════════════════════
+<!-- ══ RETURNING CLIENT GATE (migration 094) ═══════════════════════════════
      Shown before the form. Two states:
        #rt-known  a personal invite link resolved, so we greet them by name
        #rt-ask    a generic link, so we ask whether we have worked together
@@ -770,7 +770,7 @@ function goNext(from) {
 
 function goBack(from) { showSection(from - 1); }
 
-// ══ RETURNING CLIENT (migration 090) ═════════════════════════════════════════
+// ══ RETURNING CLIENT (migration 094) ═════════════════════════════════════════
 // window.__inviteToken  the ?c= token, if this was a personal link
 // window.__isReturning  whether they are a past client (claimed, or proved by token)
 // Both are sent with the payload and re-checked server-side in submit_intake.
@@ -1061,13 +1061,13 @@ async function submitIntake() {
     // Which agent this submission belongs to — set by applyAgentBranding()
     // from ?a= and re-validated server-side in submit_intake (migration 087).
     agent_id:        window.__intakeAgentId || null,
-    // Returning client (migration 090). The token is re-checked server-side and
+    // Returning client (migration 094). The token is re-checked server-side and
     // is what attaches this submission to an existing client record. is_returning
     // on its own is only a claim, and produces a match for Maxwell to confirm.
     invite_token:    window.__inviteToken || null,
     is_returning:    !!window.__isReturning,
     // The two facts a lookup matched on. Re-checked server-side before anything
-    // is attached, so sending them proves nothing on its own (migration 091).
+    // is attached, so sending them proves nothing on its own (migration 095).
     lookup_surname:  window.__lookupSurname || null,
     lookup_contact:  window.__lookupContact || null
   };

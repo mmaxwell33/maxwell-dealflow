@@ -1,4 +1,4 @@
--- 090_returning_client_intake.sql
+-- 094_returning_client_intake.sql
 -- RETURNING CLIENTS: let a past client submit a new enquiry that attaches to the
 -- record they already have, instead of creating a second copy of the person.
 --
