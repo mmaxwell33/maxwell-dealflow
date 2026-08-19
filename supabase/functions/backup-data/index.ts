@@ -45,7 +45,20 @@ serve(async (req) => {
 
     const db = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    const [clientsRes, viewingsRes, offersRes, pipelineRes, activityRes] = await Promise.all([
+    // Boardroom session 11 (2026-08-19): four tables were missing from this
+    // backup, and one of them is where the business begins.
+    //
+    //   client_intake            every new lead enters here. It was NOT backed
+    //                            up, so when submissions were stranded on a
+    //                            login-less agent there was no restore path and
+    //                            no way to size the loss.
+    //   broker_referral_requests the highest-intent traffic on the website.
+    //   commissions              the income record. Losing it loses the money history.
+    //   viewing_responses        since migration 089 this carries the client's
+    //                            actual decision after a viewing, including why
+    //                            a property was not a fit.
+    const [clientsRes, viewingsRes, offersRes, pipelineRes, activityRes,
+           intakeRes, referralRes, commissionsRes, responsesRes] = await Promise.all([
       db.from('clients').select('*').order('created_at', { ascending: false }),
       db.from('viewings').select('*').order('created_at', { ascending: false }),
       db.from('offers').select('*').order('created_at', { ascending: false }),
@@ -53,6 +66,10 @@ serve(async (req) => {
       db.from('activity_log').select('*')
         .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false }),
+      db.from('client_intake').select('*').order('created_at', { ascending: false }),
+      db.from('broker_referral_requests').select('*').order('created_at', { ascending: false }),
+      db.from('commissions').select('*').order('created_at', { ascending: false }),
+      db.from('viewing_responses').select('*').order('created_at', { ascending: false }),
     ]);
 
     const backupDate = new Date().toISOString().slice(0, 10);
@@ -65,6 +82,10 @@ serve(async (req) => {
         offers:       offersRes.data   || [],
         pipeline:     pipelineRes.data || [],
         activity_log: activityRes.data || [],
+        client_intake:            intakeRes.data      || [],
+        broker_referral_requests: referralRes.data    || [],
+        commissions:              commissionsRes.data || [],
+        viewing_responses:        responsesRes.data   || [],
       },
       summary: {
         total_clients:  (clientsRes.data  || []).length,
@@ -72,6 +93,10 @@ serve(async (req) => {
         total_offers:   (offersRes.data   || []).length,
         pipeline_deals: (pipelineRes.data || []).length,
         activity_entries: (activityRes.data || []).length,
+        total_intakes:     (intakeRes.data      || []).length,
+        broker_referrals:  (referralRes.data    || []).length,
+        total_commissions: (commissionsRes.data || []).length,
+        viewing_responses: (responsesRes.data   || []).length,
       }
     };
 
