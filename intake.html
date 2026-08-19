@@ -111,8 +111,14 @@
 
 <!-- ══ ROUTER — Buyer or Seller? (seller-side feature) ══════════════════ -->
 <div class="router-screen" id="router-screen">
-  <h1> Welcome!</h1>
-  <div class="router-sub">Before we start — are you looking to <strong style="color:#e2e8f0">buy a home</strong>, or do you have a <strong style="color:#e2e8f0">property you'd like to sell</strong>?</div>
+  <h1 id="router-title"> Welcome!</h1>
+  <div class="router-sub" id="router-sub">Before we start, are you looking to <strong style="color:#e2e8f0">buy a home</strong>, or do you have a <strong style="color:#e2e8f0">property you'd like to sell</strong>?</div>
+  <!-- Shown only to someone who said they are a returning client, so the answer
+       they just gave is visibly acknowledged rather than silently swallowed. -->
+  <div id="router-returning" style="display:none;background:rgba(124,157,214,.10);border:1px solid rgba(124,157,214,.4);border-radius:12px;padding:12px 16px;margin:0 auto 18px;max-width:520px;font-size:13.5px;color:#c9d6ea;line-height:1.55;">
+    <span style="color:#7C9DD6;font-weight:700;">✓ Good to have you back.</span>
+    <span id="router-returning-msg">I'll file this with your existing details.</span>
+  </div>
   <div class="choice-card" onclick="chooseRoute('buy')">
     <div class="choice-icon"></div>
     <div class="choice-body">
@@ -168,6 +174,22 @@
       var r  = document.getElementById('router-screen'); if (r)  r.style.display  = '';
       var w  = document.querySelector('.wrap');          if (w)  w.style.display  = 'none';
       var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = 'none';
+
+      // Acknowledge what they just told us. Without this, answering "we've
+      // worked together" appears to do nothing at all and reads as a broken
+      // button, which is exactly how it looked in testing.
+      if (window.__isReturning) {
+        var t = document.getElementById('router-title');
+        var n = document.getElementById('router-returning');
+        var m = document.getElementById('router-returning-msg');
+        if (t) t.textContent = 'Welcome back!';
+        if (n) n.style.display = '';
+        if (m) {
+          m.textContent = window.__inviteToken
+            ? "I have your details, so you can skip straight past them."
+            : "I'll match this to the file I already have for you.";
+        }
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     window.chooseRoute = function (type) {
