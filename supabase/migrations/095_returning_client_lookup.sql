@@ -29,6 +29,54 @@
 -- Run in the Supabase SQL Editor. Safe to re-run.
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- 0. THE FOUNDER FALLBACK — the bug that lost a real client's submission
+-- ══════════════════════════════════════════════════════════════════════════
+-- On 2026-08-19 a client filled in the intake form and it never appeared in the
+-- app. The row saved correctly; it was stamped to agent e0cd3307, an agents row
+-- with NO matching auth.users record. Nobody can sign in as that account, and
+-- both the app query and the RLS policy scope reads to agent_id = auth.uid(),
+-- so the submission was invisible to everyone. It looked like lost data and was
+-- very nearly a lost client.
+--
+-- Cause: every intake path falls back to
+--     select id from agents where created_by is null limit 1
+-- when the link carries no ?a=. There is more than one row with created_by null,
+-- and LIMIT without ORDER BY has no defined result, so it can and did return the
+-- account that cannot log in.
+--
+-- Fix: resolve the founder to an agent that actually HAS a login, deterministically.
+-- Used by submit_intake below. The same broken pattern appears in seven earlier
+-- migrations; they are left alone rather than rewritten, since this function is
+-- the one the public intake path actually calls.
+
+create or replace function public.dealflow_founder_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select a.id
+  from public.agents a
+  join auth.users u on u.id = a.id      -- must be an account someone can sign into
+  where a.created_by is null
+  order by a.created_at                  -- deterministic: oldest real founder wins
+  limit 1;
+$$;
+
+revoke execute on function public.dealflow_founder_id() from public;
+grant  execute on function public.dealflow_founder_id() to anon, authenticated;
+
+-- ── Recover anything already stranded on a login-less agent ───────────────
+-- These rows are unreachable by every user in the system, so reassigning them
+-- to the real founder cannot take anything away from anyone.
+update public.client_intake ci
+   set agent_id = public.dealflow_founder_id()
+ where public.dealflow_founder_id() is not null
+   and (ci.agent_id is null
+        or not exists (select 1 from auth.users u where u.id = ci.agent_id));
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- 1. The lookup
 -- ══════════════════════════════════════════════════════════════════════════
 
@@ -58,7 +106,7 @@ begin
   -- id falls back to the founder rather than searching every agent's clients.
   select id into v_agent from public.agents where id = p_agent_id;
   if v_agent is null then
-    select id into v_agent from public.agents where created_by is null limit 1;
+    v_agent := public.dealflow_founder_id();
   end if;
   if v_agent is null then
     return;
@@ -150,7 +198,7 @@ begin
     select id into target_agent from public.agents where id = (payload->>'agent_id')::uuid;
   end if;
   if target_agent is null then
-    select id into target_agent from public.agents where created_by is null limit 1;
+    target_agent := public.dealflow_founder_id();
   end if;
 
   -- ── Lookup match, re-verified. Never trust the claim, only the facts. ──
@@ -228,7 +276,7 @@ begin
   if lower(coalesce(payload->>'referral_source', '')) like '%lender%'
      or lower(coalesce(payload->>'referral_source', '')) like '%mortgage%' then
 
-    select id into founder from public.agents where created_by is null limit 1;
+    founder := public.dealflow_founder_id();
 
     -- The founder's ACTIVE broker: the email saved in Settings, matched to a
     -- broker-role account. NULL if none is set up, and then it stays unlinked.

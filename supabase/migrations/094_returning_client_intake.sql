@@ -142,7 +142,7 @@ begin
     select id into target_agent from public.agents where id = (payload->>'agent_id')::uuid;
   end if;
   if target_agent is null then
-    select id into target_agent from public.agents where created_by is null limit 1;
+    target_agent := public.dealflow_founder_id();
   end if;
 
   -- ── Probable match for the generic path ──
