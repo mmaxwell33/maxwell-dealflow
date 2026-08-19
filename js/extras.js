@@ -853,10 +853,19 @@ const FormResponses = {
           </div>
           ${!isSeller && r.must_haves ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">✅ Must-haves: ${r.must_haves}</div>` : ''}
           ${r.notes ? `<div style="font-size:12px;background:var(--bg);padding:8px;border-radius:6px;color:var(--text2);margin-bottom:10px;line-height:1.5;">📝 ${r.notes}</div>` : ''}
+          ${(r.client_id || r.matched_client_id || r.is_returning) ? `
+          <div style="font-size:12px;background:var(--accent-soft,rgba(110,140,192,.14));border:1px solid var(--accent2);border-radius:6px;padding:8px 10px;margin-bottom:10px;color:var(--text);line-height:1.5;">
+            🔁 <strong>${r.client_id ? 'Returning client, confirmed' : r.matched_client_id ? 'Looks like a returning client' : 'Says they have worked with you before'}</strong>
+            <span style="color:var(--text2);">${r.client_id
+              ? '· opened the personal link you sent, so this attaches to their record'
+              : r.matched_client_id
+                ? '· matches someone already on your list, you confirm before it attaches'
+                : '· no match found, so check before adding'}</span>
+          </div>` : ''}
           <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Submitted ${date}</div>
           ${isNew ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" style="flex:1;min-width:130px;" onclick="FormResponses.addAsClient('${r.id}')">✅ Add as Client</button>
+            <button class="btn btn-primary btn-sm" style="flex:1;min-width:130px;" onclick="FormResponses.addAsClient('${r.id}')">${(r.client_id || r.matched_client_id) ? '🔗 Review &amp; attach' : '✅ Add as Client'}</button>
             <button class="btn btn-outline btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.openEdit('${r.id}')">✏️ Edit</button>
             <button class="btn btn-red btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
           </div>` : `
