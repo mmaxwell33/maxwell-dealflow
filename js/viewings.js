@@ -107,8 +107,11 @@ const Viewings = {
         <button type="button" class="cl-chip" id="vf-who-client" aria-pressed="true"  onclick="Viewings._setWho('client')">👤 My client</button>
         <button type="button" class="cl-chip" id="vf-who-guest"  aria-pressed="false" onclick="Viewings._setWho('guest')">✨ Guest</button>
       </div>`;
+    // A sheet read for a previous booking must never be attached to this one.
+    if (typeof MLSDrop !== 'undefined') MLSDrop.reset();
     App.openModal(`
       <div class="modal-title">📅 ${viewing ? 'Edit' : 'Book'} Viewing</div>
+      ${typeof MLSDrop !== 'undefined' ? MLSDrop.zone() : ''}
       <div class="form-group">
         <label class="form-label">Client *</label>
         ${whoToggle}
@@ -219,8 +222,15 @@ const Viewings = {
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Agent Notes</label>
-        <textarea class="form-input" id="vf-notes" rows="2" placeholder="Notes...">${viewing?.agent_notes||''}</textarea>
+        <label class="form-label">About This Home <span style="text-transform:none;letter-spacing:0;color:var(--accent2);">(goes to the client, in italics)</span></label>
+        <textarea class="form-input" id="vf-highlights" rows="4" placeholder="Two storey, built 1998. About 1,840 sq ft with 3 bedrooms and 2.5 baths. Shingles replaced 2021.">${viewing?.property_highlights||''}</textarea>
+        <div style="font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.5;">
+          Written from the facts on the MLS sheet. Edit or clear it. Cleared means the client email carries no note at all.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Agent Notes <span style="text-transform:none;letter-spacing:0;color:var(--text2);">(private, never sent to the client)</span></label>
+        <textarea class="form-input" id="vf-notes" rows="2" placeholder="Your own note on this showing...">${viewing?.agent_notes||''}</textarea>
       </div>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
         ${viewing ? 'Update Viewing' : 'Book Viewing'}
@@ -317,6 +327,36 @@ const Viewings = {
     return (data && data[0]) || null;
   },
 
+  // Write the viewing, surviving a database that has not had migration 096 yet.
+  // property_highlights is the only new column in the payload; if the server
+  // does not know it, drop it and write the booking anyway. Losing a booking
+  // over a column that only adds a line to an email would be the wrong trade.
+  async _write(payload, existingId) {
+    const run = p => existingId
+      ? db.from('viewings').update(p).eq('id', existingId)
+      : db.from('viewings').insert(p);
+    let { error } = await run(payload);
+    if (error && /property_highlights/.test(error.message || '')) {
+      const rest = { ...payload };
+      delete rest.property_highlights;
+      ({ error } = await run(rest));
+      if (!error) App.toast('⚠️ Viewing saved, but the client note needs migration 096', 'var(--yellow)');
+    }
+    return error;
+  },
+
+  // File the MLS sheet this booking was read from, and record where it went.
+  // Everything here is best-effort: the viewing is already saved, and neither a
+  // storage hiccup nor a missing migration 096 should surface as a failure on a
+  // booking that went through.
+  async _attachSheet(viewingId) {
+    if (typeof MLSDrop === 'undefined' || !MLSDrop._file) return;
+    const doc = await MLSDrop.store(viewingId);
+    if (!doc) return;
+    const { error } = await db.from('viewings').update(doc).eq('id', viewingId);
+    if (error) console.warn('[Viewings] could not record the MLS sheet path:', error.message);
+  },
+
   async save(existingId = null) {
     const address = document.getElementById('vf-address').value.trim();
     const msgEl = document.getElementById('vf-msg');
@@ -353,6 +393,9 @@ const Viewings = {
       offer_due_time: document.getElementById('vf-offer-time').value || null,
       sellers_direction: document.getElementById('vf-sellers-dir').value || null,
       viewing_status: document.getElementById('vf-vstatus')?.value || 'Scheduled',
+      // Empty box means no note in the client email at all, so store NULL
+      // rather than '' and let the template's truthiness check do its job.
+      property_highlights: document.getElementById('vf-highlights')?.value.trim() || null,
       agent_notes: document.getElementById('vf-notes').value.trim(),
       client_feedback: document.getElementById('vf-feedback').value || null,
       updated_at: new Date().toISOString()
@@ -363,8 +406,9 @@ const Viewings = {
 
     let error;
     if (existingId) {
-      ({ error } = await db.from('viewings').update(payload).eq('id', existingId));
+      error = await Viewings._write(payload, existingId);
       if (!error) {
+        await Viewings._attachSheet(existingId);
         // Re-send confirmation as "Update" email if client has an email on file
         if (typeof Notify !== 'undefined' && client?.email) {
           const updatedViewing = { ...oldViewing, ...payload, id: existingId };
@@ -372,7 +416,7 @@ const Viewings = {
         }
       }
     } else {
-      ({ error } = await db.from('viewings').insert(payload));
+      error = await Viewings._write(payload, null);
       if (!error) {
         await App.logActivity('VIEWING_SCHEDULED', client?.full_name, client?.email,
           `Viewing scheduled: ${address}`, clientId);
@@ -390,6 +434,7 @@ const Viewings = {
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
+        if (newViewing) await Viewings._attachSheet(newViewing.id);
         // Guests are often booked from a phone call with no email on file —
         // queuing a confirmation with no recipient would just leave a dead row
         // in Approvals. Roster clients keep their existing behaviour.
