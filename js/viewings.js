@@ -111,7 +111,11 @@ const Viewings = {
     if (typeof MLSDrop !== 'undefined') MLSDrop.reset();
     App.openModal(`
       <div class="modal-title">📅 ${viewing ? 'Edit' : 'Book'} Viewing</div>
-      ${typeof MLSDrop !== 'undefined' ? MLSDrop.zone() : ''}
+      ${typeof MLSDrop !== 'undefined' ? MLSDrop.zone() : `
+      <div style="border:1px solid var(--yellow);background:rgba(176,141,87,0.12);border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:12.5px;color:var(--text1);line-height:1.5;">
+        ⚠️ The MLS sheet reader did not load, so there is nothing to drop a sheet on.
+        <span style="color:var(--text2);">Booking by hand below works exactly as it always has. A hard reload usually fixes it: hold Shift and press reload.</span>
+      </div>`}
       <div class="form-group">
         <label class="form-label">Client *</label>
         ${whoToggle}
