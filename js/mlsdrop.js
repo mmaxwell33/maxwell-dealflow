@@ -63,12 +63,14 @@ const MLSDrop = {
 
       // The facts the note is built from. Short values: these become one
       // sentence a buyer reads on their phone, not a spec sheet.
-      year_built:     { type: 'string', description: 'Year the home was built, 4 digits. Empty if not stated.' },
-      square_feet:    { type: 'string', description: 'Total finished floor area in square feet, digits only. Empty if not stated.' },
-      style:          { type: 'string', description: 'Storey style as written, e.g. "Two storey", "Bungalow", "Split entry". Empty if not stated.' },
+      // The descriptions below are written against how Matrix actually prints a
+      // sheet, not how a listing sheet might ideally be laid out.
+      year_built:     { type: 'string', description: 'Year the home was built, 4 digits only. Sheets often print this as "Yr Built/Desc: 1966/-" or alongside a separate building age; take the 4 digit year and ignore the rest.' },
+      square_feet:    { type: 'string', description: 'Total finished floor area in square feet, digits only, no commas. Sheets often list each floor separately (main floor, 2nd floor, basement) alongside a combined total such as "Square FT/M"; use the stated total. Empty if no total is stated.' },
+      style:          { type: 'string', description: 'Storey style as written, e.g. "Detached, 2 Storey", "Bungalow", "Split entry". Empty if not stated.' },
       bedrooms:       { type: 'string', description: 'Number of bedrooms, digits only. Empty if not stated.' },
-      bathrooms:      { type: 'string', description: 'Number of bathrooms, e.g. "2.5". Empty if not stated.' },
-      recent_updates: { type: 'string', description: 'Recent updates or replacements with their years, as a short comma separated list, e.g. "Shingles 2021, furnace 2019". Only items the sheet actually states. Empty if none.' },
+      bathrooms:      { type: 'string', description: 'Total bathrooms as a decimal count, e.g. "2.5". Sheets commonly print full and half baths separately as "2 \\ 1" or "2/1", meaning 2 full and 1 half: convert that to "2.5". Never return the raw "2 \\ 1" form. Empty if not stated.' },
+      recent_updates: { type: 'string', description: 'Recent updates or replacements with their years, as a short comma separated list, e.g. "Roof shingles 2021, mini splits added". These are usually written in the prose property description rather than in a labelled field, so read the description for them. Only items the sheet actually states, and only genuine updates, not standard features. Empty if none.' },
       heating:        { type: 'string', description: 'Heat type as written, e.g. "Oil forced air", "Electric baseboard", "Mini split". Empty if not stated.' },
       garage:         { type: 'string', description: 'Garage or parking as written, e.g. "Attached single garage", "Detached double". Empty if not stated.' },
       lot:            { type: 'string', description: 'Lot description as written, e.g. "Fully fenced", "0.5 acre". Empty if not stated.' },
@@ -184,7 +186,7 @@ const MLSDrop = {
         },
       });
 
-      if (error) throw new Error(error.message || 'Reader unavailable');
+      if (error) throw new Error(await MLSDrop.edgeError(error));
       if (data?.error) throw new Error(data.error);
       const parsed = MLSDrop.parse(data?.text);
       if (!parsed) throw new Error('The reader did not return readable fields.');
@@ -231,6 +233,26 @@ const MLSDrop = {
     } finally {
       MLSDrop._busy = false;
     }
+  },
+
+  // supabase-js collapses EVERY non-2xx from an edge function into the same
+  // sentence: "Edge Function returned a non-2xx status code". That sentence
+  // cannot be acted on. The real reason is in the response body, which is
+  // exactly where claude-chat puts it (no API key on the server, rate limit,
+  // whatever Anthropic said), so read it back out and say that instead.
+  async edgeError(error) {
+    const res = error?.context;
+    try {
+      if (res && typeof res.clone === 'function') {
+        const body = await res.clone().json().catch(() => null);
+        if (body?.error) return String(body.error);
+      }
+    } catch (e) { /* fall through to the status-code guesses below */ }
+    if (res?.status === 401) return 'Your DealFlow session has expired. Sign out, sign back in, and drop the sheet again.';
+    if (res?.status === 429) return 'The reader has hit its limit for this hour. It resets at the top of the next hour.';
+    if (res?.status === 500) return 'The reader is not configured on the server. ANTHROPIC_API_KEY is missing from the Supabase secrets.';
+    if (res?.status === 404) return 'The claude-chat function is not deployed to Supabase.';
+    return error?.message || 'Reader unavailable';
   },
 
   toBase64(file) {
