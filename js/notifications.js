@@ -234,7 +234,15 @@ const Notify = {
       const introLine = isUpdate
         ? `Your viewing details have been updated. Here is the latest information:`
         : `Your property viewing has been confirmed.`;
-      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${EmailFormat.signaturePlain(agent)}`;
+      // Short plain-language note about the home, read off the MLS sheet and
+      // checked by the agent before the booking was saved. Empty means the
+      // agent cleared it, so nothing about the house is said at all.
+      const highlights = (viewing.property_highlights || '').trim();
+      const highlightsPlain = highlights
+        ? `\n\nAbout this home:\n${highlights}\n\nProperty details are provided as a courtesy and are believed accurate but are not guaranteed. Please verify anything you intend to rely on.`
+        : '';
+
+      const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${viewing.agent_notes ? '\nNotes: ' + viewing.agent_notes : ''}${highlightsPlain}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${EmailFormat.signaturePlain(agent)}`;
 
       // ── HTML EMAIL ─────────────────────────────────────────────────────────
       const tableRows = [];
@@ -271,6 +279,11 @@ const Notify = {
         <p>Hi ${firstName},</p>
         <p>${isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
         <table class="dt">${tableRows.join('')}</table>
+        ${highlights ? `<div style="margin:18px 0;padding:14px 16px;background:#f7f8fa;border-left:3px solid #0F172A;border-radius:0 8px 8px 0;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#6b7280;margin-bottom:7px;">About this home</div>
+          <div style="font-style:italic;color:#3f4753;font-size:13.5px;line-height:1.65;">${highlights}</div>
+          <div style="font-size:11px;color:#9ca3af;line-height:1.5;margin-top:9px;">Provided as a courtesy and believed accurate, but not guaranteed. Please verify anything you intend to rely on.</div>
+        </div>` : ''}
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
         ${EmailFormat.mapBlockHTML(viewing.property_address)}
