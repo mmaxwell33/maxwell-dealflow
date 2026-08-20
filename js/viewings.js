@@ -229,8 +229,8 @@ const Viewings = {
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Agent Notes</label>
-        <textarea class="form-input" id="vf-notes" rows="2" placeholder="Notes...">${viewing?.agent_notes||''}</textarea>
+        <label class="form-label">Agent Notes <span style="text-transform:none;letter-spacing:0;color:var(--text2);">(private, never sent to the client)</span></label>
+        <textarea class="form-input" id="vf-notes" rows="2" placeholder="Your own note on this showing...">${viewing?.agent_notes||''}</textarea>
       </div>
       <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Viewings.save(${viewing?`'${viewing.id}'`:'null'})">
         ${viewing ? 'Update Viewing' : 'Book Viewing'}
