@@ -42,6 +42,16 @@ const MLSDrop = {
   SCHEMA: {
     type: 'object',
     properties: {
+      // ── The gate. Asked FIRST and answered for every file. ──────────────
+      // Without this a receipt comes back as a sheet with every field empty,
+      // which reads like a bad read of a good document instead of the wrong
+      // document. Naming what the file actually is turns a shrug into an
+      // instruction.
+      document_type: { type: 'string', enum: ['mls_listing_sheet', 'other'],
+        description: 'mls_listing_sheet ONLY if this document is a real estate listing sheet or property detail sheet for one specific property, carrying at minimum a civic address together with listing details. other for anything else at all: a receipt, an invoice, a bank statement, a purchase offer or contract, an inspection report, a piece of ID, a screenshot, a photo of a room or a building with no listing data on it, or a page too blurry or dark to read.' },
+      document_description: { type: 'string',
+        description: 'When document_type is other, a short plain description of what the document actually appears to be, lower case, no trailing period, e.g. "a grocery store receipt", "a home inspection report", "a photo of a kitchen", "a page too blurry to read". Empty when document_type is mls_listing_sheet.' },
+
       property_address: { type: 'string', description: 'Full civic address including town and province, as written on the sheet.' },
       mls_number:       { type: 'string', description: 'MLS listing number, digits only. Empty if not stated.' },
       list_price:       { type: 'string', description: 'List price, digits only, no currency symbol, commas or decimals. Empty if not stated.' },
@@ -65,7 +75,8 @@ const MLSDrop = {
       taxes_annual:   { type: 'string', description: 'Annual property taxes, digits only. Empty if not stated.' },
       condo_fee:      { type: 'string', description: 'Monthly condo or strata fee, digits only. Empty if there is none.' },
     },
-    required: ['property_address','mls_number','list_price','property_type','sellers_direction',
+    required: ['document_type','document_description',
+               'property_address','mls_number','list_price','property_type','sellers_direction',
                'offer_due_date','offer_due_time','year_built','square_feet','style','bedrooms',
                'bathrooms','recent_updates','heating','garage','lot','taxes_annual','condo_fee'],
     additionalProperties: false,
@@ -141,7 +152,11 @@ const MLSDrop = {
         'an empty string for it. Never guess, never infer a value from context, and never carry a ' +
         'number over from one field to another. The listing is in Newfoundland and Labrador, Canada. ' +
         'Prices, square footage and taxes are digits only, with no currency symbol, commas or ' +
-        'decimals. Dates are YYYY-MM-DD and times are HH:MM on a 24 hour clock.';
+        'decimals. Dates are YYYY-MM-DD and times are HH:MM on a 24 hour clock. ' +
+        'Before anything else, decide whether this document really is a listing sheet. If it is ' +
+        'not, set document_type to other, say plainly in document_description what it appears to ' +
+        'be, and leave every other field empty. Do not try to salvage listing fields out of a ' +
+        'document that is not a listing sheet.';
 
       const source = isPdf
         ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
@@ -151,8 +166,17 @@ const MLSDrop = {
         body: {
           system,
           model: MLSDrop.MODEL,
-          max_tokens: 2000,
-          output_config: { format: { type: 'json_schema', schema: MLSDrop.SCHEMA } },
+          // Thinking is ON BY DEFAULT on claude-opus-5, and max_tokens caps
+          // thinking and the answer together. At 2000 a long sheet can spend
+          // the budget reasoning and return JSON cut off mid-object, which
+          // looks exactly like a bad read. Give it room, and keep the thinking
+          // short with low effort: reading labelled fields off a page is
+          // recognition, not reasoning.
+          max_tokens: 6000,
+          output_config: {
+            effort: 'low',
+            format: { type: 'json_schema', schema: MLSDrop.SCHEMA },
+          },
           messages: [{
             role: 'user',
             content: [source, { type: 'text', text: 'Extract the listing facts from this MLS sheet.' }],
@@ -164,6 +188,34 @@ const MLSDrop = {
       if (data?.error) throw new Error(data.error);
       const parsed = MLSDrop.parse(data?.text);
       if (!parsed) throw new Error('The reader did not return readable fields.');
+
+      // ── The wrong document is a different answer from a bad read ─────────
+      // Nothing is filled and the file is not kept, so a receipt dropped by
+      // mistake cannot end up attached to a booking. The message names what
+      // the file looks like, because "unsupported" sends people back to the
+      // same file twice.
+      if (parsed.document_type !== 'mls_listing_sheet') {
+        const what = String(parsed.document_description || '').trim();
+        MLSDrop._file = null;
+        MLSDrop._read = false;
+        MLSDrop.note(
+          `⚠️ That is not an MLS listing sheet${what ? `. It looks like ${MLSDrop.esc(what)}` : ''}. ` +
+          `Nothing has been filled in. Drop the listing sheet for the property instead, or fill the form in by hand below.`,
+          'warn');
+        return;
+      }
+
+      // Claimed to be a sheet but carried no address. There is nothing to book
+      // against, so treat it the same way: say so, fill nothing.
+      if (!String(parsed.property_address || '').trim()) {
+        MLSDrop._file = null;
+        MLSDrop._read = false;
+        MLSDrop.note(
+          `⚠️ That looks like a listing sheet, but no property address could be read off it. ` +
+          `If it is a photo, try a straighter and better lit one, or fill the form in by hand below.`,
+          'warn');
+        return;
+      }
 
       MLSDrop.fill(parsed);
       MLSDrop._file = file;
