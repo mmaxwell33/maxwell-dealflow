@@ -242,16 +242,41 @@ const MLSDrop = {
   // whatever Anthropic said), so read it back out and say that instead.
   async edgeError(error) {
     const res = error?.context;
-    try {
-      if (res && typeof res.clone === 'function') {
-        const body = await res.clone().json().catch(() => null);
-        if (body?.error) return String(body.error);
+    const status = res?.status ?? error?.status;
+    // Always put the raw object in the console. Whatever the shapes turn out
+    // to be in the wild, there is then something to read.
+    console.warn('[MLSDrop] edge function failed', { status, error, context: res });
+
+    // The body carries claude-chat's own message. Read it defensively: it may
+    // be JSON, it may be plain text, and the stream may already be consumed,
+    // so try every route rather than assuming one.
+    // Read the body ONCE, as text, from a clone. Reading it twice disturbs the
+    // stream and every later attempt then fails, which is how the first version
+    // of this lost a perfectly readable message.
+    let raw = null;
+    if (res) {
+      try { raw = await res.clone().text(); }
+      catch (e) { try { raw = await res.text(); } catch (e2) { /* genuinely gone */ } }
+    }
+    if (raw && raw.trim()) {
+      let detail;
+      try {
+        const parsed = JSON.parse(raw);
+        detail = String(parsed.error || parsed.message || '').trim();
+      } catch (e) {
+        detail = raw.trim().slice(0, 300);   // not JSON, show what there is
       }
-    } catch (e) { /* fall through to the status-code guesses below */ }
-    if (res?.status === 401) return 'Your DealFlow session has expired. Sign out, sign back in, and drop the sheet again.';
-    if (res?.status === 429) return 'The reader has hit its limit for this hour. It resets at the top of the next hour.';
-    if (res?.status === 500) return 'The reader is not configured on the server. ANTHROPIC_API_KEY is missing from the Supabase secrets.';
-    if (res?.status === 404) return 'The claude-chat function is not deployed to Supabase.';
+      if (detail) return status ? `${detail} (status ${status})` : detail;
+    }
+
+    // No readable body. The status code alone still says a lot.
+    if (status === 401 || status === 403) return 'Your DealFlow session has expired. Sign out, sign back in, and drop the sheet again.';
+    if (status === 429) return 'The reader has hit its limit for this hour. It resets at the top of the next hour.';
+    if (status === 404) return 'The claude-chat function is not deployed to Supabase.';
+    if (status === 413) return 'That file is too large for the reader. Try a smaller PDF or a lower resolution photo.';
+    if (status === 500) return 'The reader is not configured on the server. Check that ANTHROPIC_API_KEY is set in the Supabase edge function secrets.';
+    if (status === 502) return 'The server reached Anthropic and Anthropic refused the request. Open the browser console for the exact reason, and check the claude-chat function logs in Supabase.';
+    if (status) return `The reader failed with status ${status}. The browser console has the details.`;
     return error?.message || 'Reader unavailable';
   },
 
