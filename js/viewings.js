@@ -244,21 +244,77 @@ const Viewings = {
       if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = "⚠️ Guest's name is required"; }
       return null;
     }
+    // That email may already be on this agent's list: a past client booking
+    // again, the same guest booked twice, or someone sitting in the Archive.
+    // clients is UNIQUE on (agent_id, email), so inserting would fail with a
+    // raw Postgres constraint error. Book onto the record that already exists
+    // instead of refusing the booking.
+    if (email) {
+      const existing = await Viewings._findClientByEmail(email);
+      if (existing) {
+        // Ask first when the match is not obviously the same person in front
+        // of him: a different name on file (a couple sharing an inbox, or a
+        // typo), or a record sitting in the Archive where the booking would
+        // otherwise land out of sight. Both are Maxwell's call, not ours.
+        const archived   = (existing.status || '') === 'Archived';
+        const nameDiffers = (existing.full_name || '').trim().toLowerCase() !== name.toLowerCase();
+        if (archived || nameDiffers) {
+          const who = existing.full_name + (archived ? ' (archived)' : '');
+          if (!confirm(`${email} is already on your list as ${who}.\n\nBook this viewing under that record?`)) {
+            if (msgEl) { msgEl.style.color='var(--text2)'; msgEl.textContent = 'Cancelled. Use a different email, or pick them under "My client".'; }
+            return null;
+          }
+        }
+        await App.logActivity('GUEST_VIEWING_BOOKED', existing.full_name, existing.email || null,
+          `Viewing booked onto the existing record for ${existing.email}`, existing.id);
+        return { ...existing, _reused: true };
+      }
+    }
     const { data, error } = await db.from('clients').insert({
       agent_id: currentAgent.id,
-      full_name: name, email, phone,
+      full_name: name,
+      // NULL rather than '', so two guests booked with no email on file do not
+      // collide with each other on that same (agent_id, email) constraint.
+      email: email || null,
+      phone,
       stage: 'Searching', status: 'Active',
       is_guest: true, guest_since: new Date().toISOString(),
       email_consent: 'none', consent_source: 'guest viewing request',
       notes: 'Guest. Booked a viewing before joining the roster.'
     }).select().single();
     if (error) {
+      // Lost a race, or a stored variant the lookup above did not match. The
+      // answer is the same one: use the row that exists.
+      if (email && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
+        const existing = await Viewings._findClientByEmail(email);
+        if (existing) return { ...existing, _reused: true };
+        if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = `⚠️ ${email} is already on your client list. Pick them under "My client" instead.`; }
+        return null;
+      }
       if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; }
       return null;
     }
     await App.logActivity('GUEST_VIEWING_BOOKED', name, email || null,
       `Guest added from a viewing booking: ${name}`, data.id);
     return data;
+  },
+
+  // The one client of this agent holding that email, or null. Archived clients
+  // count: they are kept out of Clients.all but they still hold the unique
+  // constraint. Matching is case-insensitive locally and exact on the server
+  // (no ilike, because '_' in an email is a LIKE wildcard and would match the
+  // wrong person).
+  async _findClientByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    if (typeof Clients !== 'undefined') {
+      const local = [...(Clients.all || []), ...(Clients.archived || [])]
+        .find(c => (c.email || '').trim().toLowerCase() === needle);
+      if (local) return local;
+    }
+    // Not in memory: could have been created since the last load.
+    const { data } = await db.from('clients').select('*')
+      .eq('agent_id', currentAgent.id).eq('email', email.trim()).limit(1);
+    return (data && data[0]) || null;
   },
 
   async save(existingId = null) {
@@ -278,7 +334,9 @@ const Viewings = {
       guestRow = await Viewings._createGuest(msgEl);
       if (!guestRow) return;
       clientId = guestRow.id;
-      Clients.all.push({ ...guestRow, _derivedStage: 'Searching' });
+      // Only a genuinely new guest joins the in-memory roster. A reused record
+      // is already there (or is archived, and belongs in the Archive).
+      if (!guestRow._reused) Clients.all.push({ ...guestRow, _derivedStage: 'Searching' });
     }
     const client = guestRow || Clients.all.find(c => c.id === clientId);
     const payload = {
@@ -347,7 +405,7 @@ const Viewings = {
     if (error) { if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; } return; }
     App.closeModal();
     App.toast(existingId ? '✅ Viewing updated!'
-      : isGuest ? `✅ Viewing booked for ${client.full_name.split(' ')[0]} (guest)`
+      : isGuest ? `✅ Viewing booked for ${client.full_name.split(' ')[0]}${guestRow?._reused ? ' (already on your list)' : ' (guest)'}`
       : '✅ Viewing booked!');
     Viewings.load(); App.loadOverview();
     if (isGuest && typeof Clients !== 'undefined') Clients.load();
