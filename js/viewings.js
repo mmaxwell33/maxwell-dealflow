@@ -53,7 +53,7 @@ const Viewings = {
           <div class="card2-title" style="flex:1;margin-right:8px;">${v.property_address || 'No address'}</div>
           <span class="pill2 ${statusPill[st]||'pill2-neutral'}">${st}</span>
         </div>
-        <div class="card2-sub" style="margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}${(Clients.all.find(c => c.id === v.client_id) || {}).is_guest ? ' <span class="pill2 pill2-amber">Guest</span>' : ''}</div>
+        <div class="card2-sub" style="margin-bottom:8px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">👤 ${App.privateName(v.clients?.full_name || '')}${(() => { const c = Clients.all.find(x => x.id === v.client_id) || {}; return c.is_guest ? ` <span class="pill2 pill2-amber">${c.linked_client_id ? '🔗 Stand-in' : 'Guest'}</span>` : ''; })()}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;cursor:pointer;" onclick="Viewings.openDetail('${v.id}')">
           <span style="color:var(--text2);">📅 ${App.fmtDate(v.viewing_date)} ${v.viewing_time ? '· ' + v.viewing_time.slice(0,5) : ''}</span>
           ${v.list_price ? `<span style="color:var(--accent2);font-weight:700;">${App.fmtMoney(v.list_price)}</span>` : ''}
@@ -496,20 +496,16 @@ const Viewings = {
     const isCompleted = v.viewing_status === 'Completed';
     const hasFeedback = !!v.client_feedback;
 
-    // Guest viewings: one button turns the guest into a real client. Shown
-    // whether or not the viewing is locked, because the decision to come on
-    // board often lands after the showing is settled.
-    const guestSection = client?.is_guest ? `
-      <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);">
-        <div style="display:flex;gap:10px;align-items:center;">
-          <span style="font-size:18px;">✨</span>
-          <div style="flex:1;min-width:0;">
-            <div class="fw-700" style="font-size:13px;">${App.esc(clientName)} is a guest</div>
-            <div style="font-size:12px;color:var(--text2);">Not on your roster yet. Promote to add them as a client and unlock offers, pipeline and Broadcast.</div>
-          </div>
-        </div>
-        <button class="btn2 btn2-primary" style="justify-content:center;width:100%;margin-top:10px;" onclick="Clients.promoteGuest('${v.client_id}')">⭐ Promote to client</button>
-      </div>` : '';
+    // Guest viewings: two ways out, and the card asks which. Either the guest
+    // was standing in for someone already on the roster (link — the offer runs
+    // under that client and the guest stays a guest, migration 097), or the
+    // guest is the buyer themselves (promote, migration 088). Shown whether or
+    // not the viewing is locked, because that call often lands after the
+    // showing is settled. Card markup lives in Clients so the guest's own
+    // record and this screen can never drift apart.
+    const guestSection = (client?.is_guest && client?.id && typeof Clients?.guestCardHTML === 'function')
+      ? Clients.guestCardHTML(client)
+      : '';
 
     // Phase 2.B.8: Post-viewing feedback section \u2014 card2 wrappers,
     // btn2 variants preserve color semantics (primary/ghost/coral).

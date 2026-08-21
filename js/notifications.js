@@ -1777,6 +1777,31 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       }
     }
 
+    // Standing-in guests (migration 097): whoever is handling this file on the
+    // client's behalf gets copied on the client's mail, while staying a guest.
+    // Done here, at the single choke point every outgoing email passes through,
+    // so it covers all of them rather than one template at a time.
+    //
+    // Two deliberate guards: the copy only happens when the email is genuinely
+    // addressed to the linked client (a broker or stakeholder letter carries the
+    // same clientId but a different recipient, and must not leak), and an address
+    // already on the To or CC line is never added twice. The CC box in Approvals
+    // is the per-email override.
+    try {
+      const roster = (typeof Clients !== 'undefined' && Array.isArray(Clients.all)) ? Clients.all : [];
+      const principal = clientId ? roster.find(c => c.id === clientId) : null;
+      const to = (clientEmail || '').trim().toLowerCase();
+      if (principal && !principal.is_guest && to && to === (principal.email || '').trim().toLowerCase()) {
+        const already = new Set([to, ...String(ccEmail || '').split(',')
+          .map(x => x.trim().toLowerCase()).filter(Boolean)]);
+        const proxies = roster
+          .filter(c => c.is_guest && c.linked_client_id === principal.id && c.cc_on_emails && c.email)
+          .map(c => c.email.trim())
+          .filter(e => { const k = e.toLowerCase(); if (already.has(k)) return false; already.add(k); return true; });
+        if (proxies.length) ccEmail = [ccEmail, ...proxies].filter(Boolean).join(', ');
+      }
+    } catch (e) { console.warn('[Notify.queue] standing-in cc skipped:', e); }
+
     // Pack html + ics + real file attachments into context_data
     let contextData = null;
     if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length) {

@@ -130,9 +130,16 @@ const Offers = {
 
   _showForm(clientId, clientName) {
     const today = new Date().toISOString().slice(0,10);
-    const clientOptions = Clients.all.map(c =>
-      `<option value="${c.id}" ${c.id===clientId?'selected':''}>${c.full_name}</option>`
-    ).join('');
+    // Guests are labelled so the list can't be misread. A guest standing in for
+    // a roster client (migration 097) shows who the offer will actually be
+    // filed under, because picking them does NOT write the offer to them.
+    const clientOptions = Clients.all.map(c => {
+      const principal = c.is_guest && c.linked_client_id
+        ? Clients.all.find(x => x.id === c.linked_client_id) : null;
+      const tag = !c.is_guest ? ''
+        : principal ? ` (guest, files under ${principal.full_name})` : ' (guest)';
+      return `<option value="${c.id}" ${c.id===clientId?'selected':''}>${c.full_name}${tag}</option>`;
+    }).join('');
     App.openModal(`
       <div class="modal-title">Submit Offer</div>
       <div class="form-group">
@@ -205,14 +212,32 @@ const Offers = {
   },
 
   async save() {
-    const clientId = document.getElementById('of-client').value;
+    // let, not const: a standing-in guest's offer is re-pointed at the client
+    // they represent a few lines down.
+    let clientId = document.getElementById('of-client').value;
     const address = document.getElementById('of-address').value.trim();
     const amount = document.getElementById('of-amount').value;
     if (!clientId || !address || !amount) {
       document.getElementById('of-status-msg').textContent = '⚠️ Client, address and amount required';
       return;
     }
-    const client = Clients.all.find(c => c.id === clientId);
+    let client = Clients.all.find(c => c.id === clientId);
+
+    // Standing-in guests (migration 097): the guest walked the property for
+    // someone already on the roster, so the offer belongs to that person, not
+    // to the guest. Redirect it before anything is written — the offer row,
+    // the documents, the stage change and the email all follow clientId from
+    // here down. The guest stays a guest and is copied on the mail instead
+    // (see Notify.queue).
+    if (client?.is_guest && client.linked_client_id) {
+      const principal = Clients.all.find(c => c.id === client.linked_client_id);
+      if (principal) {
+        App.toast(`📄 Filing this offer under ${principal.full_name.split(' ')[0]}`);
+        clientId = principal.id;
+        client   = principal;
+      }
+    }
+
     const status = document.getElementById('of-status').value;
     const statusEl = document.getElementById('of-status-msg');
     statusEl.textContent = 'Submitting...';
@@ -268,7 +293,9 @@ const Offers = {
     // Guest viewings (migration 088): writing an offer for someone settles the
     // question of whether they're a client. Promote silently so the roster and
     // consent record catch up without Maxwell having to remember the button.
-    if (client?.is_guest && typeof Clients?.promoteGuest === 'function') {
+    // A linked guest is deliberately excluded: the offer was just re-filed under
+    // the client they stand in for, so there is nothing to promote.
+    if (client?.is_guest && !client.linked_client_id && typeof Clients?.promoteGuest === 'function') {
       await Clients.promoteGuest(clientId, { silent: true });
     }
 

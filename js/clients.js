@@ -290,7 +290,7 @@ const Clients = {
             <div class="client-name">${App.privateName(c.full_name)}</div>
             <div class="client-meta">${App.privateContact(c.email, c.phone)}</div>
           </div>
-          ${c.is_guest ? `<span class="pill2 pill2-amber">✨ Guest</span>` : stagePill(c._derivedStage || c.stage)}
+          ${c.is_guest ? `<span class="pill2 pill2-amber">${c.linked_client_id ? '🔗 Stand-in' : '✨ Guest'}</span>` : stagePill(c._derivedStage || c.stage)}
         </div>`).join('') + `</div>`;
   },
 
@@ -551,6 +551,206 @@ const Clients = {
     return true;
   },
 
+  // ── Standing-in guests (migration 097) ──────────────────────────────────
+  // The other exit from a guest booking, and the common one: the guest was
+  // never the buyer. They walked the property for someone already on the
+  // roster (a sister who couldn't make the showing). Linking says exactly
+  // that — the deal belongs to the client, the guest stays a guest.
+  //
+  // Nothing about the guest row changes except the link: still is_guest,
+  // still email_consent 'none', still out of Broadcast and the re-engagement
+  // nudges. The only new power the link carries is being copied on the
+  // client's mail, and only while cc_on_emails is on.
+
+  // Everyone this guest could be standing in for: the real roster, minus
+  // guests (a guest cannot stand in for a guest) and minus themselves.
+  _linkCandidates(guestId) {
+    return Clients.all
+      .filter(c => !c.is_guest && c.id !== guestId)
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  },
+
+  // The guests standing in for a given client. Used by the client card and by
+  // Notify.queue to decide who gets copied.
+  linkedGuestsFor(clientId) {
+    if (!clientId) return [];
+    return Clients.all.filter(c => c.is_guest && c.linked_client_id === clientId);
+  },
+
+  openLinkGuest(guestId) {
+    const g = Clients.all.find(c => c.id === guestId);
+    if (!g) return;
+    const candidates = Clients._linkCandidates(guestId);
+    if (!candidates.length) {
+      App.toast('⚠️ No clients on the roster to link to yet', 'var(--yellow)');
+      return;
+    }
+    const first = g.full_name.split(' ')[0];
+    App.openModal(`
+      <div class="modal-title">🔗 Link ${App.esc(first)} to a client</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px;">
+        ${App.esc(first)} attended on someone else's behalf. Pick the client this showing really belongs to. The offer, pipeline and stage all run under that client. ${App.esc(first)} stays a guest.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Client they are standing in for *</label>
+        <select class="form-input form-select" id="lg-client">
+          <option value="">-- Select client --</option>
+          ${candidates.map(c => `<option value="${c.id}">${App.esc(c.full_name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Relationship <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+        <input class="form-input" id="lg-rel" placeholder="Sister, husband, business partner...">
+      </div>
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:14px;cursor:pointer;">
+        <input type="checkbox" id="lg-cc" checked style="margin-top:2px;">
+        <span style="font-size:12px;line-height:1.5;">
+          <span class="fw-700">Copy ${App.esc(first)} on emails to this client</span><br>
+          <span style="color:var(--text2);">Added as CC on anything addressed to the client. You can still change or clear it on each email in Approvals.</span>
+        </span>
+      </label>
+      <button class="btn btn-primary btn-block" onclick="Clients.saveGuestLink('${guestId}')">🔗 Link and continue</button>
+      <div id="lg-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async saveGuestLink(guestId) {
+    const msgEl    = document.getElementById('lg-msg');
+    const clientId = document.getElementById('lg-client')?.value;
+    const rel      = document.getElementById('lg-rel')?.value.trim() || null;
+    const cc       = !!document.getElementById('lg-cc')?.checked;
+    if (!clientId) {
+      if (msgEl) { msgEl.style.color = 'var(--red)'; msgEl.textContent = '⚠️ Pick the client first'; }
+      return;
+    }
+    const { data, error } = await db.from('clients').update({
+      linked_client_id: clientId,
+      linked_at: new Date().toISOString(),
+      link_relationship: rel,
+      cc_on_emails: cc
+    }).eq('id', guestId).eq('is_guest', true).select();
+
+    if (error) {
+      if (msgEl) { msgEl.style.color = 'var(--red)'; msgEl.textContent = '⚠️ ' + error.message; }
+      return;
+    }
+    if (!data?.length) {
+      if (msgEl) { msgEl.style.color = 'var(--red)'; msgEl.textContent = '⚠️ Only a guest can be linked to a client'; }
+      return;
+    }
+
+    const guest  = data[0];
+    const client = Clients.all.find(c => c.id === clientId);
+    Object.assign(Clients.all.find(c => c.id === guestId) || {}, {
+      linked_client_id: clientId, linked_at: guest.linked_at,
+      link_relationship: rel, cc_on_emails: cc
+    });
+    await App.logActivity('GUEST_LINKED', guest.full_name, guest.email || null,
+      `${guest.full_name} stands in for ${client?.full_name || 'a client'}${rel ? ` (${rel})` : ''}`, clientId);
+
+    App.closeModal();
+    App.toast(`🔗 ${guest.full_name.split(' ')[0]} now stands in for ${(client?.full_name || '').split(' ')[0]}`, 'var(--green)');
+    await Clients.load();
+    // Straight into the offer for the real buyer — this is the whole reason
+    // the link gets made, so don't make Maxwell go find them.
+    if (client && typeof Offers !== 'undefined') {
+      setTimeout(() => Offers.openAddForClient(client.id, client.full_name), 300);
+    }
+  },
+
+  async unlinkGuest(guestId) {
+    const g = Clients.all.find(c => c.id === guestId);
+    if (!confirm(`Unlink ${g?.full_name || 'this guest'}? Offers already filed under the client stay where they are.`)) return;
+    const { error } = await db.from('clients').update({
+      linked_client_id: null, linked_at: null, link_relationship: null, cc_on_emails: false
+    }).eq('id', guestId);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    Object.assign(Clients.all.find(c => c.id === guestId) || {}, {
+      linked_client_id: null, linked_at: null, link_relationship: null, cc_on_emails: false
+    });
+    App.closeModal();
+    App.toast('🔗 Link removed');
+    Clients.load();
+  },
+
+  // The per-link copy switch. The per-email switch is the CC box in Approvals.
+  async toggleGuestCc(guestId) {
+    const g = Clients.all.find(c => c.id === guestId);
+    if (!g) return;
+    const next = !g.cc_on_emails;
+    const { error } = await db.from('clients').update({ cc_on_emails: next }).eq('id', guestId);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    g.cc_on_emails = next;
+    App.toast(next ? `📧 ${g.full_name.split(' ')[0]} will be copied` : `📧 ${g.full_name.split(' ')[0]} will not be copied`);
+    Clients.openDetail(g.linked_client_id || guestId);
+  },
+
+  // The guest card shown on the viewing detail and on the guest's own record.
+  // Two states: unlinked (choose a path) and linked (work the client's file).
+  guestCardHTML(guest) {
+    if (!guest?.is_guest) return '';
+    const first = App.esc(guest.full_name.split(' ')[0]);
+    const principal = guest.linked_client_id
+      ? Clients.all.find(c => c.id === guest.linked_client_id)
+      : null;
+
+    if (principal) {
+      const pName = App.esc(principal.full_name);
+      return `
+      <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span style="font-size:18px;">🔗</span>
+          <div style="flex:1;min-width:0;">
+            <div class="fw-700" style="font-size:13px;">${App.esc(guest.full_name)} is standing in for ${pName}</div>
+            <div style="font-size:12px;color:var(--text2);">${guest.link_relationship ? App.esc(guest.link_relationship) + ' · ' : ''}Stays a guest. Offers, pipeline and stage run under ${pName}.</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+          <button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();Offers.openAddForClient('${principal.id}','${App.escAttr(principal.full_name)}')">📄 Offer for ${App.esc(principal.full_name.split(' ')[0])}</button>
+          <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Clients.openDetail('${principal.id}'),300)">👤 Open record</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <button class="btn2 btn2-ghost btn2-sm" style="flex:1;justify-content:center;" onclick="Clients.toggleGuestCc('${guest.id}')">${guest.cc_on_emails ? '📧 Copied on emails · on' : '📧 Copied on emails · off'}</button>
+          <button class="btn2 btn2-ghost btn2-sm" style="flex:none;" onclick="Clients.unlinkGuest('${guest.id}')">Unlink</button>
+        </div>
+      </div>`;
+    }
+
+    return `
+      <div class="card2" style="padding:12px;margin-bottom:12px;border-color:var(--accent2);">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span style="font-size:18px;">✨</span>
+          <div style="flex:1;min-width:0;">
+            <div class="fw-700" style="font-size:13px;">${App.esc(guest.full_name)} is a guest</div>
+            <div style="font-size:12px;color:var(--text2);">Not on your roster. If they came for someone else, link them to that client and the offer runs under that client instead.</div>
+          </div>
+        </div>
+        <button class="btn2 btn2-primary" style="justify-content:center;width:100%;margin-top:10px;" onclick="Clients.openLinkGuest('${guest.id}')">🔗 Link to an existing client</button>
+        <button class="btn2 btn2-ghost" style="justify-content:center;width:100%;margin-top:8px;" onclick="Clients.promoteGuest('${guest.id}')">⭐ ${first} is the buyer, promote to client</button>
+      </div>`;
+  },
+
+  // Mirror of the guest card, shown on the CLIENT's record: who is standing in
+  // for them, and whether that person is being copied.
+  proxyCardHTML(client) {
+    if (!client || client.is_guest) return '';
+    const guests = Clients.linkedGuestsFor(client.id);
+    if (!guests.length) return '';
+    return `
+      <div class="card2" style="margin-top:12px;padding:12px;border-color:var(--accent2);">
+        <div class="fw-700" style="font-size:13px;">🔗 Standing in for ${App.esc(client.full_name.split(' ')[0])}</div>
+        ${guests.map(g => `
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <div style="flex:1;min-width:0;">
+            <div class="fw-700" style="font-size:13px;">${App.esc(g.full_name)}${g.link_relationship ? ` <span style="font-weight:400;color:var(--text2);">· ${App.esc(g.link_relationship)}</span>` : ''}</div>
+            <div style="font-size:12px;color:var(--text2);">${g.email ? App.esc(g.email) : 'No email on file'} · guest</div>
+          </div>
+          <button class="btn2 btn2-ghost btn2-sm" style="flex:none;" onclick="Clients.toggleGuestCc('${g.id}')">${g.cc_on_emails ? '📧 Copied' : '📧 Not copied'}</button>
+        </div>`).join('')}
+        <div style="font-size:11px;color:var(--text2);margin-top:8px;">Copied addresses land in the CC box of every email to ${App.esc(client.full_name.split(' ')[0])}, where you can still change or clear them before sending.</div>
+      </div>`;
+  },
+
   async openDetail(id) {
     const c = Clients.all.find(x => x.id === id);
     if (!c) return;
@@ -630,12 +830,7 @@ const Clients = {
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
       ${finHTML}
-      ${c.is_guest ? `
-      <div class="card2" style="margin-top:12px;padding:12px;border-color:var(--accent2);">
-        <div class="fw-700" style="font-size:13px;">✨ Viewing guest</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px;">Booked a showing without joining the roster. Kept out of the stage list and Broadcast until promoted.</div>
-        <button class="btn2 btn2-primary" style="justify-content:center;width:100%;margin-top:10px;" onclick="Clients.promoteGuest('${c.id}')">⭐ Promote to client</button>
-      </div>` : ''}
+      ${c.is_guest ? `<div style="margin-top:12px;">${Clients.guestCardHTML(c)}</div>` : Clients.proxyCardHTML(c)}
       <div class="card2" style="margin-top:12px;padding:12px;">
         <div class="fw-800" style="font-size:14px;margin-bottom:8px;">📁 Client Folder</div>
         <div id="client-folder-${c.id}"><div style="font-size:12px;color:var(--text2);">Loading…</div></div>
