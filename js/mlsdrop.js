@@ -76,11 +76,29 @@ const MLSDrop = {
       lot:            { type: 'string', description: 'Lot description as written, e.g. "Fully fenced", "0.5 acre". Empty if not stated.' },
       taxes_annual:   { type: 'string', description: 'Annual property taxes, digits only. Empty if not stated.' },
       condo_fee:      { type: 'string', description: 'Monthly condo or strata fee, digits only. Empty if there is none.' },
+
+      // ── The sentence the client actually reads ──────────────────────────
+      // Written, not assembled, because a list of facts does not sound like a
+      // person. Every constraint below exists for a reason: the listing
+      // remarks are the brokerage's copyrighted marketing copy and must not be
+      // reproduced, the agent is the buyer's advocate and not the seller's
+      // advertiser, and anything not on the sheet is a claim nobody can stand
+      // behind.
+      client_note: { type: 'string', description:
+        'Two or three short sentences telling a buyer client what this home is, as their own agent would mention it in passing before a showing. Requirements, all of them: ' +
+        'Write it fresh in your own plain words. Do NOT reuse distinctive phrases, sentences or the structure of the listing remarks, which are the listing brokerage\'s copy. ' +
+        'Use ONLY facts stated on this sheet. Never add, infer or embellish. ' +
+        'No marketing language of any kind: no "stunning", "gorgeous", "must see", "dream home", "beautifully appointed", "truly", "boasts", "nestled". No exclamation marks. ' +
+        'Do not use em dashes or en dashes. Use full stops and commas. ' +
+        'Lead with what the home IS (style, age, size, bedrooms and baths), then what has recently been done to it, then anything a buyer would want warned about or would ask. ' +
+        'Plain and factual, in a warm and matter of fact register, as if spoken. Under 60 words. ' +
+        'Empty only if the sheet carries almost no information about the home itself.' },
     },
     required: ['document_type','document_description',
                'property_address','mls_number','list_price','property_type','sellers_direction',
                'offer_due_date','offer_due_time','year_built','square_feet','style','bedrooms',
-               'bathrooms','recent_updates','heating','garage','lot','taxes_annual','condo_fee'],
+               'bathrooms','recent_updates','heating','garage','lot','taxes_annual','condo_fee',
+               'client_note'],
     additionalProperties: false,
   },
 
@@ -158,7 +176,10 @@ const MLSDrop = {
         'Before anything else, decide whether this document really is a listing sheet. If it is ' +
         'not, set document_type to other, say plainly in document_description what it appears to ' +
         'be, and leave every other field empty. Do not try to salvage listing fields out of a ' +
-        'document that is not a listing sheet.';
+        'document that is not a listing sheet. ' +
+        'The listing remarks on the sheet are the listing brokerage\'s own marketing copy. Read ' +
+        'them for facts, and never reproduce their wording. Anything you write for the client ' +
+        'must be your own plain sentences.';
 
       const source = isPdf
         ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
@@ -222,7 +243,16 @@ const MLSDrop = {
       MLSDrop.fill(parsed);
       MLSDrop._file = file;
       MLSDrop._read = true;
-      MLSDrop.note(`✅ Read from <strong>${MLSDrop.esc(file.name)}</strong>. Check the highlighted fields against the sheet before you book. Nothing is saved until you do.`, 'ok');
+
+      const flags = MLSDrop.audit(parsed);
+      MLSDrop.note(
+        `✅ Read from <strong>${MLSDrop.esc(file.name)}</strong>. Check the highlighted fields against the sheet before you book. Nothing is saved until you do.` +
+        (flags.length
+          ? `<div style="margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.12);">
+               <strong>Worth a second look:</strong> ${flags.map(f => MLSDrop.esc(f)).join('; ')}.
+             </div>`
+          : ''),
+        'ok');
     } catch (e) {
       // A failed read is never a dead end: the form is already open and empty,
       // so the booking goes ahead by hand exactly as it does today.
@@ -322,7 +352,50 @@ const MLSDrop = {
     set('vf-sellers-dir', x.sellers_direction);
     set('vf-offer-date', x.offer_due_date);
     set('vf-offer-time', x.offer_due_time);
-    set('vf-highlights', MLSDrop.compose(x));
+    // The written note is what the client reads. compose() stays as the
+    // fallback: if the model returns nothing usable, an assembled list of
+    // facts is still better than an empty box, and it can never invent.
+    set('vf-highlights', MLSDrop.clean(x.client_note) || MLSDrop.compose(x));
+  },
+
+  // Last line of defence on the client-facing sentence. The prompt asks for
+  // none of this, but the box goes to a client, so strip rather than trust.
+  clean(note) {
+    let s = String(note || '').trim();
+    if (!s) return '';
+    s = s.replace(/\s*[—–]\s*/g, ', ')   // em and en dashes: never ours
+         .replace(/\s+([,.])/g, '$1')    // no space before the punctuation
+         .replace(/,\s*,/g, ',')
+         .replace(/!+/g, '.')            // no exclamation marks
+         .replace(/\.{2,}/g, '.')
+         .replace(/\s{2,}/g, ' ')
+         .trim();
+    return s;
+  },
+
+  // ── Audit the numbers before Maxwell's eye has to ─────────────────────────
+  // Green outlines say "the reader filled this". They do not say "this is
+  // plausible". These are the mistakes that would actually cost something: a
+  // price off by a digit, an MLS number that will not match, a raw "2 \ 1"
+  // reaching a client, a deadline already gone.
+  audit(x) {
+    const flags = [];
+    const digits = v => String(v || '').replace(/[^0-9]/g, '');
+    const mls = digits(x.mls_number);
+    if (mls && (mls.length < 6 || mls.length > 8)) flags.push(`the MLS number reads ${mls}, which is an unusual length`);
+    const price = Number(digits(x.list_price));
+    if (price && (price < 20000 || price > 20000000)) flags.push(`the list price reads ${price.toLocaleString('en-CA')}, which looks wrong`);
+    const year = Number(digits(x.year_built));
+    const thisYear = new Date().getFullYear();
+    if (year && (year < 1700 || year > thisYear + 2)) flags.push(`the year built reads ${year}`);
+    const sqft = Number(digits(x.square_feet));
+    if (sqft && (sqft < 200 || sqft > 20000)) flags.push(`the square footage reads ${sqft.toLocaleString('en-CA')}`);
+    if (/[\\\/]/.test(String(x.bathrooms || ''))) flags.push(`the bathrooms read "${x.bathrooms}" rather than a single number`);
+    if (x.offer_due_date && /^\d{4}-\d{2}-\d{2}$/.test(x.offer_due_date)) {
+      const due = new Date(x.offer_due_date + 'T23:59:59');
+      if (!isNaN(due) && due < new Date()) flags.push('the offer deadline has already passed');
+    }
+    return flags;
   },
 
   // Build the client-facing note from the facts that were read. Fixed sentence
