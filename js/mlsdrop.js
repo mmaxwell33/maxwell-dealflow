@@ -32,6 +32,7 @@ const MLSDrop = {
   _busy: false,
   _file: null,                // the sheet behind the form currently open
   _read: false,
+  _remarks: null,             // the listing's own prose, for Maxwell only
 
   esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
 
@@ -77,6 +78,14 @@ const MLSDrop = {
       taxes_annual:   { type: 'string', description: 'Annual property taxes, digits only. Empty if not stated.' },
       condo_fee:      { type: 'string', description: 'Monthly condo or strata fee, digits only. Empty if there is none.' },
 
+      // The listing's own prose, kept verbatim for MAXWELL ONLY. It never
+      // reaches a client: it is the listing brokerage's copyrighted marketing
+      // copy, and client_note below exists precisely so we send our own words
+      // instead. Stored so the full description is on the viewing when he
+      // opens it, rather than living only in a PDF on his desktop.
+      listing_remarks: { type: 'string', description:
+        'The listing remarks or property description exactly as written on the sheet, verbatim, including the whole paragraph. This is the prose block often headed "Property Overview", "Remarks", "Public Remarks" or "Description". Copy it word for word with no summarising, no trimming and no cleanup. Empty if the sheet carries no such prose.' },
+
       // ── The sentence the client actually reads ──────────────────────────
       // Written, not assembled, because a list of facts does not sound like a
       // person. Every constraint below exists for a reason: the listing
@@ -98,7 +107,7 @@ const MLSDrop = {
                'property_address','mls_number','list_price','property_type','sellers_direction',
                'offer_due_date','offer_due_time','year_built','square_feet','style','bedrooms',
                'bathrooms','recent_updates','heating','garage','lot','taxes_annual','condo_fee',
-               'client_note'],
+               'listing_remarks','client_note'],
     additionalProperties: false,
   },
 
@@ -356,6 +365,9 @@ const MLSDrop = {
     // fallback: if the model returns nothing usable, an assembled list of
     // facts is still better than an empty box, and it can never invent.
     set('vf-highlights', MLSDrop.clean(x.client_note) || MLSDrop.compose(x));
+    // Not a form field: it is not Maxwell's to edit and never goes to a client,
+    // so it rides straight through to the row after the booking is saved.
+    MLSDrop._remarks = String(x.listing_remarks || '').trim() || null;
   },
 
   // Last line of defence on the client-facing sentence. The prompt asks for
@@ -469,6 +481,7 @@ const MLSDrop = {
     MLSDrop._file = null;
     MLSDrop._read = false;
     MLSDrop._busy = false;
+    MLSDrop._remarks = null;
   },
 
   // ── File the sheet, after the viewing row is saved ────────────────────────
@@ -477,23 +490,31 @@ const MLSDrop = {
   // than throwing back into the save path.
   async store(viewingId) {
     const file = MLSDrop._file;
-    if (!file) return null;
+    if (!file && !MLSDrop._remarks) return null;
+
+    // The remarks are recorded whether or not the file makes it to storage.
+    // They are the part that is hard to get back: the PDF is still on his
+    // desktop, but the prose would otherwise be gone with the modal.
+    const row = {
+      listing_remarks: MLSDrop._remarks || null,
+      mls_extracted_at: MLSDrop._read ? new Date().toISOString() : null,
+      mls_extraction_model: MLSDrop._read ? MLSDrop.MODEL : null,
+    };
+    if (!file) return row;
+
     try {
       const user = await App.getAuthUser();
       const uid  = user?.id || currentAgent.id;
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${uid}/viewing-${viewingId || 'new'}/${Date.now()}-${safe}`;
       const { error } = await db.storage.from('deal-docs').upload(path, file, { contentType: file.type });
-      if (error) { console.warn('[MLSDrop] sheet upload failed (viewing still booked):', error.message); return null; }
-      return {
-        mls_doc_path: path,
-        mls_doc_name: file.name,
-        mls_extracted_at: MLSDrop._read ? new Date().toISOString() : null,
-        mls_extraction_model: MLSDrop._read ? MLSDrop.MODEL : null,
-      };
+      if (error) { console.warn('[MLSDrop] sheet upload failed (viewing still booked):', error.message); return row; }
+      row.mls_doc_path = path;
+      row.mls_doc_name = file.name;
+      return row;
     } catch (e) {
       console.warn('[MLSDrop] sheet upload failed (viewing still booked):', e?.message || e);
-      return null;
+      return row;
     }
   },
 

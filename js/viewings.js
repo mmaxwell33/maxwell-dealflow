@@ -354,7 +354,7 @@ const Viewings = {
   // storage hiccup nor a missing migration 096 should surface as a failure on a
   // booking that went through.
   async _attachSheet(viewingId) {
-    if (typeof MLSDrop === 'undefined' || !MLSDrop._file) return;
+    if (typeof MLSDrop === 'undefined' || (!MLSDrop._file && !MLSDrop._remarks)) return;
     const doc = await MLSDrop.store(viewingId);
     if (!doc) return;
     const { error } = await db.from('viewings').update(doc).eq('id', viewingId);
@@ -543,6 +543,12 @@ const Viewings = {
         ${v.sellers_direction?`<div class="card2" style="padding:10px;grid-column:span 2;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;">Seller's Direction</div><div class="fw-700">${v.sellers_direction}</div></div>`:''}
       </div>
       ${v.agent_notes ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Notes</div>${App.esc(v.agent_notes)}</div>` : ''}
+      ${v.property_highlights ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;"><div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">About This Home <span style="text-transform:none;letter-spacing:0;color:var(--accent2);font-weight:600;">· sent to the client</span></div><div style="font-style:italic;color:var(--text2);line-height:1.6;">${App.esc(v.property_highlights)}</div></div>` : ''}
+      ${v.listing_remarks ? `<div class="card2" style="padding:12px;margin-bottom:12px;font-size:13px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px;">Listing Remarks <span style="text-transform:none;letter-spacing:0;color:var(--yellow);font-weight:600;">· yours only, never sent</span></div>
+        <div style="color:var(--text2);line-height:1.6;max-height:190px;overflow-y:auto;">${App.esc(v.listing_remarks)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:7px;line-height:1.5;">The listing brokerage's own wording, kept word for word from the sheet.</div>
+      </div>` : ''}
       ${guestSection}
       ${feedbackSection}
       ${locked ? `
