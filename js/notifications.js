@@ -239,7 +239,7 @@ const Notify = {
       // agent cleared it, so nothing about the house is said at all.
       const highlights = (viewing.property_highlights || '').trim();
       const highlightsPlain = highlights
-        ? `\n\nAbout this home:\n${highlights}\n\nThese details are from the listing. If something here matters to your decision, tell me and I will confirm it.`
+        ? `\n\nAbout this home:\n${highlights}\n\nThese details come from the listing. I am glad to verify any of them before you decide.`
         : '';
 
       const body = `Hi ${firstName},\n\n${introLine}\n\nProperty: ${viewing.property_address}${viewing.mls_number ? '\nMLS#: ' + viewing.mls_number : ''}${viewing.list_price ? '\nList Price: ' + App.fmtMoney(viewing.list_price) : ''}\nDate: ${dateStr}${timeStr ? '\nTime: ' + fmt12h(timeStr) : ''}${offerDueLine}${sellersLine}${highlightsPlain}\n\nA calendar invite is attached — open it to add this viewing to your calendar.${EmailFormat.mapLinkPlain(viewing.property_address)}\n\nLooking forward to seeing you!\n\n${EmailFormat.signaturePlain(agent)}`;
@@ -288,7 +288,7 @@ const Notify = {
         ${highlights ? `<div style="margin:18px 0;padding:14px 16px;background:#f7f8fa;border-left:3px solid #0F172A;border-radius:0 8px 8px 0;">
           <div style="font-size:11px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#6b7280;margin-bottom:7px;">About this home</div>
           <div style="font-style:italic;color:#3f4753;font-size:13.5px;line-height:1.65;">${highlights}</div>
-          <div style="font-size:11.5px;color:#6b7280;line-height:1.55;margin-top:9px;">These details are from the listing. If something here matters to your decision, tell me and I will confirm it.</div>
+          <div style="font-size:11.5px;color:#6b7280;line-height:1.55;margin-top:9px;">These details come from the listing. I am glad to verify any of them before you decide.</div>
         </div>` : ''}
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this viewing to your Google Calendar. An .ics file is also attached for other calendar apps.</p>
