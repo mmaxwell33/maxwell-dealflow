@@ -1907,7 +1907,12 @@ const Commission = {
             const idAttr = App.escAttr(c.id || '');
             const nameAttr = App.escAttr(c.client_name || '—');
             const propAttr = App.escAttr(c.property_address || '—');
-            const markPaidBtn = status !== 'Paid'
+            // Offered on anything not ALREADY MARKED paid. It used to key off
+            // the derived status, which hid the button on exactly the deals
+            // that most needed it: a deal whose closing date had passed showed
+            // "Paid" and offered no way to say so, leaving its fee permanently
+            // outside the cap with nothing Maxwell could click.
+            const markPaidBtn = !Commission.isPaidExplicit(c)
               ? `<button class="cm-row-act" title="Mark as Paid" aria-label="Mark commission as paid"
                    onclick="Commission.confirmMarkPaid('${idAttr}','${nameAttr}','${propAttr}')"
                    style="background:none;border:none;color:var(--green);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:6px;">✅</button>`
@@ -1938,7 +1943,21 @@ const Commission = {
               <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${Commission.money(Commission.netOf(c))}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
               <td style="padding:11px 14px;text-align:center;">
-                <span class="pill2 ${status==='Paid'?'pill2-green':status==='Closed'?'pill2-neutral':'pill2-amber'}">${status}</span>
+                ${(() => {
+                  // The pill has to tell the truth about MONEY, not about the
+                  // calendar. It used to print a green "Paid" the moment a
+                  // closing date went two days past, so three deals read as
+                  // paid while none of them had touched the cap. Green now
+                  // means Maxwell marked it. A date that has passed with no
+                  // mark is the one state that needs him, so it says so.
+                  if (status === 'Archived')
+                    return `<span class="pill2 pill2-neutral" style="opacity:0.6;" title="Fell through. Out of every total, and its fee is released back into your cap.">Archived</span>`;
+                  if (Commission.isPaidExplicit(c))
+                    return `<span class="pill2 pill2-green">Paid</span>`;
+                  if (status === 'Paid' || status === 'Closed')
+                    return `<span class="pill2 pill2-amber" title="Closed, but not yet marked paid, so it is not counted against your cap. Click the tick when the money lands.">Awaiting payment</span>`;
+                  return `<span class="pill2 pill2-neutral">Pending</span>`;
+                })()}
               </td>
               <td style="padding:11px 8px;text-align:center;white-space:nowrap;">${markPaidBtn}${editBtn}${deleteBtn}</td>
             </tr>`;
