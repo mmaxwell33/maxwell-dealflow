@@ -1582,21 +1582,48 @@ const Commission = {
     });
   },
 
+  // A deal counts against the cap only once Maxwell has MARKED it paid, which
+  // is what doMarkPaid() writes. Deliberately not statusFrom(), which promotes
+  // a deal to 'Paid' two days after its closing date whether or not anyone
+  // touched it: money leaving the brokerage is a fact he confirms, not
+  // something a date guesses at.
+  isPaidExplicit(c) { return c && c.status === 'Paid'; },
+
   // Cap progress for the CURRENT calendar year.
+  //
+  // Two different numbers, because they answer two different questions:
+  //
+  //   paid      what has ACTUALLY been paid to eXp. Drives the cap card, the
+  //             progress bar and the "capped for the year" state.
+  //   committed what will have been paid once every deal on the books closes.
+  //             Shown alongside, never in place of, because a deal closing in
+  //             December is not money that has moved.
+  //
+  // Conflating the two is what made the card read "$15,506 of $16,000, 97%"
+  // on a year where under half that had genuinely been paid, and 97% versus
+  // 48% is the difference between the next deal being nearly all his and not.
   capInfo() {
     const cap = Number(Commission.cap) || 0;
     const year = new Date().getFullYear();
-    const paid = (Commission.all || [])
-      .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === year)
+    const thisYear = (Commission.all || [])
+      .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === year);
+    const paid = thisYear
+      .filter(Commission.isPaidExplicit)
       .reduce((s, c) => s + Commission.feeOf(c), 0);
+    const committed = thisYear.reduce((s, c) => s + Commission.feeOf(c), 0);
     const remaining = Math.max(0, cap - paid);
-    return { cap, year, paid, remaining, capped: cap > 0 && remaining <= 0 };
+    return {
+      cap, year, paid, committed, remaining,
+      unpaid: Math.max(0, committed - paid),
+      unpaidCount: thisYear.filter(c => !Commission.isPaidExplicit(c)).length,
+      capped: cap > 0 && remaining <= 0,
+    };
   },
 
   renderCapCard() {
     const el = document.getElementById('comm-cap-card');
     if (!el) return;
-    const { cap, year, paid, remaining, capped } = Commission.capInfo();
+    const { cap, year, paid, remaining, capped, unpaid, unpaidCount } = Commission.capInfo();
     const pct = cap > 0 ? Math.min(100, Math.round(paid / cap * 100)) : 0;
     const barColor = capped ? 'var(--green)' : 'var(--accent2)';
     el.innerHTML = `
@@ -1618,6 +1645,10 @@ const Commission = {
         <div style="height:100%;width:${pct}%;background:${barColor};border-radius:6px;transition:width 0.3s;"></div>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-top:8px;">${capped ? '' : `${pct}% of your ${App.fmtMoney(cap)} cap paid. After you reach it, new deals charge $0 brokerage.`}</div>
+      ${unpaid > 0 ? `<div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">
+        A further <strong style="color:var(--text2);">${Commission.money(unpaid)}</strong> is on the books across
+        ${unpaidCount} deal${unpaidCount === 1 ? '' : 's'} you have not marked paid yet. That is not counted above until you do.
+      </div>` : ''}
       <div id="cm-cap-msg" style="margin-top:6px;font-size:12px;"></div>`;
   },
 
