@@ -460,6 +460,21 @@ const Viewings = {
     if (isGuest && typeof Clients !== 'undefined') Clients.load();
   },
 
+  // What the offer form can be started from. Looked up at click time rather
+  // than baked into the button, so it cannot go stale if the viewing was edited
+  // while the detail was open, and so nothing has to be escaped into an inline
+  // onclick. Returns null for a viewing that no longer exists, which the form
+  // treats the same as opening it empty.
+  _offerSeed(id) {
+    const v = Viewings.all.find(x => x.id === id);
+    if (!v) return null;
+    return {
+      address: v.property_address || '',
+      mls: v.mls_number || '',
+      listPrice: v.list_price || '',
+    };
+  },
+
   // Deadline that drives the viewing lock: the offer due date/time you set, or
   // (if none) 4 days after the viewing date (internal, not shown to clients).
   _deadline(v) {
@@ -563,7 +578,7 @@ const Viewings = {
       </div>` : `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
         ${!isCompleted ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="Viewings.markCompleted('${v.id}')">✅ Mark Completed</button>` : ''}
-        ${v.client_feedback === 'interested' ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}'),300)">📄 Prepare Offer</button>` : ''}
+        ${v.client_feedback === 'interested' ? `<button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Offers.openAddForClient('${v.client_id}','${clientName}',Viewings._offerSeed('${v.id}')),300)">📄 Prepare Offer</button>` : ''}
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="App.closeModal();setTimeout(()=>Viewings._showForm('${v.client_id}','',${JSON.stringify(v).replace(/"/g,'&quot;')}),300)">Edit</button>
         <button class="btn2 btn2-coral" style="justify-content:center;" onclick="Viewings.deleteViewing('${v.id}')">Delete</button>
       </div>

@@ -123,13 +123,21 @@ const Offers = {
     Offers._showForm(null, null);
   },
 
-  openAddForClient(clientId, clientName) {
+  // `seed` carries what is already known about the property, so an offer
+  // prepared off a viewing does not make Maxwell re-key the address, the MLS
+  // number and the price he read off the sheet ten minutes ago. Everything in
+  // it is editable; it is a starting point, not a lock.
+  openAddForClient(clientId, clientName, seed = null) {
     App.closeModal();
-    setTimeout(() => Offers._showForm(clientId, clientName), 300);
+    setTimeout(() => Offers._showForm(clientId, clientName, seed), 300);
   },
 
-  _showForm(clientId, clientName) {
+  _showForm(clientId, clientName, seed = null) {
     const today = new Date().toISOString().slice(0,10);
+    // App.esc, NOT App.escAttr. escAttr escapes for a JavaScript string and
+    // backslashes the apostrophe, which would put "St. John\'s NL" in the box
+    // on most addresses in this city. This is an HTML attribute.
+    const sv = k => App.esc(String((seed && seed[k] != null) ? seed[k] : ''));
     // Guests are labelled so the list can't be misread. A guest standing in for
     // a roster client (migration 097) shows who the offer will actually be
     // filed under, because picking them does NOT write the offer to them.
@@ -151,16 +159,16 @@ const Offers = {
       </div>
       <div class="form-group">
         <label class="form-label">Property Address *</label>
-        <input class="form-input" id="of-address" placeholder="123 Main St, St. John's NL">
+        <input class="form-input" id="of-address" placeholder="123 Main St, St. John's NL" value="${sv('address')}">
       </div>
       <div class="form-group">
         <label class="form-label">MLS Number <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
-        <input class="form-input" id="of-mls" placeholder="1284567">
+        <input class="form-input" id="of-mls" placeholder="1284567" value="${sv('mls')}">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">List Price ($)</label>
-          <input class="form-input" id="of-listprice" type="number" placeholder="399000">
+          <input class="form-input" id="of-listprice" type="number" placeholder="399000" value="${sv('listPrice')}">
         </div>
         <div class="form-group">
           <label class="form-label">Offer Amount ($) *</label>
