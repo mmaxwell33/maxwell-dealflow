@@ -236,9 +236,10 @@ const Notify = {
       });
       if (inList) html += '</ul>';
 
+      // Deliberately not a disclaimer any more. It says what the list is for
+      // and stops, which is what Maxwell asked for.
       const disclaimer =
-        'These are recent sales, not a formal appraisal. If your lender needs one, say the word and I will ' +
-        'point you to an appraiser.';
+        'These are recent sales, so you can compare what homes like this have been selling for.';
 
       const body = `Hi ${firstName},\n\n${cma.letter}\n\n${disclaimer}\n\n${EmailFormat.signaturePlain(agent)}`;
 
