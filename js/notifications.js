@@ -208,6 +208,58 @@ const Notify = {
 
   templates: {
 
+    // The market analysis letter. The body is written and edited by Maxwell in
+    // the CMA form before it ever reaches here, so this template does not
+    // compose prose: it lays out what he approved, attaches nothing itself
+    // (Notify.queue carries the PDF), and adds the one line that has to be on
+    // every one of these.
+    cma_letter: (client, cma, agent) => {
+      const firstName = (client.full_name || '').split(' ')[0] || 'there';
+      const addr = cma.property_address || 'your property';
+      const subject = `What has been selling near ${addr}`;
+
+      // The agent's own words, as approved. Lines beginning "- " are the sales.
+      const lines = String(cma.letter || '').split('\n');
+      const bodyHtml = lines.map(l => {
+        const t = l.trim();
+        if (!t) return '';
+        if (t.startsWith('- ')) return `<li style="margin-bottom:8px;">${EmailFormat.esc ? EmailFormat.esc(t.slice(2)) : t.slice(2)}</li>`;
+        return `<p style="margin:0 0 13px;">${t}</p>`;
+      });
+      // Wrap consecutive <li> runs in a single <ul>.
+      let html = '', inList = false;
+      bodyHtml.forEach(chunk => {
+        const isLi = chunk.startsWith('<li');
+        if (isLi && !inList) { html += '<ul style="margin:0 0 13px;padding-left:20px;">'; inList = true; }
+        if (!isLi && inList) { html += '</ul>'; inList = false; }
+        html += chunk;
+      });
+      if (inList) html += '</ul>';
+
+      const disclaimer =
+        'This is my professional opinion based on recent sales, not a formal appraisal. If you need an appraisal ' +
+        'for financing, that is a separate report from a licensed appraiser and I am glad to point you to one.';
+
+      const body = `Hi ${firstName},\n\n${cma.letter}\n\n${disclaimer}\n\n${EmailFormat.signaturePlain(agent)}`;
+
+      return {
+        subject,
+        body,
+        html: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+          <div class="wrap"><div class="card">
+            <p style="margin:0 0 13px;">Hi ${firstName},</p>
+            ${html}
+            <div style="margin:16px 0;padding:11px 14px;background:#f4f6f9;border:1px solid #e2e6ec;border-radius:9px;font-size:13px;color:#374151;">
+              📄 The full analysis is attached.
+            </div>
+            <div style="margin-top:14px;padding:12px 14px;background:#fffaf0;border-left:3px solid #b08d57;border-radius:0 8px 8px 0;font-size:13px;color:#5c4a2e;line-height:1.6;">
+              ${disclaimer}
+            </div>
+            ${EmailFormat.signatureHTML(agent)}
+          </div></div></body></html>`,
+      };
+    },
+
     viewing_confirmation: (client, viewing, agent, isUpdate = false) => {
       const agentName = agent.full_name || agent.name || 'Maxwell Delali Midodzi';
       const agentPhone = agent.phone || '(709) 325-0545';
