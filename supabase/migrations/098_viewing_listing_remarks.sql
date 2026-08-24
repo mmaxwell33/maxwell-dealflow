@@ -1,4 +1,4 @@
--- 097_viewing_listing_remarks.sql
+-- 098_viewing_listing_remarks.sql
 -- Keep the listing's own description on the viewing, for the agent only.
 --
 -- WHY:
