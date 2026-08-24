@@ -126,9 +126,25 @@ const MLSDrop = {
            style="border:1.5px dashed var(--border);border-radius:11px;padding:16px 14px;text-align:center;cursor:pointer;margin-bottom:16px;background:rgba(110,140,192,0.04);transition:border-color 120ms,background 120ms;">
         <div style="font-size:12.5px;color:var(--text2);line-height:1.5;">
           📄 <strong style="color:var(--text1);">Drop the MLS sheet here</strong><br>
-          <span style="font-size:11.5px;">or tap to choose a file or take a photo. PDF, JPG or PNG. It reads the address, MLS number, price and the key facts, then fills the form for you to check.</span>
+          <span style="font-size:11.5px;">PDF, JPG or PNG. It reads the address, MLS number, price and the key facts, then fills the form for you to check.</span>
         </div>
-        <input type="file" id="mls-file" accept="application/pdf,image/*" capture="environment" style="display:none;"
+        <!-- A real button, because "the whole panel is clickable" is invisible.
+             On a desktop with no file to drag there was nothing that looked
+             like it could be pressed. -->
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:11px;flex-wrap:wrap;">
+          <button type="button" class="btn2 btn2-sm"
+                  onclick="event.stopPropagation();document.getElementById('mls-file').click()"
+                  style="background:var(--accent);color:#0A0E14;font-weight:700;">📎 Choose a file</button>
+          <button type="button" class="btn2 btn2-ghost btn2-sm"
+                  onclick="event.stopPropagation();document.getElementById('mls-photo').click()"
+                  style="border:1px solid var(--border);">📷 Take a photo</button>
+        </div>
+        <input type="file" id="mls-file" accept="application/pdf,image/*" style="display:none;"
+               onchange="MLSDrop.onPick(event)">
+        <!-- capture lives on its own input: on a phone it opens the camera
+             directly, and putting it on the main one meant "choose a file"
+             could not reach the files already on the device. -->
+        <input type="file" id="mls-photo" accept="image/*" capture="environment" style="display:none;"
                onchange="MLSDrop.onPick(event)">
       </div>
       <div id="mls-msg"></div>`;

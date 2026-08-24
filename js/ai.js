@@ -107,11 +107,20 @@ Today's date: ${new Date().toLocaleDateString('en-CA', {weekday:'long',year:'num
     ] = await Promise.all([
       db.from('clients').select('full_name,email,phone,stage,status,city,price_range,notes,updated_at,created_at').eq('agent_id', id).order('updated_at',{ascending:false}).limit(60),
       db.from('pipeline').select('client_name,property_address,offer_amount,stage,closing_date,acceptance_date,updated_at').eq('agent_id', id).order('updated_at',{ascending:false}).limit(30),
-      db.from('viewings').select('property_address,viewing_date,viewing_status,client_feedback,notes').order('viewing_date',{ascending:false}).limit(20),
+      db.from('viewings').select('property_address,viewing_date,viewing_status,client_feedback,agent_notes').order('viewing_date',{ascending:false}).limit(40),
       db.from('commissions').select('client_name,property_address,sale_price,net_commission,commission_date,status').eq('agent_id', id).order('commission_date',{ascending:false}).limit(10),
       db.from('new_builds').select('client_name,builder_name,lot_address,current_stage,est_completion_date,milestones_done').eq('agent_id', id).limit(10),
       db.from('approval_queue').select('client_name,approval_type,status,created_at').eq('agent_id', id).eq('status','Pending').limit(10)
     ]);
+
+    // A failed select resolves with data:null, so a query that errors looks
+    // exactly like a table with nothing in it. That is how the assistant came
+    // to report "Viewings This Month: 0" on a day with two booked: the select
+    // named a column that does not exist, 400'd, and the prompt was handed an
+    // empty list with no hint that anything had gone wrong. Say so instead.
+    [['clients',clients],['pipeline',pipeline],['viewings',viewings],
+     ['commissions',commissions],['new_builds',newBuilds],['approvals',approvals]]
+      .forEach(([name,data]) => { if (data == null) console.warn(`[AI] ${name} returned no data — the query failed, so the assistant is answering without it.`); });
 
     const cl = clients || [];
     const pl = pipeline || [];
@@ -119,6 +128,18 @@ Today's date: ${new Date().toLocaleDateString('en-CA', {weekday:'long',year:'num
     const co = commissions || [];
     const nb = newBuilds || [];
     const ap = approvals || [];
+
+    // Counted here, not left to the model to work out from a truncated list.
+    const nowD = new Date();
+    const monthLabel = nowD.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' });
+    const sameMonth = d => {
+      if (!d) return false;
+      const x = new Date(String(d).slice(0,10) + 'T12:00:00');
+      return !isNaN(x) && x.getMonth() === nowD.getMonth() && x.getFullYear() === nowD.getFullYear();
+    };
+    const viewingsThisMonth = vi.filter(v => sameMonth(v.viewing_date));
+    const todayStr = nowD.toISOString().slice(0,10);
+    const viewingsUpcoming = vi.filter(v => v.viewing_date && String(v.viewing_date).slice(0,10) >= todayStr);
 
     const needsFollowUp = cl.filter(c => {
       if (!c.updated_at) return true;
@@ -158,8 +179,9 @@ ${active.slice(0,20).map(c => `- ${c.full_name} | ${c.stage} | ${c.city||'—'} 
 === ACTIVE PIPELINE DEALS ===
 ${activeDeals.map(d => `- ${d.client_name} | ${d.property_address||'—'} | $${Number(d.offer_amount||0).toLocaleString()} | Stage: ${d.stage} | Closing: ${d.closing_date||'TBD'}`).join('\n') || 'No active deals'}
 
-=== RECENT VIEWINGS ===
-${vi.slice(0,8).map(v => `- ${v.property_address||'—'} | ${v.viewing_date||'—'} | ${v.viewing_status||'—'} | Feedback: ${v.client_feedback||'none'}`).join('\n') || 'No viewings'}
+=== VIEWINGS ===
+This calendar month (${monthLabel}): ${viewingsThisMonth.length} booked. Upcoming from today: ${viewingsUpcoming.length}.
+${vi.slice(0,15).map(v => `- ${v.property_address||'—'} | ${v.viewing_date||'—'} | ${v.viewing_status||'—'} | Feedback: ${v.client_feedback||'none'}`).join('\n') || 'No viewings on record'}
 
 === COMMISSIONS ===
 ${co.map(c => `- ${c.client_name} | ${c.property_address||'—'} | Sale: $${Number(c.sale_price||0).toLocaleString()} | Net: $${Number(c.net_commission||0).toLocaleString()} | ${c.commission_date||'—'}`).join('\n') || 'No commissions recorded'}
