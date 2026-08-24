@@ -237,8 +237,8 @@ const Notify = {
       if (inList) html += '</ul>';
 
       const disclaimer =
-        'This is my professional opinion based on recent sales, not a formal appraisal. If you need an appraisal ' +
-        'for financing, that is a separate report from a licensed appraiser and I am glad to point you to one.';
+        'These are recent sales, not a formal appraisal. If your lender needs one, say the word and I will ' +
+        'point you to an appraiser.';
 
       const body = `Hi ${firstName},\n\n${cma.letter}\n\n${disclaimer}\n\n${EmailFormat.signaturePlain(agent)}`;
 
