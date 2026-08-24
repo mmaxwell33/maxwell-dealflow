@@ -1194,10 +1194,16 @@ const App = {
           { count: pendingApprovals = 0 } = {},
           { count: newIntakeCount = 0 } = {}
         ] = await Promise.all([
+          // No .eq('agent_id') on these two: viewings has no agent_id column,
+          // and RLS already scopes it through client_id. Filtering on a column
+          // that does not exist made PostgREST reject both with a 400, and a
+          // rejected count destructures to 0, so the Pending Now card silently
+          // never mentioned a viewing today or tomorrow. Every other viewings
+          // query in the app already omits it for this reason.
           db.from('viewings').select('*', { count: 'exact', head: true })
-            .eq('agent_id', agentId).eq('viewing_date', todayDate).neq('viewing_status', 'Completed'),
+            .eq('viewing_date', todayDate).neq('viewing_status', 'Completed'),
           db.from('viewings').select('*', { count: 'exact', head: true })
-            .eq('agent_id', agentId).eq('viewing_date', tomorrowDate).neq('viewing_status', 'Completed'),
+            .eq('viewing_date', tomorrowDate).neq('viewing_status', 'Completed'),
           db.from('approval_queue').select('*', { count: 'exact', head: true })
             .eq('agent_id', agentId).eq('status', 'Pending'),
           db.from('client_intake').select('*', { count: 'exact', head: true })
