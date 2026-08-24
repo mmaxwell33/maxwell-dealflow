@@ -61,7 +61,7 @@ const AI = {
     const system = `You are the AI assistant built into Maxwell DealFlow CRM — a real estate CRM used by Maxwell Delali Midodzi, a realtor at eXp Realty.
 
 Your role:
-- Answer questions about Maxwell's clients, deals, pipeline, viewings, and commissions using the LIVE DATA below
+- Answer questions about Maxwell's clients, deals, pipeline, viewings, and commissions using the LIVE DATA below\n- A section marked UNAVAILABLE means the query FAILED, not that the data is empty. Say you could not read it and point at the screen that can. Never report zero for a section you could not read, and never guess the figure from another section.
 - Help draft professional emails and client messages
 - Suggest specific next steps for deals and clients
 - Analyse trends and flag issues (e.g. clients overdue for follow-up, deals stalling)
@@ -118,9 +118,10 @@ Today's date: ${new Date().toLocaleDateString('en-CA', {weekday:'long',year:'num
     // to report "Viewings This Month: 0" on a day with two booked: the select
     // named a column that does not exist, 400'd, and the prompt was handed an
     // empty list with no hint that anything had gone wrong. Say so instead.
-    [['clients',clients],['pipeline',pipeline],['viewings',viewings],
+    const failed = [['clients',clients],['pipeline',pipeline],['viewings',viewings],
      ['commissions',commissions],['new_builds',newBuilds],['approvals',approvals]]
-      .forEach(([name,data]) => { if (data == null) console.warn(`[AI] ${name} returned no data — the query failed, so the assistant is answering without it.`); });
+      .filter(([name,data]) => data == null)
+      .map(([name]) => { console.warn(`[AI] the ${name} query failed, so the assistant cannot see that data.`); return name; });
 
     const cl = clients || [];
     const pl = pipeline || [];
@@ -180,8 +181,10 @@ ${active.slice(0,20).map(c => `- ${c.full_name} | ${c.stage} | ${c.city||'—'} 
 ${activeDeals.map(d => `- ${d.client_name} | ${d.property_address||'—'} | $${Number(d.offer_amount||0).toLocaleString()} | Stage: ${d.stage} | Closing: ${d.closing_date||'TBD'}`).join('\n') || 'No active deals'}
 
 === VIEWINGS ===
-This calendar month (${monthLabel}): ${viewingsThisMonth.length} booked. Upcoming from today: ${viewingsUpcoming.length}.
-${vi.slice(0,15).map(v => `- ${v.property_address||'—'} | ${v.viewing_date||'—'} | ${v.viewing_status||'—'} | Feedback: ${v.client_feedback||'none'}`).join('\n') || 'No viewings on record'}
+${viewings == null
+  ? 'UNAVAILABLE. The viewings query failed, so this list is missing, NOT empty. If asked about viewings, say you could not read them and that the Viewings screen has the real answer. Do NOT say he has none and do NOT infer a count from anything else.'
+  : `This calendar month (${monthLabel}): ${viewingsThisMonth.length} booked. Upcoming from today: ${viewingsUpcoming.length}.
+${vi.slice(0,15).map(v => `- ${v.property_address||'—'} | ${v.viewing_date||'—'} | ${v.viewing_status||'—'} | Feedback: ${v.client_feedback||'none'}`).join('\n') || 'None on record.'}`}
 
 === COMMISSIONS ===
 ${co.map(c => `- ${c.client_name} | ${c.property_address||'—'} | Sale: $${Number(c.sale_price||0).toLocaleString()} | Net: $${Number(c.net_commission||0).toLocaleString()} | ${c.commission_date||'—'}`).join('\n') || 'No commissions recorded'}
