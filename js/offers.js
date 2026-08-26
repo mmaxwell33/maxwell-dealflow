@@ -706,6 +706,22 @@ const Pipeline = {
     if (btn) btn.textContent = open ? '⌃ Less' : '⋯ More';
   },
 
+  // Cards render collapsed: name, address, status badge and the progress bar.
+  // Everything that needs a decision (dates, money, buttons) sits behind the
+  // drop arrow so a pipeline of seven deals reads as a list, not a wall.
+  _openDeals: new Set(),
+  toggleDeal(id) {
+    const body = document.getElementById('pl-body-' + id);
+    if (!body) return;
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'block' : 'none';
+    if (open) Pipeline._openDeals.add(id); else Pipeline._openDeals.delete(id);
+    const sum = document.getElementById('pl-sum-' + id);
+    if (sum) sum.style.display = open ? 'none' : 'flex';
+    const chev = document.getElementById('pl-chev-' + id);
+    if (chev) chev.classList.toggle('open', open);
+  },
+
   currentStageFilter: 'all', // PR #28: 'all' | 'Accepted' | 'Conditions' | 'Closing' | 'Closed' | 'Fell Through'
 
   setFilter(key) {
@@ -2584,9 +2600,11 @@ const Pipeline = {
       const dealTickerMsg = (isClosed || isFell || !Pipeline._tickerActive) ? '' : Pipeline.dealStatusMessage(d);
       const dealTickerHtml = dealTickerMsg ? `<div class="deal-ticker-pl"><span>${dealTickerMsg}</span></div>` : '';
 
+      const isOpen = Pipeline._openDeals.has(d.id);
       return `<div class="card" style="margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-          <div><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
+        <div class="pl-card-head" onclick="Pipeline.toggleDeal('${d.id}')">
+          <span class="pl-chev ${isOpen?'open':''}" id="pl-chev-${d.id}" aria-hidden="true">▸</span>
+          <div style="flex:1;min-width:0;"><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
           <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : Pipeline.conditionState(d, 'financing') === 'cleared' ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
         </div>
         <!-- Hidden legacy single-bar (kept for compatibility with code that updates pl-bar-* / pl-pct-lbl-* / pl-milestone-lbl-*) -->
@@ -2594,6 +2612,12 @@ const Pipeline = {
         <span id="pl-milestone-lbl-${d.id}" style="display:none;">${doneInt} of ${total}</span>
         <span id="pl-pct-lbl-${d.id}" style="display:none;">${pct}%</span>
         ${Pipeline._segmentedBarHtml ? Pipeline._segmentedBarHtml(d) : ''}
+        <div class="pl-sum" id="pl-sum-${d.id}" style="display:${isOpen?'none':'flex'};">
+          <span>💰 ${App.fmtMoney(d.offer_amount)}</span>
+          ${d.closing_date ? `<span>📅 Closing ${App.fmtDate(d.closing_date)}</span>` : ''}
+          <span>📋 ${d.stage}</span>
+        </div>
+        <div class="pl-body" id="pl-body-${d.id}" style="display:${isOpen?'block':'none'};">
         ${dealTickerHtml}
         <div style="font-size:12px;margin-bottom:8px;">${statusLine}</div>
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
@@ -2636,6 +2660,7 @@ const Pipeline = {
         </div>
         ${Pipeline.renderDealStakeholders(d.id)}
         <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="pl-updated-${d.id}">🕐 Updated: ${updatedStr}</div>
+        </div>
       </div>`;
     };
 
@@ -2812,15 +2837,23 @@ const Pipeline = {
     // Each stage fills based on % of that stage's steps completed.
     const progressHtml = linkedBuild ? Pipeline._segmentedBuildBarHtml(d, linkedBuild) : '';
 
+    const isOpen = Pipeline._openDeals.has(d.id);
     return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
+      <div class="pl-card-head" onclick="Pipeline.toggleDeal('${d.id}')">
+        <span class="pl-chev ${isOpen?'open':''}" id="pl-chev-${d.id}" aria-hidden="true">▸</span>
+        <div style="flex:1;min-width:0;">
           <div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div>
           <div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div>
         </div>
         <span style="font-size:10px;color:${badgeColor};background:${badgeBg};padding:3px 10px;border-radius:8px;font-weight:700;letter-spacing:1px;white-space:nowrap;">${statusLabel}</span>
       </div>
       ${progressHtml}
+      <div class="pl-sum" id="pl-sum-${d.id}" style="display:${isOpen?'none':'flex'};">
+        <span>💰 ${App.fmtMoney(d.offer_amount)}</span>
+        ${d.closing_date ? `<span>📅 Possession ${App.fmtDate(d.closing_date)}</span>` : ''}
+        <span>📋 ${d.stage}</span>
+      </div>
+      <div class="pl-body" id="pl-body-${d.id}" style="display:${isOpen?'block':'none'};">
       ${tickerHtml}
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">📋 Stage: ${d.stage}</div>
       <div style="font-size:13px;margin-bottom:4px;">💰 Build value: <strong>${App.fmtMoney(d.offer_amount)}</strong></div>
@@ -2843,6 +2876,7 @@ const Pipeline = {
       </div>
       ${Pipeline.renderDealStakeholders(d.id)}
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">🕐 Updated: ${updatedStr}</div>
+      </div>
     </div>`;
   },
 

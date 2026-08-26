@@ -1507,6 +1507,26 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   transform: rotate(180deg);
 }
 
+/* ── Collapsible deal card: header + progress bar always visible, the rest
+      behind the drop arrow so the pipeline reads as a list. ─────────────── */
+.pl-card-head {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-bottom: 8px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pl-chev {
+  flex-shrink: 0; width: 14px; text-align: center;
+  color: var(--text2); font-size: 14px;
+  line-height: 20px; transition: transform 140ms ease;
+}
+.pl-card-head:hover .pl-chev { color: var(--accent2); }
+.pl-chev.open { transform: rotate(90deg); }
+.pl-sum {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  font-size: 12px; color: var(--text2);
+  margin-top: 6px;
+}
+
 @media (max-width: 480px) {
   .pl-filter-row { gap: 4px; }
   .pl-filter-bar { padding-top: 8px; padding-bottom: 10px; }
