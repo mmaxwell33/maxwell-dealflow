@@ -1952,6 +1952,7 @@ const Pipeline = {
     };
     const { error } = await db.from('pipeline').update(updates).eq('id', id);
     if (error) { App.toast(`⚠️ ${error.message}`); return; }
+    await Pipeline.notifyDealUpdate(id, updates);   // client notice — before rec is mutated
     Object.assign(rec, updates);
     await Pipeline._logConditionEvent(id, key, {
       outcome: 'cleared',
@@ -2087,6 +2088,8 @@ const Pipeline = {
 
     const { error } = await db.from('pipeline').update(updates).eq('id', id);
     if (error) { console.error('condition update:', error); App.toast(`⚠️ ${error.message}`); return; }
+    // A snooze is Maxwell's own reminder, not news — everything else is.
+    if (action !== 'snooze') await Pipeline.notifyDealUpdate(id, updates);
     Object.assign(rec, updates);
 
     await Pipeline._logConditionEvent(id, key, {
@@ -3055,6 +3058,16 @@ const Pipeline = {
       }
     }
 
+    // Client notice for whichever of these dates actually moved — read against
+    // Pipeline.all BEFORE the local record is merged below.
+    await Pipeline.notifyDealUpdate(id, {
+      acceptance_date:  acc,
+      financing_date:   fin,
+      inspection_date:  ins,
+      walkthrough_date: walk,
+      closing_date:     close
+    });
+
     // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
     const merged = Object.assign({}, rec, {
@@ -3075,6 +3088,7 @@ const Pipeline = {
       const isLockedStage = ['Closed','Fell Through','Under Contract','Closing'].includes(rec.stage);
       if (finPast && !isLockedStage) {
         await db.from('pipeline').update({ stage: 'Under Contract', updated_at: now }).eq('id', id);
+        await Pipeline.notifyDealUpdate(id, { stage: 'Under Contract' });
         rec.stage = 'Under Contract';
         if (rec.client_id) {
           await db.from('clients').update({ stage: 'Under Contract', updated_at: now }).eq('id', rec.client_id);
@@ -3435,6 +3449,7 @@ const Pipeline = {
     const { error: pErr } = await db.from('pipeline')
       .update({ offer_amount: newAmt, updated_at: now }).eq('id', id);
     if (pErr) { App.toast('⚠️ Pipeline update failed'); return; }
+    await Pipeline.notifyDealUpdate(id, { offer_amount: newAmt });
 
     const { data: comm } = await db.from('commissions')
       .select('id, commission_rate, brokerage_fee_rate')
@@ -3475,6 +3490,7 @@ const Pipeline = {
       .update({ deposit_paid: true, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) { App.toast('⚠️ Could not mark deposit paid'); return; }
+    await Pipeline.notifyDealUpdate(id, { deposit_paid: true });
     const rec = Pipeline.all?.find(x => x.id === id);
     if (rec) rec.deposit_paid = true;
     App.toast('📥 Deposit marked as paid!');
@@ -3937,6 +3953,7 @@ const Pipeline = {
   async updateStage(id) {
     const stage = document.getElementById('ps-stage').value;
     await db.from('pipeline').update({ stage, updated_at: new Date().toISOString() }).eq('id', id);
+    await Pipeline.notifyDealUpdate(id, { stage });
     const d = Pipeline.all.find(x => x.id === id);
     // Keep client stage in sync with pipeline stage. The map used to have
     // Closed → 'Closing' (typo) and no Fell Through entry, which left
@@ -4595,6 +4612,246 @@ const Pipeline = {
     }
   },
 
+  // ── AUTO "DEAL UPDATED" NOTICE TO THE CLIENT ──────────────────────────────
+  // Any pipeline change the buyer would actually care about (a milestone date
+  // moving, a condition clearing, the price, the stage) turns into ONE short
+  // email queued in Approvals: two or three lines saying what moved, plus the
+  // client's existing portal link, which is already showing the new state.
+  //
+  // Three deliberate limits, so this never becomes nagging:
+  //   1. It only points at a portal link that already exists. No token is ever
+  //      created, rotated, or resent by this path.
+  //   2. If a Deal Update notice for the same deal is still sitting in
+  //      Approvals unsent, the new change is MERGED into it instead of adding
+  //      a second email.
+  //   3. Changes that already have their own dedicated letter (closing
+  //      reschedule, deal closed, deal fell through) are skipped here.
+  // Nothing sends on its own — Maxwell approves it like every other email.
+
+  // Columns worth telling a client about, in the order they read best.
+  // `pair` collapses the mirrored *_deadline column (migration 063) onto the
+  // same line, so one deadline move is one bullet, not two.
+  _UPDATE_WATCH: [
+    { col: 'stage',             label: 'Stage',               kind: 'stage'  },
+    { col: 'offer_amount',      label: 'Purchase price',      kind: 'money'  },
+    { col: 'acceptance_date',   label: 'Offer acceptance',    kind: 'date'   },
+    { col: 'financing_status',  label: 'Financing',           kind: 'condition', ckey: 'financing'  },
+    { col: 'inspection_status', label: 'Inspection',          kind: 'condition', ckey: 'inspection' },
+    { col: 'deposit_status',    label: 'Deposit',             kind: 'condition', ckey: 'deposit'    },
+    { col: 'financing_date',    label: 'Financing deadline',  kind: 'date', pair: 'financing_deadline'  },
+    { col: 'inspection_date',   label: 'Inspection deadline', kind: 'date', pair: 'inspection_deadline' },
+    { col: 'deposit_due_date',  label: 'Deposit due',         kind: 'date'   },
+    { col: 'walkthrough_date',  label: 'Final walkthrough',   kind: 'date'   },
+    { col: 'closing_date',      label: 'Closing date',        kind: 'date'   },
+    { col: 'deposit_paid',      label: 'Deposit',             kind: 'flag', trueWord: 'received' }
+  ],
+
+  // Client-facing words for the internal stage names. 'Closed' and
+  // 'Fell Through' are deliberately absent — both already have their own
+  // dedicated letter, and this notice must never duplicate one.
+  _STAGE_WORDS: {
+    'Accepted':       'offer accepted',
+    'Conditions':     'in the conditions period',
+    'Under Contract': 'under contract',
+    'Closing':        'in the closing stage'
+  },
+
+  // Compare the row as it was against the update about to be (or just) written.
+  // Returns [{ field, text, short }] — `text` is the bullet, `short` is the same
+  // news phrased to sit after the colon in a subject line.
+  _describeDealChanges(before, updates) {
+    if (!before || !updates) return [];
+    const norm = (v) => {
+      if (v === undefined || v === null || v === '') return null;
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+      if (typeof v === 'number') return v;
+      return v;
+    };
+    const out = [];
+    for (const w of Pipeline._UPDATE_WATCH) {
+      const col = (w.col in updates) ? w.col : (w.pair && (w.pair in updates)) ? w.pair : null;
+      if (!col) continue;
+      const to   = norm(updates[col]);
+      const from = norm(before[col] !== undefined ? before[col] : before[w.col]);
+      if (to === from) continue;
+
+      if (w.kind === 'stage') {
+        const word = Pipeline._STAGE_WORDS[to];
+        if (!word) continue;                       // Closed / Fell Through have their own letters
+        out.push({ field: w.col, text: `Stage: now ${word}`, short: `now ${word}` });
+
+      } else if (w.kind === 'condition') {
+        // Only a real answer is news. Clearing a status back to null is Maxwell
+        // undoing his own click, not something to email a client about.
+        const meta = Pipeline.CONDITIONS[w.ckey] || {};
+        if (to === 'cleared') {
+          const word = (meta.clearedWord || 'cleared').toLowerCase();
+          out.push({ field: w.col, text: `${w.label}: ${word}`, short: `${w.label.toLowerCase()} ${word}` });
+        } else if (to === 'blocked') {
+          out.push({ field: w.col, text: `${w.label}: still being worked through`,
+                     short: `${w.label.toLowerCase()} still being worked through` });
+        }
+
+      } else if (w.kind === 'money') {
+        if (!to) continue;
+        out.push({ field: w.col, text: `${w.label}: now ${App.fmtMoney(to)}`,
+                   short: `price now ${App.fmtMoney(to)}` });
+
+      } else if (w.kind === 'flag') {
+        if (to !== true) continue;                 // un-ticking a box is a correction
+        out.push({ field: w.col, text: `${w.label}: ${w.trueWord}`,
+                   short: `${w.label.toLowerCase()} ${w.trueWord}` });
+
+      } else {                                     // date
+        if (!to) continue;                         // a cleared date reads as noise
+        const verb = from ? 'moved to' : 'set for';
+        out.push({ field: w.col, text: `${w.label}: ${verb} ${App.fmtDate(to)}`,
+                   short: `${w.label.toLowerCase()} ${verb} ${App.fmtDate(to)}` });
+      }
+    }
+    return out;
+  },
+
+  // The notice itself. Short on purpose: what changed, where to look, done.
+  _dealUpdateEmail(d, lines, url) {
+    const first = (d.client_name || 'there').split(' ')[0];
+    const addr  = d.property_address || 'your deal';
+    const lead  = lines[0]?.short || (lines[0]?.text || 'an update').replace(/^[^:]+:\s*/, '');
+    const subject = lines.length > 1
+      ? `Update on ${addr}: ${lead} plus ${lines.length - 1} more`
+      : `Update on ${addr}: ${lead}`;
+    const agent = (typeof currentAgent !== 'undefined') ? currentAgent : null;
+
+    const body =
+      `Hi ${first},\n\n` +
+      `A quick update on ${addr}.\n\n` +
+      lines.map(l => `• ${l.text}`).join('\n') + `\n\n` +
+      `Your portal is already showing this. You can open it any time here:\n${url}\n\n` +
+      `Nothing is needed from you on this one. I will let you know if that changes.\n\n` +
+      EmailFormat.signaturePlain(agent);
+
+    const html =
+      '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#202124;">' +
+        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5f6368;margin-bottom:4px;">Deal update</div>' +
+        '<div style="font-size:17px;font-weight:600;margin-bottom:18px;">' + App.esc(addr) + '</div>' +
+        '<p style="margin:0 0 14px;font-size:14px;">Hi ' + App.esc(first) + ',</p>' +
+        '<p style="margin:0 0 12px;font-size:14px;">A quick update on this file:</p>' +
+        '<ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.7;">' +
+          lines.map(l => '<li>' + App.esc(l.text) + '</li>').join('') +
+        '</ul>' +
+        '<p style="text-align:center;margin:22px 0;"><a href="' + url + '" style="background:#0F172A;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;font-size:14px;">See where your deal stands →</a></p>' +
+        '<p style="margin:0 0 6px;font-size:13px;color:#5f6368;">Your portal is already up to date. It is the same private link as before, no login needed.</p>' +
+        '<p style="margin:0;font-size:14px;">Nothing is needed from you on this one. I will let you know if that changes.</p>' +
+        EmailFormat.signatureHTML(agent) +
+      '</div>';
+
+    return { subject, body, html };
+  },
+
+  // Look up the client portal link already issued for this deal. Returns null
+  // when there is none (or it expired / was revoked) — in which case no notice
+  // goes out, because there would be nothing for the client to click.
+  async _clientPortalUrl(dealId) {
+    const { data, error } = await db.from('deal_stakeholders')
+      .select('token')
+      .eq('pipeline_id', dealId)
+      .eq('role', 'client')
+      .is('revoked_at', null)
+      .gt('token_expires', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data?.token) return null;
+    return `${location.origin}/portal.html?t=${data.token}`;
+  },
+
+  // The one entry point. Call it right AFTER a successful pipeline write and
+  // BEFORE the local record is mutated, passing the same `updates` object that
+  // was just saved. Entirely best-effort: a failure here never breaks the save.
+  async notifyDealUpdate(dealId, updates) {
+    try {
+      if (localStorage.getItem('df-deal-update-emails') === 'off') return;
+      const d = (Pipeline.all || []).find(x => x.id === dealId);
+      if (!d || !d.client_email) return;
+      if (['Closed', 'Fell Through'].includes(d.stage) && !updates.stage) return;
+
+      let lines = Pipeline._describeDealChanges(d, updates);
+      if (!lines.length) return;
+
+      const url = await Pipeline._clientPortalUrl(dealId);
+      if (!url) return;   // no portal link issued yet — nothing to point at
+
+      const user    = await App.getAuthUser();
+      const agentId = user?.id || (typeof currentAgent !== 'undefined' && currentAgent ? currentAgent.id : null);
+      if (!agentId) return;
+
+      // Merge into the notice still waiting in Approvals, if there is one, so
+      // three edits in one sitting stay one email. Newer wording for the same
+      // field replaces the older line; the rest are kept in watch-list order.
+      const { data: pending } = await db.from('approval_queue')
+        .select('id, context_data')
+        .eq('agent_id', agentId)
+        .eq('related_id', dealId)
+        .eq('approval_type', 'Deal Update')
+        .eq('status', 'Pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pending?.id) {
+        let ctx = {};
+        try { ctx = typeof pending.context_data === 'string' ? JSON.parse(pending.context_data) : (pending.context_data || {}); } catch {}
+        const prev = Array.isArray(ctx.update_lines) ? ctx.update_lines : [];
+        const byField = new Map();
+        [...prev, ...lines].forEach(l => byField.set(l.field, l));
+        const order = Pipeline._UPDATE_WATCH.map(w => w.col);
+        lines = [...byField.values()].sort((a, b) => order.indexOf(a.field) - order.indexOf(b.field));
+
+        const merged = Pipeline._dealUpdateEmail(d, lines, url);
+        ctx.html = btoa(unescape(encodeURIComponent(merged.html)));
+        ctx.update_lines = lines;
+        const { error: upErr } = await db.from('approval_queue').update({
+          email_subject: merged.subject,
+          email_body:    merged.body,
+          context_data:  ctx,
+          updated_at:    new Date().toISOString()
+        }).eq('id', pending.id);
+        if (upErr) { console.warn('[deal update] merge failed:', upErr); return; }
+        if (typeof Approvals !== 'undefined' && Approvals.load) Approvals.load();
+        App.toast('📝 Added to the update waiting in Approvals', 'var(--accent2)');
+        return;
+      }
+
+      const mail = Pipeline._dealUpdateEmail(d, lines, url);
+      const ok = await Notify.queue(
+        'Deal Update', d.client_id, d.client_name, d.client_email,
+        mail.subject, mail.body, dealId, mail.html
+      );
+      if (!ok) return;
+
+      // Stash the bullet list on the queued row so a follow-up change can be
+      // merged into it rather than parsed back out of the email body.
+      const { data: row } = await db.from('approval_queue')
+        .select('id, context_data')
+        .eq('agent_id', agentId)
+        .eq('related_id', dealId)
+        .eq('approval_type', 'Deal Update')
+        .eq('status', 'Pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (row?.id) {
+        let ctx = {};
+        try { ctx = typeof row.context_data === 'string' ? JSON.parse(row.context_data) : (row.context_data || {}); } catch {}
+        ctx.update_lines = lines;
+        await db.from('approval_queue').update({ context_data: ctx }).eq('id', row.id);
+      }
+      await App.logActivity('DEAL_UPDATE_QUEUED', d.client_name, d.client_email,
+        `Client update queued (${lines.map(l => l.text).join('; ')}) on ${d.property_address}`, d.client_id);
+    } catch (e) {
+      console.warn('[deal update] notice skipped (non-fatal):', e);
+    }
+  },
   // ── PDF Deal Summary ──────────────────────────────────────────────────────
   exportPdf(dealId) {
     const d = (Pipeline.all || []).find(x => x.id === dealId);

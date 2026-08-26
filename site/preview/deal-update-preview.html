@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deal update notice preview</title>
+<style>
+ body{margin:0;background:#0A0E14;color:#F1ECE3;font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+ .wrap{max-width:900px;margin:0 auto;padding:36px 20px 80px}
+ h1{font-size:24px;margin:0 0 6px}
+ .sub{color:#9CA3AF;font-size:14px;margin:0 0 8px}
+ .note{background:#131A24;border:1px solid #1F2937;border-radius:12px;padding:16px 18px;margin:22px 0 34px;font-size:13.5px;color:#C7CEDA}
+ .note b{color:#F1ECE3}
+ h2{font-size:16px;margin:34px 0 4px;color:#7C9DD6}
+ .cap{color:#9CA3AF;font-size:13px;margin:0 0 4px}
+ .trig{font-size:12px;color:#6B7280;margin:0 0 12px}
+ .subject{background:#131A24;border:1px solid #1F2937;border-radius:10px 10px 0 0;padding:12px 16px;font-size:13px;color:#9CA3AF;border-bottom:none}
+ .subject b{color:#F1ECE3;font-weight:600}
+ .email{background:#fff;border-radius:0 0 10px 10px;padding:6px 10px;color:#202124}
+ details{margin:10px 0 0}
+ summary{cursor:pointer;font-size:12.5px;color:#7C9DD6}
+ pre{white-space:pre-wrap;background:#0F151E;border:1px solid #1F2937;border-radius:10px;padding:14px;font-size:12.5px;color:#C7CEDA;overflow-x:auto}
+</style></head><body><div class="wrap">
+<h1>“Your deal was updated” notice</h1>
+<p class="sub">Fires on a pipeline change, queues in Approvals, points at the portal link the client already has.</p>
+<div class="note">
+ <b>How it behaves.</b> A pipeline change the client would care about (condition answered, milestone date moved, price, stage) builds one short email and drops it in <b>Approvals</b>. Nothing sends on its own. It reuses the portal link already issued for that deal, so no new token is created and the client has nothing new to log into. If a notice for the same deal is still unsent in Approvals, the next change is <b>merged into it</b> rather than queued as a second email. Corrections (undoing a tick, fixing a typo'd date, snoozes) stay silent, and closing reschedules / closed / fell-through keep their own existing letters. Names and addresses below are made up.
+</div>
+
+<h2>One change</h2>
+<p class="cap">Maxwell taps “Yes, approved” on the financing condition.</p>
+<p class="trig">Trigger: Pipeline card → Financing → ✅ Yes, approved</p>
+<div class="subject">Subject: <b>Update on 12 Rowan Street: financing approved</b><br>To: Naa Amerley Tetteh &lt;naa@example.com&gt;</div>
+<div class="email"><div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#202124;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5f6368;margin-bottom:4px;">Deal update</div><div style="font-size:17px;font-weight:600;margin-bottom:18px;">12 Rowan Street</div><p style="margin:0 0 14px;font-size:14px;">Hi Naa,</p><p style="margin:0 0 12px;font-size:14px;">A quick update on this file:</p><ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.7;"><li>Financing: approved</li></ul><p style="text-align:center;margin:22px 0;"><a href="https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0" style="background:#0F172A;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;font-size:14px;">See where your deal stands →</a></p><p style="margin:0 0 6px;font-size:13px;color:#5f6368;">Your portal is already up to date. It is the same private link as before, no login needed.</p><p style="margin:0;font-size:14px;">Nothing is needed from you on this one. I will let you know if that changes.</p>
+      <p style="margin:16px 0 0;font-size:14px;line-height:1.55;color:#202124;">
+        Maxwell Delali Midodzi<br>
+        REALTOR® | eXp Realty<br>
+        Phone: <a href="tel:7093250545" style="color:#1a73e8;text-decoration:none;">709.325.0545</a> | Email: <a href="mailto:maxwell.midodzi@exprealty.com" style="color:#1a73e8;text-decoration:none;">maxwell.midodzi@exprealty.com</a><br>
+        eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2<br>
+        <a href="https://maxwellmidodzi.com" style="color:#1a73e8;text-decoration:none;">maxwellmidodzi.com</a>
+      </p></div></div>
+<details><summary>Plain-text version (what Gmail falls back to)</summary><pre>Hi Naa,
+
+A quick update on 12 Rowan Street.
+
+• Financing: approved
+
+Your portal is already showing this. You can open it any time here:
+https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0
+
+Nothing is needed from you on this one. I will let you know if that changes.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+
+📞   709.325.0545
+✉️   maxwell.midodzi@exprealty.com
+🌐   maxwellmidodzi.com</pre></details>
+
+<h2>Deadline moved</h2>
+<p class="cap">The inspection deadline is extended by a week.</p>
+<p class="trig">Trigger: Pipeline card → Inspection → Not yet → Extend</p>
+<div class="subject">Subject: <b>Update on 12 Rowan Street: inspection deadline moved to Sep 9</b><br>To: Naa Amerley Tetteh &lt;naa@example.com&gt;</div>
+<div class="email"><div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#202124;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5f6368;margin-bottom:4px;">Deal update</div><div style="font-size:17px;font-weight:600;margin-bottom:18px;">12 Rowan Street</div><p style="margin:0 0 14px;font-size:14px;">Hi Naa,</p><p style="margin:0 0 12px;font-size:14px;">A quick update on this file:</p><ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.7;"><li>Inspection deadline: moved to Sep 9</li></ul><p style="text-align:center;margin:22px 0;"><a href="https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0" style="background:#0F172A;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;font-size:14px;">See where your deal stands →</a></p><p style="margin:0 0 6px;font-size:13px;color:#5f6368;">Your portal is already up to date. It is the same private link as before, no login needed.</p><p style="margin:0;font-size:14px;">Nothing is needed from you on this one. I will let you know if that changes.</p>
+      <p style="margin:16px 0 0;font-size:14px;line-height:1.55;color:#202124;">
+        Maxwell Delali Midodzi<br>
+        REALTOR® | eXp Realty<br>
+        Phone: <a href="tel:7093250545" style="color:#1a73e8;text-decoration:none;">709.325.0545</a> | Email: <a href="mailto:maxwell.midodzi@exprealty.com" style="color:#1a73e8;text-decoration:none;">maxwell.midodzi@exprealty.com</a><br>
+        eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2<br>
+        <a href="https://maxwellmidodzi.com" style="color:#1a73e8;text-decoration:none;">maxwellmidodzi.com</a>
+      </p></div></div>
+<details><summary>Plain-text version (what Gmail falls back to)</summary><pre>Hi Naa,
+
+A quick update on 12 Rowan Street.
+
+• Inspection deadline: moved to Sep 9
+
+Your portal is already showing this. You can open it any time here:
+https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0
+
+Nothing is needed from you on this one. I will let you know if that changes.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+
+📞   709.325.0545
+✉️   maxwell.midodzi@exprealty.com
+🌐   maxwellmidodzi.com</pre></details>
+
+<h2>Several changes in one sitting</h2>
+<p class="cap">Three edits saved minutes apart. The second and third are MERGED into the notice still sitting in Approvals, so the client gets one email, not three.</p>
+<p class="trig">Trigger: Financing cleared → Save Dates → Update Stage</p>
+<div class="subject">Subject: <b>Update on 12 Rowan Street: now in the closing stage plus 3 more</b><br>To: Naa Amerley Tetteh &lt;naa@example.com&gt;</div>
+<div class="email"><div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#202124;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5f6368;margin-bottom:4px;">Deal update</div><div style="font-size:17px;font-weight:600;margin-bottom:18px;">12 Rowan Street</div><p style="margin:0 0 14px;font-size:14px;">Hi Naa,</p><p style="margin:0 0 12px;font-size:14px;">A quick update on this file:</p><ul style="margin:0 0 18px;padding-left:20px;font-size:14px;line-height:1.7;"><li>Stage: now in the closing stage</li><li>Financing: approved</li><li>Final walkthrough: set for Oct 14</li><li>Closing date: moved to Oct 23</li></ul><p style="text-align:center;margin:22px 0;"><a href="https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0" style="background:#0F172A;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block;font-size:14px;">See where your deal stands →</a></p><p style="margin:0 0 6px;font-size:13px;color:#5f6368;">Your portal is already up to date. It is the same private link as before, no login needed.</p><p style="margin:0;font-size:14px;">Nothing is needed from you on this one. I will let you know if that changes.</p>
+      <p style="margin:16px 0 0;font-size:14px;line-height:1.55;color:#202124;">
+        Maxwell Delali Midodzi<br>
+        REALTOR® | eXp Realty<br>
+        Phone: <a href="tel:7093250545" style="color:#1a73e8;text-decoration:none;">709.325.0545</a> | Email: <a href="mailto:maxwell.midodzi@exprealty.com" style="color:#1a73e8;text-decoration:none;">maxwell.midodzi@exprealty.com</a><br>
+        eXp Realty, 33 Pippy Place, Suite 101, St. John's, NL A1B 3X2<br>
+        <a href="https://maxwellmidodzi.com" style="color:#1a73e8;text-decoration:none;">maxwellmidodzi.com</a>
+      </p></div></div>
+<details><summary>Plain-text version (what Gmail falls back to)</summary><pre>Hi Naa,
+
+A quick update on 12 Rowan Street.
+
+• Stage: now in the closing stage
+• Financing: approved
+• Final walkthrough: set for Oct 14
+• Closing date: moved to Oct 23
+
+Your portal is already showing this. You can open it any time here:
+https://maxwelldealflow.vercel.app/portal.html?t=9f2c4a7be1d0
+
+Nothing is needed from you on this one. I will let you know if that changes.
+
+Maxwell Delali Midodzi
+REALTOR® | eXp Realty
+
+📞   709.325.0545
+✉️   maxwell.midodzi@exprealty.com
+🌐   maxwellmidodzi.com</pre></details>
+
+</div></body></html>
