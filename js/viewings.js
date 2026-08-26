@@ -409,14 +409,21 @@ const Viewings = {
     const oldViewing = existingId ? Viewings.all.find(v => v.id === existingId) : null;
 
     let error;
+    // Which client email the edit produced, so the toast can say so out loud.
+    let queuedKind = null;
     if (existingId) {
       error = await Viewings._write(payload, existingId);
       if (!error) {
         await Viewings._attachSheet(existingId);
-        // Re-send confirmation as "Update" email if client has an email on file
-        if (typeof Notify !== 'undefined' && client?.email) {
+        // Re-send confirmation as "Update" email if client has an email on file.
+        // The Status dropdown decides which letter goes out: Cancelled sends a
+        // cancellation, Confirmed reads as confirmed, Scheduled reads as an
+        // update. Completed is bookkeeping after the fact, so it emails nothing
+        // (the post-viewing buttons own that conversation).
+        if (typeof Notify !== 'undefined' && client?.email && payload.viewing_status !== 'Completed') {
           const updatedViewing = { ...oldViewing, ...payload, id: existingId };
           await Notify.onViewingBooked(updatedViewing, client, true); // true = isUpdate
+          queuedKind = payload.viewing_status === 'Cancelled' ? 'cancellation' : 'update';
         }
       }
     } else {
@@ -453,7 +460,10 @@ const Viewings = {
     // Approvals). Keep-searching / Pass never email the client.
     if (error) { if (msgEl) { msgEl.style.color='var(--red)'; msgEl.textContent = error.message; } return; }
     App.closeModal();
-    App.toast(existingId ? '✅ Viewing updated!'
+    App.toast(existingId
+      ? (payload.viewing_status === 'Cancelled'
+          ? (queuedKind ? '❌ Viewing cancelled. Cancellation email queued for approval.' : '❌ Viewing cancelled.')
+          : queuedKind ? '✅ Viewing updated. Update email queued for approval.' : '✅ Viewing updated!')
       : isGuest ? `✅ Viewing booked for ${client.full_name.split(' ')[0]}${guestRow?._reused ? ' (already on your list)' : ' (guest)'}`
       : '✅ Viewing booked!');
     Viewings.load(); App.loadOverview();

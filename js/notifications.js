@@ -278,13 +278,45 @@ const Notify = {
         return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${ampm}`;
       };
 
+      // ── CANCELLED ─────────────────────────────────────────────────────────
+      // The status dropdown drives what the client actually reads. A cancelled
+      // showing used to go out as "your viewing details have been updated",
+      // with an Add to Calendar button and "looking forward to seeing you",
+      // which said nothing about the cancellation. It now gets its own letter:
+      // no calendar invite, no map, and a clear line that the showing is off.
+      const vStatus = viewing.viewing_status || 'Scheduled';
+      if (vStatus === 'Cancelled') {
+        const whenLine = `${dateStr}${timeStr ? ' at ' + fmt12h(timeStr) : ''}`;
+        const cBody = `Hi ${firstName},\n\nThis showing has been cancelled.\n\nProperty: ${viewing.property_address}\nWas scheduled for: ${whenLine}\n\nNothing further is needed from you. If you had added it to your calendar, you can remove that entry.\n\nIf you would like to see this home at another time, or look at something else, just reply and I will arrange it.\n\n${EmailFormat.signaturePlain(agent)}`;
+        const cHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
+          <p>Hi ${firstName},</p>
+          <p>This showing has been <strong>cancelled</strong>.</p>
+          <table class="dt">
+            <tr><td class="label">Property</td><td class="value"><strong>${viewing.property_address}</strong></td></tr>
+            ${viewing.mls_number ? `<tr><td class="label">MLS#</td><td class="value">${viewing.mls_number}</td></tr>` : ''}
+            <tr><td class="label">Was scheduled for</td><td class="value" style="text-decoration:line-through;color:#6b7280;">${whenLine}</td></tr>
+          </table>
+          <p>Nothing further is needed from you. If you had added it to your calendar, you can remove that entry.</p>
+          <p>If you would like to see this home at another time, or look at something else, just reply and I will arrange it.</p>
+          <p>Best regards,</p>
+          ${EmailFormat.signatureHTML(agent)}
+          ${EmailFormat.disclaimerHTML()}
+        </body></html>`;
+        // No .ics: a cancellation must not hand the client another invite to
+        // add. The MIME part in send-email is fixed to method=REQUEST, so a
+        // CANCEL invite could not be labelled correctly from here anyway.
+        return { subject: `Viewing Cancelled - ${viewing.property_address}`, body: cBody, html: cHtml, ics: null };
+      }
+
       const offerDueLine = viewing.offer_due_date
         ? `\n⏰ Offers Due: ${new Date(viewing.offer_due_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' })}${viewing.offer_due_time ? ' at ' + fmt12h(viewing.offer_due_time) : ''}`
         : '';
       const sellersLine = viewing.sellers_direction ? `\n📋 Seller's Direction: ${viewing.sellers_direction}` : '';
 
       // Plain text fallback
-      const introLine = isUpdate
+      const introLine = vStatus === 'Confirmed'
+        ? `Your viewing is confirmed. Here are the details:`
+        : isUpdate
         ? `Your viewing details have been updated. Here is the latest information:`
         : `Your property viewing has been confirmed.`;
       // Short plain-language note about the home, read off the MLS sheet and
@@ -336,7 +368,7 @@ const Notify = {
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
-        <p>${isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
+        <p>${vStatus === 'Confirmed' ? 'Your viewing is <strong>confirmed</strong>. Here are the details:' : isUpdate ? 'Your viewing details have been <strong>updated</strong>. Here is the latest information:' : 'Your viewing has been confirmed. Here are the details:'}</p>
         <table class="dt">${tableRows.join('')}</table>
         ${highlights ? `<div style="margin:18px 0;padding:14px 16px;background:#f7f8fa;border-left:3px solid #0F172A;border-radius:0 8px 8px 0;">
           <div style="font-size:11px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#6b7280;margin-bottom:7px;">About this home</div>
@@ -395,7 +427,7 @@ const Notify = {
 
       const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
 
-      return { subject: isUpdate ? `Viewing Update - ${viewing.property_address}` : `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
+      return { subject: (isUpdate && vStatus !== 'Confirmed') ? `Viewing Update - ${viewing.property_address}` : `Viewing Confirmed - ${viewing.property_address}`, body, html, ics: icsBase64 };
     },
 
     // ── BUILDER MEETING INVITE ─────────────────────────────────────────────
@@ -1941,8 +1973,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   async onViewingBooked(viewing, client, isUpdate = false) {
     const agent = currentAgent;
     const tmpl = Notify.templates.viewing_confirmation(client, viewing, agent, isUpdate);
+    // Label the queued row for what it is, so Approvals doesn't show a
+    // cancellation sitting under "Viewing Update".
+    const kind = viewing.viewing_status === 'Cancelled' ? 'Viewing Cancelled'
+               : isUpdate ? 'Viewing Update' : 'Viewing Confirmation';
     await Notify.queue(
-      isUpdate ? 'Viewing Update' : 'Viewing Confirmation',
+      kind,
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, viewing.id,
       tmpl.html,          // beautiful HTML email
