@@ -988,15 +988,20 @@ const Pipeline = {
     segments.forEach(s => { overallFill += stageShare * (s.fill / 100); });
     overallFill = Math.round(overallFill);
 
+    // Closed builds go green, matching the existing-home bar.
+    const doneColor = isFullyClosed ? 'var(--success)' : 'var(--accent)';
+    const doneLabel = isFullyClosed ? 'var(--success)' : 'var(--text1)';
+    const headColor = isFullyClosed ? 'var(--success)' : 'var(--accent2)';
+
     let sections = '', labels = '';
     segments.forEach((s, i) => {
-      const segColor = s.status === 'done'    ? 'var(--accent)'
+      const segColor = s.status === 'done'    ? doneColor
                      : s.status === 'current' ? 'var(--accent2)'
                      :                          'transparent';
       sections += `<div style="flex:1;height:100%;position:relative;${i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : ''}">
                      <div style="width:${s.fill}%;height:100%;background:${segColor};transition:width 0.4s;"></div>
                    </div>`;
-      const labelColor = s.status === 'done' ? 'var(--text1)' : s.status === 'current' ? 'var(--accent2)' : 'var(--text3)';
+      const labelColor = s.status === 'done' ? doneLabel : s.status === 'current' ? 'var(--accent2)' : 'var(--text3)';
       const fontWeight = s.status === 'current' ? '700' : '500';
       const indicator  = s.status === 'done' ? ' ✓' : s.status === 'current' ? ' ·' : '';
       labels += `<div style="flex:1;text-align:center;font-size:9.5px;color:${labelColor};font-weight:${fontWeight};line-height:1.3;">
@@ -1006,7 +1011,7 @@ const Pipeline = {
     return `<div style="margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
                 <div style="font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Stage progress</div>
-                <div style="font-size:10px;color:var(--accent2);font-weight:700;">${overallFill}%</div>
+                <div style="font-size:10px;color:${headColor};font-weight:700;">${overallFill}%</div>
               </div>
               <div style="display:flex;height:10px;background:var(--border);border-radius:5px;overflow:hidden;">${sections}</div>
               <div style="display:flex;margin-top:4px;">${labels}</div>
@@ -2326,11 +2331,17 @@ const Pipeline = {
     // snapshot) already forces 100 for closed; this was the one that didn't.
     const overallFill = isFullyClosed ? 100 : Math.round((m.done / m.total) * 100);
 
+    // A finished deal reads green end to end — bar, labels and headline — so a
+    // closed card is recognisable as closed at a glance, not just by its badge.
+    const doneColor  = isFullyClosed ? 'var(--success)' : 'var(--accent)';
+    const doneLabel  = isFullyClosed ? 'var(--success)' : 'var(--text1)';
+    const headColor  = isFullyClosed ? 'var(--success)' : 'var(--accent2)';
+
     let sections = '';
     let labels = '';
     segments.forEach((s, i) => {
       const segColor = s.status === 'skipped'  ? 'rgba(124,124,255,0.35)'
-                     : s.status === 'done'     ? 'var(--accent)'
+                     : s.status === 'done'     ? doneColor
                      : s.status === 'awaiting' ? Pipeline._ASK_COLOR
                      : s.status === 'blocked'  ? 'var(--red)'
                      : s.status === 'current'  ? 'var(--accent2)'
@@ -2338,7 +2349,7 @@ const Pipeline = {
       sections += `<div style="flex:1;height:100%;position:relative;${i < N-1 ? 'border-right:1px solid rgba(255,255,255,0.08);' : ''}">
                      <div style="width:${s.fill}%;height:100%;background:${segColor};transition:width 0.4s;"></div>
                    </div>`;
-      const labelColor = s.status === 'done'     ? 'var(--text1)'
+      const labelColor = s.status === 'done'     ? doneLabel
                        : s.status === 'awaiting' ? Pipeline._ASK_COLOR
                        : s.status === 'blocked'  ? 'var(--red)'
                        : s.status === 'current'  ? 'var(--accent2)'
@@ -2361,7 +2372,7 @@ const Pipeline = {
     return `<div style="margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
                 <div style="font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Stage progress</div>
-                <div style="font-size:10px;color:var(--accent2);font-weight:700;">${overallFill}%</div>
+                <div style="font-size:10px;color:${headColor};font-weight:700;">${overallFill}%</div>
               </div>
               <div style="display:flex;height:10px;background:var(--border);border-radius:5px;overflow:hidden;">${sections}</div>
               <div style="display:flex;margin-top:4px;">${labels}</div>
