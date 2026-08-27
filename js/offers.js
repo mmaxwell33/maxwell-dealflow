@@ -3562,6 +3562,16 @@ const Pipeline = {
   async markFellThrough(id) {
     const d = Pipeline.all.find(x => x.id === id);
     await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
+    // The offer is the client-facing record of this deal. Leaving it at
+    // 'Accepted' makes every client report and portal keep saying the deal is
+    // alive long after the file collapsed.
+    if (d?.property_address) {
+      await db.from('offers')
+        .update({ status: 'Fell Through', updated_at: new Date().toISOString() })
+        .eq('agent_id', currentAgent.id)
+        .eq('property_address', d.property_address)
+        .in('status', ['Accepted', 'Conditions', 'Closing']);
+    }
     // Auto-archive the linked commission row (deal fell through, agent not paid)
     if (d?.property_address) {
       await db.from('commissions')

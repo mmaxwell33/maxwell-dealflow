@@ -2307,7 +2307,7 @@ const Reports = {
 
     // Stage progress bar — resale deals use the 6 canonical transaction stages.
     let stageOrder = ['Active Search','In Offer','Under Contract','Conditions','Financing','Closed'];
-    const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5 };
+    const stageAliases = { 'New Lead':0, 'Viewing':0, 'Active Search':0, 'In Offer':1, 'Accepted':2, 'Under Contract':2, 'Conditions':3, 'Financing':4, 'Closing':5, 'Closed':5, 'Fell Through':-1 };
     // Real-time stage: read the client's ACTUAL pipeline deal, not the stale
     // clients.stage field. Pick the most-advanced live (non-archived) deal so the
     // bar reflects where the deal really is right now, not wherever the client
@@ -2315,8 +2315,13 @@ const Reports = {
     const _rank = s => (stageAliases[s] ?? 0);
     const _liveDeals = (pipelineDeals || []).filter(d => !d.archived_at);
     const _dealClosed = _liveDeals.some(d => d.stage === 'Closed');
-    const _dealFell   = _liveDeals.some(d => d.stage === 'Fell Through');
-    const _primaryDeal = _liveDeals.slice().sort((a, b) => _rank(b.stage) - _rank(a.stage))[0];
+    // A collapsed file only defines the client's stage when nothing else is
+    // still running. One dead deal plus one live deal is still mid-transaction,
+    // so the live file wins and the report keeps showing the real position.
+    const _stillRunning = _liveDeals.filter(d => !['Fell Through','Withdrawn'].includes(d.stage));
+    const _dealFell   = !_stillRunning.length && _liveDeals.some(d => d.stage === 'Fell Through');
+    const _primaryDeal = (_stillRunning.length ? _stillRunning : _liveDeals)
+      .slice().sort((a, b) => _rank(b.stage) - _rank(a.stage))[0];
     let effStage = _dealClosed ? 'Closed' : _dealFell ? 'Fell Through' : (_primaryDeal?.stage || client.stage || 'Searching');
     let currentStageIdx = stageAliases[effStage] ?? 0;
 
@@ -2485,14 +2490,15 @@ const Reports = {
           const isAccepted = /accept/.test(st);
           const isCountered = /counter/.test(st);
           const isRejected = /reject|decline/.test(st);
+          const isFell = /fell|withdraw/.test(st);
           const cardStyle = isAccepted
             ? `border:1px solid ${ACCENT};background:linear-gradient(135deg,rgba(15,23,42,0.06),rgba(15,23,42,0.02));`
             : `border:1px solid #E7E5E4;background:#FAFAF9;`;
           const badgeStyle = isAccepted ? `background:rgba(15,23,42,0.15);color:${ACCENT};`
             : isCountered ? `background:#FEF3C7;color:#92400E;`
-            : isRejected ? `background:rgba(185,28,28,0.12);color:#B91C1C;`
+            : (isRejected || isFell) ? `background:rgba(185,28,28,0.12);color:#B91C1C;`
             : `background:#F3F1EC;color:#6B7280;`;
-          const badgeLabel = isAccepted ? '✓ Accepted' : (o.status || 'Pending');
+          const badgeLabel = isFell ? '✕ Fell Through' : isAccepted ? '✓ Accepted' : (o.status || 'Pending');
           return `<table role="presentation" style="width:100%;border-collapse:collapse;border-radius:10px;${cardStyle}margin-bottom:10px;">
             <tr>
               <td style="padding:16px 18px;">
