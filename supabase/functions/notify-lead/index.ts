@@ -51,6 +51,17 @@ Deno.serve(async (req: Request) => {
   const message = (payload.message || '').toString().trim().slice(0, 4000);
   const hp      = (payload.company || '').toString().trim(); // honeypot
 
+  // Optional label for WHERE this came from. Six separate forms call this
+  // function and every one of them produced an email headed "website Contact
+  // form", so a full buyer intake was indistinguishable in the inbox from a
+  // one-line contact note. Callers that send nothing keep today's wording
+  // exactly, so the site forms are unaffected.
+  // Deliberately narrow: this lands in a Subject header, so anything that
+  // could carry a newline or a header injection is stripped rather than
+  // escaped.
+  const source  = (payload.source || '').toString().trim().slice(0, 40)
+                    .replace(/[^A-Za-z0-9 &/-]/g, '');
+
   // Silently accept bots / empties without emailing (no error leaked).
   if (hp) return json({ ok: true });
   if (!name || !email || !message) return json({ ok: true });
@@ -95,7 +106,7 @@ Deno.serve(async (req: Request) => {
   } catch { /* fail open — never block a genuine lead */ }
 
   const html = `
-    <p><strong>New message from your website Contact form.</strong></p>
+    <p><strong>${source ? `New ${esc(source)}.` : 'New message from your website Contact form.'}</strong></p>
     <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">
       <tr><td style="padding:4px 12px 4px 0;color:#666">Name</td><td style="padding:4px 0"><strong>${esc(name)}</strong></td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#666">Email</td><td style="padding:4px 0"><a href="mailto:${esc(email)}">${esc(email)}</a></td></tr>
@@ -104,7 +115,7 @@ Deno.serve(async (req: Request) => {
     <p style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap;border-left:3px solid #CC785C;padding-left:14px;color:#333">${esc(message)}</p>
     <p style="font-family:Arial,sans-serif;font-size:12px;color:#999">Also saved to DealFlow as a new lead. Reply to this person at ${esc(email)}.</p>`;
 
-  const text = `New website Contact message\n\nName: ${name}\nEmail: ${email}\n${phone ? 'Phone: ' + phone + '\n' : ''}\nMessage:\n${message}\n\n(Also saved to DealFlow.)`;
+  const text = `${source ? 'New ' + source : 'New website Contact message'}\n\nName: ${name}\nEmail: ${email}\n${phone ? 'Phone: ' + phone + '\n' : ''}\nMessage:\n${message}\n\n(Also saved to DealFlow.)`;
 
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
@@ -115,10 +126,10 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         to: NOTIFY_TO,
-        subject: `New website message from ${name}`,
+        subject: source ? `New ${source} from ${name}` : `New website message from ${name}`,
         body: text,
         html,
-        from_name: 'Website Contact Form',
+        from_name: source ? 'DealFlow Forms' : 'Website Contact Form',
         // So hitting Reply answers the LEAD, not us. Only sent when the address
         // actually looks like an address — this field comes straight off a public
         // form, and send-email strips CR/LF as a second layer. If it fails the

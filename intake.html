@@ -1119,6 +1119,9 @@ async function submitIntake() {
         name:    payload.full_name,
         email:   payload.email,
         phone:   payload.phone,
+        // Names the form in the subject line, so a full buyer intake stops
+        // arriving looking like a one-line website contact note.
+        source:  'buyer intake form',
         message: 'BUYER INTAKE completed' + (window.__isReturning ? ' by a RETURNING client' : '') +
                  '. Check Form Responses. If it is not there, the submission was stored but misrouted, tell your developer.'
       })
