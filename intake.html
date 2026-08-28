@@ -827,9 +827,24 @@ async function doLookup() {
       p_surname:  surname,
       p_contact:  contact
     });
-    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
-
     btn.disabled = false; btn.textContent = 'Find my details';
+
+    // supabase-js RETURNS rpc failures in `error` rather than throwing, so the
+    // catch below never sees them. Folding a missing function or a denied
+    // permission into the same "couldn't match" message as a clean miss made a
+    // broken deployment look like the client had mistyped their own surname.
+    // The visible wording stays vague either way (a precise one would turn this
+    // form into a client-list harvester), but the real cause now reaches the
+    // console where it can actually be read.
+    if (error) {
+      console.error('lookup_returning_client failed:', error);
+      msg.style.color = '#fbbf24';
+      msg.innerHTML = "Couldn't check just now. Please " +
+        '<a href="#" onclick="lookupSkip();return false;" style="color:#7C9DD6;">type your details in</a>.';
+      return;
+    }
+
+    const rec = (Array.isArray(data) && data.length) ? data[0] : null;
 
     if (!rec) {
       // Deliberately vague and identical for every kind of miss, so this can't
