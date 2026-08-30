@@ -1182,7 +1182,55 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    deal_fell_through: (client, deal, reason, agent) => ({
+    // sendNo is how many of THESE the client has already had (Notify.sendCount).
+    // 0 is the first, and keeps the letter Maxwell already approved word for
+    // word. A second collapse gets a shorter, plainer note and a third gets
+    // shorter again: the reassurance that reads as care the first time reads as
+    // a form letter the third, which is the opposite of what it is for.
+    deal_fell_through: (client, deal, reason, agent, sendNo = 0) => {
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const addr = deal.property_address || 'the property';
+      const NOTICE = `\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      // ── SECOND TIME ────────────────────────────────────────────────────────
+      // Names what happened in the subject rather than softening it. By now the
+      // client knows what this email is before they open it, so burying the
+      // address under an upbeat headline just delays the point.
+      if (sendNo === 1) {
+        return {
+          subject: `${addr} is not going ahead`,
+          body: `Hi ${firstName},
+
+${addr} has fallen through.${reason ? ` ${reason}` : ''}
+
+That is the second one, and I know how that lands. It says nothing about you as a buyer, and your deposit and pre-approval are unaffected.
+
+I am back on the listings this afternoon and will send you what is genuinely worth seeing.
+
+Call me any time.
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+        };
+      }
+
+      // ── THIRD AND AFTER ────────────────────────────────────────────────────
+      // Four sentences and no encouragement. Someone on their third collapse
+      // wants to know it happened and what you are doing about it.
+      if (sendNo >= 2) {
+        return {
+          subject: `Update on ${addr}`,
+          body: `Hi ${firstName},
+
+${addr} is not proceeding.${reason ? ` ${reason}` : ''}
+
+Your criteria are in front of me and I am looking now. You will hear from me this week.
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+        };
+      }
+
+      // ── FIRST TIME: unchanged ──────────────────────────────────────────────
+      return {
       subject: `An Update on Your Home Search - Let's Keep Going`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -1202,7 +1250,8 @@ ${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
-    }),
+      };
+    },
 
     // ── DEAL FELL THROUGH — notice fan-out to every stakeholder on the deal ──
     // The people invited onto this file (broker, inspector, lawyer, builder)
@@ -1524,7 +1573,50 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`
       };
     },
 
-    new_listing_match: (client, listing, agent) => ({
+    // Same ladder as deal_fell_through. This one repeats far more often than any
+    // other letter (it fires per matching property), so the shortening matters
+    // most here. By the fourth, it should read like the text message Maxwell
+    // would actually have sent.
+    new_listing_match: (client, listing, agent, sendNo = 0) => {
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const addr = listing.address || 'a new one';
+      const NOTICE = `\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      // ── SECOND AND THIRD ───────────────────────────────────────────────────
+      if (sendNo === 1 || sendNo === 2) {
+        const price = listing.list_price ? `\n\nAsking ${App.fmtMoney(listing.list_price)}.` : '';
+        const detail = [
+          listing.bedrooms ? `${listing.bedrooms} bed` : '',
+          listing.notes || ''
+        ].filter(Boolean).join(', ');
+        return {
+          subject: `One on ${addr} you should see`,
+          body: `Hi ${firstName},
+
+${addr} came up this morning.${detail ? ` ${detail}.` : ''}${price}
+
+Want me to book it?
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+        };
+      }
+
+      // ── FOURTH AND AFTER ───────────────────────────────────────────────────
+      if (sendNo >= 3) {
+        return {
+          subject: `${addr}, worth a look`,
+          body: `Hi ${firstName},
+
+New this morning and it fits your list.${listing.list_price ? ` Asking ${App.fmtMoney(listing.list_price)}.` : ''}
+
+Say the word and I will book it.
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+        };
+      }
+
+      // ── FIRST TIME: unchanged ──────────────────────────────────────────────
+      return {
       subject: `New Listing That Matches Your Criteria - ${listing.address || 'Check This Out!'}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -1540,7 +1632,43 @@ ${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
-    }),
+      };
+    },
+
+    // ── SEVERAL MATCHES IN ONE WEEK, GATHERED INTO ONE NOTE ──────────────────
+    // Listing matches fire per property, so a buyer in a busy week can receive
+    // five separate emails. No amount of rewording makes five emails in a week
+    // read like a person wrote them, so past three in seven days they are held
+    // and sent together, which is what Maxwell would do himself.
+    //
+    // Rebuilt from the whole list every time a new property joins, so the note
+    // in Approvals is always the complete picture rather than a fragment.
+    listing_digest: (client, listings, agent) => {
+      const firstName = client.full_name?.split(' ')[0] || 'there';
+      const n = listings.length;
+      const line = l => {
+        const bits = [
+          l.bedrooms ? `${l.bedrooms} bed` : '',
+          l.list_price ? App.fmtMoney(l.list_price) : ''
+        ].filter(Boolean).join(', ');
+        return `• ${l.address || 'Address to follow'}${bits ? ` (${bits})` : ''}`;
+      };
+      return {
+        subject: `${n} that came up this week`,
+        body: `Hi ${firstName},
+
+${n} came on this week that fit what you are after:
+
+${listings.map(line).join('\n')}
+
+Tell me which ones you want to see and I will book them together.
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
 
     welcome_email: (client, intake, agent, opts = {}) => {
       const firstName = client.full_name?.split(' ')[0] || client.first_name || 'there';
@@ -1818,7 +1946,67 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       .replace(/\n+$/, '');         // trailing blank lines
   },
 
-  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null) {
+  // ── HOW MANY TIMES HAS THIS PERSON HAD THIS LETTER BEFORE? ────────────────
+  // Every approved email stays in approval_queue stamped with its approval_type
+  // and the address it went to, so the history already exists and no new table
+  // is needed. Templates read this to pick a shorter wording on a repeat, since
+  // the second identical letter is what makes a person feel they are being
+  // written to by software rather than by their agent.
+  //
+  // Keyed on client_email, not client_id: approval_queue predates the migration
+  // folder and carries no client_id column. The dedupe check in Approvals keys
+  // the same way, so this matches how the rest of the app reads this table.
+  //
+  // updated_at is the SEND time. queue() writes rows as Pending and approve()
+  // stamps updated_at when it flips them to Approved, so filtering on it counts
+  // letters that actually went out, not drafts that were skipped.
+  //
+  // THE COUNT RESETS AT THE CLIENT'S LAST CLOSED DEAL. Someone who bought and
+  // comes back years later is starting a new search, and should not resume at
+  // the fourth variant of a letter they last saw in a different one.
+  //
+  // Returns 0 on any failure, deliberately. A miscount must never stop a letter
+  // going out, and 0 selects the original full wording, which is always safe.
+  async sendCount(approvalType, clientEmail) {
+    const to = (clientEmail || '').trim().toLowerCase();
+    if (!approvalType || !to) return 0;
+    try {
+      const user = await App.getAuthUser();
+      const agentId = user?.id || currentAgent?.id;
+      if (!agentId) return 0;
+
+      let since = null;
+      const { data: closed } = await db.from('pipeline')
+        .select('updated_at')
+        .eq('agent_id', agentId)
+        .eq('client_email', to)
+        .eq('stage', 'Closed')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (closed?.length) since = closed[0].updated_at;
+
+      let q = db.from('approval_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', agentId)
+        .eq('client_email', to)
+        .eq('approval_type', approvalType)
+        .eq('status', 'Approved');
+      if (since) q = q.gt('updated_at', since);
+
+      const { count, error } = await q;
+      if (error) { console.warn('[Notify.sendCount]', error); return 0; }
+      return count || 0;
+    } catch (e) {
+      console.warn('[Notify.sendCount]', e);
+      return 0;
+    }
+  },
+
+  // extraContext is merged into context_data alongside the html/ics/cc payload.
+  // Added for the listing digest, which has to remember which properties it has
+  // already gathered so a rebuild does not lose them. Anything passed here is
+  // stored as-is, so keep it small and JSON-safe.
+  async queue(type, clientId, clientName, clientEmail, emailSubject, emailBody, relatedId = null, htmlBody = null, icsBase64 = null, ccEmail = null, fileAttachments = null, batchId = null, extraContext = null) {
     // Always use the Supabase Auth UID — this must match auth.uid() for RLS to pass
     const user = await App.getAuthUser();
     const agentId = user?.id || currentAgent?.id;
@@ -1889,11 +2077,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
     // Pack html + ics + real file attachments into context_data
     let contextData = null;
-    if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length) {
+    if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length || extraContext) {
       const safeHtml = htmlBody ? btoa(unescape(encodeURIComponent(htmlBody))) : null;
       contextData = {
         html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null,
-        attachments: attachmentRefs?.length ? attachmentRefs : null
+        attachments: attachmentRefs?.length ? attachmentRefs : null,
+        ...(extraContext || {})
       };
     }
     const insertRow = {
@@ -2282,7 +2471,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   async onDealFellThrough(deal, client, reason) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.deal_fell_through(client, deal, reason, agent);
+    // How many collapse letters this client has already had. The type string
+    // must match the one passed to queue() below, since that is what is stored.
+    const sendNo = await Notify.sendCount('Deal Fell Through 💔', client.email);
+    const tmpl = Notify.templates.deal_fell_through(client, deal, reason, agent, sendNo);
     await Notify.queue(
       'Deal Fell Through 💔',
       client.id, client.full_name, client.email,
@@ -2354,9 +2546,83 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
   async onNewListingMatch(client, listing) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.new_listing_match(client, listing, agent);
+    const TYPE   = 'New Listing Match 🏠';
+    const DIGEST = 'Listing Matches 🏠';
+    const to = (client.email || '').trim().toLowerCase();
+
+    // ── BATCH PAST THREE IN SEVEN DAYS ────────────────────────────────────
+    // Counted on approved sends in the window, so a quiet client never gets
+    // pushed into a digest by history from months ago. Any failure here falls
+    // through to the single-property letter, which is the safe default.
+    let recent = 0;
+    try {
+      const user = await App.getAuthUser();
+      const agentId = user?.id || currentAgent?.id;
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      if (agentId && to) {
+        const { count } = await db.from('approval_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('agent_id', agentId)
+          .eq('client_email', to)
+          .in('approval_type', [TYPE, DIGEST])
+          .eq('status', 'Approved')
+          .gte('updated_at', weekAgo);
+        recent = count || 0;
+      }
+    } catch (e) { console.warn('[onNewListingMatch] window count failed:', e); }
+
+    if (recent >= 3 && to) {
+      try {
+        const user = await App.getAuthUser();
+        const agentId = user?.id || currentAgent?.id;
+        // An unapproved digest is still gathering, so this property joins it
+        // rather than starting a second one.
+        const { data: open } = await db.from('approval_queue')
+          .select('id, context_data')
+          .eq('agent_id', agentId)
+          .eq('client_email', to)
+          .eq('approval_type', DIGEST)
+          .eq('status', 'Pending')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        let gathered = [];
+        if (open?.length) {
+          const ctx = typeof open[0].context_data === 'string'
+            ? JSON.parse(open[0].context_data) : open[0].context_data;
+          gathered = Array.isArray(ctx?.digest_listings) ? ctx.digest_listings : [];
+          // Replaced rather than edited in place: rebuilding through queue() is
+          // what keeps the html, the dash stripping and the branded wrapper
+          // identical to every other email instead of a second code path.
+          await db.from('approval_queue').delete().eq('id', open[0].id);
+        }
+
+        gathered.push({
+          address:    listing.address || null,
+          bedrooms:   listing.bedrooms || null,
+          list_price: listing.list_price || null,
+          mls_number: listing.mls_number || null
+        });
+
+        const dg = Notify.templates.listing_digest(client, gathered, agent);
+        await Notify.queue(
+          DIGEST,
+          client.id, client.full_name, client.email,
+          dg.subject, dg.body, null, null, null, null, null, null,
+          { digest_listings: gathered }
+        );
+        return;
+      } catch (e) {
+        // Fall through to the single letter below; a lost digest must never
+        // cost the client the listing itself.
+        console.warn('[onNewListingMatch] digest failed, sending singly:', e);
+      }
+    }
+
+    const sendNo = await Notify.sendCount(TYPE, client.email);
+    const tmpl = Notify.templates.new_listing_match(client, listing, agent, sendNo);
     await Notify.queue(
-      'New Listing Match 🏠',
+      TYPE,
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, null
     );
