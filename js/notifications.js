@@ -940,7 +940,55 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    offer_rejected: (client, offer, message, agent) => ({
+    // What the buyer actually wants to do next, picked by the agent in the
+    // "Seller Rejected Offer" modal (Offers.sellerRejected). Whatever is
+    // chosen replaces the generic "there are other properties" filler, so the
+    // client reads a real plan instead of a form letter.
+    _rejectionNextStep: (nextStep) => {
+      const kind  = nextStep?.kind || '';
+      const addr  = (nextStep?.address || '').trim();
+      const notes = (nextStep?.notes || '').trim();
+      const notesLine = notes ? `\n\n${notes}` : '';
+
+      if (kind === 'new_build') {
+        return `You had mentioned you would consider a new build, so that is where I am turning our attention next.${addr ? `\n\nThe build I have in mind: ${addr}` : ''}
+
+I will get the builder's current pricing, what lots are still available, and the realistic timeline to completion, then walk you through exactly what buying there would look like. New construction runs on a different clock than a resale, so this time we get to plan properly instead of racing another offer.${notesLine}`;
+      }
+
+      if (kind === 'another_property') {
+        return `You had also mentioned interest in another property, so let us move there next.${addr ? `\n\nNext up: ${addr}` : ''}
+
+I will confirm it is still available, arrange a showing at a time that suits you, and have the recent comparable sales ready before we talk numbers.${notesLine}`;
+      }
+
+      if (kind === 'try_again') {
+        return `This home is worth another look. Sellers do come back when a first offer does not close, and we now know a great deal more about what they were holding out for.
+
+I will keep in touch with the listing agent and let you know the moment anything changes. In the meantime I will get a revised position ready so we can move quickly if the door opens again.${notesLine}`;
+      }
+
+      if (kind === 'revisit_budget') {
+        return `Before we go again, I would like to sit down with you and revisit the numbers.
+
+Knowing exactly where your ceiling is, and what a stronger position looks like in this market, is what will win the next one. It is a short conversation and it makes every offer after it more competitive.${notesLine}`;
+      }
+
+      if (kind === 'pause') {
+        return `You mentioned you would like to pause the search for the moment, which is a perfectly sensible call after a result like this.
+
+I will keep an eye on the market on your behalf and reach out only if something genuinely worth your time comes up. Whenever you are ready to start again, we pick up right where we left off.${notesLine}`;
+      }
+
+      return `While this is disappointing, it happens and it is part of the process. The good news is:
+• There are many other strong properties available
+• This offer has prepared us well for the next one
+• I am already looking at similar properties for you
+
+I will be in touch shortly with some new options.${notesLine}`;
+    },
+
+    offer_rejected: (client, offer, message, agent, nextStep) => ({
       subject: `Update on Your Offer — ${offer.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -948,12 +996,9 @@ I wanted to update you on your offer for ${offer.property_address}.
 
 Unfortunately, the seller has decided not to accept your offer at this time.${message ? `\n\nSeller's message: ${message}` : ''}
 
-While this is disappointing, please know this happens and it's part of the process. The good news is:
-• There are many other great properties available
-• Your offer experience has prepared us well for the next one
-• I'm already looking for similar properties for you
+${Notify.templates._rejectionNextStep(nextStep)}
 
-I'll be in touch shortly with some new options. Please don't hesitate to reach out if you have any questions.
+Please don't hesitate to reach out if you have any questions.
 
 ${EmailFormat.signaturePlain(agent)}
 
@@ -2236,9 +2281,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     );
   },
 
-  async onOfferRejected(offer, client, message) {
+  async onOfferRejected(offer, client, message, nextStep) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.offer_rejected(client, offer, message, agent);
+    const tmpl = Notify.templates.offer_rejected(client, offer, message, agent, nextStep);
     await Notify.queue(
       'Offer Rejected ❌',
       client.id, client.full_name, client.email,

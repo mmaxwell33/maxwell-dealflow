@@ -555,6 +555,25 @@ const Offers = {
         <label class="form-label">Message to buyer (optional)</label>
         <textarea class="form-input" id="reject-msg" rows="3" placeholder="e.g. Seller accepted another offer..."></textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">What is this client looking to do next?</label>
+        <select class="form-input" id="reject-next" onchange="Offers.rejectNextToggle()">
+          <option value="">Keep looking (standard wording)</option>
+          <option value="new_build">Considering a new build</option>
+          <option value="another_property">Another property they mentioned</option>
+          <option value="try_again">Stay on this home in case it comes back</option>
+          <option value="revisit_budget">Revisit budget / criteria first</option>
+          <option value="pause">Pause the search for now</option>
+        </select>
+      </div>
+      <div class="form-group" id="reject-next-addr-wrap" style="display:none;">
+        <label class="form-label" id="reject-next-addr-label">Address or community</label>
+        <input class="form-input" id="reject-next-addr" placeholder="e.g. Blackmarsh Meadows, Lot 14, Paradise NL">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your note to the client (optional)</label>
+        <textarea class="form-input" id="reject-next-notes" rows="2" placeholder="Added to the email under the next step, in your own words"></textarea>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <button class="btn btn-red" onclick="Offers.confirmRejection('${id}')">Queue Notification</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
@@ -562,11 +581,36 @@ const Offers = {
     `);
   },
 
+  // Only the two next-step choices that name a property need an address box.
+  rejectNextToggle() {
+    const kind = document.getElementById('reject-next')?.value || '';
+    const wrap = document.getElementById('reject-next-addr-wrap');
+    const label = document.getElementById('reject-next-addr-label');
+    if (!wrap) return;
+    const needsAddr = kind === 'new_build' || kind === 'another_property';
+    wrap.style.display = needsAddr ? '' : 'none';
+    if (label) label.textContent = kind === 'new_build' ? 'Build address or community' : 'Property address';
+  },
+
   async confirmRejection(id) {
     const o = Offers.all.find(x => x.id === id);
     const msg = document.getElementById('reject-msg')?.value?.trim();
+    const nextStep = {
+      kind: document.getElementById('reject-next')?.value || '',
+      address: document.getElementById('reject-next-addr')?.value?.trim() || '',
+      notes: document.getElementById('reject-next-notes')?.value?.trim() || '',
+    };
     const client = Clients.all.find(c => c.id === o.client_id);
-    await db.from('offers').update({ status: 'Rejected', updated_at: new Date().toISOString() }).eq('id', id);
+    // Log the next step on the offer so the plan survives outside the email.
+    const stepLabel = { new_build:'New build', another_property:'Another property', try_again:'Watching this home', revisit_budget:'Revisit budget/criteria', pause:'Search paused' }[nextStep.kind];
+    const stepNote = stepLabel
+      ? `\nNext step: ${stepLabel}${nextStep.address ? ` — ${nextStep.address}` : ''}${nextStep.notes ? ` (${nextStep.notes})` : ''}`
+      : '';
+    await db.from('offers').update({
+      status: 'Rejected',
+      ...(stepNote ? { agent_notes: (o.agent_notes || '') + stepNote } : {}),
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
     await db.from('clients').update({ stage: 'Searching' }).eq('id', o.client_id);
     // Phase 2c: re-tag this property's offer letter in the client folder as rejected.
     if (o?.client_id && o?.property_address) {
@@ -577,7 +621,7 @@ const Offers = {
           .eq('property_address', o.property_address);
       } catch (e) { console.warn('[client folder] reject re-tag skipped:', e?.message || e); }
     }
-    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg);
+    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg, nextStep);
     App.closeModal();
     App.toast('📬 Rejection notification queued. Client stage reset to Searching.');
     Offers.load(); Clients.load();
