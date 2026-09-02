@@ -343,6 +343,11 @@ const Offers = {
     if (!o) return;
     const statusColor = { Submitted:'var(--accent2)', Accepted:'var(--green)', Rejected:'var(--red)', Conditions:'var(--yellow)', Countered:'var(--purple)' };
     const isPending = ['Submitted','Conditions'].includes(o.status);
+    // Countered offers ping-pong: whoever countered last is waiting on the other side.
+    const lc = Offers.lastCounter(o);
+    const lcMoney = lc.amount ? App.fmtMoney(lc.amount) : '';
+    const lcAt = lcMoney ? ` at ${lcMoney}` : '';
+    const lcOn = lcMoney ? ` ${lcMoney}` : ' the counter';
     App.openModal(`
       <div class="fw-800" style="font-size:16px;margin-bottom:2px;">${o.property_address}</div>
       ${o.mls_number ? `<div class="text-muted" style="font-size:12px;margin-bottom:2px;">MLS# ${App.esc(o.mls_number)}</div>` : ''}
@@ -376,11 +381,12 @@ const Offers = {
           : `<div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div style="font-size:20px;">🎉</div><div class="fw-700" style="color:var(--green);">Offer Accepted — Deal in Pipeline!</div></div>`
       ) : o.status === 'Rejected' ? `<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;"><div class="fw-700" style="color:var(--red);">❌ Offer Rejected</div></div>` : o.status === 'Countered' ? `
       <div style="background:var(--bg2);border:2px solid var(--purple);border-radius:10px;padding:14px;margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--purple);">🔄 You countered — what did the seller decide?</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Once the seller responds to your counter, move the deal forward.</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--purple);">🔄 ${lc.side === 'buyer' ? `Your buyer countered${lcAt} — what did the seller decide?` : `Seller countered${lcAt} — what does your buyer want to do?`}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">${lc.side === 'buyer' ? 'The ball is with the seller. Log their answer to move the deal forward.' : 'Your buyer can take this number, come back with their own, or walk away.'}</div>
         <div style="display:grid;gap:8px;">
-          <button class="btn btn-green" onclick="Offers.counterAccepted('${o.id}')">✅ Seller accepted the counter — finalize</button>
-          <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}')">❌ Deal fell through</button>
+          <button class="btn btn-green" onclick="Offers.counterAccepted('${o.id}')">✅ ${lc.side === 'buyer' ? 'Seller accepted' : 'Buyer accepted'}${lcOn} — finalize</button>
+          <button class="btn btn-outline" style="border-color:var(--purple);color:var(--purple);" onclick="${lc.side === 'buyer' ? `Offers.sellerCountered('${o.id}')` : `Offers.buyerCountered('${o.id}')`}">🔄 ${lc.side === 'buyer' ? 'Seller countered back' : 'Buyer counters back'} — enter amount</button>
+          <button class="btn btn-red" onclick="Offers.sellerRejected('${o.id}','${lc.side === 'buyer' ? 'seller' : 'buyer'}')">❌ ${lc.side === 'buyer' ? 'Seller rejected' : 'Buyer walked away'} — deal is off</button>
         </div>
       </div>` : ''}
       <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px;">
@@ -469,21 +475,28 @@ const Offers = {
     Offers.load(); Clients.load(); App.loadOverview();
   },
 
-  // Seller accepted the counter you sent. Confirm the final price (prefilled
-  // from the counter stored in agent_notes), then flow into the SAME accepted
-  // sequence as a directly-accepted offer.
+  // Who countered last, and at what price. The back-and-forth is recorded in
+  // agent_notes as "Seller counter: $X" / "Buyer counter: $Y" lines, so the
+  // last line tells us whose court the ball is in. Legacy rows wrote a bare
+  // "Counter: $X", which was always the seller's number.
+  lastCounter(o) {
+    const hits = (o?.agent_notes || '').match(/(seller|buyer)?\s*counter:\s*\$?[\d.,]+/gi) || [];
+    if (!hits.length) return { side: 'seller', amount: null };
+    const last = hits[hits.length - 1];
+    const amt = parseFloat(last.replace(/^.*?counter:\s*/i, '').replace(/[^\d.]/g, ''));
+    return { side: /buyer/i.test(last) ? 'buyer' : 'seller', amount: isNaN(amt) ? null : amt };
+  },
+
+  // One side took the other's last counter. Confirm the final price (prefilled
+  // from the last counter stored in agent_notes), then flow into the SAME
+  // accepted sequence as a directly-accepted offer.
   counterAccepted(id) {
     const o = Offers.all.find(x => x.id === id);
     if (!o) return;
-    // Prefill with the last "Counter: $X" recorded in notes, else the offer amount.
-    let amt = o.offer_amount;
-    const m = (o.agent_notes || '').match(/Counter:\s*\$?[\d.,]+/g);
-    if (m && m.length) {
-      const n = parseFloat(m[m.length - 1].replace(/[^\d.]/g, ''));
-      if (!isNaN(n)) amt = n;
-    }
+    const lc = Offers.lastCounter(o);
+    const amt = lc.amount || o.offer_amount;
     App.openModal(`
-      <div class="modal-title">✅ Seller accepted the counter</div>
+      <div class="modal-title">✅ ${lc.side === 'buyer' ? 'Seller' : 'Buyer'} accepted the counter</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Confirm the final accepted price on <strong>${App.esc(o.property_address)}</strong>, then we'll start the paperwork.</div>
       <div class="form-group">
         <label class="form-label">Final accepted amount ($) *</label>
@@ -516,7 +529,7 @@ const Offers = {
     if (!o) return;
     App.openModal(`
       <div class="modal-title">🔄 Seller Countered</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Your offer: <strong>${App.fmtMoney(o.offer_amount)}</strong> on ${o.property_address}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Your buyer is at <strong>${App.fmtMoney(Offers.lastCounter(o).side === 'buyer' ? Offers.lastCounter(o).amount : o.offer_amount)}</strong> on ${o.property_address}</div>
       <div class="form-group">
         <label class="form-label">Seller's Counter Amount ($) *</label>
         <input class="form-input" id="counter-amount" type="number" placeholder="e.g. 385000">
@@ -538,23 +551,66 @@ const Offers = {
     const msg = document.getElementById('counter-msg')?.value?.trim();
     if (!counterAmount) { App.toast('⚠️ Enter counter amount', 'var(--red)'); return; }
     const client = Clients.all.find(c => c.id === o.client_id);
-    await db.from('offers').update({ status: 'Countered', agent_notes: (o.agent_notes||'') + `\nCounter: ${App.fmtMoney(counterAmount)}`, updated_at: new Date().toISOString() }).eq('id', id);
+    await db.from('offers').update({ status: 'Countered', agent_notes: (o.agent_notes||'') + `\nSeller counter: ${App.fmtMoney(counterAmount)}`, updated_at: new Date().toISOString() }).eq('id', id);
     if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferCountered(o, client, counterAmount, msg);
     App.closeModal();
     App.toast('📬 Counter offer notification queued in Approvals!');
     Offers.load();
   },
 
-  async sellerRejected(id) {
+  // Your buyer's answer to the seller's counter is another number. Logged on
+  // the offer and the ball goes back to the seller. No client email here: the
+  // number came from the client, so there is nothing to tell them.
+  buyerCountered(id) {
     const o = Offers.all.find(x => x.id === id);
     if (!o) return;
+    const lc = Offers.lastCounter(o);
     App.openModal(`
-      <div class="modal-title">❌ Seller Rejected Offer</div>
+      <div class="modal-title">🔄 Buyer Counters Back</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Seller is at <strong>${App.fmtMoney(lc.amount || o.offer_amount)}</strong> on ${o.property_address}</div>
+      <div class="form-group">
+        <label class="form-label">Your buyer's counter amount ($) *</label>
+        <input class="form-input" id="buyer-counter-amount" type="number" placeholder="e.g. 452000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note for your own record (optional)</label>
+        <textarea class="form-input" id="buyer-counter-msg" rows="2" placeholder="e.g. Buyer will hold at this number, wants closing moved to Oct 15"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Offers.confirmBuyerCounter('${id}')">Log counter</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+    `);
+  },
+
+  async confirmBuyerCounter(id) {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const amt = document.getElementById('buyer-counter-amount')?.value;
+    const msg = document.getElementById('buyer-counter-msg')?.value?.trim();
+    if (!amt) { App.toast('⚠️ Enter your buyer\'s counter amount', 'var(--red)'); return; }
+    await db.from('offers').update({
+      status: 'Countered',
+      agent_notes: (o.agent_notes||'') + `\nBuyer counter: ${App.fmtMoney(amt)}${msg ? ` (${msg})` : ''}`,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    App.closeModal();
+    App.toast('🔄 Buyer counter logged. Waiting on the seller.');
+    Offers.load();
+  },
+
+  async sellerRejected(id, who = 'seller') {
+    const o = Offers.all.find(x => x.id === id);
+    if (!o) return;
+    const walked = who === 'buyer';   // your own buyer pulled out, the seller did not say no
+    App.openModal(`
+      <div class="modal-title">❌ ${walked ? 'Buyer Walked Away' : 'Seller Rejected Offer'}</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${o.property_address} — ${App.fmtMoney(o.offer_amount)}</div>
+      ${walked ? `<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Your buyer is stepping away from this one, so no "the seller declined" email goes out. Log what they want to do next and this offer closes off.</div>` : `
       <div class="form-group">
         <label class="form-label">Message to buyer (optional)</label>
         <textarea class="form-input" id="reject-msg" rows="3" placeholder="e.g. Seller accepted another offer..."></textarea>
-      </div>
+      </div>`}
       <div class="form-group">
         <label class="form-label">What is this client looking to do next?</label>
         <select class="form-input" id="reject-next" onchange="Offers.rejectNextToggle()">
@@ -575,7 +631,7 @@ const Offers = {
         <textarea class="form-input" id="reject-next-notes" rows="2" placeholder="Added to the email under the next step, in your own words"></textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-red" onclick="Offers.confirmRejection('${id}')">Queue Notification</button>
+        <button class="btn btn-red" onclick="Offers.confirmRejection('${id}','${who}')">${walked ? 'Close this offer' : 'Queue Notification'}</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
@@ -592,8 +648,9 @@ const Offers = {
     if (label) label.textContent = kind === 'new_build' ? 'Build address or community' : 'Property address';
   },
 
-  async confirmRejection(id) {
+  async confirmRejection(id, who = 'seller') {
     const o = Offers.all.find(x => x.id === id);
+    const walked = who === 'buyer';
     const msg = document.getElementById('reject-msg')?.value?.trim();
     const nextStep = {
       kind: document.getElementById('reject-next')?.value || '',
@@ -621,9 +678,11 @@ const Offers = {
           .eq('property_address', o.property_address);
       } catch (e) { console.warn('[client folder] reject re-tag skipped:', e?.message || e); }
     }
-    if (typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg, nextStep);
+    // Only the seller declining warrants the "your offer was not accepted"
+    // email. If the buyer walked, that email would misstate what happened.
+    if (!walked && typeof Notify !== "undefined" && client?.email) await Notify.onOfferRejected(o, client, msg, nextStep);
     App.closeModal();
-    App.toast('📬 Rejection notification queued. Client stage reset to Searching.');
+    App.toast(walked ? '✅ Offer closed off. Client stage reset to Searching.' : '📬 Rejection notification queued. Client stage reset to Searching.');
     Offers.load(); Clients.load();
   },
 
