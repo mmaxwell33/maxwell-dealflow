@@ -1477,9 +1477,24 @@ const Commission = {
     // Load this agent's cap (default 16000 if the column/value is absent).
     const capVal = (currentAgent.commission_cap != null) ? Number(currentAgent.commission_cap) : null;
     if (capVal != null && !isNaN(capVal)) { Commission.cap = capVal; }
-    else {
-      const { data: a } = await db.from('agents').select('commission_cap').eq('id', currentAgent.id).single();
-      if (a && a.commission_cap != null) Commission.cap = Number(a.commission_cap);
+    // Cap anniversary comes from the same row. Fetched once per session, and
+    // tolerant of a database that has not had migration 102 applied yet: the
+    // select fails as a whole there, so fall back to the cap-only select and
+    // leave the anniversary null (calendar year, the old behaviour).
+    if (capVal == null || !Commission._annLoaded) {
+      const { data: a, error } = await db.from('agents')
+        .select('commission_cap, cap_anniversary, onboard_date').eq('id', currentAgent.id).single();
+      if (!error && a) {
+        if (a.commission_cap != null) Commission.cap = Number(a.commission_cap);
+        Commission.anniversary = Commission.ymd(a.cap_anniversary)
+          || Commission.deriveAnniversary(a.onboard_date);
+        Commission._annLoaded = true;
+        currentAgent.cap_anniversary = a.cap_anniversary;
+        currentAgent.onboard_date = a.onboard_date;
+      } else {
+        const { data: b } = await db.from('agents').select('commission_cap').eq('id', currentAgent.id).single();
+        if (b && b.commission_cap != null) Commission.cap = Number(b.commission_cap);
+      }
     }
     const { data } = await db.from('commissions')
       .select('*').eq('agent_id', currentAgent.id)
@@ -1494,13 +1509,97 @@ const Commission = {
     Commission.populateClients();
   },
 
-  // Which cap year a commission counts toward (calendar year of its closing date,
-  // falling back to created_at, then the current year).
-  capYearOf(c) {
-    const d = c.close_date || c.created_at;
-    const y = d ? new Date(d).getFullYear() : new Date().getFullYear();
-    return isNaN(y) ? new Date().getFullYear() : y;
+  // ── Cap year ──────────────────────────────────────────────────────────────
+  // eXp's cap year runs from the agent's ANNIVERSARY date — per the ICA, the
+  // 1st of the month FOLLOWING the ICA start date, unless an addendum moves it.
+  // It is not the calendar year, which is what this screen assumed. That is
+  // correct only for an agent whose anniversary happens to be Jan 1; for anyone
+  // else it pooled two real cap years into one January-to-December bucket and
+  // reported a cap as reached months before or after it actually was.
+  //
+  // Held as a plain YYYY-MM-DD, loaded from agents.cap_anniversary (migration
+  // 102). Null means "not told yet" and falls back to Jan 1, which is exactly
+  // the old behaviour — no historical deal re-buckets itself until Maxwell
+  // enters the real date.
+  anniversary: null,
+  _annLoaded: false,
+
+  // Every date on this screen is a plain calendar date, never an instant.
+  // new Date('2026-01-01') is UTC midnight, which is Dec 31 in Newfoundland, so
+  // getFullYear() was putting a New Year's Day closing in the PREVIOUS cap year.
+  ymd(d) {
+    if (!d) return null;
+    const s = String(d).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
   },
+  today() {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  },
+  // Day arithmetic in UTC, so a DST boundary can never shift a date by one.
+  shiftDays(ymd, n) {
+    const t = Date.parse(ymd + 'T00:00:00Z') + n * 86400000;
+    return new Date(t).toISOString().slice(0, 10);
+  },
+  daysBetween(a, b) {
+    return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+  },
+
+  // Default at agent creation only: first day of the month after the ICA start
+  // (ICA example: onboard Jan 18 → anniversary Feb 1). Persisted and editable,
+  // because an addendum or a cap-deferment agreement can move the real date.
+  deriveAnniversary(onboardDate) {
+    const s = Commission.ymd(onboardDate);
+    if (!s) return null;
+    let y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)) + 1;
+    if (m > 12) { m = 1; y += 1; }
+    return `${y}-${String(m).padStart(2, '0')}-01`;
+  },
+
+  // The cap year containing `date`. Dates in, dates out; `end` is inclusive.
+  capYearFor(anniversary, date) {
+    const ann = Commission.ymd(anniversary) || '2000-01-01';   // unset → Jan 1
+    const on  = Commission.ymd(date) || Commission.today();
+    const m = Number(ann.slice(5, 7)), d = Number(ann.slice(8, 10));
+    // Feb 29 does not exist in a non-leap year. Clamp to the 28th rather than
+    // letting it roll into Mar 1 and start the cap year a day late.
+    const startIn = (yy) => {
+      const last = new Date(Date.UTC(yy, m, 0)).getUTCDate();
+      return `${yy}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
+    };
+    // Plain YYYY-MM-DD strings compare correctly with < and >.
+    let y = Number(on.slice(0, 4));
+    if (on < startIn(y)) y -= 1;
+    const start = startIn(y);
+    const next  = startIn(y + 1);
+    // End is the day before the next anniversary, derived from that anniversary
+    // rather than from start + 1 year, so consecutive cap years abut with no
+    // gap and no overlap even where a leap-day clamp moves one of them.
+    return { key: start, start, end: Commission.shiftDays(next, -1), next };
+  },
+
+  // Which cap year a commission counts toward, keyed by that year's start date.
+  // Attribution is by closing date, falling back to created_at, then today.
+  capYearOf(c) {
+    const d = Commission.ymd(c.close_date) || Commission.ymd(c.created_at) || Commission.today();
+    return Commission.capYearFor(Commission.anniversary, d).key;
+  },
+
+  // How a cap year is named in the UI. A cap year that IS a calendar year is
+  // just "2026"; anything else spans two, and saying so is the whole point.
+  capYearLabel(key) {
+    const y = Number(key.slice(0, 4));
+    if (key.slice(5) === '01-01') return String(y);
+    return `${y}/${String(y + 1).slice(2)}`;
+  },
+  capYearRange(key) {
+    const cy = Commission.capYearFor(Commission.anniversary, key);
+    return `${Commission.dateFull(cy.start)} to ${Commission.dateFull(cy.end)}`;
+  },
+
+  // fmtDate omits the year, which is right inside a table row and wrong in a
+  // sentence whose whole point is WHICH February the cap resets in.
+  dateFull(d) { return d ? `${App.fmtDate(d)}, ${String(d).slice(0, 4)}` : '—'; },
 
   // ── eXp cap allocation ────────────────────────────────────────────────────
   // eXp caps the brokerage's annual cut. Once the cap is paid for the year the
@@ -1604,39 +1703,71 @@ const Commission = {
   // 48% is the difference between the next deal being nearly all his and not.
   capInfo() {
     const cap = Number(Commission.cap) || 0;
-    const year = new Date().getFullYear();
+    const cy = Commission.capYearFor(Commission.anniversary, Commission.today());
     const thisYear = (Commission.all || [])
-      .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === year);
+      .filter(c => Commission.statusFrom(c) !== 'Archived' && Commission.capYearOf(c) === cy.key);
     const paid = thisYear
       .filter(Commission.isPaidExplicit)
       .reduce((s, c) => s + Commission.feeOf(c), 0);
     const committed = thisYear.reduce((s, c) => s + Commission.feeOf(c), 0);
     const remaining = Math.max(0, cap - paid);
+    // Deals already on the books that are set to close on or after the reset.
+    // Their fees start the NEXT cap year from zero, not this one — which is the
+    // difference between a deal finishing this cap and a deal opening a new one.
+    const afterReset = (Commission.all || []).filter(c =>
+      Commission.statusFrom(c) !== 'Archived' &&
+      !Commission.isPaidExplicit(c) &&
+      (Commission.ymd(c.close_date) || '') >= cy.next);
     return {
-      cap, year, paid, committed, remaining,
+      cap, paid, committed, remaining,
+      year: Commission.capYearLabel(cy.key),      // display label, not a number
+      capYearKey: cy.key, capYearStart: cy.start, capYearEnd: cy.end,
+      resetDate: cy.next,
+      daysUntilReset: Commission.daysBetween(Commission.today(), cy.next),
+      calendarYear: !Commission.anniversary,      // no anniversary on file yet
+      // Invoiced commission still needed to cap, at this agent's fee rate.
+      toCap: Commission.feeRate() > 0 ? remaining / (Commission.feeRate() / 100) : 0,
       unpaid: Math.max(0, committed - paid),
       unpaidCount: thisYear.filter(c => !Commission.isPaidExplicit(c)).length,
+      afterResetCount: afterReset.length,
+      afterResetFees: afterReset.reduce((s, c) => s + (c._rawFee != null ? c._rawFee : Commission.feeOf(c)), 0),
       capped: cap > 0 && remaining <= 0,
     };
+  },
+
+  // The brokerage rate the fee is actually charged at, taken from the most
+  // recent deal that stored one so "how much more to cap" reflects this agent's
+  // real split rather than whatever is typed into the form right now.
+  feeRate() {
+    const rated = (Commission.all || [])
+      .filter(c => c.brokerage_fee_rate != null)
+      .sort((a, b) => String(b.close_date || b.created_at || '').localeCompare(String(a.close_date || a.created_at || '')));
+    const r = rated.length ? Number(rated[0].brokerage_fee_rate) : NaN;
+    return (!isNaN(r) && r > 0) ? r : 20;
   },
 
   renderCapCard() {
     const el = document.getElementById('comm-cap-card');
     if (!el) return;
-    const { cap, year, paid, remaining, capped, unpaid, unpaidCount } = Commission.capInfo();
+    const info = Commission.capInfo();
+    const { cap, year, paid, remaining, capped, unpaid, unpaidCount } = info;
     const pct = cap > 0 ? Math.min(100, Math.round(paid / cap * 100)) : 0;
     const barColor = capped ? 'var(--green)' : 'var(--accent2)';
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-        <div style="font-size:16px;font-weight:800;">🎯 eXp Cap <span style="color:var(--text3);font-weight:700;font-size:13px;">· ${year}</span></div>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="font-size:16px;font-weight:800;">🎯 eXp Cap <span style="color:var(--text3);font-weight:700;font-size:13px;" title="${App.escAttr(Commission.capYearRange(info.capYearKey))}">· ${year}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Your cap</span>
           <input class="form-input" id="cm-cap-input" type="number" step="500" value="${cap}" style="width:120px;padding:8px 10px;font-size:14px;">
+          <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Year starts</span>
+          <input class="form-input" id="cm-ann-input" type="date" value="${info.capYearStart}"
+            title="The first day of your cap year. On the eXp ICA this is the 1st of the month after your start date, unless an addendum moved it."
+            style="width:160px;padding:8px 10px;font-size:14px;">
           <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.saveCap()">Save</button>
         </div>
       </div>
       ${capped
-        ? `<div style="background:var(--green-soft,rgba(34,197,94,0.12));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--green);font-weight:700;">✅ Capped for ${year}! You keep 100% of your commission for the rest of the year.</div>`
+        ? `<div style="background:var(--green-soft,rgba(34,197,94,0.12));border:1px solid var(--green);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--green);font-weight:700;">✅ Capped for ${year}! You keep 100% of your commission until ${Commission.dateFull(info.capYearEnd)}.</div>`
         : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
              <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Paid to cap</div><div style="font-size:18px;font-weight:900;color:var(--coral);">${Commission.money(paid)}</div></div>
              <div style="text-align:right;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Left to pay</div><div style="font-size:18px;font-weight:900;color:var(--accent2);">${Commission.money(remaining)}</div></div>
@@ -1649,7 +1780,39 @@ const Commission = {
         A further <strong style="color:var(--text2);">${Commission.money(unpaid)}</strong> is on the books across
         ${unpaidCount} deal${unpaidCount === 1 ? '' : 's'} you have not marked paid yet. That is not counted above until you do.
       </div>` : ''}
+      ${!capped && info.toCap > 0 ? `<div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">
+        About <strong style="color:var(--text2);">${Commission.money(info.toCap)}</strong> more in invoiced commission
+        caps you, at your ${Commission.feeRate()}% split.
+      </div>` : ''}
+      <div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">
+        Cap year ${Commission.capYearRange(info.capYearKey)}. Resets in ${info.daysUntilReset} day${info.daysUntilReset === 1 ? '' : 's'}, on ${Commission.dateFull(info.resetDate)}.
+        ${info.calendarYear ? `<span style="color:var(--yellow);">Set the start date above to your eXp anniversary; until then this tracks the calendar year.</span>` : ''}
+      </div>
+      ${Commission.resetWarning(info)}
       <div id="cm-cap-msg" style="margin-top:6px;font-size:12px;"></div>`;
+  },
+
+  // The closing-date warning. A deal that closes the day before the reset pays
+  // into a cap Maxwell is already partway through; the same deal a day later
+  // starts a fresh one at zero. Worth up to the whole remaining cap, and
+  // invisible unless something says so.
+  resetWarning(info) {
+    const near = info.daysUntilReset <= 60;
+    if (!near && !info.afterResetCount) return '';
+    const bits = [];
+    if (info.afterResetCount) {
+      bits.push(`<strong style="color:var(--text1);">${info.afterResetCount} deal${info.afterResetCount === 1 ? ' is' : 's are'}</strong>
+        set to close on or after ${Commission.dateFull(info.resetDate)}. ${info.afterResetCount === 1 ? 'Its' : 'Their'}
+        ${Commission.money(info.afterResetFees)} in fees would start the next cap year from zero, not finish this one.`);
+    }
+    if (near && !info.capped && info.remaining > 0) {
+      bits.push(`You have ${Commission.money(info.remaining)} of cap left with ${info.daysUntilReset} day${info.daysUntilReset === 1 ? '' : 's'} to run.
+        Anything that closes before ${Commission.dateFull(info.resetDate)} goes against it.`);
+    }
+    if (!bits.length) return '';
+    return `<div style="margin-top:10px;background:var(--yellow-soft,rgba(234,179,8,0.10));border:1px solid var(--yellow);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55;">
+      ⚠️ ${bits.join(' ')}
+    </div>`;
   },
 
   async saveCap() {
@@ -1657,10 +1820,21 @@ const Commission = {
     const msg = document.getElementById('cm-cap-msg');
     const val = parseFloat(inp?.value);
     if (isNaN(val) || val < 0) { if (msg){ msg.style.color='var(--red)'; msg.textContent='Enter a valid cap amount.'; } return; }
-    const { error } = await db.from('agents').update({ commission_cap: val }).eq('id', currentAgent.id);
-    if (error) { if (msg){ msg.style.color='var(--red)'; msg.textContent='Could not save: ' + error.message; } return; }
+    const ann = Commission.ymd(document.getElementById('cm-ann-input')?.value);
+    const { error } = await db.from('agents')
+      .update({ commission_cap: val, cap_anniversary: ann }).eq('id', currentAgent.id);
+    if (error) {
+      // cap_anniversary arrives with migration 102. Say so plainly rather than
+      // showing a bare "column does not exist" from PostgREST.
+      const missing = /cap_anniversary/.test(error.message || '');
+      if (msg){ msg.style.color='var(--red)'; msg.textContent = missing
+        ? 'Could not save the cap year start: migration 102 has not been applied to the database yet.'
+        : 'Could not save: ' + error.message; }
+      return;
+    }
     Commission.cap = val;
-    if (currentAgent) currentAgent.commission_cap = val;
+    Commission.anniversary = ann;
+    if (currentAgent) { currentAgent.commission_cap = val; currentAgent.cap_anniversary = ann; }
     // Changing the cap changes what every deal owes, so re-allocate and redraw
     // the totals too, not just this card.
     Commission.applyCap(Commission.all);
@@ -1806,13 +1980,14 @@ const Commission = {
       b.net    += Commission.netOf(c);
       b.kept   += c._capAdj || 0;
     });
-    const yearKeys = Object.keys(years).sort((a, b) => b - a);
+    // Keys are cap-year START DATES now, not numbers, so sort them as strings.
+    const yearKeys = Object.keys(years).sort((a, b) => b.localeCompare(a));
     const cap = Number(Commission.cap) || 0;
     const yearRows = yearKeys.map(y => {
       const b = years[y];
       const capped = cap > 0 && b.fees >= cap - 0.01;
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:9px 10px 9px 0;font-weight:800;white-space:nowrap;">${y}${capped ? ` <span style="font-size:9px;font-weight:800;color:var(--green);">CAPPED</span>` : ''}</td>
+        <td style="padding:9px 10px 9px 0;font-weight:800;white-space:nowrap;" title="${App.escAttr(Commission.capYearRange(y))}">${Commission.capYearLabel(y)}${capped ? ` <span style="font-size:9px;font-weight:800;color:var(--green);">CAPPED</span>` : ''}</td>
         <td style="padding:9px 10px;text-align:right;color:var(--text2);white-space:nowrap;">${b.deals}</td>
         <td style="padding:9px 10px;text-align:right;color:var(--text2);white-space:nowrap;">${Commission.money(b.volume)}</td>
         <td style="padding:9px 10px;text-align:right;white-space:nowrap;">${Commission.money(b.gross + b.hst)}</td>
@@ -1855,11 +2030,11 @@ const Commission = {
       ${yearKeys.length ? `
       <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Year by year</div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Your cap resets every January, so each year pays its own fees up to ${Commission.money(cap)}.</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Your cap resets every ${Commission.anniversary ? App.fmtDate(Commission.anniversary) : 'January'}, so each cap year pays its own fees up to ${Commission.money(cap)}.</div>
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px;">
             <thead><tr>
-              <th style="padding:0 10px 6px 0;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Year</th>
+              <th style="padding:0 10px 6px 0;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Cap year</th>
               <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Deals</th>
               <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Homes sold</th>
               <th style="padding:0 10px 6px;text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Invoiced</th>
@@ -2292,6 +2467,13 @@ const Reports = {
     const notes = document.getElementById('rpt-notes')?.value.trim();
     const agentName = currentAgent.full_name || currentAgent.email || 'Your Agent';
     const dateStr = new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' });
+    const timeStr = new Date().toLocaleTimeString('en-CA', { hour:'numeric', minute:'2-digit' });
+    // A deadline needs its year. App.fmtDate deliberately drops it, which is
+    // right in a viewing list and wrong on a closing date.
+    const fullDate = (d) => {
+      const s = String(d || '').slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${App.fmtDate(s)}, ${s.slice(0, 4)}` : App.fmtDate(d);
+    };
 
     // ─── Phase 2.C — Client Report v2 (branded, infographic layout) ───
     // Terracotta accent, Fraunces serif, timeline of viewings, progress bar, numbered next-steps.
@@ -2510,6 +2692,14 @@ const Reports = {
                 <div style="font-family:${SERIF};font-size:22px;font-weight:700;color:${ACCENT};line-height:1;">${App.fmtMoney(o.offer_amount)}</div>
               </td>
             </tr>
+            ${isAccepted && String(o.conditions || '').trim() ? `<tr>
+              <td colspan="2" style="padding:0 18px 16px;">
+                <div style="background:#fff;border:1px solid #E7E5E4;border-radius:8px;padding:12px 14px;">
+                  <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px;">Conditions on this offer</div>
+                  <div style="font-size:13px;color:#0A0A0A;line-height:1.55;">${App.esc(String(o.conditions).trim())}</div>
+                </div>
+              </td>
+            </tr>` : ''}
           </table>`;
         }).join('');
       }
@@ -2537,6 +2727,55 @@ const Reports = {
         <div style="font-family:${SERIF};font-size:17px;font-weight:600;color:#0A0A0A;margin-bottom:4px;">${sd.label}${client.status?` · ${client.status}`:''}</div>
         ${client.notes?`<div style="font-size:13px;color:#6B7280;line-height:1.5;">${client.notes}</div>`:''}
       </div>`;
+
+      // KEY DATES — the deadlines the client actually needs in their diary, read
+      // off the LIVE pipeline row that offers.js writes when an offer is
+      // accepted. Both the *_date and *_deadline halves of each pair are read
+      // (migration 063 writes both), so a date moved in the Transaction Room
+      // shows up here the next time the report is generated.
+      const _pd = _primaryDeal || {};
+      const keyDates = [
+        ['Offer accepted',       _pd.acceptance_date],
+        ['Inspection',           _pd.inspection_date || _pd.inspection_deadline],
+        ['Financing condition',  _pd.financing_date  || _pd.financing_deadline],
+        ['Final walkthrough',    _pd.walkthrough_date],
+        ['Closing',              _pd.closing_date],
+      ].filter(([, v]) => !!v);
+      if (keyDates.length) {
+        // Colour carries the timing, so the client can see at a glance what is
+        // behind them and what is next without reading every line. Deliberately
+        // restrained: three tones on a white card, no traffic lights.
+        //   grey  = the date has passed
+        //   amber = the next date coming up, the one that needs them
+        //   navy  = still ahead, and the closing date, which anchors the block
+        // A passed date is never labelled "cleared" or "complete": the date
+        // moving into the past is not the same as the condition being waived,
+        // and this report goes to a client.
+        const GREY = '#9CA3AF', AMBER = '#B45309', AMBER_BG = '#FEF3C7';
+        const _today = new Date().toISOString().slice(0, 10);
+        const _nextIdx = keyDates.findIndex(([, v]) => String(v).slice(0, 10) >= _today);
+        html += `<div style="margin-top:18px;background:#FAFAF9;border:1px solid #E7E5E4;border-radius:10px;padding:16px 18px;">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Key Dates</div>
+          <table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;">
+            ${keyDates.map(([label, v], i) => {
+              const isClosing = label === 'Closing';
+              const isPast    = String(v).slice(0, 10) < _today;
+              const isNext    = i === _nextIdx;
+              const tone      = isPast ? GREY : (isNext ? AMBER : ACCENT);
+              return `<tr>
+                <td style="padding:9px 10px 9px 0;width:14px;vertical-align:middle;">
+                  <div style="width:9px;height:9px;border-radius:50%;background:${tone};${isNext ? `box-shadow:0 0 0 3px ${AMBER_BG};` : ''}"></div>
+                </td>
+                <td style="padding:9px 0;color:${isPast ? GREY : '#6B7280'};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">${label}</td>
+                <td style="padding:9px 0;text-align:right;color:${isPast ? GREY : (isClosing ? ACCENT : '#0A0A0A')};font-weight:${isClosing ? 700 : 600};${isClosing ? `font-family:${SERIF};font-size:16px;` : ''}white-space:nowrap;">${fullDate(v)}</td>
+                <td style="padding:9px 0 9px 10px;text-align:right;width:56px;">${isNext
+                  ? `<span style="display:inline-block;font-size:9px;font-weight:800;letter-spacing:0.7px;text-transform:uppercase;padding:3px 7px;border-radius:4px;background:${AMBER_BG};color:${AMBER};">Next</span>`
+                  : ''}</td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>`;
+      }
       html += sectionClose;
     }
 
@@ -2575,6 +2814,7 @@ const Reports = {
       <div style="font-family:${SERIF};font-size:16px;font-weight:600;color:#0A0A0A;margin-bottom:3px;">${agentName}</div>
       <div style="font-size:12px;color:#6B7280;margin-bottom:12px;">REALTOR® · eXp Realty${currentAgent?.phone?` · ${currentAgent.phone}`:''}${currentAgent?.email?` · ${currentAgent.email}`:''}</div>
       <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${ACCENT};">DealFlow</div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:12px;">Information current as of ${dateStr}, ${timeStr}.</div>
     </div>`;
 
     html += `</div>`;
@@ -2587,18 +2827,29 @@ const Reports = {
    */
   async toPDF(client, html) {
     if (!window.html2pdf) throw new Error('PDF library not loaded. Reload the page and try again.');
-    // Render the report on-screen (top-left, behind everything via opacity +
-    // pointer-events) rather than parked at left:-10000px — html2canvas often
-    // captures BLANK from far-off-screen elements, which is what produced empty
-    // PDFs. This sits at 0,0 so html2canvas measures and paints it correctly;
-    // it's removed in the finally block before the user can really see it.
-    // NOTE: full opacity — html2canvas honours the element's own opacity, so a
-    // faded wrapper would capture blank. z-index:-1 keeps it behind the app
-    // (hidden from the user) while still fully painted for the capture.
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:fixed;left:0;top:0;width:680px;background:#fff;z-index:-1;pointer-events:none;';
-    wrap.innerHTML = html;
-    document.body.appendChild(wrap);
+    // TWO elements, and the split is the whole reason this works.
+    //
+    // html2pdf clones the element you hand it into its own container and then
+    // measures that container. A positioned element (fixed or absolute) is out
+    // of flow, so it contributes NO height to its parent: the container came
+    // back 794x0 and every PDF was one blank page. That is the bug that made
+    // the send path abandon attachments in the first place.
+    //
+    // So the element handed to html2pdf (`page`) is left in normal flow, at its
+    // true 680px x full height, and the hiding is done by `host` around it:
+    // fixed, zero-height, clipped. The user never sees it; the capture measures
+    // it correctly. Full opacity throughout, since html2canvas honours opacity
+    // and a faded wrapper captures blank.
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:0;overflow:hidden;z-index:-1;pointer-events:none;';
+    const page = document.createElement('div');
+    // 794px is A4 at 96dpi. Matching it means the report's own max-width:680px
+    // centres itself on the page instead of sitting against the left edge with a
+    // 114px gutter down the right.
+    page.style.cssText = 'width:794px;background:#fff;';
+    page.innerHTML = html;
+    host.appendChild(page);
+    document.body.appendChild(host);
 
     const safeName = (client.full_name||'Client').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
     const stamp = new Date().toISOString().slice(0,10);
@@ -2614,7 +2865,7 @@ const Reports = {
     };
 
     try {
-      const worker = window.html2pdf().set(opt).from(wrap);
+      const worker = window.html2pdf().set(opt).from(page);
       const blob = await worker.outputPdf('blob');
       // base64 (no data: prefix) for the edge function
       const base64 = await new Promise((resolve, reject) => {
@@ -2625,7 +2876,7 @@ const Reports = {
       });
       return { blob, base64, filename };
     } finally {
-      wrap.remove();
+      host.remove();
     }
   },
 
@@ -2667,26 +2918,58 @@ const Reports = {
       const { client, html } = result;
       if (!client.email) { msg.style.color='var(--red)'; msg.textContent='⚠️ This client has no email on file'; return; }
 
-      msg.textContent = '⏳ Queueing report...';
-
       const firstName = (client.full_name||'there').split(/\s+/)[0];
 
-      // The email BODY *is* the branded report (the same gorgeous HTML you see
-      // in Preview) — built with email-safe inline styles, so it renders in
-      // Gmail. No more raw "please find attached" note + blank rasterised PDF;
-      // the report itself is the email. A short personal line sits above it.
-      const introHtml = `<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;color:#0A0A0A;line-height:1.6;margin:0 0 16px;">Hi ${firstName}, here's your latest progress report — a quick snapshot of where things stand. Let me know if you have any questions.</p>`;
-      const htmlBody = `<div style="max-width:680px;margin:0 auto;">${introHtml}${html}</div>`;
+      // The report goes out as a PDF ATTACHMENT with a short covering note, not
+      // as the email body. A PDF is what a client saves, forwards to their
+      // lawyer or lender, and prints; an HTML body is none of those things.
+      //
+      // toPDF renders the report at 0,0 behind the app rather than off-screen,
+      // which is what stopped html2canvas capturing blank pages. If it still
+      // fails for any reason we fall back to the proven inline-HTML body rather
+      // than losing the send, and say so in the status line so it is never a
+      // silent downgrade.
+      let attachments = null, pdfFailed = '';
+      try {
+        const pdf = await Reports.toPDF(client, html);
+        // A genuine report is hundreds of KB of base64. The blank one-page PDF
+        // this used to produce was ~4,000 characters, so anything under 20,000
+        // is a failed render, not a short report, and must not go out as one.
+        if (!pdf?.base64 || pdf.base64.length < 20000) throw new Error('PDF rendered blank');
+        attachments = [{ filename: pdf.filename, mime_type: 'application/pdf', data: pdf.base64 }];
+      } catch (e) {
+        console.error('Report PDF failed, falling back to inline body:', e);
+        pdfFailed = e.message || 'PDF generation failed';
+      }
 
-      const plainBody =
-`Hi ${firstName},
+      msg.textContent = '⏳ Queueing report...';
 
-Here's your latest progress report — a quick snapshot of where things stand. Let me know if you have any questions.
+      // Covering note. Deliberately brief: it says what is attached and what is
+      // in it, and leaves the detail to the report.
+      const plainBody = attachments
+? `Hi ${firstName},
+
+Your progress report is attached as a PDF. It covers the homes we have viewed, every offer submitted on your behalf, where the transaction stands today, and the key dates coming up.
+
+Have a read and let me know if anything needs correcting.
+
+Best regards,
+${currentAgent?.full_name || 'Maxwell Delali Midodzi'}
+REALTOR® | eXp Realty
+${currentAgent?.phone || '(709) 325-0545'} | ${currentAgent?.email || 'Maxwell.Midodzi@exprealty.com'}`
+: `Hi ${firstName},
+
+Here is your latest progress report, a snapshot of where things stand. Let me know if you have any questions.
 
 Best regards,
 ${currentAgent?.full_name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 ${currentAgent?.phone || '(709) 325-0545'} | ${currentAgent?.email || 'Maxwell.Midodzi@exprealty.com'}`;
+
+      // With a PDF attached the body is the covering note alone, wrapped by
+      // Notify.queue in the same branded shell as every other email. Without
+      // one, the report itself becomes the body, as it did before.
+      const htmlBody = attachments ? null : `<div style="max-width:680px;margin:0 auto;">${html}</div>`;
 
       // Build cc list (optional cc input + optional self-copy)
       const ccList = [];
@@ -2702,15 +2985,19 @@ ${currentAgent?.phone || '(709) 325-0545'} | ${currentAgent?.email || 'Maxwell.M
       await Notify.queue(
         'Progress Report',
         client.id, client.full_name, client.email,
-        `Your Progress Report — ${client.full_name}`,
+        `Your progress report, ${client.full_name}`,
         plainBody,
         null,        // relatedId
-        htmlBody,    // the full branded report, as the email body
+        htmlBody,    // null when the PDF is attached; the report itself if not
         null,        // no ics
-        cc           // cc: optional address + your self-copy
+        cc,          // cc: optional address + your self-copy
+        attachments  // the report as a PDF
       );
 
-      msg.style.color='var(--green)'; msg.textContent='✓ Report queued in Approvals — review & send it there.';
+      msg.style.color = pdfFailed ? 'var(--yellow)' : 'var(--green)';
+      msg.textContent = pdfFailed
+        ? `⚠️ PDF failed (${pdfFailed}). Queued in Approvals with the report in the email body instead.`
+        : '✓ Report PDF queued in Approvals. Review and send it there.';
       App.toast(`📋 Report for ${client.full_name} queued in Approvals`);
       if (App.switchTab) App.switchTab('approvals');
     } catch (e) {
