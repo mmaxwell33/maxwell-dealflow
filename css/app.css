@@ -1340,6 +1340,17 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 }
 
 /* ── Commission row actions (PR #22) ───────────────────────────────────── */
+/* Fixed-size slots. A row with no "mark paid" tick still reserves its slot,
+   so the pencil and bin sit in the same column on every row instead of
+   sliding left whenever the tick is absent. */
+.cm-row-acts {
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+}
+.cm-row-act, .cm-row-slot {
+  width: 30px; height: 28px; flex: 0 0 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1;
+}
 .cm-row-act {
   transition: background 80ms, transform 80ms;
 }

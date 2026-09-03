@@ -1915,14 +1915,14 @@ const Commission = {
             const markPaidBtn = !Commission.isPaidExplicit(c)
               ? `<button class="cm-row-act" title="Mark as Paid" aria-label="Mark commission as paid"
                    onclick="Commission.confirmMarkPaid('${idAttr}','${nameAttr}','${propAttr}')"
-                   style="background:none;border:none;color:var(--green);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:6px;">✅</button>`
-              : '';
+                   style="background:none;border:none;color:var(--green);cursor:pointer;border-radius:6px;">✅</button>`
+              : `<span class="cm-row-slot" aria-hidden="true"></span>`;
             const editBtn = `<button class="cm-row-act" title="Edit commission" aria-label="Edit commission"
                 onclick="Commission.openEdit('${idAttr}')"
-                style="background:none;border:none;color:var(--accent);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;">✏️</button>`;
+                style="background:none;border:none;color:var(--accent);cursor:pointer;border-radius:6px;">✏️</button>`;
             const deleteBtn = `<button class="cm-row-act" title="Delete commission" aria-label="Delete commission"
                 onclick="Commission.confirmDelete('${idAttr}','${nameAttr}','${propAttr}')"
-                style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;">🗑️</button>`;
+                style="background:none;border:none;color:var(--red);cursor:pointer;border-radius:6px;">🗑️</button>`;
             return `
             <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
               <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
@@ -1959,7 +1959,7 @@ const Commission = {
                   return `<span class="pill2 pill2-neutral">Pending</span>`;
                 })()}
               </td>
-              <td style="padding:11px 8px;text-align:center;white-space:nowrap;">${markPaidBtn}${editBtn}${deleteBtn}</td>
+              <td style="padding:11px 8px;text-align:center;white-space:nowrap;"><span class="cm-row-acts">${markPaidBtn}${editBtn}${deleteBtn}</span></td>
             </tr>`;
           }).join('')}</tbody>
         </table>
