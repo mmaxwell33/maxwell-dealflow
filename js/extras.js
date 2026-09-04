@@ -475,11 +475,32 @@ const Approvals = {
       }
 
       // Pull existing CC out of context_data so it's editable in the modal
-      let existingCc = '';
+      let existingCc = '', attachHtml = '';
       if (item.context_data) {
         try {
           const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
           existingCc = ctx?.cc || '';
+          // What is actually going out with this email. The modal used to read
+          // nothing but cc, so there was no way to tell an email with a report
+          // attached from one without, and no way to spot an attachment that had
+          // rendered empty, until it was already in the client's inbox.
+          const atts = Array.isArray(ctx?.attachments) ? ctx.attachments : [];
+          if (atts.length) {
+            attachHtml = `<div style="margin-bottom:16px;">
+              <div class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Attached (${atts.length})</div>
+              ${atts.map(a => {
+                // Inline attachments carry base64; staged ones carry a byte count.
+                const b  = a.bytes || (a.data ? Math.round(a.data.length * 3 / 4) : 0);
+                const kb = b ? Math.round(b / 1024) : 0;
+                const thin = kb && kb < 20;   // a real report is hundreds of KB
+                return `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border:1px solid ${thin ? 'var(--yellow)' : 'var(--border,rgba(128,128,128,.3))'};border-radius:8px;margin-bottom:6px;">
+                  <span style="font-size:15px;">📎</span>
+                  <span style="font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(a.filename || 'file')}</span>
+                  ${kb ? `<span style="font-size:12px;color:${thin ? 'var(--yellow)' : 'var(--text2)'};white-space:nowrap;">${kb < 1024 ? kb + ' KB' : (kb/1024).toFixed(1) + ' MB'}${thin ? ' · looks empty' : ''}</span>` : ''}
+                </div>`;
+              }).join('')}
+            </div>`;
+          }
         } catch (_) { /* leave blank */ }
       }
       App.openModal(`
@@ -503,6 +524,8 @@ const Approvals = {
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Subject</label>
           <input class="form-input" id="edit-appr-subject" value="${App.esc(item.email_subject||'')}" style="font-weight:700;">
         </div>
+
+        ${attachHtml}
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Message</label>

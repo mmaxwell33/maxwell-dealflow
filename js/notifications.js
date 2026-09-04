@@ -2090,7 +2090,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
           const { error: upErr } = await db.storage.from('email-attachments')
             .upload(path, new Blob([bytes], { type: f.mime_type || 'application/octet-stream' }));
           if (upErr) { attachmentRefs.push(f); }  // fall back to inline
-          else       { attachmentRefs.push({ filename: f.filename, mime_type: f.mime_type, path }); }
+          // bytes is carried on the ref so the approval modal can show the size
+          // before you send. A staged file is a path and nothing else otherwise,
+          // and a 3 KB "report" is exactly the kind of thing worth seeing first.
+          else       { attachmentRefs.push({ filename: f.filename, mime_type: f.mime_type, path, bytes: bytes.length }); }
         } catch (e) { attachmentRefs.push(f); }   // fall back to inline
       }
     }
