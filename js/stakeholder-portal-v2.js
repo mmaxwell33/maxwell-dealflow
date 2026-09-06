@@ -21,6 +21,54 @@
     'Finishes & Fixtures','Final Walkthrough','Closing / Possession'
   ];
 
+  // The FIVE stages the app's pipeline card uses, and the only definition of
+  // build progress that counts. BUILD_STAGES above is the older eleven label
+  // list and is now only a fallback for builds that predate milestones.
+  //
+  // This mirrors Pipeline._segmentedBuildBarHtml in js/offers.js deliberately:
+  // the agent and the stakeholder must never be looking at two different
+  // numbers for the same house, which is exactly what happened when this page
+  // derived a percentage from a stage name instead.
+  const MILESTONE_STAGES = [
+    { key: 'pre_construction', label: 'Pre-construction' },
+    { key: 'financing',        label: 'Financing'        },
+    { key: 'construction',     label: 'Construction'     },
+    { key: 'conditions',       label: 'Conditions'       },
+    { key: 'possession',       label: 'Possession'       }
+  ];
+
+  // Returns null when there are no milestones to read, so callers can fall back
+  // rather than render a confident zero.
+  function buildProgress(d){
+    const pm = d && d.build_milestones;
+    if (!pm || typeof pm !== 'object') return null;
+    const isFullyClosed = d.stage === 'Closed' || d.stage === 'Done';
+    let foundCurrent = false, anySteps = false;
+    const segments = MILESTONE_STAGES.map(function(sk){
+      if (isFullyClosed) return { label: sk.label, fill: 100, status: 'done' };
+      const steps = (pm[sk.key] && pm[sk.key].steps) || {};
+      const vals = Object.keys(steps).map(function(k){ return steps[k]; });
+      if (vals.length) anySteps = true;
+      const total = vals.length, done = vals.filter(Boolean).length;
+      if (total === 0)     return { label: sk.label, fill: 0,   status: 'pending' };
+      if (done === total)  return { label: sk.label, fill: 100, status: 'done' };
+      if (done === 0 && foundCurrent) return { label: sk.label, fill: 0, status: 'pending' };
+      foundCurrent = true;
+      return { label: sk.label, fill: Math.round((done / total) * 100), status: 'current' };
+    });
+    if (!anySteps && !isFullyClosed) return null;
+    const share = 100 / segments.length;
+    let pct = 0;
+    segments.forEach(function(s){ pct += share * (s.fill / 100); });
+    const cur = segments.filter(function(s){ return s.status === 'current'; })[0];
+    const lastDone = segments.filter(function(s){ return s.status === 'done'; }).slice(-1)[0];
+    return {
+      segments: segments,
+      pct: Math.round(pct),
+      currentLabel: cur ? cur.label : (lastDone ? 'Complete' : MILESTONE_STAGES[0].label)
+    };
+  }
+
   let realtimeChannel = null;
   let refreshDebounce = null;
 
@@ -130,6 +178,7 @@
         data.is_new_build = true;
         data.build_stage  = bp.current_stage || null;
         data.build_history = bp.stage_history || [];
+        data.build_milestones = bp.pipeline_milestones || null;
       }
     } catch(e) { /* build progress is additive — never block the portal */ }
     if(!isRefresh){
@@ -193,20 +242,31 @@
       // build, so new-build deals never fall through to the resale copy below.
       if (d.is_new_build) {
         if (stage === 'Fell Through') return '';
-        var bs = (d.build_stage || '').toLowerCase();
-        var phase = (bs.indexOf('complete') > -1 || bs.indexOf('possession') > -1 || bs.indexOf('closing') > -1) ? 'done'
+        // Milestones decide this when they exist, so the banner and the bar
+        // below it can never tell the client two different stories.
+        var mp = buildProgress(d);
+        var bs = (mp ? mp.currentLabel : (d.build_stage || '')).toLowerCase();
+        // 'pre-construction' CONTAINS 'construction', so it has to be tested
+        // before the construction pattern. Without this the portal announced
+        // "Construction is underway" to a client whose ground had not been
+        // broken, which is the kind of wrong that gets repeated back to a
+        // builder.
+        var phase = /pre.?construction/.test(bs)                                              ? 'preconstruction'
+                  : (bs.indexOf('complete') > -1 || bs.indexOf('possession') > -1 || bs.indexOf('closing') > -1) ? 'done'
                   : (bs.indexOf('walkthrough') > -1)                                          ? 'walkthrough'
                   : /construction|framing|drywall|finishes|foundation|roofing/.test(bs)       ? 'construction'
                   : (bs.indexOf('financing') > -1)                                            ? 'financing'
+                  : (bs.indexOf('condition') > -1)                                            ? 'conditions'
                   :                                                                             'preconstruction';
         var NB = {
           done:            isClient ? '🎉 Your build is complete — congratulations and welcome home!'                       : '🎉 Build complete — possession stage.',
           walkthrough:     isClient ? '🔑 Final walkthrough scheduled — you\'re almost home!'                               : '🔑 Final walkthrough scheduled — possession is near.',
           construction:    isClient ? '🏗️ Construction is underway — foundation, framing, and finishes are progressing.'    : '🏗️ Construction underway — foundation, framing, and finishes in progress.',
           financing:       isClient ? '🏦 Financing is in progress — approvals are being finalized.'                        : '🏦 Financing in progress — approvals being finalized.',
+          conditions:      isClient ? '📑 Closing preparation is underway — conditions and final paperwork are being handled.' : '📑 Closing prep underway — conditions and final paperwork in progress.',
           preconstruction: isClient ? '📋 Pre-construction is underway — plans, permits, and design selections being finalized.' : '📋 Pre-construction — plans, permits, and design selections underway.'
         };
-        return NB[phase];
+        return NB[phase] || NB.preconstruction;
       }
       if (isClient) {
         if (stage === 'Closed')        return '🎉 Deal complete — congratulations and welcome home!';
@@ -358,20 +418,45 @@
     // Labels sit underneath each segment so the stakeholder/client can see exactly where the deal is.
     try {
       if (d.is_new_build) {
-        // ── NEW BUILD: single construction-progress bar (11 fixed stages) ──
-        const bIdx = BUILD_STAGES.indexOf(d.build_stage);
-        const bCur = bIdx < 0 ? 0 : bIdx;
-        const bPct = Math.round(((bCur + 1) / BUILD_STAGES.length) * 100);
+        // ── NEW BUILD: the same five stage bar the agent sees on the card ──
+        const bp = buildProgress(d);
         html += '<div style="margin-top:18px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">';
         html += '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Build progress</div>';
-        html += '<div style="font-size:11px;color:var(--accent2);font-weight:700;">'+bPct+'%</div>';
+        html += '<div style="font-size:11px;color:var(--accent2);font-weight:700;">'+(bp ? bp.pct+'%' : '')+'</div>';
         html += '</div>';
-        html += '<div style="height:14px;background:var(--card2);border-radius:7px;overflow:hidden;">'
-             +    '<div style="width:'+bPct+'%;height:100%;background:var(--accent);transition:width 0.4s;"></div>'
-             +  '</div>';
-        html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);">Current stage: '
-             +    '<strong style="color:var(--text1);">'+(d.build_stage||'—')+'</strong></div>';
+
+        if (bp) {
+          // Segmented, so the label under each part says which stage the fill
+          // belongs to rather than leaving one bar to be interpreted.
+          html += '<div style="display:flex;height:14px;background:var(--card2);border-radius:7px;overflow:hidden;">';
+          bp.segments.forEach(function(sg, i){
+            const col = sg.status === 'done' ? 'var(--accent)' : sg.status === 'current' ? 'var(--accent2)' : 'transparent';
+            html += '<div style="flex:1;height:100%;position:relative;'+(i < bp.segments.length-1 ? 'border-right:1px solid rgba(255,255,255,0.10);' : '')+'">'
+                 +    '<div style="width:'+sg.fill+'%;height:100%;background:'+col+';transition:width 0.4s;"></div>'
+                 +  '</div>';
+          });
+          html += '</div><div style="display:flex;margin-top:5px;">';
+          bp.segments.forEach(function(sg){
+            const c = sg.status === 'done' ? 'var(--text2)' : sg.status === 'current' ? 'var(--accent2)' : 'var(--text3)';
+            html += '<div style="flex:1;text-align:center;font-size:9.5px;color:'+c+';font-weight:'+(sg.status==='current'?'700':'500')+';line-height:1.3;">'
+                 +    sg.label + (sg.status === 'done' ? ' \u2713' : sg.status === 'current' ? ' \u00b7' : '')
+                 +  '</div>';
+          });
+          html += '</div>';
+          html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);">Current stage: '
+               +    '<strong style="color:var(--text1);">'+bp.currentLabel+'</strong></div>';
+        } else {
+          // No milestones recorded yet. Saying so is the honest answer; the old
+          // code guessed a position in a list it could not find the stage in and
+          // rendered that guess as 9% complete.
+          html += '<div style="height:14px;background:var(--card2);border-radius:7px;overflow:hidden;"></div>';
+          html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);">'
+               +    (d.build_stage
+                      ? 'Current stage: <strong style="color:var(--text1);">'+d.build_stage+'</strong>'
+                      : 'Build milestones have not been set up yet.')
+               +  '</div>';
+        }
         html += '</div>';
       } else {
       const today = new Date();
@@ -466,13 +551,21 @@
     const journeyTitle = isClient ? 'Your journey' : (d.is_new_build ? 'Build timeline' : 'Deal timeline');
     html += '<div class="card" style="margin-bottom:14px"><h3>'+journeyTitle+'</h3>';
     if(d.is_new_build){
-      // \u2500\u2500 NEW BUILD: construction stage timeline (11 fixed stages) \u2500\u2500
+      // \u2500\u2500 NEW BUILD: the five milestone stages, or the legacy eleven \u2500\u2500
+      const tlProg = buildProgress(d);
       const doneLabels = (d.build_history||[]).map(function(h){ return h.label; });
-      const curIdx = BUILD_STAGES.indexOf(d.build_stage);
+      const tlStages = tlProg ? tlProg.segments.map(function(sg){ return sg.label; }) : BUILD_STAGES;
+      const curIdx = tlProg
+        ? tlStages.indexOf(tlProg.currentLabel)
+        : BUILD_STAGES.indexOf(d.build_stage);
       html += '<div class="timeline">';
-      BUILD_STAGES.forEach(function(label, i){
-        const isDone    = (curIdx >= 0 && i < curIdx) || doneLabels.indexOf(label) >= 0;
-        const isCurrent = label === d.build_stage;
+      tlStages.forEach(function(label, i){
+        const isDone    = tlProg
+          ? tlProg.segments[i].status === 'done'
+          : ((curIdx >= 0 && i < curIdx) || doneLabels.indexOf(label) >= 0);
+        const isCurrent = tlProg
+          ? tlProg.segments[i].status === 'current'
+          : (label === d.build_stage);
         const cls = isDone ? 'done' : (isCurrent ? 'current' : '');
         const dot = isDone ? '\u2713' : (i+1);
         html += '<div class="tl-item '+cls+'">';
