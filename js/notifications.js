@@ -1201,6 +1201,31 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
+    // The pre-listing consultation, sent for the seller to check. Short on
+    // purpose: the record itself lives on the review page, and an email that
+    // restates it gives them two versions to disagree with. The one thing this
+    // has to do is make clear that correcting it is expected, not a complaint.
+    listing_walkthrough_review: (client, wt, link, count, agent) => ({
+      subject: `Your walkthrough record for ${wt.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Thank you for the time at ${wt.property_address}. I have written up everything I noted while I was there, and I would like you to look it over before we go any further.
+
+${count ? `There ${count === 1 ? 'is 1 item' : `are ${count} items`} I would put right before we list, with a rough cost against each one.` : 'I did not note anything outstanding that needs attention before we list.'}
+
+Please read it here:
+${link}
+
+If anything is wrong, already taken care of, or I have missed something entirely, there is a box under each item to tell me. Your notes come straight back to me. Nothing on the record changes until we have gone through them together.
+
+Once we are both happy with it, that becomes the agreed record of the property and what the listing is built from.
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
     walkthrough_reminder: (client, deal, agent) => ({
       subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
@@ -2402,6 +2427,19 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       'Seller Welcome Email',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, null, tmpl.html
+    );
+  },
+
+  // Pre-listing consultation record, out for the seller's review. Goes through
+  // the approval queue like everything else, so Maxwell reads the letter before
+  // the seller does.
+  async onWalkthroughReview(client, wt, link, count) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.listing_walkthrough_review(client, wt, link, count, agent);
+    await Notify.queue(
+      'Walkthrough Record for Review',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body, wt.id
     );
   },
 

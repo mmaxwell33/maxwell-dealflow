@@ -48,6 +48,7 @@
   <script defer src="js/offers.js"></script>
   <script defer src="js/listings.js"></script>
   <script defer src="js/showings.js"></script>
+  <script defer src="js/walkthrough.js"></script>
   <script defer src="js/offerdrop.js"></script>
   <script defer src="js/mlsdrop.js"></script>
   <script defer src="js/cmadrop.js"></script>
@@ -256,6 +257,9 @@
             </button>
             <button class="nav-item" data-tab="listings" onclick="App.switchTab('listings')">
               <span class="nav-icon"><svg><use href="#ic-listings"/></svg></span><span class="nav-label">Listings</span>
+            </button>
+            <button class="nav-item" data-tab="walkthrough" onclick="App.switchTab('walkthrough')">
+              <span class="nav-icon">🏚️</span><span class="nav-label">Walkthroughs</span>
             </button>
             <!-- New Builds tab removed from nav (Phase 3 of pipeline merge). -->
             <!-- The newbuilds screen still exists; reachable via Pipeline → "+ New Build" button -->
@@ -599,6 +603,10 @@
       </div>
       <div id="listings-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
+
+    <!-- WALKTHROUGH SCREEN (pre-listing seller consultation) -->
+    <!-- Rendered entirely by js/walkthrough.js — list view and capture view share this container. -->
+    <div id="screen-walkthrough" class="screen" style="padding:16px;"></div>
 
     <!-- PIPELINE ARCHIVE SCREEN -->
     <div id="screen-pipeline-archive" class="screen" style="padding:16px;">

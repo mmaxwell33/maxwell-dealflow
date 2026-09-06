@@ -984,6 +984,7 @@ const App = {
     if (tab === 'briefing') Briefing.load();
     if (tab === 'pipeline') Pipeline.load();  // reload on visit — actions elsewhere no longer eagerly reload it
     if (tab === 'listings') Listings.load();
+    if (tab === 'walkthrough') Walkthrough.load();
     if (tab === 'pipeline-archive') Pipeline.loadArchive();
     App.setBreadcrumb(tab);
   },
@@ -997,6 +998,7 @@ const App = {
     viewings:{group:'Deals',label:'Viewings'}, responses:{group:'Deals',label:'Client Responses'},
     offers:{group:'Deals',label:'Offers'}, pipeline:{group:'Deals',label:'Pipeline'},
     listings:{group:'Deals',label:'Listings'}, checklist:{group:'Deals',label:'Checklist'},
+    walkthrough:{group:'Deals',label:'Walkthroughs'},
     calendar:{group:'Deals',label:'Calendar'}, newbuilds:{group:'Deals',label:'New Builds'},
     'pipeline-archive':{group:'Deals',label:'Pipeline (Archived)'},
     commissions:{group:'Finance',label:'Commissions'}, mileage:{group:'Finance',label:'Mileage'},

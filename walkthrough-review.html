@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Token-protected. Never indexed, same as respond.html and portal.html. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Your Walkthrough Record — Maxwell DealFlow</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
+    .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:640px;width:100%;overflow:hidden;}
+    .header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:26px 28px 22px;color:#fff;}
+    .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px;}
+    .header-addr{font-size:19px;font-weight:800;line-height:1.35;}
+    .header-sub{font-size:13px;color:rgba(255,255,255,.65);margin-top:5px;}
+    .body{padding:26px 28px 28px;}
+    .lede{font-size:14.5px;color:#444;line-height:1.65;margin-bottom:22px;}
+    .lede strong{color:#111;}
+    .summary-box{background:#f8faff;border:1px solid #dde8ff;border-radius:12px;padding:15px 17px;margin-bottom:26px;}
+    .summary-label{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;}
+    .summary-text{font-size:14px;line-height:1.65;color:#222;}
+    .section-title{font-size:16px;font-weight:800;color:#0F172A;margin:26px 0 6px;}
+    .section-sub{font-size:12.5px;color:#777;margin-bottom:14px;line-height:1.55;}
+    .sev-group{margin-bottom:20px;}
+    .sev-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px;}
+    .item{border:1px solid #e6e6e6;border-radius:11px;padding:13px 15px;margin-bottom:10px;}
+    .item-title{font-size:14.5px;font-weight:700;color:#111;}
+    .item-rec{font-size:13.5px;color:#444;line-height:1.6;margin-top:5px;}
+    .item-meta{font-size:12px;color:#888;margin-top:6px;}
+    .item-done{font-size:12px;font-weight:700;color:#059669;margin-top:5px;}
+    .fixbtn{display:inline-block;margin-top:9px;padding:5px 12px;border-radius:999px;border:1.5px solid #d1d5db;background:#fff;font-size:12px;font-weight:600;color:#555;cursor:pointer;}
+    .fixbtn:hover{border-color:#3b82f6;color:#1d4ed8;}
+    .fixbtn.open{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8;}
+    .fixbox{display:none;margin-top:10px;}
+    .fixbox.open{display:block;}
+    .fixbox label{display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+    textarea,input.txt{width:100%;padding:11px 13px;border:1.5px solid #d1d5db;border-radius:9px;font-size:14.5px;color:#1a1a2e;background:#fff;outline:none;font-family:inherit;resize:vertical;}
+    textarea:focus,input.txt:focus{border-color:#3b82f6;}
+    table.rooms{width:100%;border-collapse:collapse;margin-bottom:6px;}
+    table.rooms th{text-align:left;font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.04em;padding-bottom:7px;border-bottom:2px solid #ddd;}
+    table.rooms td{padding:9px 0;font-size:13.5px;color:#333;border-bottom:1px solid #eee;vertical-align:top;}
+    table.rooms td:first-child{font-weight:650;color:#111;}
+    .submit-btn{display:block;width:100%;padding:16px;border-radius:12px;border:none;font-size:16px;font-weight:700;color:#fff;cursor:pointer;margin-top:24px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);}
+    .submit-btn:hover{opacity:.92;}
+    .submit-btn:disabled{opacity:.5;cursor:not-allowed;}
+    .disclaimer{margin-top:22px;padding-top:15px;border-top:1px solid #eee;font-size:11.5px;color:#999;line-height:1.6;}
+    #state-loading{text-align:center;padding:60px 20px;}
+    #state-expired,#state-done,#state-main{display:none;}
+    .spinner{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .pad{padding:48px 28px;text-align:center;}
+    .pad-icon{font-size:52px;margin-bottom:14px;}
+    .pad-title{font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:8px;}
+    .pad-sub{font-size:14px;color:#555;line-height:1.65;}
+    .certified{background:#f0fdf4;border:1px solid #86efac;border-radius:11px;padding:13px 15px;margin-bottom:22px;font-size:13.5px;color:#166534;line-height:1.6;}
+    footer{margin-top:20px;font-size:11px;color:#aaa;text-align:center;}
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <div id="state-loading">
+    <div class="spinner"></div>
+    <div style="color:#555;font-size:14px;">Loading your walkthrough record…</div>
+  </div>
+
+  <div id="state-expired">
+    <div class="header">
+      <div class="header-logo">Maxwell DealFlow</div>
+      <div class="header-addr">This link is no longer active</div>
+    </div>
+    <div class="pad">
+      <div class="pad-icon">🔒</div>
+      <div class="pad-title">Nothing to review here</div>
+      <div class="pad-sub">This review link has expired or the record has already been finalised.<br>Please contact Maxwell directly and he will send a fresh one.</div>
+    </div>
+  </div>
+
+  <div id="state-done">
+    <div class="header">
+      <div class="header-logo">Maxwell DealFlow</div>
+      <div class="header-addr">Thank you</div>
+    </div>
+    <div class="pad">
+      <div class="pad-icon">✅</div>
+      <div class="pad-title">Your review has been sent</div>
+      <div class="pad-sub">Maxwell has your corrections and will go through each one with you. Nothing on the record changes until he does.</div>
+    </div>
+  </div>
+
+  <div id="state-main">
+    <div class="header">
+      <div class="header-logo">Pre-listing consultation</div>
+      <div class="header-addr" id="h-addr"></div>
+      <div class="header-sub" id="h-sub"></div>
+    </div>
+    <div class="body">
+      <div id="certified-note"></div>
+      <div class="lede" id="lede"></div>
+      <div id="summary-wrap"></div>
+
+      <div class="section-title">What I would put right before we list</div>
+      <div class="section-sub">If any of this is wrong, already done, or I have missed something, say so under the item. Your notes come back to me as suggestions, they do not change the record on their own.</div>
+      <div id="defects"></div>
+
+      <div id="rooms-wrap"></div>
+
+      <div id="else-wrap">
+        <div class="section-title">Anything else</div>
+        <div class="section-sub">Anything I did not see, or anything you want recorded about the house.</div>
+        <textarea id="general" rows="4" placeholder="The furnace was serviced in March, I have the receipt. Also the back window sticks in wet weather."></textarea>
+      </div>
+
+      <button class="submit-btn" id="submit" onclick="submitReview()">Send my review to Maxwell</button>
+      <div id="err" style="text-align:center;margin-top:10px;font-size:13px;color:#dc2626;"></div>
+
+      <div class="disclaimer" id="disclaimer">
+        Cost figures are broad estimates from a visual walkthrough, not quotes, and not a substitute for a home inspection or a contractor's assessment.
+        Room dimensions are approximate and should be verified before they are relied on.
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer>Maxwell DealFlow &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty</footer>
+
+<script src="config.js"></script>
+<script>
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+// Everything on this page goes through the three SECURITY DEFINER functions in
+// migrations 101 and 104. The anon key never touches the walkthrough tables
+// directly, which is what keeps agent_notes and the private deficiencies out of
+// reach of anyone holding this link.
+async function rpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => null); throw new Error(e?.message || r.statusText); }
+  return r.json().catch(() => null);
+}
+
+function show(s) {
+  ['loading', 'expired', 'done', 'main'].forEach(id => {
+    const el = document.getElementById('state-' + id);
+    if (el) el.style.display = 'none';
+  });
+  const t = document.getElementById('state-' + s);
+  if (t) t.style.display = 'block';
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(String(d).length === 10 ? d + 'T00:00:00' : d);
+  if (isNaN(dt)) return String(d);
+  return dt.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+const SEV = {
+  safety:     { label: 'Deal with first',    color: '#dc2626' },
+  must_fix:   { label: 'Needs fixing',       color: '#ef4444' },
+  should_fix: { label: 'Worth fixing',       color: '#f59e0b' },
+  cosmetic:   { label: 'Cosmetic',           color: '#64748b' }
+};
+const COST = {
+  under_500: 'Under $500', '500_2k': '$500 to $2,000', '2k_10k': '$2,000 to $10,000',
+  over_10k: 'Over $10,000', unknown: 'Worth getting a quote'
+};
+const DEF_STATUS = { open: '', scheduled: 'Already scheduled', done: 'Already done', declined: 'You have decided against this' };
+
+let record = null, defects = [], rooms = [];
+
+async function init() {
+  if (!TOKEN) { show('expired'); return; }
+  try {
+    const rows = await rpc('resolve_walkthrough_token', { p_token: TOKEN });
+    if (!rows || !rows.length) { show('expired'); return; }
+    record = rows[0];
+
+    [defects, rooms] = await Promise.all([
+      rpc('walkthrough_defects_for_token', { p_token: TOKEN }).catch(() => []),
+      rpc('walkthrough_rooms_for_token',   { p_token: TOKEN }).catch(() => [])
+    ]);
+    defects = defects || []; rooms = rooms || [];
+
+    render();
+    show('main');
+  } catch (e) {
+    console.error(e);
+    show('expired');
+  }
+}
+
+function render() {
+  const firstName = (record.seller_name || '').split(' ')[0] || 'there';
+  document.getElementById('h-addr').textContent = record.property_address || '';
+  document.getElementById('h-sub').textContent =
+    [record.property_type, record.year_built ? 'Built ' + record.year_built : ''].filter(Boolean).join(' · ');
+
+  // A certified record is closed. The page still shows it, because the seller
+  // should be able to read back what they confirmed, but the correction inputs
+  // and the submit button come off.
+  const closed = !!record.certified_at;
+  if (closed) {
+    document.getElementById('certified-note').innerHTML =
+      `<div class="certified">This record was finalised on ${esc(fmtDate(record.certified_at))}. It is here for your reference. If something needs changing now, contact ${esc(record.agent_name || 'Maxwell')} directly.</div>`;
+  }
+
+  document.getElementById('lede').innerHTML = closed
+    ? `Hi ${esc(firstName)}, this is the record of the walkthrough at <strong>${esc(record.property_address)}</strong>, as confirmed.`
+    : `Hi ${esc(firstName)}, here is everything I noted when I walked <strong>${esc(record.property_address)}</strong>. Please read it through and correct anything I have got wrong. Nothing is final until you have had your say.`;
+
+  if (record.summary) {
+    document.getElementById('summary-wrap').innerHTML =
+      `<div class="summary-box"><div class="summary-label">Summary</div><div class="summary-text">${esc(record.summary).replace(/\n/g, '<br>')}</div></div>`;
+  }
+
+  // ── Deficiencies, grouped by severity in the order the function returns ──
+  const box = document.getElementById('defects');
+  if (!defects.length) {
+    box.innerHTML = `<div class="section-sub">Nothing outstanding was recorded on this visit.</div>`;
+  } else {
+    const order = ['safety', 'must_fix', 'should_fix', 'cosmetic'];
+    box.innerHTML = order.map(sv => {
+      const list = defects.filter(d => d.severity === sv);
+      if (!list.length) return '';
+      const meta = SEV[sv];
+      return `<div class="sev-group">
+        <div class="sev-label" style="color:${meta.color};">${esc(meta.label)}</div>
+        ${list.map(d => `
+          <div class="item" style="border-left:3px solid ${meta.color};">
+            <div class="item-title">${esc(d.area)}: ${esc(d.item)}</div>
+            ${d.recommendation ? `<div class="item-rec">${esc(d.recommendation)}</div>` : ''}
+            <div class="item-meta">Estimated cost: ${esc(COST[d.est_cost_band] || COST.unknown)}</div>
+            ${DEF_STATUS[d.status] ? `<div class="item-done">${esc(DEF_STATUS[d.status])}${d.status_note ? ': ' + esc(d.status_note) : ''}</div>` : ''}
+            ${closed ? '' : `
+            <button class="fixbtn" onclick="toggleFix(this,'d-${esc(d.deficiency_id)}')">This is not quite right</button>
+            <div class="fixbox" id="fix-d-${esc(d.deficiency_id)}">
+              <label>What should it say?</label>
+              <textarea rows="2" data-kind="defect" data-id="${esc(d.deficiency_id)}"
+                data-label="${esc(d.area + ': ' + d.item)}"
+                data-agent="${esc((d.recommendation || d.item) + ' (' + (COST[d.est_cost_band] || '') + ')')}"
+                placeholder="This was repaired last spring, I have the invoice."></textarea>
+            </div>`}
+          </div>`).join('')}
+      </div>`;
+    }).join('');
+  }
+
+  // ── Rooms ────────────────────────────────────────────────────────────────
+  if (rooms.length) {
+    const ftIn = n => {
+      if (n === null || n === undefined || n === '') return '—';
+      const f = Math.floor(Number(n)), i = Math.round((Number(n) - f) * 12);
+      return i === 12 ? `${f + 1}' 0"` : `${f}' ${i}"`;
+    };
+    document.getElementById('rooms-wrap').innerHTML = `
+      <div class="section-title">Rooms</div>
+      <div class="section-sub">Sizes are approximate. If one of these is clearly off, tell me under the table.</div>
+      <table class="rooms">
+        <tr><th>Room</th><th>Size</th><th>Flooring</th><th>Condition</th></tr>
+        ${rooms.map(r => `<tr>
+          <td>${esc(r.room_name)}</td>
+          <td>${(r.length_ft && r.width_ft) ? esc(ftIn(r.length_ft) + ' × ' + ftIn(r.width_ft)) : '—'}</td>
+          <td>${esc(r.flooring || '—')}</td>
+          <td>${esc(r.condition || '—')}</td>
+        </tr>`).join('')}
+      </table>
+      ${closed ? '' : `
+      <div class="fixbox open" style="margin-top:12px;">
+        <label>Corrections to the rooms</label>
+        <textarea rows="2" data-kind="rooms" data-label="Room details"
+          placeholder="The basement is finished, and the primary bedroom is closer to 13 feet than 11."></textarea>
+      </div>`}`;
+  }
+
+  // A finalised record is read-only: the submit button and the free-text box
+  // both come off, so the page cannot invite a correction it will not accept.
+  if (closed) {
+    document.getElementById('submit').style.display = 'none';
+    document.getElementById('else-wrap').style.display = 'none';
+  }
+}
+
+function toggleFix(btn, id) {
+  const box = document.getElementById('fix-' + id);
+  if (!box) return;
+  const open = box.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  btn.textContent = open ? 'Never mind, it is right' : 'This is not quite right';
+  if (open) box.querySelector('textarea')?.focus();
+}
+
+async function submitReview() {
+  const btn = document.getElementById('submit');
+  const err = document.getElementById('err');
+  err.textContent = '';
+
+  // Every correction box with something in it becomes one proposal row. An
+  // empty box is not a correction and is not sent.
+  const edits = [];
+  document.querySelectorAll('textarea[data-kind]').forEach(t => {
+    const val = t.value.trim();
+    if (!val) return;
+    edits.push({
+      room_id: null,
+      field_label: t.dataset.label || 'Note',
+      agent_value: t.dataset.agent || '',
+      seller_value: val,
+      seller_comment: ''
+    });
+  });
+  const general = document.getElementById('general').value.trim();
+
+  if (!edits.length && !general) {
+    err.textContent = 'Add a correction or a note first, or simply reply to Maxwell to say it all looks right.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const res = await rpc('submit_walkthrough_review', {
+      p_token: TOKEN, p_edits: edits, p_comment: general || null
+    });
+    if (res && res.ok === false) throw new Error('This link is no longer accepting changes.');
+    show('done');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Send my review to Maxwell';
+    err.textContent = e.message || 'Something went wrong. Please try again.';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
