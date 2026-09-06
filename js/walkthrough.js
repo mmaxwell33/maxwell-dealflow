@@ -189,10 +189,21 @@ const Walkthrough = {
     const uid = await Walkthrough.uid();
     if (!uid) { el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text2);">Not signed in.</div>`; return; }
 
-    const { data, error } = await db.from('walkthroughs')
+    // Migrations are run by hand here, so the screen must not go dark because
+    // 106 has not been pasted in yet. If archived_at is missing, fall back to
+    // the unfiltered list rather than failing the whole load.
+    let { data, error } = await db.from('walkthroughs')
       .select('*, clients(full_name, email)')
       .eq('agent_id', uid)
+      .is('archived_at', null)
       .order('created_at', { ascending: false });
+
+    if (error && /archived_at/i.test(error.message || '')) {
+      ({ data, error } = await db.from('walkthroughs')
+        .select('*, clients(full_name, email)')
+        .eq('agent_id', uid)
+        .order('created_at', { ascending: false }));
+    }
 
     if (error) {
       el.innerHTML = `<div style="padding:32px;text-align:center;color:var(--red);">
@@ -255,6 +266,8 @@ const Walkthrough = {
             </div>
             <div style="text-align:right;flex-shrink:0;">
               <span style="font-size:11px;font-weight:800;color:${st.c};border:1px solid ${st.c};border-radius:999px;padding:3px 9px;white-space:nowrap;">${st.t}</span>
+              <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:6px;" title="Archive or delete"
+                      onclick="event.stopPropagation();Walkthrough.manageModal('${x.id}')">···</button>
               ${pend ? `<div style="margin-top:6px;font-size:11px;font-weight:800;color:#f59e0b;">${pend} correction${pend === 1 ? '' : 's'} waiting</div>` : ''}
             </div>
           </div>
@@ -262,6 +275,100 @@ const Walkthrough = {
     }).join('');
 
     return head + `<div style="margin-top:16px;">${cards}</div>`;
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PUTTING ONE AWAY
+  // ══════════════════════════════════════════════════════════════════════════
+  // Two buttons, because they are two different acts. Archiving keeps a real
+  // record of a real house out of the way. Deleting is for the row started at
+  // the wrong address, and it destroys the photos with it. A certified
+  // walkthrough can only ever be archived.
+
+  manageModal(id) {
+    const w = Walkthrough;
+    const x = w.all.find(a => a.id === id) || w.current;
+    if (!x) return;
+    const certified = !!x.certified_at;
+    const defs = w.current?.id === id ? w.defects.length : null;
+    const pics = w.current?.id === id ? w.photos.length : null;
+
+    App.openModal(`
+      <div class="modal-title">Put this walkthrough away</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.55;">
+        ${w.esc(x.property_address)}${x.clients?.full_name ? ' · ' + w.esc(x.clients.full_name) : ''}
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:12px;">
+        <div style="font-weight:750;font-size:14px;margin-bottom:4px;">📦 Archive it</div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px;">
+          Keeps everything and takes it off the list. Use this when the house was real and they decided not to list. It is still a dated record of the condition of that property.
+        </div>
+        <input class="form-input" id="wt-arch-why" placeholder="Decided to wait until spring" style="margin-bottom:9px;">
+        <button class="btn btn-outline btn-block btn-sm" onclick="Walkthrough.archive('${id}')">Archive</button>
+      </div>
+
+      <div style="border:1px solid ${certified ? 'var(--border)' : 'var(--red)'};border-radius:10px;padding:13px 15px;opacity:${certified ? '0.55' : '1'};">
+        <div style="font-weight:750;font-size:14px;margin-bottom:4px;">🗑 Delete it for good</div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px;">
+          ${certified
+            ? 'This one is certified. A certified record cannot be deleted, only archived. That is the point of certifying it.'
+            : `Wipes the record and every photo with it, permanently. Only for one started by mistake or at the wrong address.${
+                (defs !== null) ? ` This has ${defs} deficienc${defs === 1 ? 'y' : 'ies'} and ${pics} photo${pics === 1 ? '' : 's'}.` : ''}`}
+        </div>
+        ${certified ? '' : `<button class="btn btn-block btn-sm" style="background:var(--red);color:#fff;" onclick="Walkthrough.destroy('${id}')">Delete permanently</button>`}
+      </div>
+      <div id="wt-mng-msg" style="text-align:center;margin-top:10px;font-size:13px;"></div>
+    `);
+  },
+
+  async archive(id) {
+    const w = Walkthrough;
+    const msg = document.getElementById('wt-mng-msg');
+    const why = document.getElementById('wt-arch-why')?.value.trim() || null;
+    const { error } = await db.from('walkthroughs').update({
+      archived_at: new Date().toISOString(), archived_reason: why, updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (error) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message + ' (run migration 106)'; }
+      return;
+    }
+    const x = w.all.find(a => a.id === id) || w.current;
+    await w.log('WALKTHROUGH_ARCHIVED', x?.clients,
+      `Walkthrough for ${x?.property_address || 'a property'} archived${why ? ': ' + why : ''}`, x?.client_id);
+    App.closeModal();
+    App.toast('📦 Archived', 'var(--text2)');
+    w.load();
+  },
+
+  async destroy(id) {
+    const w = Walkthrough;
+    const msg = document.getElementById('wt-mng-msg');
+    const x = w.all.find(a => a.id === id) || w.current;
+    if (x?.certified_at) return;   // belt and braces; the button is not rendered
+    if (!confirm(`Delete the walkthrough at ${x?.property_address || 'this property'} for good?\n\nEvery deficiency, note and photo goes with it. This cannot be undone.`)) return;
+
+    // Storage first. A deleted row with orphaned photos left in the bucket is
+    // the one outcome nothing later can clean up, because the paths are gone.
+    const { data: pics } = await db.from('walkthrough_photos')
+      .select('storage_path').eq('walkthrough_id', id);
+    const paths = (pics || []).map(p => p.storage_path).filter(Boolean);
+    if (paths.length) await db.storage.from('listing-photos').remove(paths).catch(() => {});
+
+    // Rooms, deficiencies, photos and seller edits all cascade on the row.
+    const { error } = await db.from('walkthroughs').delete().eq('id', id);
+    if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
+
+    await w.log('WALKTHROUGH_DELETED', x?.clients,
+      `Walkthrough for ${x?.property_address || 'a property'} deleted${paths.length ? ` with ${paths.length} photo${paths.length === 1 ? '' : 's'}` : ''}`,
+      x?.client_id);
+
+    w.sessionClear();
+    w.draftClear('defect');
+    w.draftClear('room');
+    App.closeModal();
+    App.toast('Deleted', 'var(--text2)');
+    w.load();
   },
 
   // ── New walkthrough ───────────────────────────────────────────────────────
@@ -379,7 +486,9 @@ const Walkthrough = {
     Walkthrough.edits   = edits.data   || [];
 
     await Walkthrough.signPhotos();
+    Walkthrough.installLifecycle();
     Walkthrough.render();
+    Walkthrough.offerResume();
   },
 
   // One signed URL per photo, valid for an hour. The bucket is private, so this
@@ -433,6 +542,7 @@ const Walkthrough = {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
           <button class="btn btn-outline btn-sm" onclick="Walkthrough.editHeaderModal()">✏️ Edit property details</button>
           ${wt.certified_at ? '' : w.listenButtonHTML()}
+          <button class="btn btn-outline btn-sm" onclick="Walkthrough.manageModal('${wt.id}')">··· Archive or delete</button>
         </div>
       </div>`;
   },
@@ -631,10 +741,15 @@ const Walkthrough = {
 
       <button class="btn btn-primary btn-block" onclick="Walkthrough.saveDefect(${d ? `'${d.id}'` : 'null'}, false)">${d ? 'Save changes' : 'Save'}</button>
       ${d ? '' : `<button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="Walkthrough.saveDefect(null, true)">Save and add another</button>`}
+      <div id="wt-d-draft" style="text-align:center;margin-top:8px;font-size:12.5px;"></div>
       <div id="wt-d-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
 
     Walkthrough.refreshItemChips();
+    // Only a NEW deficiency gets the draft treatment. An edit already shows the
+    // saved values, and restoring a stale draft over them would lose real data.
+    if (!d) Walkthrough.watchDraft('defect',
+      ['wt-d-area','wt-d-item','wt-d-sev','wt-d-cost','wt-d-rec','wt-d-visible'], 'wt-d-draft');
   },
 
   // Item suggestions follow the area, because "shingles curling" is never a
@@ -653,6 +768,7 @@ const Walkthrough = {
 
   pickSev(v) {
     document.getElementById('wt-d-sev').value = v;
+    Walkthrough._draftSavers?.defect?.();
     document.querySelectorAll('.wt-sev').forEach(b => {
       const s = Walkthrough.sevMeta(b.dataset.v);
       const on = b.dataset.v === v;
@@ -663,6 +779,7 @@ const Walkthrough = {
 
   pickCost(v) {
     document.getElementById('wt-d-cost').value = v;
+    Walkthrough._draftSavers?.defect?.();
     document.querySelectorAll('.wt-cost').forEach(b => {
       const on = b.dataset.v === v;
       b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
@@ -706,6 +823,7 @@ const Walkthrough = {
     }
     if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
 
+    if (!id) w.draftClear('defect');
     App.toast(id ? 'Updated' : '🔧 Deficiency recorded', 'var(--green)');
     if (again) {
       // Keep the area, clear the rest. Three problems in one bathroom is the
@@ -986,8 +1104,13 @@ const Walkthrough = {
       </div>
 
       <button class="btn btn-primary btn-block" onclick="Walkthrough.saveRoom(${r ? `'${r.id}'` : 'null'})">${r ? 'Save changes' : 'Add room'}</button>
+      <div id="wt-r-draft" style="text-align:center;margin-top:8px;font-size:12.5px;"></div>
       <div id="wt-r-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
+
+    if (!r) Walkthrough.watchDraft('room',
+      ['wt-r-name','wt-r-type','wt-r-lf','wt-r-li','wt-r-wf','wt-r-wi','wt-r-src','wt-r-cond','wt-r-floor','wt-r-note'],
+      'wt-r-draft');
   },
 
   async saveRoom(id) {
@@ -1023,6 +1146,7 @@ const Walkthrough = {
     const { data } = await db.from('walkthrough_rooms')
       .select('*').eq('walkthrough_id', w.current.id).order('sort_order');
     w.rooms = data || [];
+    if (!id) w.draftClear('room');
     App.closeModal();
     w.render();
     App.toast(id ? 'Room updated' : '📐 Room added', 'var(--green)');
@@ -1226,6 +1350,177 @@ const Walkthrough = {
   },
 
   // ══════════════════════════════════════════════════════════════════════════
+  // SURVIVING AN INTERRUPTION
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // A phone call arrives in the middle of a walkthrough. iOS puts Safari to
+  // sleep, kills the speech engine, and under memory pressure may discard the
+  // page entirely. Anything held only in a form field or in a variable is gone.
+  // Nothing typed or said should ever be lost to that, so:
+  //
+  //   Half-typed forms  → saved to this device as they are typed, restored on
+  //                       reopen. Never sent anywhere; cleared when saved.
+  //   The transcript    → flushed the instant the page is hidden, not on the
+  //                       four second timer, because the timer may never fire.
+  //   The session       → remembered, so on coming back the mic picks up rather
+  //                       than starting over, and a reload offers to resume.
+
+  DRAFT_PREFIX: 'wt-draft',
+  SESSION_KEY: 'wt-session',
+
+  draftKey(kind) { return `${Walkthrough.DRAFT_PREFIX}:${kind}:${Walkthrough.current?.id || 'none'}`; },
+
+  // localStorage rather than the database on purpose: a half-typed deficiency is
+  // not a record of anything yet and has no business in the seller's file. It
+  // lives on this device until he presses save.
+  draftSave(kind, ids) {
+    try {
+      const out = {};
+      let any = false;
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const v = el.type === 'checkbox' ? el.checked : el.value;
+        out[id] = v;
+        // Only text he actually typed counts. Selects, checkboxes and the
+        // hidden fields behind the severity and cost buttons all carry a value
+        // from the moment the form opens, so counting any of them would turn
+        // merely opening it into a draft worth restoring.
+        const carriesDefault = el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'hidden';
+        if (!carriesDefault && String(v || '').trim()) any = true;
+      });
+      if (any) localStorage.setItem(Walkthrough.draftKey(kind), JSON.stringify(out));
+      else localStorage.removeItem(Walkthrough.draftKey(kind));
+    } catch (e) { /* private mode, or storage full. Not worth interrupting him. */ }
+  },
+
+  draftRead(kind) {
+    try { return JSON.parse(localStorage.getItem(Walkthrough.draftKey(kind)) || 'null'); }
+    catch (e) { return null; }
+  },
+
+  draftClear(kind) {
+    try { localStorage.removeItem(Walkthrough.draftKey(kind)); } catch (e) {}
+  },
+
+  // Restores a draft into an open modal and wires the fields to keep saving.
+  // Only ever called for a NEW entry: editing an existing row already has the
+  // saved values in front of him and a stale draft would overwrite them.
+  watchDraft(kind, ids, noticeId) {
+    const w = Walkthrough;
+    const draft = w.draftRead(kind);
+    if (draft) {
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !(id in draft)) return;
+        if (el.type === 'checkbox') el.checked = !!draft[id];
+        else el.value = draft[id];
+      });
+      // The hidden severity and cost fields drive coloured buttons, so the
+      // buttons have to be told as well or the form lies about itself.
+      if (kind === 'defect') {
+        w.pickSev(document.getElementById('wt-d-sev')?.value || 'should_fix');
+        w.pickCost(document.getElementById('wt-d-cost')?.value || 'unknown');
+        w.refreshItemChips();
+      }
+      const n = document.getElementById(noticeId);
+      if (n) {
+        n.style.color = 'var(--accent2)';
+        n.innerHTML = `Picked up where you left off. <a onclick="Walkthrough.draftDiscard('${kind}',['${ids.join("','")}'],'${noticeId}')" style="cursor:pointer;text-decoration:underline;">Start fresh instead</a>`;
+      }
+    }
+    const save = () => w.draftSave(kind, ids);
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', save);
+      el.addEventListener('change', save);
+    });
+    w._draftSavers = w._draftSavers || {};
+    w._draftSavers[kind] = save;   // so the severity and cost buttons can call it
+  },
+
+  draftDiscard(kind, ids, noticeId) {
+    const w = Walkthrough;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = true;
+      else if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    });
+    if (kind === 'defect') {
+      const sev = document.getElementById('wt-d-sev'); if (sev) sev.value = 'should_fix';
+      const cost = document.getElementById('wt-d-cost'); if (cost) cost.value = 'unknown';
+      w.pickSev('should_fix'); w.pickCost('unknown'); w.refreshItemChips();
+    }
+    // Cleared last on purpose: pickSev and pickCost above write the draft back
+    // out, so clearing first would leave a fragment of it behind.
+    w.draftClear(kind);
+    const n = document.getElementById(noticeId);
+    if (n) { n.style.color = 'var(--text2)'; n.textContent = ''; }
+  },
+
+  // ── The listening session, across a suspend ───────────────────────────────
+  sessionSave() {
+    try {
+      localStorage.setItem(Walkthrough.SESSION_KEY, JSON.stringify({
+        id: Walkthrough.current?.id, area: Walkthrough._area, at: Date.now()
+      }));
+    } catch (e) {}
+  },
+  sessionRead() {
+    try { return JSON.parse(localStorage.getItem(Walkthrough.SESSION_KEY) || 'null'); }
+    catch (e) { return null; }
+  },
+  sessionClear() {
+    try { localStorage.removeItem(Walkthrough.SESSION_KEY); } catch (e) {}
+  },
+
+  // Called from open(). A session left running on this walkthrough within the
+  // last two hours is offered back rather than resumed silently, because he may
+  // well be somewhere else by now.
+  offerResume() {
+    const w = Walkthrough;
+    const s = w.sessionRead();
+    if (!s || s.id !== w.current.id || w._listening) return;
+    if (Date.now() - (s.at || 0) > 2 * 60 * 60 * 1000) { w.sessionClear(); return; }
+    const n = (w.current.transcript || []).length;
+    App.toast(`🎙️ You were listening here${n ? ` with ${n} phrase${n === 1 ? '' : 's'} saved` : ''}. Tap the mic to pick it back up.`, 'var(--accent2)');
+  },
+
+  // Registered once at load. These are the two events that actually fire when a
+  // call comes in: visibilitychange when Safari backgrounds, pagehide if it
+  // decides to discard the page. The debounce timer fires in neither case.
+  installLifecycle() {
+    const w = Walkthrough;
+    if (w._lifecycleOn) return;
+    w._lifecycleOn = true;
+
+    const flush = () => {
+      if (!w.current) return;
+      clearTimeout(w._saveTimer);
+      if (w._listening || (w.current.transcript || []).length) w.saveTranscript(true);
+      if (w._listening) w.sessionSave();
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        flush();
+        // The engine is dead the moment Safari backgrounds. Let it stop cleanly
+        // rather than fighting the restart loop against a suspended tab.
+        try { w._listen?.stop(); } catch (e) {}
+        w._listen = null;
+      } else if (w._listening) {
+        // Back in the room. Pick the mic up where it was.
+        w.setBarState('Picked back up after the interruption.', 'var(--green)');
+        setTimeout(() => w.engineStart(), 400);
+      }
+    });
+    window.addEventListener('pagehide', flush);
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
   // LISTENING TO THE WHOLE CONVERSATION
   // ══════════════════════════════════════════════════════════════════════════
   //
@@ -1328,6 +1623,7 @@ const Walkthrough = {
     const w = Walkthrough;
     w._listening = true;
     w._area = w._area || (w.rooms[0]?.room_name || '');
+    w.sessionSave();
     w.renderBar();
     w.engineStart();
     App.toast('🎙️ Listening. Say which room you are in as you move.', 'var(--green)');
@@ -1383,6 +1679,7 @@ const Walkthrough = {
     w._listening = false;
     try { w._listen?.stop(); } catch (e) {}
     w._listen = null;
+    w.sessionClear();
     w.saveTranscript(true);
     w.renderBar();
     const n = (w.current.transcript || []).length;
@@ -1428,7 +1725,7 @@ const Walkthrough = {
     if (el) { el.textContent = msg; el.style.color = color || 'var(--text2)'; }
   },
 
-  setArea(v) { Walkthrough._area = v; },
+  setArea(v) { Walkthrough._area = v; Walkthrough.sessionSave(); },
 
   // ── The bar ───────────────────────────────────────────────────────────────
   renderBar() {
