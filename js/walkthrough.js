@@ -179,7 +179,11 @@ const Walkthrough = {
   async load() {
     const el = document.getElementById('screen-walkthrough');
     if (!el) return;
-    Walkthrough.current = null;
+    // A live conversation outlives navigation on purpose: he will step out of
+    // this screen to check something mid-sentence and the recording should not
+    // die for it. The fixed bar keeps it visible and stoppable from anywhere.
+    // What must not happen is `current` going null underneath a phrase arriving.
+    if (!Walkthrough._listening) Walkthrough.current = null;
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text2);">Loading walkthroughs…</div>`;
 
     const uid = await Walkthrough.uid();
@@ -426,8 +430,61 @@ const Walkthrough = {
           ${wt.property_type ? ' · ' + w.esc(wt.property_type) : ''}
           ${wt.year_built ? ' · built ' + wt.year_built : ''}
         </div>
-        <button class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="Walkthrough.editHeaderModal()">✏️ Edit property details</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-outline btn-sm" onclick="Walkthrough.editHeaderModal()">✏️ Edit property details</button>
+          ${wt.certified_at ? '' : w.listenButtonHTML()}
+        </div>
       </div>`;
+  },
+
+  // The conversation control lives in the header because it belongs to the
+  // whole visit, not to any one room.
+  listenButtonHTML() {
+    const w = Walkthrough;
+    const n = (w.current.transcript || []).length;
+    if (w._listening) {
+      return `<button class="btn btn-sm" style="background:var(--red);color:#fff;" onclick="Walkthrough.listenStop()">⏹ Stop listening</button>`;
+    }
+    const done = w.current.transcript_processed_at;
+    return `
+      <button class="btn btn-sm" style="background:var(--accent);color:#fff;" onclick="Walkthrough.listenStart()">🎙️ ${n ? 'Keep listening' : 'Listen to the walk'}</button>
+      ${n ? `<button class="btn btn-outline btn-sm" onclick="Walkthrough.processTranscript()">📝 Turn ${n} phrase${n === 1 ? '' : 's'} into notes${done ? ' again' : ''}</button>
+             <button class="btn btn-outline btn-sm" onclick="Walkthrough.viewTranscript()">👁 Read it</button>` : ''}`;
+  },
+
+  // He should be able to see exactly what was captured, in his own words, and
+  // throw it away if the room was too noisy to be worth anything.
+  viewTranscript() {
+    const w = Walkthrough;
+    const lines = w.current.transcript || [];
+    const body = lines.length ? lines.map(l => `
+      <div style="padding:7px 0;border-bottom:1px solid var(--border);">
+        ${l.area ? `<div style="font-size:11px;font-weight:800;color:var(--text2);letter-spacing:.04em;">${w.esc(l.area).toUpperCase()}</div>` : ''}
+        <div style="font-size:13px;line-height:1.55;">${w.esc(l.text)}</div>
+      </div>`).join('') : '<div style="font-size:13px;color:var(--text2);">Nothing captured.</div>';
+
+    App.openModal(`
+      <div class="modal-title">👁 What was captured</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;">
+        Text only, never audio. This stays private to you and is not part of the seller's copy.
+      </div>
+      <div style="max-height:56vh;overflow-y:auto;">${body}</div>
+      ${lines.length ? `<button class="btn btn-outline btn-block" style="margin-top:12px;border-color:var(--red);color:var(--red);" onclick="Walkthrough.clearTranscript()">Delete the transcript</button>` : ''}
+    `);
+  },
+
+  async clearTranscript() {
+    const w = Walkthrough;
+    if (!confirm('Delete everything captured on this walkthrough? Anything you already saved as a deficiency or a note is kept.')) return;
+    const { error } = await db.from('walkthroughs')
+      .update({ transcript: [], transcript_processed_at: null, updated_at: new Date().toISOString() })
+      .eq('id', w.current.id);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    w.current.transcript = [];
+    w.current.transcript_processed_at = null;
+    App.closeModal();
+    w.render();
+    App.toast('Transcript deleted', 'var(--text2)');
   },
 
   // ── Deficiencies ──────────────────────────────────────────────────────────
@@ -1166,6 +1223,450 @@ const Walkthrough = {
         ? '✓ ' + got.join(' · ') + '. Check it and save.'
         : 'Heard you, but nothing matched. Try: kitchen twelve by ten, tile, good.';
     }
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LISTENING TO THE WHOLE CONVERSATION
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // The mic stays on while he talks the house over with the seller, tagged with
+  // the room he is standing in. Afterwards the transcript is read once and comes
+  // back as PROPOSED deficiencies and notes, which he ticks through before any
+  // of it is saved. Nothing reaches the record, or the seller, unread.
+  //
+  // CONSENT IS A GATE, NOT A CHECKBOX. Section 184(2) of the Criminal Code makes
+  // recording lawful for a participant, which covers Maxwell. PIPEDA is the part
+  // that does not care: collecting a client's words commercially means telling
+  // them, saying what it is for, and getting agreement. So the session will not
+  // start until that is affirmed, and the affirmation is written to the
+  // walkthrough and to activity_log at the same moment.
+  //
+  // NO AUDIO IS KEPT. The engine hands back text and the audio never touches
+  // this app. That is worth saying out loud to the seller, because it is the
+  // sentence that usually turns a no into a yes.
+  //
+  // ON IOS THIS WILL DROP OUT. Safari's speech engine stops itself after a
+  // silence and is documented as unreliable in continuous mode. So: every final
+  // phrase is appended and saved the moment it arrives, the session restarts
+  // itself, and a stall is shown on the bar rather than hidden. A dropout costs
+  // the sentence being spoken at that instant and nothing before it.
+
+  _listen: null,       // the live recognition instance
+  _listening: false,   // the SESSION is on, even if the engine is between restarts
+  _area: '',           // the room he says he is standing in
+  _saveTimer: null,
+
+  // ── Consent ───────────────────────────────────────────────────────────────
+  listenStart() {
+    const w = Walkthrough, wt = w.current;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { App.toast('⚠️ This browser will not do speech. Safari on the iPhone does.', 'var(--yellow)'); return; }
+
+    // Already consented on this walkthrough: do not ask twice in one house.
+    if (wt.recording_consent_at) { w.listenGo(); return; }
+
+    const seller = wt.clients?.full_name || 'the seller';
+    App.openModal(`
+      <div class="modal-title">🎙️ Before you start listening</div>
+      <div style="font-size:13px;line-height:1.65;color:var(--text1);">
+        You are allowed to record a conversation you are part of. You are not allowed to do it without telling ${w.esc(seller)}, because collecting their words for your business is a collection of their personal information.
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin:14px 0;">
+        <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:8px;">SAY SOMETHING LIKE</div>
+        <div style="font-size:13.5px;line-height:1.6;font-style:italic;">
+          “Do you mind if my phone takes notes while we walk? It writes down what we talk about so I can type it up properly for you afterwards. It does not keep any audio.”
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">What you told them, and what they said</label>
+        <textarea class="form-input" id="wt-consent-note" rows="3"
+          placeholder="Told ${w.esc(seller)} the phone would take notes of what we discussed so I could write it up, and that no audio is kept. She said go ahead.">Told ${w.esc(seller)} the phone would take written notes of what we discussed so I could write it up afterwards, and that no audio is kept. They agreed.</textarea>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;cursor:pointer;margin-bottom:14px;line-height:1.5;">
+        <input type="checkbox" id="wt-consent-ok" style="width:16px;height:16px;flex-shrink:0;margin-top:2px;">
+        <span>I have asked ${w.esc(seller)} and they agreed.</span>
+      </label>
+      <button class="btn btn-primary btn-block" onclick="Walkthrough.consentSave()">Start listening</button>
+      <div style="font-size:11.5px;color:var(--text2);margin-top:10px;line-height:1.55;">
+        This is written to their file with today's date. Only text is kept, never audio, and none of it reaches their review page unless you put it there.
+      </div>
+      <div id="wt-consent-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async consentSave() {
+    const w = Walkthrough, wt = w.current;
+    const msg = document.getElementById('wt-consent-msg');
+    if (!document.getElementById('wt-consent-ok')?.checked) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Ask them first, then tick the box'; }
+      return;
+    }
+    const note = document.getElementById('wt-consent-note')?.value.trim() || null;
+    const now = new Date().toISOString();
+
+    const { error } = await db.from('walkthroughs')
+      .update({ recording_consent_at: now, recording_consent_note: note, updated_at: now })
+      .eq('id', wt.id);
+    if (error) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message + ' (run migration 105)'; }
+      return;
+    }
+    wt.recording_consent_at = now;
+    wt.recording_consent_note = note;
+
+    // The activity row is the durable record, not the column.
+    await w.log('WALKTHROUGH_RECORDING_CONSENT', wt.clients,
+      `Consent given to take written notes of the walkthrough conversation at ${wt.property_address}. No audio kept. ${note || ''}`.trim(),
+      wt.client_id);
+
+    App.closeModal();
+    w.listenGo();
+  },
+
+  // ── The session ───────────────────────────────────────────────────────────
+  listenGo() {
+    const w = Walkthrough;
+    w._listening = true;
+    w._area = w._area || (w.rooms[0]?.room_name || '');
+    w.renderBar();
+    w.engineStart();
+    App.toast('🎙️ Listening. Say which room you are in as you move.', 'var(--green)');
+  },
+
+  engineStart() {
+    const w = Walkthrough;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!w._listening || w._listen) return;
+
+    const rec = new SR();
+    rec.lang = 'en-CA';
+    rec.continuous = true;
+    rec.interimResults = true;
+    w._listen = rec;
+
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) w.pushPhrase(r[0].transcript);
+        else interim += r[0].transcript;
+      }
+      const live = document.getElementById('wt-bar-live');
+      if (live) live.textContent = interim ? '… ' + interim.trim() : '';
+    };
+
+    rec.onerror = (e) => {
+      // 'no-speech' and 'aborted' are ordinary on iOS between restarts and are
+      // not worth showing. Anything else is.
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        w._listening = false;
+        w.setBarState('Microphone blocked. Allow it for this site in Settings.', 'var(--red)');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        w.setBarState('Hiccup, picking back up…', 'var(--yellow)');
+      }
+    };
+
+    // Safari ends the session on its own after a silence. Restarting is the
+    // whole reason this survives a ten minute conversation.
+    rec.onend = () => {
+      w._listen = null;
+      if (w._listening) setTimeout(() => w.engineStart(), 300);
+      else w.renderBar();
+    };
+
+    try { rec.start(); }
+    catch (e) { w._listen = null; if (w._listening) setTimeout(() => w.engineStart(), 600); }
+  },
+
+  listenStop() {
+    const w = Walkthrough;
+    w._listening = false;
+    try { w._listen?.stop(); } catch (e) {}
+    w._listen = null;
+    w.saveTranscript(true);
+    w.renderBar();
+    const n = (w.current.transcript || []).length;
+    App.toast(n ? `🎙️ Stopped. ${n} phrase${n === 1 ? '' : 's'} captured.` : 'Stopped. Nothing was captured.', 'var(--text2)');
+    w.render();
+  },
+
+  // Each final phrase lands in the record immediately, tagged with the room, so
+  // a dropped connection or a locked phone costs one sentence at most.
+  pushPhrase(text) {
+    const w = Walkthrough;
+    const t = String(text || '').trim();
+    if (!t || !w.current) return;
+    w.current.transcript = w.current.transcript || [];
+    w.current.transcript.push({ area: w._area || '', text: t, at: new Date().toISOString() });
+
+    const tail = document.getElementById('wt-bar-tail');
+    if (tail) tail.textContent = t;
+    const count = document.getElementById('wt-bar-count');
+    if (count) count.textContent = w.current.transcript.length;
+    w.saveTranscript(false);
+  },
+
+  // Debounced: a phrase every few seconds should not be a write every few
+  // seconds. Forced on stop.
+  saveTranscript(now) {
+    const w = Walkthrough;
+    clearTimeout(w._saveTimer);
+    if (!w.current) return;
+    const write = async () => {
+      if (!w.current) return;
+      const { error } = await db.from('walkthroughs')
+        .update({ transcript: w.current.transcript || [], updated_at: new Date().toISOString() })
+        .eq('id', w.current.id);
+      if (error) w.setBarState('⚠️ Not saving: ' + error.message, 'var(--red)');
+    };
+    if (now) return write();
+    w._saveTimer = setTimeout(write, 4000);
+  },
+
+  setBarState(msg, color) {
+    const el = document.getElementById('wt-bar-state');
+    if (el) { el.textContent = msg; el.style.color = color || 'var(--text2)'; }
+  },
+
+  setArea(v) { Walkthrough._area = v; },
+
+  // ── The bar ───────────────────────────────────────────────────────────────
+  renderBar() {
+    const w = Walkthrough;
+    const existing = document.getElementById('wt-bar');
+    if (!w._listening) { existing?.remove(); return; }
+
+    const areas = w.rooms.map(r => r.room_name).filter(Boolean)
+      .concat(w.AREAS.filter(a => !w.rooms.some(r => r.room_name === a)));
+    const opts = areas.map(a => `<option${w._area === a ? ' selected' : ''}>${w.esc(a)}</option>`).join('');
+    const n = (w.current.transcript || []).length;
+
+    const html = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:13px;color:var(--red);">
+          <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;animation:wtpulse 1.2s infinite;"></span>
+          Listening
+        </span>
+        <select class="form-input form-select" style="width:auto;min-width:150px;padding:5px 9px;font-size:12.5px;"
+                onchange="Walkthrough.setArea(this.value)">${opts}</select>
+        <span style="font-size:12px;color:var(--text2);"><span id="wt-bar-count">${n}</span> captured</span>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff;margin-left:auto;" onclick="Walkthrough.listenStop()">⏹ Stop</button>
+      </div>
+      <div id="wt-bar-tail" style="font-size:12.5px;color:var(--text1);margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <div id="wt-bar-live" style="font-size:12.5px;color:var(--text2);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <div id="wt-bar-state" style="font-size:11.5px;color:var(--text2);margin-top:4px;"></div>`;
+
+    if (existing) { existing.innerHTML = html; return; }
+    const bar = document.createElement('div');
+    bar.id = 'wt-bar';
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:900;background:var(--card);border-top:2px solid var(--red);padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.25);';
+    bar.innerHTML = html;
+    document.body.appendChild(bar);
+    if (!document.getElementById('wt-pulse-style')) {
+      const s = document.createElement('style');
+      s.id = 'wt-pulse-style';
+      s.textContent = '@keyframes wtpulse{0%,100%{opacity:1}50%{opacity:.25}}';
+      document.head.appendChild(s);
+    }
+  },
+
+  // ── Turning the conversation into notes ───────────────────────────────────
+  TRANSCRIPT_SCHEMA: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      summary: { type: 'string', description: 'Two or three plain sentences the agent could say to the seller about the house overall, drawn only from what was actually discussed. Empty if the conversation does not support one.' },
+      deficiencies: {
+        type: 'array',
+        description: 'Every repair, defect or thing needing attention that was actually discussed. Empty if none were.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            area: { type: 'string', description: 'The room or part of the house it concerns, as discussed.' },
+            item: { type: 'string', description: 'What needs attention, as a short phrase, e.g. "Cracked tile behind the stove".' },
+            severity: { type: 'string', enum: ['cosmetic', 'should_fix', 'must_fix', 'safety'],
+              description: 'safety only if a hazard was described. must_fix if it was said a buyer or inspector would flag it. should_fix if it was said it should be done before listing. cosmetic otherwise.' },
+            est_cost_band: { type: 'string', enum: ['under_500', '500_2k', '2k_10k', 'over_10k', 'unknown'],
+              description: 'unknown unless a cost was actually mentioned in the conversation. Never estimate a cost that was not said aloud.' },
+            recommendation: { type: 'string', description: 'What was said should be done about it, in plain words. Empty if nothing was said.' },
+            said_by_seller: { type: 'string', enum: ['yes', 'no', 'unclear'],
+              description: 'yes if this came from the seller rather than the agent. Used to flag things the agent has not verified himself.' }
+          },
+          required: ['area', 'item', 'severity', 'est_cost_band', 'recommendation', 'said_by_seller']
+        }
+      },
+      notes: {
+        type: 'array',
+        description: 'Things worth recording that are not repairs: history, what stays with the house, what the seller wants, dates. Empty if none.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            area: { type: 'string' },
+            note: { type: 'string', description: 'One plain sentence.' }
+          },
+          required: ['area', 'note']
+        }
+      }
+    },
+    required: ['summary', 'deficiencies', 'notes']
+  },
+
+  async processTranscript() {
+    const w = Walkthrough;
+    const lines = w.current.transcript || [];
+    if (!lines.length) { App.toast('Nothing has been captured yet', 'var(--yellow)'); return; }
+    if (w._reading) return;
+    w._reading = true;
+    App.toast('Reading the conversation. This takes a few seconds.', 'var(--accent2)');
+
+    try {
+      const doc = lines.map(l => `[${l.area || 'unspecified room'}] ${l.text}`).join('\n');
+      const { data, error } = await db.functions.invoke('claude-chat', {
+        body: {
+          system:
+            'You read a rough transcript of a real estate agent walking a house with the seller who owns it, ' +
+            'and you pull out what was actually said. The property is in Newfoundland and Labrador, Canada. ' +
+            'Each line is prefixed with the room the agent was standing in. ' +
+            'This is speech-to-text from a phone in a busy room: it will contain misheard words, half sentences ' +
+            'and both voices run together without labels. Work with that. ' +
+            'Report only what was genuinely discussed. Never invent a defect, a cost, or a recommendation that ' +
+            'was not said aloud, and never infer the condition of something nobody mentioned. If the transcript ' +
+            'is too garbled to be sure of an item, leave it out rather than guessing at it. ' +
+            'It is far better to return three things that were certainly said than ten that might have been.',
+          model: 'claude-opus-5',
+          max_tokens: 8000,
+          output_config: { effort: 'low', format: { type: 'json_schema', schema: w.TRANSCRIPT_SCHEMA } },
+          messages: [{ role: 'user', content: [{ type: 'text', text:
+            `Here is the conversation from the walkthrough at ${w.current.property_address}.\n\n${doc}` }] }]
+        }
+      });
+      if (error) throw new Error(error.message || 'The reader could not be reached');
+      if (data?.error) throw new Error(data.error);
+      const parsed = MLSDrop.parse(data?.text);
+      if (!parsed) throw new Error('The reader did not return anything readable');
+      w.reviewProposals(parsed);
+    } catch (e) {
+      App.toast('⚠️ ' + (e.message || 'Could not read the conversation'), 'var(--red)');
+    } finally {
+      w._reading = false;
+    }
+  },
+
+  // Everything arrives as a proposal with a tick beside it. This is the preview
+  // he asked for: nothing from the conversation is in the record until he has
+  // read it here, and nothing reaches the seller until the usual send after it.
+  reviewProposals(p) {
+    const w = Walkthrough;
+    w._proposals = p;
+    const defs = p.deficiencies || [];
+    const notes = p.notes || [];
+
+    const defRows = defs.map((d, i) => {
+      const s = w.sevMeta(d.severity);
+      return `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+          <input type="checkbox" class="wt-prop-def" data-i="${i}" checked style="width:16px;height:16px;flex-shrink:0;margin-top:3px;">
+          <span style="flex:1;min-width:0;">
+            <span style="font-weight:700;font-size:13.5px;">${s.icon} ${w.esc(d.area)}: ${w.esc(d.item)}</span>
+            <span style="display:block;font-size:12px;color:var(--text2);margin-top:2px;">
+              ${w.esc(s.label)} · ${w.esc(w.costLabel(d.est_cost_band))}${d.said_by_seller === 'yes' ? ' · <span style="color:var(--yellow);">they said this, you have not checked it</span>' : ''}
+            </span>
+            ${d.recommendation ? `<span style="display:block;font-size:12.5px;margin-top:4px;line-height:1.5;">${w.esc(d.recommendation)}</span>` : ''}
+          </span>
+        </label>`;
+    }).join('');
+
+    const noteRows = notes.map((n, i) => `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+        <input type="checkbox" class="wt-prop-note" data-i="${i}" checked style="width:16px;height:16px;flex-shrink:0;margin-top:3px;">
+        <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.5;">
+          <strong>${w.esc(n.area)}</strong> ${w.esc(n.note)}
+        </span>
+      </label>`).join('');
+
+    App.openModal(`
+      <div class="modal-title">📝 What I heard</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">
+        Nothing here is saved yet. Untick anything wrong, save what is right, then edit it like anything else.
+      </div>
+
+      ${defs.length ? `
+        <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:2px;">DEFICIENCIES (${defs.length})</div>
+        <div style="max-height:34vh;overflow-y:auto;margin-bottom:14px;">${defRows}</div>` :
+        `<div style="font-size:13px;color:var(--text2);margin-bottom:14px;">No repairs were clearly discussed.</div>`}
+
+      ${notes.length ? `
+        <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:2px;">NOTES (${notes.length})</div>
+        <div style="max-height:24vh;overflow-y:auto;margin-bottom:14px;">${noteRows}</div>` : ''}
+
+      ${p.summary ? `
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin-bottom:14px;">
+          <input type="checkbox" id="wt-prop-summary" checked style="width:16px;height:16px;flex-shrink:0;margin-top:3px;">
+          <span style="font-size:12.5px;line-height:1.55;">
+            <strong style="display:block;margin-bottom:3px;">Use this as the summary</strong>
+            ${w.esc(p.summary)}
+          </span>
+        </label>` : ''}
+
+      <button class="btn btn-primary btn-block" onclick="Walkthrough.saveProposals()">Save the ticked items</button>
+      <div id="wt-prop-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async saveProposals() {
+    const w = Walkthrough;
+    const p = w._proposals || {};
+    const msg = document.getElementById('wt-prop-msg');
+    const uid = await w.uid();
+
+    const defs = [...document.querySelectorAll('.wt-prop-def')]
+      .filter(c => c.checked).map(c => p.deficiencies[parseInt(c.dataset.i, 10)]);
+    const notes = [...document.querySelectorAll('.wt-prop-note')]
+      .filter(c => c.checked).map(c => p.notes[parseInt(c.dataset.i, 10)]);
+    const useSummary = document.getElementById('wt-prop-summary')?.checked;
+
+    if (defs.length) {
+      const rows = defs.map((d, i) => {
+        const room = w.rooms.find(r => r.room_name.toLowerCase() === String(d.area).toLowerCase());
+        return {
+          walkthrough_id: w.current.id,
+          agent_id: uid,
+          room_id: room ? room.id : null,
+          area: d.area || 'Unspecified',
+          item: d.item,
+          severity: d.severity || 'should_fix',
+          est_cost_band: d.est_cost_band || 'unknown',
+          // Something the seller told him stays VISIBLE to them. Hiding it would
+          // keep it out of the one place they can confirm or correct it, which
+          // is the opposite of what the review loop is for. The "they said this"
+          // flag is a prompt to go and look at it, not a reason to bury it.
+          recommendation: d.recommendation || null,
+          seller_visible: true,
+          sort_order: w.defects.length + i
+        };
+      });
+      const { error } = await db.from('walkthrough_deficiencies').insert(rows);
+      if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
+    }
+
+    // Notes and the summary are the agent's own text, so they go to the two
+    // fields he already edits rather than anywhere new.
+    const patch = { transcript_processed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    if (notes.length) {
+      const block = notes.map(n => `${n.area}: ${n.note}`).join('\n');
+      patch.agent_notes = (w.current.agent_notes ? w.current.agent_notes + '\n\n' : '') + block;
+    }
+    if (useSummary && p.summary) {
+      patch.summary = (w.current.summary ? w.current.summary + '\n\n' : '') + p.summary;
+    }
+    const { error: uErr } = await db.from('walkthroughs').update(patch).eq('id', w.current.id);
+    if (uErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + uErr.message; } return; }
+
+    App.closeModal();
+    App.toast(`📝 ${defs.length} deficienc${defs.length === 1 ? 'y' : 'ies'} and ${notes.length} note${notes.length === 1 ? '' : 's'} saved`, 'var(--green)');
+    w.open(w.current.id);
   },
 
   // ── Reading a document ────────────────────────────────────────────────────
