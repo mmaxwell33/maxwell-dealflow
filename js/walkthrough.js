@@ -689,6 +689,15 @@ const Walkthrough = {
     App.openModal(`
       <div class="modal-title">${d ? '✏️ Edit deficiency' : '🔧 Add deficiency'}</div>
 
+      <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" id="wt-mic" onclick="Walkthrough.micToggle()">🎤 Say the problem</button>
+        </div>
+        <div id="wt-mic-txt" style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">
+          Say it like: kitchen, cracked tile behind the stove, must fix, about five hundred, replace and regrout.
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Where *</label>
         <select class="form-input form-select" id="wt-d-area" onchange="Walkthrough.refreshItemChips()">${areaOpts}</select>
@@ -745,6 +754,7 @@ const Walkthrough = {
       <div id="wt-d-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
 
+    Walkthrough._micTarget = 'defect';
     Walkthrough.refreshItemChips();
     // Only a NEW deficiency gets the draft treatment. An edit already shows the
     // saved values, and restoring a stale draft over them would lose real data.
@@ -1108,6 +1118,7 @@ const Walkthrough = {
       <div id="wt-r-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
 
+    Walkthrough._micTarget = 'room';
     if (!r) Walkthrough.watchDraft('room',
       ['wt-r-name','wt-r-type','wt-r-lf','wt-r-li','wt-r-wf','wt-r-wi','wt-r-src','wt-r-cond','wt-r-floor','wt-r-note'],
       'wt-r-draft');
@@ -1290,6 +1301,7 @@ const Walkthrough = {
       return;
     }
     if (w._rec) { w._rec.stop(); return; }   // second tap stops it
+    const target = w._micTarget || 'room';
 
     const rec = new SR();
     rec.lang = 'en-CA';
@@ -1299,7 +1311,9 @@ const Walkthrough = {
     w._rec = rec;
 
     if (btn) { btn.textContent = '⏹ Listening, tap to stop'; btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
-    if (out) { out.style.color = 'var(--text2)'; out.textContent = 'Say it like: primary bedroom fourteen six by eleven three, hardwood, good'; }
+    if (out) { out.style.color = 'var(--text2)'; out.textContent = target === 'defect'
+      ? 'Say it like: kitchen, cracked tile behind the stove, must fix, about five hundred, replace and regrout'
+      : 'Say it like: primary bedroom fourteen six by eleven three, hardwood, good'; }
 
     rec.onresult = (e) => {
       let text = '';
@@ -1307,7 +1321,10 @@ const Walkthrough = {
       if (out) { out.style.color = 'var(--text1)'; out.textContent = '“' + text.trim() + '”'; }
       // Only fill on a final result. Filling on interim makes the fields
       // flicker through half-heard numbers while he is still talking.
-      if (e.results[e.results.length - 1].isFinal) w.applyRoomSpeech(text);
+      if (e.results[e.results.length - 1].isFinal) {
+        if (target === 'defect') w.applyDefectSpeech(text);
+        else w.applyRoomSpeech(text);
+      }
     };
     rec.onerror = (e) => {
       if (out) { out.style.color = 'var(--red)'; out.textContent = e.error === 'not-allowed'
@@ -1316,7 +1333,7 @@ const Walkthrough = {
     };
     rec.onend = () => {
       w._rec = null;
-      if (btn) { btn.textContent = '🎤 Say the room'; btn.style.borderColor = ''; btn.style.color = ''; }
+      if (btn) { btn.textContent = target === 'defect' ? '🎤 Say the problem' : '🎤 Say the room'; btn.style.borderColor = ''; btn.style.color = ''; }
     };
 
     try { rec.start(); } catch (e) { w._rec = null; }
@@ -1793,6 +1810,25 @@ const Walkthrough = {
           required: ['area', 'item', 'severity', 'est_cost_band', 'recommendation', 'said_by_seller']
         }
       },
+      rooms: {
+        type: 'array',
+        description: 'Rooms whose SIZE was actually stated aloud, or whose flooring or condition was described. Empty if none were. Never infer a dimension that was not spoken.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            room_name: { type: 'string', description: 'The room as named in the conversation, e.g. "Kitchen", "Primary bedroom".' },
+            length_ft: { type: 'string', description: 'Whole feet, digits only. Empty unless a size was actually said.' },
+            length_in: { type: 'string', description: 'Inches 0 to 11, digits only. Empty if no length was said.' },
+            width_ft:  { type: 'string', description: 'Whole feet, digits only. Empty unless a size was actually said.' },
+            width_in:  { type: 'string', description: 'Inches 0 to 11, digits only. Empty if no width was said.' },
+            flooring:  { type: 'string', description: 'Flooring if it was described, e.g. "Hardwood". Empty otherwise.' },
+            condition: { type: 'string', enum: ['excellent', 'good', 'fair', 'needs work', ''],
+              description: 'Only if the condition of the room itself was described. Empty otherwise.' }
+          },
+          required: ['room_name', 'length_ft', 'length_in', 'width_ft', 'width_in', 'flooring', 'condition']
+        }
+      },
       notes: {
         type: 'array',
         description: 'Things worth recording that are not repairs: history, what stays with the house, what the seller wants, dates. Empty if none.',
@@ -1807,7 +1843,7 @@ const Walkthrough = {
         }
       }
     },
-    required: ['summary', 'deficiencies', 'notes']
+    required: ['summary', 'deficiencies', 'rooms', 'notes']
   },
 
   async processTranscript() {
@@ -1875,11 +1911,34 @@ const Walkthrough = {
         </label>`;
     }).join('');
 
+    const rooms = (p.rooms || []).filter(r => String(r.room_name || '').trim());
+    const roomRows = rooms.map((r, i) => {
+      const lf = parseInt(r.length_ft, 10), wf = parseInt(r.width_ft, 10);
+      const dim = (!isNaN(lf) && !isNaN(wf))
+        ? `${w.ftIn(w.toFt(lf, r.length_in))} × ${w.ftIn(w.toFt(wf, r.width_in))}`
+        : 'no size was said';
+      const dupe = w.rooms.some(x => x.room_name.toLowerCase() === String(r.room_name).toLowerCase());
+      return `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+          <input type="checkbox" class="wt-prop-room" data-i="${i}" ${dupe ? '' : 'checked'} style="width:16px;height:16px;flex-shrink:0;margin-top:3px;">
+          <span style="flex:1;min-width:0;">
+            <span style="font-weight:700;font-size:13.5px;">${w.esc(r.room_name)}</span>
+            <span style="display:block;font-size:12px;color:var(--text2);margin-top:2px;">
+              ${w.esc(dim)}${r.flooring ? ' · ' + w.esc(r.flooring) : ''}${r.condition ? ' · ' + w.esc(r.condition) : ''}${dupe ? ' · <span style="color:var(--yellow);">already added</span>' : ''}
+            </span>
+          </span>
+        </label>`;
+    }).join('');
+
     const noteRows = notes.map((n, i) => `
       <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
         <input type="checkbox" class="wt-prop-note" data-i="${i}" checked style="width:16px;height:16px;flex-shrink:0;margin-top:3px;">
         <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.5;">
           <strong>${w.esc(n.area)}</strong> ${w.esc(n.note)}
+          <span style="display:block;font-size:11px;color:var(--text2);margin-top:2px;">
+            ${w.rooms.some(x => x.room_name.toLowerCase() === String(n.area).toLowerCase())
+              ? 'goes on that room' : 'goes in your private notes'}
+          </span>
         </span>
       </label>`).join('');
 
@@ -1893,6 +1952,10 @@ const Walkthrough = {
         <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:2px;">DEFICIENCIES (${defs.length})</div>
         <div style="max-height:34vh;overflow-y:auto;margin-bottom:14px;">${defRows}</div>` :
         `<div style="font-size:13px;color:var(--text2);margin-bottom:14px;">No repairs were clearly discussed.</div>`}
+
+      ${rooms.length ? `
+        <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:2px;">ROOMS (${rooms.length})</div>
+        <div style="max-height:24vh;overflow-y:auto;margin-bottom:14px;">${roomRows}</div>` : ''}
 
       ${notes.length ? `
         <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:2px;">NOTES (${notes.length})</div>
@@ -1922,7 +1985,33 @@ const Walkthrough = {
       .filter(c => c.checked).map(c => p.deficiencies[parseInt(c.dataset.i, 10)]);
     const notes = [...document.querySelectorAll('.wt-prop-note')]
       .filter(c => c.checked).map(c => p.notes[parseInt(c.dataset.i, 10)]);
+    const newRooms = [...document.querySelectorAll('.wt-prop-room')]
+      .filter(c => c.checked).map(c => p.rooms[parseInt(c.dataset.i, 10)]);
     const useSummary = document.getElementById('wt-prop-summary')?.checked;
+
+    // Rooms go in FIRST, so a deficiency or a note that belongs to a room he
+    // only described out loud can still be attached to it below.
+    if (newRooms.length) {
+      const rows = newRooms.map((r, i) => ({
+        walkthrough_id: w.current.id,
+        agent_id: uid,
+        room_name: String(r.room_name).trim(),
+        length_ft: w.toFt(r.length_ft, r.length_in),
+        width_ft:  w.toFt(r.width_ft,  r.width_in),
+        // His own word, standing in the room. Not an instrument, and not an old
+        // MLS sheet, which are the two things dimension_source exists to tell
+        // apart from this.
+        dimension_source: 'typed',
+        flooring:  r.flooring || null,
+        condition: r.condition || null,
+        sort_order: w.rooms.length + i
+      }));
+      const { error } = await db.from('walkthrough_rooms').insert(rows);
+      if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
+      const { data } = await db.from('walkthrough_rooms')
+        .select('*').eq('walkthrough_id', w.current.id).order('sort_order');
+      w.rooms = data || [];
+    }
 
     if (defs.length) {
       const rows = defs.map((d, i) => {
@@ -1950,10 +2039,24 @@ const Walkthrough = {
 
     // Notes and the summary are the agent's own text, so they go to the two
     // fields he already edits rather than anywhere new.
+    // A note about the kitchen belongs ON the kitchen, not in a single block at
+    // the bottom of the walkthrough. Anything that does not name a room he has
+    // added still falls back to the private notes rather than being dropped.
     const patch = { transcript_processed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    if (notes.length) {
-      const block = notes.map(n => `${n.area}: ${n.note}`).join('\n');
-      patch.agent_notes = (w.current.agent_notes ? w.current.agent_notes + '\n\n' : '') + block;
+    const loose = [];
+    let placed = 0;
+    for (const n of notes) {
+      const room = w.rooms.find(x => x.room_name.toLowerCase() === String(n.area).toLowerCase());
+      if (room) {
+        const merged = (room.note ? room.note + '\n' : '') + n.note;
+        const { error } = await db.from('walkthrough_rooms')
+          .update({ note: merged, updated_at: new Date().toISOString() }).eq('id', room.id);
+        if (!error) { room.note = merged; placed++; continue; }
+      }
+      loose.push(`${n.area}: ${n.note}`);
+    }
+    if (loose.length) {
+      patch.agent_notes = (w.current.agent_notes ? w.current.agent_notes + '\n\n' : '') + loose.join('\n');
     }
     if (useSummary && p.summary) {
       patch.summary = (w.current.summary ? w.current.summary + '\n\n' : '') + p.summary;
@@ -1962,8 +2065,84 @@ const Walkthrough = {
     if (uErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + uErr.message; } return; }
 
     App.closeModal();
-    App.toast(`📝 ${defs.length} deficienc${defs.length === 1 ? 'y' : 'ies'} and ${notes.length} note${notes.length === 1 ? '' : 's'} saved`, 'var(--green)');
+    const bits = [];
+    if (newRooms.length) bits.push(`${newRooms.length} room${newRooms.length === 1 ? '' : 's'}`);
+    if (defs.length)     bits.push(`${defs.length} deficienc${defs.length === 1 ? 'y' : 'ies'}`);
+    if (notes.length)    bits.push(`${notes.length} note${notes.length === 1 ? '' : 's'}${placed ? ` (${placed} onto rooms)` : ''}`);
+    App.toast(`📝 Saved ${bits.join(', ') || 'nothing'}`, 'var(--green)');
     w.open(w.current.id);
+  },
+
+  // A spoken deficiency is a sentence, not a pattern: "the tile behind the stove
+  // is cracked, that wants doing before photos, couple hundred at most" has no
+  // shape a regular expression can find. So unlike the room form, this one asks
+  // the reader. If that fails, the words still land in the item field rather
+  // than being thrown away, which matters in a basement with no signal.
+  DEFECT_SPEECH_SCHEMA: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      area:           { type: 'string', description: 'The room or part of the house, if said. Empty otherwise.' },
+      item:           { type: 'string', description: 'What needs attention, as a short phrase.' },
+      severity:       { type: 'string', enum: ['cosmetic', 'should_fix', 'must_fix', 'safety', ''],
+        description: 'Only if the seriousness was actually expressed. Empty otherwise.' },
+      est_cost_band:  { type: 'string', enum: ['under_500', '500_2k', '2k_10k', 'over_10k', 'unknown', ''],
+        description: 'Only if a cost was actually mentioned. Empty otherwise. Never estimate one that was not said.' },
+      recommendation: { type: 'string', description: 'What was said should be done about it. Empty if nothing was said.' }
+    },
+    required: ['area', 'item', 'severity', 'est_cost_band', 'recommendation']
+  },
+
+  async applyDefectSpeech(text) {
+    const w = Walkthrough;
+    const out = document.getElementById('wt-mic-txt');
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+
+    if (out) { out.style.color = 'var(--text2)'; out.textContent = 'Working out what you said…'; }
+    try {
+      const { data, error } = await db.functions.invoke('claude-chat', {
+        body: {
+          system:
+            'You turn one spoken sentence from a real estate agent standing in a house into a single ' +
+            'deficiency record. Report only what was said. Never invent a cost, a severity or a ' +
+            'recommendation that was not expressed, and leave those fields empty instead. ' +
+            'The property is in Newfoundland and Labrador, Canada.',
+          model: 'claude-opus-5',
+          max_tokens: 2000,
+          output_config: { effort: 'low', format: { type: 'json_schema', schema: w.DEFECT_SPEECH_SCHEMA } },
+          messages: [{ role: 'user', content: [{ type: 'text', text: `The agent said: "${text.trim()}"` }] }]
+        }
+      });
+      if (error) throw new Error(error.message || 'reader unreachable');
+      if (data?.error) throw new Error(data.error);
+      const d = MLSDrop.parse(data?.text);
+      if (!d) throw new Error('nothing readable came back');
+
+      // The area only moves if it names something the dropdown actually offers,
+      // so a mishearing cannot silently file a defect in the wrong room.
+      if (d.area) {
+        const sel = document.getElementById('wt-d-area');
+        const hit = [...(sel?.options || [])].find(o => o.value.toLowerCase() === String(d.area).toLowerCase());
+        if (hit) { sel.value = hit.value; w.refreshItemChips(); }
+      }
+      set('wt-d-item', d.item);
+      set('wt-d-rec', d.recommendation);
+      if (d.severity)      w.pickSev(d.severity);
+      if (d.est_cost_band) w.pickCost(d.est_cost_band);
+      w._draftSavers?.defect?.();
+
+      if (out) {
+        const got = [d.item, d.severity ? w.sevMeta(d.severity).label : '', d.est_cost_band ? w.costLabel(d.est_cost_band) : '']
+          .filter(Boolean);
+        out.style.color = 'var(--green)';
+        out.textContent = '✓ ' + got.join(' · ') + '. Check it and save.';
+      }
+    } catch (e) {
+      // Nothing is lost. The sentence goes in the box for him to tidy.
+      const item = document.getElementById('wt-d-item');
+      if (item && !item.value.trim()) { item.value = text.trim(); w._draftSavers?.defect?.(); }
+      if (out) { out.style.color = 'var(--yellow)'; out.textContent = 'Could not reach the reader, so I have put your words in the box instead.'; }
+    }
   },
 
   // ── Reading a document ────────────────────────────────────────────────────
