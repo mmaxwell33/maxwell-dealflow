@@ -88,6 +88,36 @@ const Walkthrough = {
     { v: 'unknown',   label: 'Get a quote' }
   ],
 
+  // Newfoundland housing stock, in roughly the order it comes up. "2 apartment"
+  // is the local term for a house with a second self-contained unit and is what
+  // a seller here will say at the door, so it is what the list says back to
+  // them. An in-law suite is deliberately separate from a 2 apartment: the
+  // suite is part of the family home, the apartment is income, and they are not
+  // priced, insured or financed the same way.
+  PROPERTY_TYPES: [
+    'Single family',
+    'Single family with in-law suite',
+    '2 apartment',
+    '3 apartment',
+    'Semi-detached',
+    'Row house / Townhouse',
+    'Condo / Apartment unit',
+    'Duplex',
+    'Mini home',
+    'Multi-unit (4 or more)',
+    'Land / Lot',
+    'Other'
+  ],
+
+  // A type saved before this list changed must still show as itself rather than
+  // silently reverting to "Not set" the next time the record is edited.
+  typeOptions(selected) {
+    const list = Walkthrough.PROPERTY_TYPES.slice();
+    if (selected && !list.includes(selected)) list.push(selected);
+    return list.map(t =>
+      `<option${selected === t ? ' selected' : ''}>${Walkthrough.esc(t)}</option>`).join('');
+  },
+
   CONDITIONS: ['excellent', 'good', 'fair', 'needs work'],
   FLOORING:   ['Hardwood', 'Engineered hardwood', 'Laminate', 'Vinyl plank', 'Tile', 'Carpet', 'Concrete', 'Mixed'],
   ROOM_TYPES: ['Kitchen', 'Living', 'Dining', 'Bedroom', 'Bathroom', 'Family', 'Office', 'Laundry', 'Basement', 'Storage', 'Other'],
@@ -266,8 +296,7 @@ const Walkthrough = {
           <label class="form-label">Property type</label>
           <select class="form-input form-select" id="wt-type">
             <option value="">Not set</option>
-            <option>Detached</option><option>Semi-detached</option>
-            <option>Townhouse</option><option>Condo</option><option>Other</option>
+            ${Walkthrough.typeOptions(null)}
           </select>
         </div>
         <div class="form-group">
@@ -809,7 +838,11 @@ const Walkthrough = {
       <div class="card" style="padding:16px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;">📐 Rooms (${w.rooms.length})</div>
-          ${locked ? '' : `<button class="btn btn-outline btn-sm" onclick="Walkthrough.roomModal()">＋ Add room</button>`}
+          ${locked ? '' : `
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" onclick="Walkthrough.pickPlan()">📄 Read a floor plan</button>
+            <button class="btn btn-outline btn-sm" onclick="Walkthrough.roomModal()">＋ Add room</button>
+          </div>`}
         </div>
         ${rows}
       </div>`;
@@ -827,6 +860,17 @@ const Walkthrough = {
 
     App.openModal(`
       <div class="modal-title">${r ? '✏️ Edit room' : '📐 Add room'}</div>
+
+      <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" id="wt-mic" onclick="Walkthrough.micToggle()">🎤 Say the room</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Walkthrough.pickMeter()">📷 Read a laser meter</button>
+        </div>
+        <div id="wt-mic-txt" style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">
+          Say it like: primary bedroom fourteen six by eleven three, hardwood, good.
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Room name *</label>
@@ -936,6 +980,435 @@ const Walkthrough = {
     await Walkthrough.reloadDefects();   // room_id went null on theirs
     Walkthrough.render();
     App.toast('Room removed', 'var(--text2)');
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // GETTING DIMENSIONS IN WITHOUT TYPING
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // WHAT IS NOT HERE, AND WHY: measuring a room from a photograph. A 2D image
+  // carries no scale, so a wall is 10 feet or 12 feet depending on where the
+  // camera stood, and nothing in the pixels resolves it. The iPhone Pro's LiDAR
+  // does resolve it, to about a centimetre, but Apple exposes that only to
+  // native apps through RoomPlan. Safari on iOS still publishes no WebXR AR or
+  // depth API in 2026, so a web app cannot reach the scanner at all. That is a
+  // door Apple has closed, not one we have failed to open.
+  //
+  // So the measuring stays where it is accurate (a tape, a laser, or Apple's
+  // own Measure app) and what is solved here is the part that was actually
+  // costing time: getting the number off the wall and into the record.
+  //
+  //   Voice        → say the room, it fills the form. Nothing to hold.
+  //   Floor plan   → read every room off a plan or an old MLS sheet at once.
+  //   Laser meter  → photograph the readout, it fills the two boxes.
+
+  NUMWORDS: {
+    zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+    eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+    fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+    nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50
+  },
+
+  // "fourteen six by eleven three" -> "14 6 by 11 3". Speech recognition hands
+  // back words for small numbers and digits for large ones, unpredictably, so
+  // everything is levelled to digits before any pattern is looked for.
+  normalizeNumbers(s) {
+    const W = Walkthrough.NUMWORDS;
+    const out = [];
+    let acc = null;
+    String(s).toLowerCase().replace(/,/g, ' ').split(/\s+/).forEach(tok => {
+      const key = tok.replace(/[^a-z0-9]/g, '');
+      if (key in W) {
+        const v = W[key];
+        // "twenty four" is one number; "twelve ten" is two.
+        if (acc !== null && acc >= 20 && acc % 10 === 0 && v < 10) { acc += v; }
+        else { if (acc !== null) out.push(String(acc)); acc = v; }
+      } else {
+        if (acc !== null) { out.push(String(acc)); acc = null; }
+        out.push(tok);
+      }
+    });
+    if (acc !== null) out.push(String(acc));
+    return out.join(' ');
+  },
+
+  // Pulls a room out of a spoken sentence. Everything is optional except that
+  // whatever IS found is filled and whatever is not is left alone, so a second
+  // pass can add the flooring without wiping the dimensions.
+  parseRoomSpeech(raw) {
+    const w = Walkthrough;
+    const norm = w.normalizeNumbers(raw);
+    // Units are noise once the numbers are in order: "14 foot 6" and "14 6"
+    // mean the same thing here.
+    const t = norm.replace(/\b(foot|feet|ft|inch|inches|in)\b/g, ' ')
+                  .replace(/\s+/g, ' ').trim();
+
+    const out = { raw: String(raw).trim() };
+
+    // "A [B] by C [D]" — the second number in each pair is inches when present.
+    const m = t.match(/(\d+)(?:\s+(\d+))?\s*(?:by|x|×)\s*(\d+)(?:\s+(\d+))?/);
+    if (m) {
+      let lf = parseInt(m[1], 10);
+      let li = m[2] ? parseInt(m[2], 10) : 0;
+      let nameEnd = m.index;
+
+      // "bedroom two eleven by ten" is bedroom NUMBER two, at 11 by 10. Read
+      // literally it is a room 2 feet 11 inches long, which no room is. So when
+      // two numbers are given and the first is 4 or less, it is a room number:
+      // it belongs to the name and the second number is the real length. A
+      // genuinely small space ("closet four by six") gives only one number
+      // before the "by", so this never fires on it.
+      if (m[2] && lf <= 4) {
+        nameEnd = m.index + m[1].length;
+        lf = li;
+        li = 0;
+      }
+
+      out.length_ft = lf;
+      out.length_in = li;
+      out.width_ft  = parseInt(m[3], 10);
+      out.width_in  = m[4] ? parseInt(m[4], 10) : 0;
+
+      // The room name is whatever was said before the numbers started.
+      const name = t.slice(0, nameEnd).replace(/\b(is|measures|measuring|the|a)\b/g, ' ')
+                    .replace(/\s+/g, ' ').trim();
+      if (name) out.room_name = name;
+    } else {
+      const name = t.replace(/\b(is|measures|measuring)\b/g, ' ').replace(/\s+/g, ' ').trim();
+      if (name && name.length < 40) out.room_name = name;
+    }
+
+    // Flooring and condition are matched against the lists the form already
+    // offers, so a spoken value always lands on a real option or is ignored.
+    const low = ' ' + String(raw).toLowerCase() + ' ';
+    const floor = w.FLOORING.find(f => low.includes(' ' + f.toLowerCase()));
+    if (floor) out.flooring = floor;
+    // Longest first so "needs work" is not shadowed by a partial match.
+    const cond = w.CONDITIONS.slice().sort((a, b) => b.length - a.length)
+                  .find(c => low.includes(' ' + c));
+    if (cond) out.condition = cond;
+
+    // Title case the name for the field, since recognition returns it lower.
+    if (out.room_name) {
+      out.room_name = out.room_name.charAt(0).toUpperCase() + out.room_name.slice(1);
+    }
+    return out;
+  },
+
+  // ── Voice ─────────────────────────────────────────────────────────────────
+  _rec: null,
+
+  micToggle() {
+    const w = Walkthrough;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btn = document.getElementById('wt-mic');
+    const out = document.getElementById('wt-mic-txt');
+
+    if (!SR) {
+      if (out) { out.style.color = 'var(--yellow)'; out.textContent = 'This browser will not do speech. Safari on the iPhone does.'; }
+      return;
+    }
+    if (w._rec) { w._rec.stop(); return; }   // second tap stops it
+
+    const rec = new SR();
+    rec.lang = 'en-CA';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    w._rec = rec;
+
+    if (btn) { btn.textContent = '⏹ Listening, tap to stop'; btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
+    if (out) { out.style.color = 'var(--text2)'; out.textContent = 'Say it like: primary bedroom fourteen six by eleven three, hardwood, good'; }
+
+    rec.onresult = (e) => {
+      let text = '';
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      if (out) { out.style.color = 'var(--text1)'; out.textContent = '“' + text.trim() + '”'; }
+      // Only fill on a final result. Filling on interim makes the fields
+      // flicker through half-heard numbers while he is still talking.
+      if (e.results[e.results.length - 1].isFinal) w.applyRoomSpeech(text);
+    };
+    rec.onerror = (e) => {
+      if (out) { out.style.color = 'var(--red)'; out.textContent = e.error === 'not-allowed'
+        ? 'Microphone blocked. Allow it for this site in Settings.'
+        : 'Did not catch that. Tap and try again.'; }
+    };
+    rec.onend = () => {
+      w._rec = null;
+      if (btn) { btn.textContent = '🎤 Say the room'; btn.style.borderColor = ''; btn.style.color = ''; }
+    };
+
+    try { rec.start(); } catch (e) { w._rec = null; }
+  },
+
+  applyRoomSpeech(text) {
+    const w = Walkthrough;
+    const p = w.parseRoomSpeech(text);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null && v !== '') el.value = v; };
+
+    if (p.room_name) set('wt-r-name', p.room_name);
+    if (p.length_ft !== undefined) {
+      set('wt-r-lf', p.length_ft); set('wt-r-li', p.length_in);
+      set('wt-r-wf', p.width_ft);  set('wt-r-wi', p.width_in);
+    }
+    if (p.flooring)  set('wt-r-floor', p.flooring);
+    if (p.condition) set('wt-r-cond', p.condition);
+
+    const out = document.getElementById('wt-mic-txt');
+    if (out) {
+      const got = [];
+      if (p.room_name) got.push(p.room_name);
+      if (p.length_ft !== undefined) got.push(`${w.ftIn(w.toFt(p.length_ft, p.length_in))} × ${w.ftIn(w.toFt(p.width_ft, p.width_in))}`);
+      if (p.flooring) got.push(p.flooring);
+      if (p.condition) got.push(p.condition);
+      out.style.color = got.length ? 'var(--green)' : 'var(--yellow)';
+      out.textContent = got.length
+        ? '✓ ' + got.join(' · ') + '. Check it and save.'
+        : 'Heard you, but nothing matched. Try: kitchen twelve by ten, tile, good.';
+    }
+  },
+
+  // ── Reading a document ────────────────────────────────────────────────────
+  // Same reader the MLS drop uses, so there is one extraction path in the app
+  // rather than two that drift apart. MLSDrop.toBase64 and MLSDrop.parse are
+  // reused directly for the same reason.
+
+  PLAN_SCHEMA: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      document_type: { type: 'string', enum: ['floor_plan', 'mls_listing_sheet', 'other'],
+        description: 'floor_plan for a drawn plan with room labels. mls_listing_sheet for a listing or property detail sheet carrying a room table. other for anything else at all, including a photograph of a room, a receipt, or a page too blurry to read.' },
+      document_description: { type: 'string',
+        description: 'When document_type is other, a short plain lower case description of what it actually appears to be, e.g. "a photo of a kitchen". Empty otherwise.' },
+      rooms: {
+        type: 'array',
+        description: 'Every room the document states dimensions for. Empty if none are stated.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            room_name: { type: 'string', description: 'The room as labelled, e.g. "Kitchen", "Primary bedroom". Include the level when the document gives one, e.g. "Basement rec room".' },
+            length_ft: { type: 'string', description: 'Whole feet, digits only. Convert from metres if the plan is metric. Empty if not stated.' },
+            length_in: { type: 'string', description: 'Inches 0 to 11, digits only. "0" when the measurement is whole feet. Empty if no length is stated.' },
+            width_ft:  { type: 'string', description: 'Whole feet, digits only. Empty if not stated.' },
+            width_in:  { type: 'string', description: 'Inches 0 to 11, digits only. Empty if no width is stated.' },
+            flooring:  { type: 'string', description: 'Flooring as stated, e.g. "Hardwood", "Tile". Empty if not stated.' }
+          },
+          required: ['room_name', 'length_ft', 'length_in', 'width_ft', 'width_in', 'flooring']
+        }
+      }
+    },
+    required: ['document_type', 'document_description', 'rooms']
+  },
+
+  METER_SCHEMA: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      reading_found: { type: 'string', enum: ['yes', 'no'],
+        description: 'yes only if a numeric distance reading is legible on a measuring device display in this photo.' },
+      description:   { type: 'string', description: 'When reading_found is no, a short plain lower case description of what the photo shows instead.' },
+      raw_reading:   { type: 'string', description: 'The reading exactly as it appears on the display, including units, e.g. "3.810 m" or "12 ft 6 in".' },
+      length_ft: { type: 'string', description: 'The first reading in whole feet, digits only, converted from metric if needed.' },
+      length_in: { type: 'string', description: 'Inches 0 to 11 for the first reading, digits only.' },
+      width_ft:  { type: 'string', description: 'A second reading if the display shows two, in whole feet. Empty if only one reading is shown.' },
+      width_in:  { type: 'string', description: 'Inches 0 to 11 for the second reading. Empty if only one reading is shown.' }
+    },
+    required: ['reading_found', 'description', 'raw_reading', 'length_ft', 'length_in', 'width_ft', 'width_in']
+  },
+
+  _reading: false,
+
+  // Shared call. Returns the parsed object or throws with something sayable.
+  async askClaude(file, schema, system, ask) {
+    const isPdf = file.type === 'application/pdf';
+    const b64 = await MLSDrop.toBase64(file);
+    const source = isPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+      : { type: 'image',    source: { type: 'base64', media_type: file.type, data: b64 } };
+
+    const { data, error } = await db.functions.invoke('claude-chat', {
+      body: {
+        system,
+        model: 'claude-opus-5',
+        max_tokens: 6000,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+        messages: [{ role: 'user', content: [source, { type: 'text', text: ask }] }]
+      }
+    });
+    if (error) throw new Error(error.message || 'The reader could not be reached');
+    if (data?.error) throw new Error(data.error);
+    const parsed = MLSDrop.parse(data?.text);
+    if (!parsed) throw new Error('The reader did not return anything readable');
+    return parsed;
+  },
+
+  // ── Floor plan or MLS sheet, every room at once ───────────────────────────
+  pickPlan() {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'application/pdf,image/*';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', async () => {
+      const f = inp.files?.[0];
+      inp.remove();
+      if (f) await Walkthrough.readPlan(f);
+    });
+    inp.click();
+  },
+
+  async readPlan(file) {
+    const w = Walkthrough;
+    if (w._reading) return;
+    if (file.size > 20 * 1024 * 1024) { App.toast('⚠️ That file is over 20 MB', 'var(--red)'); return; }
+    w._reading = true;
+    App.toast('Reading the plan. This takes a few seconds.', 'var(--accent2)');
+    try {
+      const parsed = await w.askClaude(file, w.PLAN_SCHEMA,
+        'You read residential floor plans and MLS listing sheets and return the room dimensions as JSON. ' +
+        'Read only what the document actually states. Never estimate a dimension from the drawing scale, ' +
+        'from the size of a room on the page, or from anything other than a number printed on the document. ' +
+        'If a room is drawn but carries no printed dimension, return it with empty dimensions rather than ' +
+        'a guess. The property is in Newfoundland and Labrador, Canada. ' +
+        'Before anything else decide whether this really is a floor plan or a listing sheet. If it is not, ' +
+        'set document_type to other, say what it appears to be, and return no rooms.',
+        'Read every room and its stated dimensions from this document.');
+
+      if (parsed.document_type === 'other') {
+        const what = String(parsed.document_description || '').trim();
+        App.toast(`⚠️ That is not a floor plan${what ? '. It looks like ' + what : ''}`, 'var(--red)');
+        return;
+      }
+      const rooms = (parsed.rooms || []).filter(r => String(r.room_name || '').trim());
+      if (!rooms.length) { App.toast('⚠️ No rooms with dimensions could be read off that', 'var(--yellow)'); return; }
+      w.planConfirm(rooms);
+    } catch (e) {
+      App.toast('⚠️ ' + (e.message || 'Could not read that'), 'var(--red)');
+    } finally {
+      w._reading = false;
+    }
+  },
+
+  // Nothing is written until he has looked at it. A plan read wrong is a whole
+  // set of wrong numbers rather than one, so the confirmation matters more here
+  // than anywhere else in the module.
+  planConfirm(rooms) {
+    const w = Walkthrough;
+    w._planRooms = rooms;
+    const rows = rooms.map((r, i) => {
+      const lf = parseInt(r.length_ft, 10), wf = parseInt(r.width_ft, 10);
+      const dim = (!isNaN(lf) && !isNaN(wf))
+        ? `${w.ftIn(w.toFt(lf, r.length_in))} × ${w.ftIn(w.toFt(wf, r.width_in))}`
+        : '<span style="color:var(--yellow);">no dimension on the plan</span>';
+      const dupe = w.rooms.some(x => x.room_name.toLowerCase() === String(r.room_name).toLowerCase());
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+          <input type="checkbox" class="wt-plan-row" data-i="${i}" ${dupe ? '' : 'checked'} style="width:16px;height:16px;flex-shrink:0;">
+          <span style="flex:1;min-width:0;">
+            <span style="font-weight:700;font-size:13.5px;">${w.esc(r.room_name)}</span>
+            <span style="display:block;font-size:12px;color:var(--text2);">${dim}${r.flooring ? ' · ' + w.esc(r.flooring) : ''}${dupe ? ' · <span style="color:var(--yellow);">already added</span>' : ''}</span>
+          </span>
+        </label>`;
+    }).join('');
+
+    App.openModal(`
+      <div class="modal-title">📄 ${rooms.length} room${rooms.length === 1 ? '' : 's'} read off the plan</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;">
+        These get saved as coming from the sheet, not measured by you, so a carried-over number is never mistaken for one you took yourself. Untick anything wrong.
+      </div>
+      <div style="max-height:44vh;overflow-y:auto;">${rows}</div>
+      <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="Walkthrough.addPlanRooms()">Add the ticked rooms</button>
+    `);
+  },
+
+  async addPlanRooms() {
+    const w = Walkthrough;
+    const picked = [...document.querySelectorAll('.wt-plan-row')]
+      .filter(c => c.checked).map(c => w._planRooms[parseInt(c.dataset.i, 10)]);
+    if (!picked.length) { App.closeModal(); return; }
+
+    const uid = await w.uid();
+    const rows = picked.map((r, i) => ({
+      walkthrough_id: w.current.id,
+      agent_id: uid,
+      room_name: String(r.room_name).trim(),
+      length_ft: w.toFt(r.length_ft, r.length_in),
+      width_ft:  w.toFt(r.width_ft,  r.width_in),
+      dimension_source: 'mls_sheet',
+      flooring: r.flooring || null,
+      sort_order: w.rooms.length + i
+    }));
+
+    const { error } = await db.from('walkthrough_rooms').insert(rows);
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+
+    const { data } = await db.from('walkthrough_rooms')
+      .select('*').eq('walkthrough_id', w.current.id).order('sort_order');
+    w.rooms = data || [];
+    App.closeModal();
+    w.render();
+    App.toast(`📄 ${rows.length} room${rows.length === 1 ? '' : 's'} added from the plan`, 'var(--green)');
+  },
+
+  // ── Laser meter readout ───────────────────────────────────────────────────
+  pickMeter() {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', async () => {
+      const f = inp.files?.[0];
+      inp.remove();
+      if (f) await Walkthrough.readMeter(f);
+    });
+    inp.click();
+  },
+
+  async readMeter(file) {
+    const w = Walkthrough;
+    const note = document.getElementById('wt-mic-txt');
+    if (w._reading) return;
+    w._reading = true;
+    if (note) { note.style.color = 'var(--text2)'; note.textContent = 'Reading the display…'; }
+    try {
+      // Compressed first: a full resolution phone photo of a small LCD is
+      // several megabytes of mostly wall.
+      const blob = await w.compress(file);
+      const shot = new File([blob], 'meter.jpg', { type: 'image/jpeg' });
+
+      const parsed = await w.askClaude(shot, w.METER_SCHEMA,
+        'You read the display of a laser distance meter, a tape measure app, or any measuring device, ' +
+        'and return the distance as JSON. Read only the digits actually visible on the display. ' +
+        'Never estimate a distance from the photograph itself. If the display is not legible, or the ' +
+        'photo does not show a measuring device at all, set reading_found to no and say what it shows. ' +
+        'Convert metric readings to feet and inches, rounding inches to the nearest whole inch.',
+        'What distance is on this display?');
+
+      if (parsed.reading_found !== 'yes') {
+        const what = String(parsed.description || '').trim();
+        if (note) { note.style.color = 'var(--yellow)'; note.textContent = `No reading visible${what ? '. It looks like ' + what : ''}.`; }
+        return;
+      }
+
+      const set = (id, v) => { const el = document.getElementById(id); if (el && v !== '' && v !== undefined && v !== null) el.value = v; };
+      set('wt-r-lf', parsed.length_ft); set('wt-r-li', parsed.length_in || 0);
+      set('wt-r-wf', parsed.width_ft);  set('wt-r-wi', parsed.width_in || 0);
+      // It came off a real instrument, so the record should say measured.
+      const src = document.getElementById('wt-r-src');
+      if (src) src.value = 'measured';
+
+      if (note) {
+        note.style.color = 'var(--green)';
+        note.textContent = `✓ Read ${parsed.raw_reading || ''}. Check it before you save.`;
+      }
+    } catch (e) {
+      if (note) { note.style.color = 'var(--red)'; note.textContent = '⚠️ ' + (e.message || 'Could not read that'); }
+    } finally {
+      w._reading = false;
+    }
   },
 
   // ── Systems ───────────────────────────────────────────────────────────────
@@ -1065,7 +1538,7 @@ const Walkthrough = {
           <label class="form-label">Property type</label>
           <select class="form-input form-select" id="wt-h-type">
             <option value="">Not set</option>
-            ${['Detached','Semi-detached','Townhouse','Condo','Other'].map(t => `<option${wt.property_type === t ? ' selected' : ''}>${t}</option>`).join('')}
+            ${w.typeOptions(wt.property_type)}
           </select>
         </div>
         <div class="form-group">
