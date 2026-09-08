@@ -1981,7 +1981,12 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
     // for the free consultation, positions Maxwell as the marketing expert,
     // and signs off as eXp Realty. Signatures (disclosures, listing agreement,
     // etc.) are handled outside DealFlow — this email is purely the warm intro.
-    seller_welcome_email: (client, intake, agent) => {
+    // `returning` changes only the opening. Everything below it, the five step
+    // plan and the property recap, is what a seller actually needs to read and
+    // is identical whether or not they have sold with him before. A returning
+    // seller was getting a separate, thinner letter that omitted the plan,
+    // which is the one part of this email that does any work.
+    seller_welcome_email: (client, intake, agent, returning = false) => {
       const firstName    = client.full_name?.split(' ')[0] || client.first_name || 'there';
       const agentName    = agent?.full_name || agent?.name || 'Maxwell Delali Midodzi';
       const agentPhone   = agent?.phone   || '(709) 325-0545';
@@ -2002,7 +2007,9 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
         : '';
 
       const steps = [
-        { n:1, color:'#4f46e5', title:'Personal Call',             desc:'I\'ll call you within 24 hours to introduce myself and book the consultation' },
+        { n:1, color:'#4f46e5', title:'Personal Call',             desc: returning
+            ? 'I\'ll call you within 24 hours to book the consultation'
+            : 'I\'ll call you within 24 hours to introduce myself and book the consultation' },
         { n:2, color:'#059669', title:'Free Consultation',         desc:'30–45 minutes (in person or Zoom) to walk through your home and your goals' },
         { n:3, color:'#d97706', title:'Comparative Market Analysis', desc:'A full report on comparable sales so we price your home right from day one' },
         { n:4, color:'#7c3aed', title:'Marketing Plan',            desc:'Professional photos, MLS exposure, social media, and staging guidance' },
@@ -2011,8 +2018,11 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
-        <p>Thanks for reaching out about selling your home. I'm <strong>${agentName}</strong> with eXp Realty, and I'm looking forward to helping you through this.</p>
-        <p>I'll <strong>personally call you within 24 hours</strong> to introduce myself and book your free consultation at a time that works for you.</p>
+        ${returning
+          ? `<p>Welcome back, and good to have you again. Thank you for filling in the form about selling.</p>
+             <p>I'll <strong>call you within 24 hours</strong> to book your consultation at a time that works for you.</p>`
+          : `<p>Thanks for reaching out about selling your home. I'm <strong>${agentName}</strong> with eXp Realty, and I'm looking forward to helping you through this.</p>
+             <p>I'll <strong>personally call you within 24 hours</strong> to introduce myself and book your free consultation at a time that works for you.</p>`}
         ${propLines.length ? `<p style="margin-top:18px;"><strong>Here's what you told me about your property:</strong></p><div class="prop-box">${propertyHTML}</div>` : ''}
         <p><strong>Here's what happens next:</strong></p>
         <div>
@@ -2026,13 +2036,18 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
       </body></html>`;
 
       const plainText = `Hi ${firstName},
+${returning
+? `
+Welcome back, and good to have you again. Thank you for filling in the form about selling.
 
+I'll call you within 24 hours to book your consultation at a time that works for you.`
+: `
 Thanks for reaching out about selling your home. I'm ${agentName} with eXp Realty, and I'm looking forward to helping you through this.
 
-I'll personally call you within 24 hours to introduce myself and book your free consultation at a time that works for you.
+I'll personally call you within 24 hours to introduce myself and book your free consultation at a time that works for you.`}
 ${propAddr ? `\nProperty on file: ${propAddr}${timeline ? ` (timeline: ${timeline})` : ''}\n` : ''}
 Here's what happens next:
-1. Personal Call — I'll call you within 24 hours to introduce myself and book the consultation
+1. Personal Call — ${returning ? "I'll call you within 24 hours to book the consultation" : "I'll call you within 24 hours to introduce myself and book the consultation"}
 2. Free Consultation — 30–45 minutes (in person or Zoom) to walk through your home and your goals
 3. Comparative Market Analysis — a full report on comparable sales so we price your home right from day one
 4. Marketing Plan — professional photos, MLS exposure, social media, and staging guidance
@@ -2500,7 +2515,24 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   // A returning client's enquiry, acknowledged. Not a welcome: see the template.
   async onReturningClient(client, intake) {
     const agent = currentAgent;
-    const tmpl = Notify.templates.returning_client_note(client, intake, agent);
+    const r = intake || {};
+    const selling = r.intake_type === 'seller' || !!(r.property_address || r.sell_timeline);
+
+    // A returning SELLER gets the real seller letter with the five step plan,
+    // opened as "welcome back". That plan is the answer to "what happens next",
+    // and withholding it from someone just because they have sold with him
+    // before made the better email the one the new stranger received.
+    if (selling) {
+      const tmpl = Notify.templates.seller_welcome_email(client, r, agent, true);
+      await Notify.queue(
+        'Seller Welcome Email',
+        client.id, client.full_name, client.email,
+        tmpl.subject, tmpl.body, null, tmpl.html
+      );
+      return;
+    }
+
+    const tmpl = Notify.templates.returning_client_note(client, r, agent);
     await Notify.queue(
       'Returning Client Note',
       client.id, client.full_name, client.email,
