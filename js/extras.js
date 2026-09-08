@@ -792,6 +792,28 @@ const FormResponses = {
       }
     } catch (e) { /* walkthroughs not migrated yet */ }
 
+    // What has actually been written to these people, read from the queue
+    // rather than assumed. The returning-client path (doAttach) sends nothing
+    // at all, so a card that claimed a letter was waiting was lying about the
+    // one case it mattered in.
+    FormResponses._mailByEmail = {};
+    try {
+      const emails = data.map(x => (x.email || '').toLowerCase()).filter(Boolean);
+      if (emails.length) {
+        const { data: q } = await db.from('approval_queue')
+          .select('client_email, approval_type, status, created_at')
+          .eq('agent_id', currentAgent.id)
+          .in('client_email', emails)
+          .order('created_at', { ascending: false });
+        (q || []).forEach(row => {
+          const t = (row.approval_type || '').toLowerCase();
+          if (!/welcome|returning client/.test(t)) return;
+          const k = (row.client_email || '').toLowerCase();
+          if (!FormResponses._mailByEmail[k]) FormResponses._mailByEmail[k] = row;
+        });
+      }
+    } catch (e) { /* never block the screen for this */ }
+
     // Pull broker-referral state so a lender lead the broker has already picked
     // up (or you've already sent) shows as handled instead of nagging you to
     // send it again. Whoever acts first settles it for both sides. Best-effort.
@@ -1438,10 +1460,22 @@ const FormResponses = {
   _nextStepsHTML(r, isSeller) {
     const cid = r.client_id || r.matched_client_id;
     const esc = s => App.escAttr(s || '');
-    const done = [
-      '<span style="white-space:nowrap;">\u2713 Added to clients</span>',
-      '<span style="white-space:nowrap;">\u2713 Welcome letter queued in Approvals</span>'
-    ].join('<span style="color:var(--text3);"> \u00b7 </span>');
+    const mail = (FormResponses._mailByEmail || {})[(r.email || '').toLowerCase()];
+    const bits = ['<span style="white-space:nowrap;">\u2713 Added to clients</span>'];
+    if (mail) {
+      const st = (mail.status || '').toLowerCase();
+      // A failure does not get a tick in front of it.
+      bits.push(st === 'failed'
+        ? '<span style="white-space:nowrap;color:var(--red);">\u26A0 Letter failed to send</span>'
+        : '<span style="white-space:nowrap;">\u2713 ' + (
+            st === 'pending' ? 'Letter waiting in Approvals'
+            : (st === 'approved' || st === 'sent') ? 'Letter sent'
+            : 'Letter ' + App.esc(mail.status || '')
+          ) + '</span>');
+    } else {
+      bits.push('<span style="white-space:nowrap;color:var(--yellow);">Nothing written to them yet</span>');
+    }
+    const done = bits.join('<span style="color:var(--text3);"> \u00b7 </span>');
 
     let next = '';
     if (isSeller) {
@@ -1461,10 +1495,25 @@ const FormResponses = {
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.6;">${done}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           ${next}
+          ${(!mail && cid) ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.sendReturningNote('${r.id}')">\uD83D\uDCE7 Write to them</button>` : ''}
           ${cid ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.openClientRecord('${esc(r.full_name)}')">\uD83D\uDC64 Open their record</button>` : ''}
           <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);margin-left:auto;" title="More actions" onclick="FormResponses.openMenu('${r.id}')">\u22EE</button>
         </div>
       </div>`;
+  },
+
+  // Queues the returning-client note. Goes to Approvals like everything else,
+  // so he reads it before they do.
+  async sendReturningNote(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    const cid = r && (r.client_id || r.matched_client_id);
+    if (!r || !cid) { App.toast('⚠️ Add them as a client first', 'var(--yellow)'); return; }
+    const { data: c, error } = await db.from('clients')
+      .select('id, full_name, email').eq('id', cid).single();
+    if (error || !c) { App.toast('⚠️ Could not find their client record', 'var(--red)'); return; }
+    if (!c.email) { App.toast('⚠️ No email address on their record', 'var(--red)'); return; }
+    await Notify.onReturningClient(c, r);
+    FormResponses.load();
   },
 
   // Jumps to the client list with their name already in the search box, which

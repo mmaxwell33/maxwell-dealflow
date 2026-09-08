@@ -1201,6 +1201,47 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
+    // Someone who has already bought or sold with him, coming back through the
+    // intake form. A "welcome" is the wrong letter for them: they are not new,
+    // and being greeted as a stranger by someone you spent three months with
+    // reads worse than silence. This says the two things that are actually
+    // true, that he remembers them and that he knows what they need next.
+    returning_client_note: (client, intake, agent) => {
+      const first = client.full_name?.split(' ')[0] || 'there';
+      const selling = intake?.intake_type === 'seller';
+      const addr = intake?.property_address;
+      const NOTICE = `\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      return {
+        subject: selling
+          ? `Good to hear from you again${addr ? `, about ${addr}` : ''}`
+          : `Good to hear from you again`,
+        body: selling
+          ? `Hi ${first},
+
+Good to hear from you, and thank you for filling in the form.
+
+So you are looking to sell${addr ? ` ${addr}` : ''}. The first thing I would like to do is come and walk through the house with you. That visit is where we work out what is worth doing before it goes on the market, what it should be priced at, and what the timeline looks like. It usually takes an hour and there is no commitment attached to it.
+
+I will be in touch shortly to find a time that suits you. If there is a particular day or evening that works best, just reply and let me know.
+
+It is good to be working with you again.
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+          : `Hi ${first},
+
+Good to hear from you, and thank you for filling in the form.
+
+I have everything you sent through and I am already looking at what is available that fits. I will come back to you shortly with anything worth seeing, and we can get out and view whatever catches your eye.
+
+If anything changes in what you are looking for, just reply and tell me.
+
+It is good to be working with you again.
+
+${EmailFormat.signaturePlain(agent)}${NOTICE}`
+      };
+    },
+
     // The pre-listing consultation, sent for the seller to check. Short on
     // purpose: the record itself lives on the review page, and an email that
     // restates it gives them two versions to disagree with. The one thing this
@@ -2427,6 +2468,17 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       'Seller Welcome Email',
       client.id, client.full_name, client.email,
       tmpl.subject, tmpl.body, null, tmpl.html
+    );
+  },
+
+  // A returning client's enquiry, acknowledged. Not a welcome: see the template.
+  async onReturningClient(client, intake) {
+    const agent = currentAgent;
+    const tmpl = Notify.templates.returning_client_note(client, intake, agent);
+    await Notify.queue(
+      'Returning Client Note',
+      client.id, client.full_name, client.email,
+      tmpl.subject, tmpl.body
     );
   },
 
