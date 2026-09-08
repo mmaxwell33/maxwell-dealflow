@@ -1122,8 +1122,29 @@ async function submitIntake() {
         // Names the form in the subject line, so a full buyer intake stops
         // arriving looking like a one-line website contact note.
         source:  'buyer intake form',
-        message: 'BUYER INTAKE completed' + (window.__isReturning ? ' by a RETURNING client' : '') +
-                 '. Check Form Responses. If it is not there, the submission was stored but misrouted, tell your developer.'
+        // What they actually said, not just that they said something. An alert
+        // reading only "BUYER INTAKE completed" tells you to go and look, which
+        // is the work the alert was supposed to save. Empty answers are left
+        // out rather than sent as blanks.
+        message: (function () {
+          var money = function (v) {
+            var n = Number(String(v).replace(/[^0-9.]/g, ''));
+            return isFinite(n) && n > 0 ? '$' + n.toLocaleString('en-CA') : null;
+          };
+          var bits = [
+            payload.budget_max      ? 'Budget up to ' + money(payload.budget_max) : null,
+            payload.bedrooms        ? payload.bedrooms + '+ bedrooms'             : null,
+            payload.preferred_areas ? 'Areas: ' + payload.preferred_areas         : null,
+            payload.timeline        ? 'Timeline: ' + payload.timeline             : null,
+            payload.preapproval     ? 'Pre-approval: ' + payload.preapproval      : null,
+            payload.property_types  ? 'Type: ' + payload.property_types           : null,
+            payload.must_haves      ? 'Must-haves: ' + payload.must_haves         : null
+          ].filter(Boolean);
+          return 'BUYER INTAKE' + (window.__isReturning ? ' from a RETURNING client' : '') + '.\n\n'
+               + (bits.length ? bits.join('\n') : 'No details were filled in.')
+               + (payload.notes ? '\n\nTheir note: ' + payload.notes : '')
+               + '\n\nOpen DealFlow \u2192 Form Responses to add them.';
+        })()
       })
     }).catch(function () {});
   } catch (_) { /* never let the ping break the submission */ }

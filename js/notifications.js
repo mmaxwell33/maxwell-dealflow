@@ -1206,37 +1206,63 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // and being greeted as a stranger by someone you spent three months with
     // reads worse than silence. This says the two things that are actually
     // true, that he remembers them and that he knows what they need next.
+    // Someone who has already bought or sold with him, coming back through the
+    // intake form. Short on purpose, and built out of their own answers: a long
+    // letter to someone you already know reads like a template, and quoting
+    // their form back proves a person read it rather than a system filed it.
+    // A "welcome" is wrong for them; "welcome back" is the whole point.
     returning_client_note: (client, intake, agent) => {
       const first = client.full_name?.split(' ')[0] || 'there';
-      const selling = intake?.intake_type === 'seller';
-      const addr = intake?.property_address;
+      const r = intake || {};
+      const selling = r.intake_type === 'seller' || !!(r.property_address || r.sell_timeline);
       const NOTICE = `\n\n──────────────────────────────────────────\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
+
+      // Only what they actually filled in. An empty field is left out rather
+      // than written as a blank, which is what makes this read as a note and
+      // not as a form.
+      const money = v => {
+        const n = Number(String(v).replace(/[^0-9.]/g, ''));
+        return Number.isFinite(n) && n > 0 ? '$' + n.toLocaleString('en-CA') : null;
+      };
+      const facts = (selling ? [
+        r.property_address,
+        r.property_type && r.property_type !== 'Other' ? r.property_type : null,
+        r.property_bedrooms ? `${r.property_bedrooms} bedrooms` : null,
+        r.property_sqft ? `${r.property_sqft} sq ft` : null,
+        r.asking_price ? `asking around ${money(r.asking_price)}` : null,
+        r.sell_timeline ? `looking to sell in ${String(r.sell_timeline).toLowerCase()}` : null,
+        r.sell_reason ? String(r.sell_reason).toLowerCase() : null
+      ] : [
+        r.budget_max ? `up to ${money(r.budget_max)}` : null,
+        r.bedrooms ? `${r.bedrooms}+ bedrooms` : null,
+        r.preferred_areas,
+        r.timeline ? `in the next ${String(r.timeline).toLowerCase()}` : null,
+        /yes/i.test(r.preapproval || '') ? 'pre-approved' : null
+      ]).filter(Boolean);
+
+      const recap = facts.length ? `\n\nFrom your form: ${facts.join(', ')}.` : '';
 
       return {
         subject: selling
-          ? `Good to hear from you again${addr ? `, about ${addr}` : ''}`
-          : `Good to hear from you again`,
+          ? `Welcome back${r.property_address ? `, about ${r.property_address}` : ''}`
+          : 'Welcome back',
         body: selling
           ? `Hi ${first},
 
-Good to hear from you, and thank you for filling in the form.
+Welcome back, and good to have you again.${recap}
 
-So you are looking to sell${addr ? ` ${addr}` : ''}. The first thing I would like to do is come and walk through the house with you. That visit is where we work out what is worth doing before it goes on the market, what it should be priced at, and what the timeline looks like. It usually takes an hour and there is no commitment attached to it.
+The next thing is for me to come and walk through the house with you. It takes about an hour, there is no commitment attached to it, and it is where we work out what is worth doing before it goes on the market and what it should be priced at.
 
-I will be in touch shortly to find a time that suits you. If there is a particular day or evening that works best, just reply and let me know.
-
-It is good to be working with you again.
+I will be in touch shortly to find a time that suits you.
 
 ${EmailFormat.signaturePlain(agent)}${NOTICE}`
           : `Hi ${first},
 
-Good to hear from you, and thank you for filling in the form.
+Welcome back, and good to have you again.${recap}
 
-I have everything you sent through and I am already looking at what is available that fits. I will come back to you shortly with anything worth seeing, and we can get out and view whatever catches your eye.
+I am already looking at what is available that fits, and I will come back to you shortly with anything worth seeing.
 
-If anything changes in what you are looking for, just reply and tell me.
-
-It is good to be working with you again.
+If anything changes in what you are after, just reply and tell me.
 
 ${EmailFormat.signaturePlain(agent)}${NOTICE}`
       };

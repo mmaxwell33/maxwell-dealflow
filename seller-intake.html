@@ -827,9 +827,28 @@ async function submitIntake() {
         // Names the form in the subject line, so a seller intake is
         // distinguishable at a glance from a buyer one and from a site note.
         source:  'seller intake form',
-        message: 'SELLER INTAKE completed' + (window.__isReturning ? ' by a RETURNING client' : '') +
-                 (payload.property_address ? ' for ' + payload.property_address : '') +
-                 '. Check Form Responses. If it is not there, the submission was stored but misrouted, tell your developer.'
+        // See the matching block in intake.html. The address alone was not
+        // enough to know whether this needed answering today or on Monday.
+        message: (function () {
+          var money = function (v) {
+            var n = Number(String(v).replace(/[^0-9.]/g, ''));
+            return isFinite(n) && n > 0 ? '$' + n.toLocaleString('en-CA') : null;
+          };
+          var bits = [
+            payload.property_address   ? 'Property: ' + payload.property_address        : null,
+            payload.property_type      ? 'Type: ' + payload.property_type               : null,
+            payload.property_bedrooms  ? payload.property_bedrooms + ' bedrooms'        : null,
+            payload.property_bathrooms ? payload.property_bathrooms + ' bathrooms'      : null,
+            payload.property_sqft      ? payload.property_sqft + ' sq ft'               : null,
+            payload.asking_price       ? 'Asking: ' + money(payload.asking_price)       : null,
+            payload.sell_timeline      ? 'Timeline: ' + payload.sell_timeline           : null,
+            payload.sell_reason        ? 'Reason: ' + payload.sell_reason               : null
+          ].filter(Boolean);
+          return 'SELLER INTAKE' + (window.__isReturning ? ' from a RETURNING client' : '') + '.\n\n'
+               + (bits.length ? bits.join('\n') : 'No details were filled in.')
+               + (payload.notes ? '\n\nTheir note: ' + payload.notes : '')
+               + '\n\nOpen DealFlow \u2192 Form Responses to book the walkthrough.';
+        })()
       })
     }).catch(function () {});
   } catch (_) { /* never let the ping break the submission */ }
