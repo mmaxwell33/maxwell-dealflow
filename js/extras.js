@@ -814,6 +814,21 @@ const FormResponses = {
       }
     } catch (e) { /* never block the screen for this */ }
 
+    // Which sellers already have their property on the Listings screen. Same
+    // principle as the mail state: read it, never assume it.
+    FormResponses._listingByClient = {};
+    try {
+      const ids = data.map(x => x.client_id).filter(Boolean);
+      if (ids.length) {
+        const { data: ls } = await db.from('listings')
+          .select('id, client_id, property_address, listing_status')
+          .eq('agent_id', currentAgent.id).in('client_id', ids);
+        (ls || []).forEach(l => {
+          if (!FormResponses._listingByClient[l.client_id]) FormResponses._listingByClient[l.client_id] = l;
+        });
+      }
+    } catch (e) { /* listings not migrated */ }
+
     // Pull broker-referral state so a lender lead the broker has already picked
     // up (or you've already sent) shows as handled instead of nagging you to
     // send it again. Whoever acts first settles it for both sides. Best-effort.
@@ -1106,6 +1121,65 @@ const FormResponses = {
     `);
   },
 
+  // A seller's property gets a listings row from day one, so the house exists
+  // in the app before it is on the market and the pre-listing work has
+  // somewhere to hang.
+  //
+  // This used to live only inside addAsClient, the NEW client path. A RETURNING
+  // seller went through doAttach instead, which created no listing at all, so
+  // the Listings screen stayed empty for exactly the client most likely to
+  // actually sell. One helper now, called from both.
+  //
+  // Returns 'created', 'exists', or an error string. Never throws: a listing is
+  // worth having but never worth failing an attach over.
+  async _ensureSellerListing(r, clientId) {
+    if (!r || !clientId) return 'skipped';
+    const isSeller = r.intake_type === 'seller' || !!(r.property_address || r.asking_price || r.sell_timeline);
+    if (!isSeller || !r.property_address) return 'skipped';
+    try {
+      // A returning seller may already have a listing from the house they sold
+      // last time, so the guard is on the address, not just the client.
+      const { data: existing } = await db.from('listings')
+        .select('id').eq('agent_id', currentAgent.id).eq('client_id', clientId)
+        .ilike('property_address', r.property_address.trim()).limit(1);
+      if (existing && existing.length) return 'exists';
+
+      const askingNum = r.asking_price ? Number(String(r.asking_price).replace(/[^0-9.]/g, '')) : null;
+      const { error } = await db.from('listings').insert({
+        agent_id:         currentAgent.id,
+        client_id:        clientId,
+        property_address: r.property_address,
+        property_type:    r.property_type || null,
+        bedrooms:         r.property_bedrooms || null,
+        bathrooms:        r.property_bathrooms || null,
+        sqft:             r.property_sqft || null,
+        asking_price:     (Number.isFinite(askingNum) && askingNum > 0) ? askingNum : null,
+        listing_status:   'pre_listing',
+        notes:            r.notes || null
+      });
+      if (error) { console.warn('[listings] insert non-fatal:', error.message); return error.message; }
+      return 'created';
+    } catch (e) {
+      console.warn('[listings] insert skipped:', e?.message || e);
+      return String(e?.message || e);
+    }
+  },
+
+  // Creates the missing listing for an intake already attached. This is the
+  // repair path for every returning seller attached before the fix above.
+  async createListingFor(id) {
+    const r = FormResponses.all.find(x => x.id === id);
+    const cid = r && (r.client_id || r.matched_client_id);
+    if (!r || !cid) { App.toast('⚠️ Add them as a client first', 'var(--yellow)'); return; }
+    const res = await FormResponses._ensureSellerListing(r, cid);
+    if (res === 'created')      App.toast('🏷 Listing record created', 'var(--green)');
+    else if (res === 'exists')  App.toast('They already have a listing for that address', 'var(--text2)');
+    else if (res === 'skipped') App.toast('⚠️ No property address on this intake', 'var(--yellow)');
+    else                        App.toast('⚠️ ' + res, 'var(--red)');
+    FormResponses.load();
+    if (typeof Listings !== 'undefined') Listings.load();
+  },
+
   async doAttach(intakeId, clientId, newType) {
     const msg = document.getElementById('fa-msg');
     if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Attaching...'; }
@@ -1136,8 +1210,12 @@ const FormResponses = {
       .update({ status: 'Added', client_id: clientId }).eq('id', intakeId);
     if (iErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = iErr.message; } return; }
 
+    // The seller setup the new-client path has always done. Non-fatal.
+    const listed = await FormResponses._ensureSellerListing(r, clientId);
+
     await App.logActivity('INTAKE_ATTACHED', c?.full_name, c?.email,
-      `Returning client enquiry attached (${wants})`, clientId);
+      `Returning client enquiry attached (${wants})` + (listed === 'created' ? ', listing record created' : ''),
+      clientId);
 
     App.closeModal();
     App.toast(`🔗 Attached to ${c?.full_name || 'client'}`, 'var(--green)');
@@ -1281,21 +1359,8 @@ const FormResponses = {
     // Seller-side feature: create a listings row so the seller's property
     // is tracked from day one. Non-fatal if the listings table isn't
     // migrated yet — we just log and carry on.
-    if (isSellerIntake && r.property_address && newClient?.id) {
-      const askingNum = r.asking_price ? Number(String(r.asking_price).replace(/[^0-9.]/g,'')) : null;
-      const { error: listErr } = await db.from('listings').insert({
-        agent_id:         currentAgent.id,
-        client_id:        newClient.id,
-        property_address: r.property_address,
-        property_type:    r.property_type || null,
-        bedrooms:         r.property_bedrooms || null,
-        bathrooms:        r.property_bathrooms || null,
-        sqft:             r.property_sqft || null,
-        asking_price:     (Number.isFinite(askingNum) && askingNum > 0) ? askingNum : null,
-        listing_status:   'pre_listing',
-        notes:            r.notes || null
-      });
-      if (listErr) console.warn('Listings insert non-fatal error:', listErr.message);
+    if (isSellerIntake && newClient?.id) {
+      await FormResponses._ensureSellerListing(r, newClient.id);
     }
 
     // ── AUTO-QUEUE WELCOME EMAIL FOR APPROVAL ──────────────────────────────
@@ -1475,6 +1540,13 @@ const FormResponses = {
     } else {
       bits.push('<span style="white-space:nowrap;color:var(--yellow);">Nothing written to them yet</span>');
     }
+
+    const listing = (isSeller && cid) ? (FormResponses._listingByClient || {})[cid] : null;
+    if (isSeller && r.property_address) {
+      bits.push(listing
+        ? '<span style="white-space:nowrap;">\u2713 On your Listings screen</span>'
+        : '<span style="white-space:nowrap;color:var(--yellow);">Not on Listings yet</span>');
+    }
     const done = bits.join('<span style="color:var(--text3);"> \u00b7 </span>');
 
     let next = '';
@@ -1495,6 +1567,7 @@ const FormResponses = {
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.6;">${done}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           ${next}
+          ${(isSeller && cid && r.property_address && !listing) ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.createListingFor('${r.id}')">\uD83C\uDFF7 Add to Listings</button>` : ''}
           ${(!mail && cid) ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.sendReturningNote('${r.id}')">\uD83D\uDCE7 Write to them</button>` : ''}
           ${cid ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.openClientRecord('${esc(r.full_name)}')">\uD83D\uDC64 Open their record</button>` : ''}
           <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);margin-left:auto;" title="More actions" onclick="FormResponses.openMenu('${r.id}')">\u22EE</button>
