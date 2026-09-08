@@ -420,6 +420,30 @@ const Walkthrough = {
     `);
   },
 
+  // Entry point from anywhere else in the app that already knows who the seller
+  // is and where the house is: Form Responses, a client card, a listing. Opens
+  // the walkthrough screen with the form filled in, because retyping an address
+  // that is already on screen two inches away is the kind of friction that stops
+  // a tool being used at all.
+  async startFor(clientId, address) {
+    App.switchTab('walkthrough');
+    // An existing walkthrough for this seller is opened rather than a second one
+    // started beside it.
+    const uid = await Walkthrough.uid();
+    if (clientId && uid) {
+      const { data } = await db.from('walkthroughs')
+        .select('id').eq('agent_id', uid).eq('client_id', clientId)
+        .is('archived_at', null).order('created_at', { ascending: false }).limit(1);
+      if (data && data.length) { Walkthrough.open(data[0].id); return; }
+    }
+    await Walkthrough.newModal();
+    const addr = document.getElementById('wt-addr');
+    const sel  = document.getElementById('wt-client');
+    if (addr && address) addr.value = address;
+    if (sel && clientId) sel.value = clientId;
+    if (addr && !address) addr.focus();
+  },
+
   async create() {
     const msg  = document.getElementById('wt-msg');
     const addr = document.getElementById('wt-addr')?.value.trim();

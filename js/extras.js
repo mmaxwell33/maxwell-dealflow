@@ -775,6 +775,23 @@ const FormResponses = {
     }
     FormResponses.all = data;
 
+    // Which of these people already have a listing walkthrough on the go. Used
+    // by the next-step strip so an added seller is offered "open" rather than
+    // "start" a second one. Wrapped: a missing table must not blank this screen.
+    FormResponses._wtByClient = {};
+    try {
+      const ids = data.map(x => x.client_id).filter(Boolean);
+      if (ids.length) {
+        const { data: wts } = await db.from('walkthroughs')
+          .select('id, client_id, status, certified_at')
+          .in('client_id', ids).is('archived_at', null)
+          .order('created_at', { ascending: false });
+        (wts || []).forEach(w => {
+          if (!FormResponses._wtByClient[w.client_id]) FormResponses._wtByClient[w.client_id] = w;
+        });
+      }
+    } catch (e) { /* walkthroughs not migrated yet */ }
+
     // Pull broker-referral state so a lender lead the broker has already picked
     // up (or you've already sent) shows as handled instead of nagging you to
     // send it again. Whoever acts first settles it for both sides. Best-effort.
@@ -892,9 +909,7 @@ const FormResponses = {
             <button class="btn btn-outline btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.openEdit('${r.id}')">✏️ Edit</button>
             <button class="btn btn-red btn-sm" style="flex:1;min-width:90px;" onclick="FormResponses.dismiss('${r.id}')">🗑 Dismiss</button>
           </div>` : `
-          <div style="display:flex;justify-content:flex-end;">
-            <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);" title="More actions" onclick="FormResponses.openMenu('${r.id}')">⋮</button>
-          </div>`}
+          ${FormResponses._nextStepsHTML(r, isSeller)}`}
         </div>`;
       }).join('') : `<div style="text-align:center;padding:34px 16px;color:var(--text3);font-size:13px;">${FormResponses._tab==='intake' ? 'No completed intakes yet. Send your intake form to someone who reached out and it will show up here.' : 'No new inquiries. When someone messages you from your website, they land here first, before they fill the intake form.'}</div>`}`;
   },
@@ -1410,6 +1425,58 @@ const FormResponses = {
   },
 
   // Tucked-away actions menu — keeps Delete out of accidental/casual reach.
+  // WHAT HAPPENS AFTER "ADDED".
+  //
+  // Adding the client and queueing their welcome letter both happen on their
+  // own, so the card went straight from a row of buttons to a single overflow
+  // menu whose only entry was Delete. Everything that had actually been done
+  // was invisible and nothing said what came next, which for a seller is the
+  // listing consultation and for a buyer is the first viewing.
+  //
+  // So the card now shows both halves: what is already done, and the one thing
+  // worth doing next.
+  _nextStepsHTML(r, isSeller) {
+    const cid = r.client_id || r.matched_client_id;
+    const esc = s => App.escAttr(s || '');
+    const done = [
+      '<span style="white-space:nowrap;">\u2713 Added to clients</span>',
+      '<span style="white-space:nowrap;">\u2713 Welcome letter queued in Approvals</span>'
+    ].join('<span style="color:var(--text3);"> \u00b7 </span>');
+
+    let next = '';
+    if (isSeller) {
+      const wt = cid ? (FormResponses._wtByClient || {})[cid] : null;
+      if (wt) {
+        const label = wt.certified_at ? '\uD83C\uDFDA\uFE0F Consultation certified, open it' : '\uD83C\uDFDA\uFE0F Continue the walkthrough';
+        next = `<button class="btn btn-primary btn-sm" onclick="App.switchTab('walkthrough');Walkthrough.open('${wt.id}')">${label}</button>`;
+      } else {
+        next = `<button class="btn btn-primary btn-sm" onclick="Walkthrough.startFor(${cid ? `'${cid}'` : 'null'}, '${esc(r.property_address)}')">\uD83C\uDFDA\uFE0F Book the listing consultation</button>`;
+      }
+    } else if (cid) {
+      next = `<button class="btn btn-primary btn-sm" onclick="Viewings.openAddForClient('${cid}', '${esc(r.full_name)}')">\uD83D\uDCC5 Book their first viewing</button>`;
+    }
+
+    return `
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.6;">${done}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${next}
+          ${cid ? `<button class="btn btn-outline btn-sm" onclick="FormResponses.openClientRecord('${esc(r.full_name)}')">\uD83D\uDC64 Open their record</button>` : ''}
+          <button class="btn btn-outline btn-sm" style="padding:4px 12px;color:var(--text2);margin-left:auto;" title="More actions" onclick="FormResponses.openMenu('${r.id}')">\u22EE</button>
+        </div>
+      </div>`;
+  },
+
+  // Jumps to the client list with their name already in the search box, which
+  // is how you reach a single client in this app.
+  openClientRecord(name) {
+    App.switchTab('clients');
+    setTimeout(() => {
+      const box = document.getElementById('client-search');
+      if (box) { box.value = name; Clients.search(name); box.scrollIntoView({ block: 'center' }); }
+    }, 120);
+  },
+
   openMenu(id) {
     const r = FormResponses.all.find(x => x.id === id);
     const label = r?.full_name || 'this submission';
