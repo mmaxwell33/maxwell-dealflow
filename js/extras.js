@@ -1549,15 +1549,24 @@ const FormResponses = {
     }
     const done = bits.join('<span style="color:var(--text3);"> \u00b7 </span>');
 
+    // The seller journey in the order it actually happens. Booking the visit and
+    // recording the walkthrough are two different acts that used to share one
+    // confusingly named button: the appointment puts a time in the calendar and
+    // emails it to them, the walkthrough is the record made while standing in
+    // the house.
     let next = '';
     if (isSeller) {
       const wt = cid ? (FormResponses._wtByClient || {})[cid] : null;
-      if (wt) {
-        const label = wt.certified_at ? '\uD83C\uDFDA\uFE0F Consultation certified, open it' : '\uD83C\uDFDA\uFE0F Continue the walkthrough';
-        next = `<button class="btn btn-primary btn-sm" onclick="App.switchTab('walkthrough');Walkthrough.open('${wt.id}')">${label}</button>`;
-      } else {
-        next = `<button class="btn btn-primary btn-sm" onclick="Walkthrough.startFor(${cid ? `'${cid}'` : 'null'}, '${esc(r.property_address)}')">\uD83C\uDFDA\uFE0F Book the listing consultation</button>`;
-      }
+      // Whichever is genuinely next is the filled button. Before a walkthrough
+      // exists that is booking the visit; once one exists the visit has clearly
+      // happened, so the walkthrough leads and the booking stops shouting.
+      const lead = wt ? 'btn-outline' : 'btn-primary';
+      const appt = cid
+        ? `<button class="btn ${lead} btn-sm" onclick="FormResponses.bookVisit('${cid}')">\uD83D\uDCCD Book the visit</button>` : '';
+      const walk = wt
+        ? `<button class="btn btn-primary btn-sm" onclick="App.switchTab('walkthrough');Walkthrough.open('${wt.id}')">\uD83C\uDFDA\uFE0F ${wt.certified_at ? 'Consultation certified, open it' : 'Continue the walkthrough'}</button>`
+        : `<button class="btn btn-outline btn-sm" onclick="Walkthrough.startFor(${cid ? `'${cid}'` : 'null'}, '${esc(r.property_address)}')">\uD83C\uDFDA\uFE0F Start the walkthrough</button>`;
+      next = wt ? walk + appt : appt + walk;
     } else if (cid) {
       next = `<button class="btn btn-primary btn-sm" onclick="Viewings.openAddForClient('${cid}', '${esc(r.full_name)}')">\uD83D\uDCC5 Book their first viewing</button>`;
     }
@@ -1587,6 +1596,17 @@ const FormResponses = {
     if (!c.email) { App.toast('⚠️ No email address on their record', 'var(--red)'); return; }
     await Notify.onReturningClient(c, r);
     FormResponses.load();
+  },
+
+  // Opens the appointment booker against this client. Appointments builds its
+  // dropdown from Clients.all, so a session that has not opened the Clients
+  // screen yet would otherwise get an empty list and no prefill.
+  async bookVisit(clientId) {
+    if (typeof Appointments === 'undefined') { App.toast('⚠️ Appointments unavailable', 'var(--red)'); return; }
+    if (typeof Clients !== 'undefined' && !(Clients.all || []).length) {
+      try { await Clients.load(); } catch (e) { /* fall through with an empty list */ }
+    }
+    Appointments.openForm(clientId);
   },
 
   // Jumps to the client list with their name already in the search box, which

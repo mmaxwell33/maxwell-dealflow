@@ -40,6 +40,24 @@ const Listings = {
     }
     Listings.all = data || [];
     Listings._offers = {};
+
+    // The pre-listing consultation for each seller. Until now a listing had no
+    // idea a walkthrough of that same house existed two screens away, so the
+    // condition record and the property it belongs to never met.
+    Listings._wtByClient = {};
+    try {
+      const cids = Listings.all.map(l => l.client_id).filter(Boolean);
+      if (cids.length) {
+        const { data: wts } = await db.from('walkthroughs')
+          .select('id, client_id, status, certified_at')
+          .in('client_id', cids).is('archived_at', null)
+          .order('created_at', { ascending: false });
+        (wts || []).forEach(w => {
+          if (!Listings._wtByClient[w.client_id]) Listings._wtByClient[w.client_id] = w;
+        });
+      }
+    } catch (e) { /* walkthroughs not migrated yet */ }
+
     const ids = Listings.all.map(l => l.id);
     if (ids.length) {
       const { data: offs, error: offErr } = await db.from('listing_offers')
@@ -391,6 +409,22 @@ const Listings = {
     Listings.load();
   },
 
+  // Shows the pre-listing consultation for this seller, if there is one. A
+  // certified record is the dated account of the property's condition, which is
+  // worth reaching from the listing rather than only from the Walkthroughs
+  // screen. Silent when there is none: an offer to start one belongs on the
+  // client, not here.
+  _walkthroughLink(l) {
+    const wt = l.client_id ? (Listings._wtByClient || {})[l.client_id] : null;
+    if (!wt) return '';
+    const done = !!wt.certified_at;
+    return `<div style="margin-top:4px;">
+      <a onclick="App.switchTab('walkthrough');Walkthrough.open('${wt.id}')"
+         style="font-size:11.5px;color:var(--accent2);cursor:pointer;text-decoration:underline;">
+        🏚️ ${done ? 'Consultation record (certified)' : 'Walkthrough in progress'}
+      </a></div>`;
+  },
+
   card(l) {
     const seller = l.clients?.full_name || '—';
     const asking = l.asking_price || l.list_price;
@@ -401,6 +435,7 @@ const Listings = {
           <div>
             <div class="fw-800" style="font-size:15px;">${Listings.esc(l.property_address)}</div>
             <div style="font-size:12px;color:var(--text2);">👤 ${Listings.esc(seller)} ${l.mls_number ? '&nbsp;·&nbsp; MLS# ' + Listings.esc(l.mls_number) : ''}</div>
+            ${Listings._walkthroughLink(l)}
           </div>
           <div style="text-align:right;">
             <div class="fw-800" style="font-size:15px;color:var(--green);">${asking ? Listings.money(asking) : '—'}</div>

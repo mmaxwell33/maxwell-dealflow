@@ -2627,6 +2627,16 @@ const Walkthrough = {
             <button class="btn btn-outline" onclick="Walkthrough.preview()">👁 View the record</button>
             <button class="btn btn-outline" onclick="Walkthrough.downloadPDF()">⬇︎ Download PDF</button>
           </div>
+          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
+            <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.04em;margin-bottom:6px;">WHAT COMES NEXT</div>
+            <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.55;">
+              Price it, then get the agreement signed. Both already exist elsewhere in the app, and neither knew this record was here.
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${wt.client_id ? `<button class="btn btn-primary btn-sm" onclick="CMADrop.open('${wt.client_id}')">📊 Build the CMA</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="App.switchTab('listings')">🏷 Open Listings</button>
+            </div>
+          </div>
         </div>`;
     }
 
