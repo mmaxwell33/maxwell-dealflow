@@ -32,6 +32,7 @@ interface PipelineDeal {
   property_address: string | null;
   stage: string | null;
   financing_deadline: string | null;
+  financing_status?: string | null;
   inspection_deadline: string | null;
   walkthrough_date: string | null;
   closing_date: string | null;
@@ -266,6 +267,7 @@ serve(async (req) => {
     processed: 0,
     queued: 0,
     skipped_duplicate: 0,
+    pushed: 0,
     errors: [] as string[],
     runAt: new Date().toISOString(),
   };
@@ -273,7 +275,7 @@ serve(async (req) => {
   // ── 1. Load all active pipeline deals ──────────────────────────────────────
   const { data: deals, error: dealsErr } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, inspection_deadline, walkthrough_date, closing_date, updated_at')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, financing_status, inspection_deadline, walkthrough_date, closing_date, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")');
 
   if (dealsErr || !deals) {
@@ -316,6 +318,38 @@ serve(async (req) => {
         const t = templates.financing_reminder_1d(deal, agent);
         const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Financing Reminder (1 day)', t.subject, t.body);
         r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
+      }
+    }
+
+    // ── 3a-bis. Ask the AGENT, on his phone ───────────────────────────────
+    // The reminders above go to the CLIENT. Nothing ever asked Maxwell whether
+    // financing actually came through, so an unanswered condition sat silently
+    // past its deadline, and the held lawyer email sat with it. From the
+    // deadline day, one push a day for up to four days, until he answers.
+    // Tapping it opens the Yes / Not yet / No card for this exact deal.
+    if (deal.financing_deadline && !['cleared', 'blocked'].includes(String(deal.financing_status || ''))) {
+      const fd = daysUntil(deal.financing_deadline);
+      if (fd !== null && fd <= 0 && fd >= -3) {
+        try {
+          const { data: subs } = await supabase.from('push_subscriptions')
+            .select('endpoint, p256dh, auth').eq('agent_id', deal.agent_id);
+          if (subs?.length) {
+            const fnUrl = Deno.env.get('SUPABASE_URL') ?? '';
+            const svc   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+            await fetch(`${fnUrl}/functions/v1/send-push`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${svc}`, apikey: svc },
+              body: JSON.stringify({
+                title: fd === 0 ? '🏦 Financing due today' : '🏦 Financing still unanswered',
+                body: `${deal.client_name || 'Your client'} · ${deal.property_address}. Approved? Tap to answer.`,
+                tab: 'pipeline', decide: 'financing', deal: deal.id,
+                subscriptions: subs.map((x: { endpoint: string; p256dh: string; auth: string }) =>
+                  ({ endpoint: x.endpoint, keys: { p256dh: x.p256dh, auth: x.auth } })),
+              }),
+            });
+            summary.pushed++;
+          }
+        } catch (e) { summary.errors.push(`push ${deal.id}: ${String(e)}`); }
       }
     }
 

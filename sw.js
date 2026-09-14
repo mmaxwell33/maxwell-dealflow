@@ -70,14 +70,19 @@ self.addEventListener('fetch', e => {
 // ── NOTIFICATION CLICK — open app and navigate to correct tab ────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const tab = e.notification.data?.tab || 'approvals';
-  const urlToOpen = self.registration.scope + '?tab=' + tab;
+  // The tap carries the question and the deal as well as the tab, so a
+  // financing alert opens straight onto its Yes / Not yet / No card.
+  const nd = e.notification.data || {};
+  const tab = nd.tab || 'approvals';
+  const q = new URLSearchParams({ tab });
+  if (nd.decide && nd.deal) { q.set('decide', nd.decide); q.set('deal', nd.deal); }
+  const urlToOpen = self.registration.scope + '?' + q.toString();
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
         if (client.url.startsWith(self.registration.scope)) {
           client.focus();
-          client.postMessage({ type: 'SWITCH_TAB', tab });
+          client.postMessage({ type: 'SWITCH_TAB', tab, decide: nd.decide || null, deal: nd.deal || null });
           return;
         }
       }
@@ -94,7 +99,9 @@ self.addEventListener('push', e => {
     body: data.body || 'You have a new notification.',
     icon: '/icons/icon-192-v3.png',
     badge: '/icons/icon-96-v3.png',
-    data: { tab: data.tab || 'approvals' },
+    data: { tab: data.tab || 'approvals', decide: data.decide || null, deal: data.deal || null },
+    // A question stays on screen until answered where the platform allows it.
+    requireInteraction: !!data.decide,
     vibrate: [200, 100, 200]
   };
   e.waitUntil(self.registration.showNotification(title, options));

@@ -70,7 +70,7 @@ const App = {
       navigator.serviceWorker.register('sw.js').catch(() => {});
       // Listen for SW messages (e.g. notification tap → switch tab)
       navigator.serviceWorker.addEventListener('message', e => {
-        if (e.data?.type === 'SWITCH_TAB') App.switchTab(e.data.tab);
+        if (e.data?.type === 'SWITCH_TAB') App.openFromNotification(e.data.tab, e.data.decide, e.data.deal);
       });
     }
     // Apply saved theme or auto day/night
@@ -263,7 +263,8 @@ const App = {
       () => typeof Notify !== 'undefined' && Notify.checkConditionDeadlines(),
       () => typeof Notify !== 'undefined' && Notify.checkCompletedViewings(),
       () => typeof PendingOffers !== 'undefined' && PendingOffers.load(),
-      () => App.requestNotifyPermission(),
+      () => App.initPushQuietly(),
+      () => App.handleDeepLink(),
       () => App.checkNewIntakes(),
       () => App.checkNewRequests(),
       () => App.subscribeToRequests(),
@@ -346,21 +347,25 @@ const App = {
         auth: subJson.keys?.auth,
         updated_at: new Date().toISOString()
       }, { onConflict: 'endpoint' });
+      App._pushSubscribed = true;
       console.log('[Push] Subscription saved for this device');
     } catch (err) {
       console.warn('[Push] Subscribe failed:', err.message);
     }
   },
 
-  // Send a real Web Push to all of Maxwell's subscribed devices via edge function
-  async sendWebPush(title, body, tab = 'approvals') {
+  // Send a real Web Push to all of Maxwell's subscribed devices via edge function.
+  // `extra` rides along to the service worker ({ decide, deal } opens the one-tap
+  // question). Returns the edge function's answer so a caller can say whether
+  // anything was actually delivered, instead of assuming it was.
+  async sendWebPush(title, body, tab = 'approvals', extra = {}) {
     try {
       const user = await App.getAuthUser();
-      if (!user) return;
+      if (!user) return { sent: 0, error: 'not signed in' };
       const { data: subs } = await db.from('push_subscriptions')
         .select('endpoint, p256dh, auth')
         .eq('agent_id', user.id);
-      if (!subs?.length) return;
+      if (!subs?.length) return { sent: 0, total: 0, error: 'no device is subscribed' };
       const { data: { session } } = await db.auth.getSession();
       const res = await fetch(typeof PUSH_FUNCTION_URL !== 'undefined' ? PUSH_FUNCTION_URL : '', {
         method: 'POST',
@@ -370,7 +375,7 @@ const App = {
           'apikey': typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : ''
         },
         body: JSON.stringify({
-          title, body, tab,
+          title, body, tab, ...(extra || {}),
           subscriptions: subs.map(s => ({
             endpoint: s.endpoint,
             keys: { p256dh: s.p256dh, auth: s.auth }
@@ -380,21 +385,20 @@ const App = {
       const json = await res.json().catch(() => ({}));
       console.log('[Push] Edge fn →', res.status, JSON.stringify(json));
 
-      // Auto-prune expired subscriptions (status 410 = "subscription has unsubscribed or expired")
-      // This keeps the push_subscriptions table clean so future sends only target live devices.
+      // Auto-prune expired subscriptions (410/404 = the device unsubscribed)
       if (Array.isArray(json.detail)) {
         const expiredEndpoints = json.detail
           .map((d, i) => (d?.status === 410 || d?.status === 404) ? subs[i]?.endpoint : null)
           .filter(Boolean);
         if (expiredEndpoints.length) {
           console.log(`[Push] Pruning ${expiredEndpoints.length} expired subscription(s)`);
-          await db.from('push_subscriptions')
-            .delete()
-            .in('endpoint', expiredEndpoints);
+          await db.from('push_subscriptions').delete().in('endpoint', expiredEndpoints);
         }
       }
+      return json;
     } catch (err) {
       console.warn('[Push] sendWebPush failed:', err.message);
+      return { sent: 0, error: err.message };
     }
   },
 
@@ -408,12 +412,18 @@ const App = {
       if (error || !data?.length) return;
       const count = data.length;
       const latest = data[0];
-      // Push notify agent immediately
-      App.pushNotify(
-        `📋 ${count} New Client Intake${count > 1 ? 's' : ''}`,
-        `${latest.full_name || 'A client'} submitted the form — tap to review`,
-        'formresponses'
-      );
+      // Push only for an intake not already announced. The badge and toast
+      // below still show every time; the phone only buzzes for news.
+      let lastPushed = null;
+      try { lastPushed = localStorage.getItem('df-last-intake-pushed'); } catch (e) {}
+      if (latest.id !== lastPushed) {
+        App.pushNotify(
+          `📋 ${count} New Client Intake${count > 1 ? 's' : ''}`,
+          `${latest.full_name || 'A client'} submitted the form. Tap to review.`,
+          'formresponses'
+        );
+        try { localStorage.setItem('df-last-intake-pushed', latest.id); } catch (e) {}
+      }
       // Also show a toast in the app
       App.toast(`📋 ${count} new intake form${count > 1 ? 's' : ''} waiting — check Form Responses`, 'var(--accent2)');
       // Update the Form Responses tab badge if it exists
@@ -466,25 +476,99 @@ const App = {
     } catch(e) {}
   },
 
-  pushNotify(title, body, tab = 'approvals') {
-    // 1. In-app browser notification (works when app is open)
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification(title, {
-        body,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
-        tag: tab,
-        renotify: true,
-        data: { tab }
-      });
-      n.onclick = () => {
-        window.focus();
-        App.switchTab(tab);
-        n.close();
-      };
+  pushNotify(title, body, tab = 'approvals', extra = {}) {
+    // 1. Local notification, ONLY when this device is not subscribed to push.
+    //    A subscribed device already gets the real push below, so showing both
+    //    produced two alerts for one event. Wrapped because the constructor
+    //    throws on Android and iOS, and that throw used to stop step 2 cold.
+    if (!App._pushSubscribed && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const n = new Notification(title, { body, icon: '/icons/icon-192.png', tag: tab, data: { tab } });
+        n.onclick = () => { window.focus(); App.openFromNotification(tab, extra?.decide, extra?.deal); n.close(); };
+      } catch (e) { /* not supported here; the push below still goes */ }
     }
-    // 2. Real Web Push to ALL devices — fires even when app is closed / phone is locked
-    App.sendWebPush(title, body, tab);
+    // 2. Real Web Push to ALL devices — fires even when the app is closed.
+    App.sendWebPush(title, body, tab, extra);
+  },
+
+  // ── PHONE ALERTS ─────────────────────────────────────────────────────────
+  // Replaces the automatic permission prompt at startup. iOS only shows that
+  // prompt in response to a tap, and only inside the Home Screen app, so the
+  // automatic one was being refused without a word and the phone never
+  // subscribed. Now: already allowed → subscribe quietly; not asked yet → a
+  // banner with a button; iPhone in plain Safari → how to install first.
+  async initPushQuietly() {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (isIOS && !standalone) { App.showPushBanner('install'); return; }
+    if (!('Notification' in window) || !('PushManager' in window)) return;
+    if (Notification.permission === 'granted') { await App.subscribePush(); return; }
+    if (Notification.permission === 'default') App.showPushBanner('ask');
+  },
+
+  showPushBanner(mode) {
+    try { if (Number(localStorage.getItem('df-push-banner-snooze') || 0) > Date.now()) return; } catch (e) {}
+    if (document.getElementById('push-banner')) return;
+    const host = document.getElementById('main-content');
+    if (!host) return;
+    const el = document.createElement('div');
+    el.id = 'push-banner';
+    el.style.cssText = 'margin:12px 16px 0;padding:12px 14px;border:1px solid var(--accent2);border-radius:12px;background:var(--card);display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
+    el.innerHTML = mode === 'install'
+      ? `<div style="flex:1;min-width:220px;font-size:13px;line-height:1.5;"><strong>🔔 Get alerts on this iPhone</strong><br>
+           <span style="color:var(--text2);">Tap Share, then Add to Home Screen. Open DealFlow from that icon and turn alerts on there. Safari itself cannot receive them.</span></div>
+         <button class="btn btn-outline btn-sm" onclick="App.snoozePushBanner()">Later</button>`
+      : `<div style="flex:1;min-width:220px;font-size:13px;line-height:1.5;"><strong>🔔 Alerts are off on this device</strong><br>
+           <span style="color:var(--text2);">Turn them on to get financing questions and new intakes on your phone, even with the app closed.</span></div>
+         <button class="btn btn-primary btn-sm" onclick="App.enablePushFromBanner()">Turn on alerts</button>
+         <button class="btn btn-outline btn-sm" onclick="App.snoozePushBanner()">Later</button>`;
+    host.prepend(el);
+  },
+
+  snoozePushBanner() {
+    try { localStorage.setItem('df-push-banner-snooze', String(Date.now() + 3 * 86400000)); } catch (e) {}
+    document.getElementById('push-banner')?.remove();
+  },
+
+  // Called straight from the button's tap, which is what iOS requires.
+  async enablePushFromBanner() {
+    const result = await Notification.requestPermission();
+    document.getElementById('push-banner')?.remove();
+    if (result === 'granted') {
+      await App.subscribePush();
+      App.toast('🔔 Alerts are on for this device', 'var(--green)');
+      App.sendTestPush();
+    } else {
+      App.toast('Alerts were not allowed. Turn them on in the phone Settings, Notifications, DealFlow.', 'var(--yellow)');
+    }
+  },
+
+  async sendTestPush() {
+    const r = await App.sendWebPush('🔔 DealFlow alerts are working', 'This is what an alert looks like on this device.', 'overview');
+    if (r?.sent) App.toast(`✅ Test alert delivered to ${r.sent} of ${r.total} device${r.total === 1 ? '' : 's'}`, 'var(--green)');
+    else App.toast(`⚠️ No device received it: ${r?.error || 'nothing is subscribed'}`, 'var(--yellow)');
+  },
+
+  // ── WHERE A NOTIFICATION TAP LANDS ───────────────────────────────────────
+  // With the app closed, the service worker opens ?tab=…&decide=…&deal=…, and
+  // nothing ever read those, so every alert landed on Overview. Read once, then
+  // cleared from the address bar so a reload does not ask the question again.
+  handleDeepLink() {
+    const q = new URLSearchParams(location.search);
+    const tab = q.get('tab');
+    if (!tab) return;
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    App.openFromNotification(tab, q.get('decide'), q.get('deal'));
+  },
+
+  openFromNotification(tab, decide, deal) {
+    if (decide && deal && typeof Pipeline !== 'undefined' && Pipeline.decide) {
+      App.switchTab('pipeline');
+      Pipeline.decide(deal, decide);
+      return;
+    }
+    if (tab) App.switchTab(tab);
   },
 
   showAuth() {

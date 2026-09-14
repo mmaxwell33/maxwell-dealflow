@@ -7357,6 +7357,9 @@ Settings.runDiagnostics = async function() {
     checks.push(n > 0
       ? { l:'Web Push Notifications', s:'ok', d:`${n} device(s) subscribed — push alerts will deliver` }
       : { l:'Web Push Notifications', s:'warn', d:'No push subscriptions — you will not receive background alerts', h:`App.subscribePush&&App.subscribePush().then(()=>App.toast('Push re-registered!'))` });
+    // Proof rather than a count: a subscription row can exist for a phone that
+    // will never show anything. This sends a real one and says who got it.
+    if (n > 0) checks.push({ l:'Send a test alert', s:'ok', d:'Pushes a real alert to every subscribed device right now, so you can watch it arrive', h:'App.sendTestPush()' });
   } catch(e) {
     checks.push({ l:'Web Push Notifications', s:'warn', d:`Could not check subscriptions: ${e.message}` });
   }

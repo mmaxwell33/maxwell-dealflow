@@ -954,6 +954,18 @@ const Pipeline = {
       });
     }
 
+    // Lawyer emails parked until financing clears (Pipeline.holdLawyerEmail).
+    Pipeline._heldByDeal = {};
+    if (Pipeline.all.length) {
+      const { data: held } = await db.from('approval_queue')
+        .select('id, related_id, context_data')
+        .eq('status', 'Held')
+        .in('related_id', Pipeline.all.map(d => d.id));
+      (held || []).forEach(h => {
+        (Pipeline._heldByDeal[h.related_id] = Pipeline._heldByDeal[h.related_id] || []).push(h);
+      });
+    }
+
     // Fetch linked new_builds rows for any new-build pipeline rows.
     // Used by the status-ticker on new-build cards (and any other
     // build-aware UI we add later).
@@ -1208,6 +1220,13 @@ const Pipeline = {
               <input type="checkbox" id="ad-${role}-cc"${role === 'lawyer' ? ' checked' : ''}> CC client
             </label>
           </div>
+          ${role === 'lawyer' ? `
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--text1);font-weight:700;">
+            <input type="checkbox" id="ad-lawyer-hold" checked> ⏸ Hold the lawyer until financing is approved
+          </label>
+          <div style="font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.45;">
+            Their email and portal link wait. They go out when you mark financing approved, and never go if the deal collapses first.
+          </div>` : ''}
           <div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">
             Pick either, both, or neither. If portal is on without email, you'll get the link to share manually.
           </div>
@@ -1451,6 +1470,7 @@ const Pipeline = {
     // - both off                → skip this stakeholder entirely
     let queuedDispatch = 0;
     let portalsOnly = 0;
+    let heldLawyer = 0;
     const portalUrlsForCopy = [];   // collected so we can show them after the modal closes
     for (const role of ['mortgage_broker','inspector','lawyer']) {
       const wantEmail  = !!document.getElementById(`ad-${role}-on`)?.checked;
@@ -1470,6 +1490,21 @@ const Pipeline = {
           name, email, phone, notes: firm ? `Firm: ${firm}` : null,
           updated_at: new Date().toISOString()
         }, { onConflict: 'client_id,role' });
+      }
+
+      // Held until financing clears: no portal token and no email today. Both
+      // are created by Pipeline.releaseHeld when financing is approved, so a
+      // lawyer on a deal that collapses first is never engaged at all.
+      if (role === 'lawyer' && pipelineId && document.getElementById('ad-lawyer-hold')?.checked) {
+        heldLawyer += await Pipeline.holdLawyerEmail({
+          dealId: pipelineId, clientId: client?.id || null,
+          clientName: clientForT.full_name, clientEmail: client?.email || offer.client_email,
+          ccClient: !!document.getElementById(`ad-${role}-cc`)?.checked,
+          name, email, phone, wantPortal,
+          client: clientForT, deal: dealForT,
+          attachments: [offerAtt, mlsAtt].filter(Boolean)
+        });
+        continue;
       }
 
       // Portal token creation (independent of whether email goes out)
@@ -1557,6 +1592,7 @@ const Pipeline = {
     const parts = [];
     if (queuedDispatch > 0) parts.push(`${queuedDispatch} email${queuedDispatch === 1 ? '' : 's'} queued in Approvals`);
     if (portalsOnly > 0)    parts.push(`${portalsOnly} portal-only link${portalsOnly === 1 ? '' : 's'} created`);
+    if (heldLawyer > 0)     parts.push('lawyer held until financing is approved');
     const msgPart = parts.length ? ` + ${parts.join(' + ')}` : '';
     App.toast(`🎉 Pipeline created${msgPart}`);
 
@@ -2041,10 +2077,16 @@ const Pipeline = {
   },
 
   // "Yes" — the condition cleared. Records the answer, ticks the bar off.
-  async confirmCondition(id, key) {
+  async confirmCondition(id, key, opts = {}) {
     const meta = Pipeline.CONDITIONS[key];
     const rec  = Pipeline.all?.find(x => x.id === id);
     if (!meta || !rec) { App.toast('⚠️ Deal not found'); return; }
+    // Financing is the moment the held lawyer email was waiting for. Ask how
+    // to release it rather than silently sending, or silently forgetting it.
+    if (key === 'financing' && !opts.heldChecked) {
+      const held = await Pipeline._heldFor(id);
+      if (held.length) { Pipeline._askReleaseHeld(id, held); return; }
+    }
     const now = new Date().toISOString();
     const updates = {
       [key + '_status']:        'cleared',
@@ -2062,6 +2104,12 @@ const Pipeline = {
       date_from: rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : null
     });
     App.toast(`✅ ${meta.label}: ${meta.clearedWord.toLowerCase()}`);
+    if (opts.release) {
+      const n = await Pipeline.releaseHeld(id, opts.release);
+      if (n) App.toast(opts.release === 'send'
+        ? '✅ Financing approved. The lawyer email has been sent.'
+        : '✅ Financing approved. The lawyer email is waiting in Approvals.');
+    }
     Pipeline.render(Pipeline.all);
   },
 
@@ -2214,6 +2262,10 @@ const Pipeline = {
     // history pick it up, not just the date on the card.
     if (action === 'extend') await Pipeline.load(); else Pipeline.render(Pipeline.all);
     if (typeof Calendar !== 'undefined') Calendar.refresh?.();
+    if (action === 'waive' && key === 'financing') {
+      const n = await Pipeline.releaseHeld(id, 'review');
+      if (n) App.toast('✅ Financing waived. The held lawyer email is now in Approvals.');
+    }
     if (action === 'fell_through') Pipeline.markFellThrough(id);
   },
 
@@ -3664,6 +3716,9 @@ const Pipeline = {
 
   async markFellThrough(id) {
     const d = Pipeline.all.find(x => x.id === id);
+    // The whole point of holding the lawyer: they were never told about this
+    // deal, so they get no introduction and no collapse notice either.
+    await Pipeline.cancelHeld(id);
     await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
     // The offer is the client-facing record of this deal. Leaving it at
     // 'Accepted' makes every client report and portal keep saying the deal is
@@ -5290,6 +5345,13 @@ REALTOR® · eXp Realty · (709) 325-0545`;
               <input type="checkbox" id="oa-${role}-cc"${role === 'lawyer' ? ' checked' : ''}> CC client
             </label>
           </div>
+          ${role === 'lawyer' ? `
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--text1);font-weight:700;">
+            <input type="checkbox" id="oa-lawyer-hold" checked> ⏸ Hold the lawyer until financing is approved
+          </label>
+          <div style="font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.45;">
+            Their email and portal link wait. They go out when you mark financing approved, and never go if the deal collapses first.
+          </div>` : ''}
           ${hint ? `<div style="font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;">${hint}</div>` : ''}
         </div>`;
     };
@@ -5468,6 +5530,18 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       if (!contact) continue;
       const enabledEl = document.getElementById(`oa-${role}-on`);
       if (enabledEl && !enabledEl.checked) continue;
+      if (role === 'lawyer' && document.getElementById('oa-lawyer-hold')?.checked) {
+        await Pipeline.holdLawyerEmail({
+          dealId, clientId: d.client_id || null,
+          clientName: d.client_name, clientEmail: d.client_email,
+          ccClient: !!document.getElementById(`oa-${role}-cc`)?.checked,
+          name: contact.name, email: contact.email, phone: contact.phone || null,
+          wantPortal: document.querySelector(`input[name="oa-${role}-mode"]:checked`)?.value === 'portal',
+          client: clientForTemplate, deal: dealForTemplate,
+          attachments: [offerAtt, mlsAtt].filter(Boolean)
+        });
+        continue;
+      }
       const modeEl = document.querySelector(`input[name="oa-${role}-mode"]:checked`);
       const isPortal = modeEl?.value === 'portal';
       const ccClient = document.getElementById(`oa-${role}-cc`)?.checked;
@@ -5706,11 +5780,205 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     window.open(data.signedUrl, '_blank');
   },
 
+  // ══════════════════════════════════════════════════════════════════════
+  // LAWYER HELD UNTIL FINANCING IS APPROVED
+  // ══════════════════════════════════════════════════════════════════════
+  // A buyer can hold a pre-approval and still have financing fail on the
+  // actual property. Engaging the lawyer the day the offer is accepted means
+  // that when financing falls over, the lawyer has opened a file, possibly
+  // billed for it, and has to be told to stop. So the lawyer's acceptance
+  // email is parked as a 'Held' row in approval_queue and only goes when
+  // financing is marked approved (or waived). If the deal collapses first, it
+  // is cancelled and the lawyer never hears a thing.
+  //
+  // What is stored is the INTENT, not just a rendered email: the letter quotes
+  // the closing and financing dates, and those move. releaseHeld rebuilds it
+  // from the deal as it stands on the day it is released.
+
+  async holdLawyerEmail(o) {
+    const base = {
+      role: 'lawyer', name: o.name, email: o.email, phone: o.phone || null,
+      want_portal: !!o.wantPortal, client_id: o.clientId || null,
+      client: {
+        full_name: o.client?.full_name || o.clientName || '',
+        email:     o.client?.email || o.clientEmail || '',
+        phone:     o.client?.phone || ''
+      },
+      deal: o.deal || {}, held_at: new Date().toISOString()
+    };
+    const t = Notify.templates.offer_accepted_lawyer(o.name, base.client, base.deal, currentAgent, '');
+    const type = 'Offer accepted → lawyer 📨';
+    // The same split the live send uses: when the client is copied AND a portal
+    // link is involved, the client's copy must not carry the lawyer's link.
+    const split = !!(o.ccClient && o.clientEmail && o.wantPortal);
+    let n = 0;
+    if (await Notify.queue(type, o.clientId, o.name, o.email, t.subject, t.body, o.dealId,
+        null, null, (!split && o.ccClient && o.clientEmail) ? o.clientEmail : null,
+        o.attachments?.length ? o.attachments : null, null, { held: base })) n++;
+    if (split && await Notify.queue(`${type} (client copy)`, o.clientId, o.name, o.clientEmail,
+        t.subject, t.body, o.dealId, null, null, null,
+        o.attachments?.length ? o.attachments : null, null, { held: { ...base, is_client_copy: true } })) n++;
+    await App.logActivity('LAWYER_HELD', base.client.full_name, base.client.email,
+      `Lawyer email to ${o.name} held until financing is approved`, o.clientId || null);
+    return n;
+  },
+
+  async _heldFor(dealId) {
+    const { data } = await db.from('approval_queue')
+      .select('id, related_id, context_data').eq('related_id', dealId).eq('status', 'Held');
+    return data || [];
+  },
+
+  _heldLawyerRow(dealId) {
+    const held = (Pipeline._heldByDeal || {})[dealId] || [];
+    const h = held.find(x => !x.context_data?.held?.is_client_copy);
+    if (!h) return '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;">
+      <span style="color:var(--text);"><strong>${Pipeline.ROLE_LABELS.lawyer}</strong> · ${App.esc(h.context_data?.held?.name || '')}</span>
+      <span style="color:var(--yellow);font-weight:700;">⏸ Held until financing</span>
+    </div>`;
+  },
+
+  _askReleaseHeld(id, held) {
+    const d = (Pipeline.all || []).find(x => x.id === id) || {};
+    const lawyer = held.find(h => !h.context_data?.held?.is_client_copy)?.context_data?.held || {};
+    const copy = held.some(h => h.context_data?.held?.is_client_copy);
+    App.openModal(`
+      <div class="modal-title">🏦 Financing approved</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">${App.esc(d.client_name || '')} · ${App.esc(d.property_address || '')}</div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.55;">
+        The lawyer email was held until now.
+        <div style="margin-top:6px;"><strong>⚖️ ${App.esc(lawyer.name || 'Lawyer')}</strong> · ${App.esc(lawyer.email || '')}${copy ? ' <span style="color:var(--text2);">(plus the client’s copy)</span>' : ''}</div>
+        ${lawyer.want_portal ? '<div style="font-size:11.5px;color:var(--text2);margin-top:4px;">Their portal link is created now and goes in the email.</div>' : ''}
+      </div>
+      <button class="btn btn-green btn-block" style="padding:13px;font-size:15px;"
+        onclick="App.closeModal();Pipeline.confirmCondition('${id}','financing',{heldChecked:true,release:'send'})">✅ Approve and send it now</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;"
+        onclick="App.closeModal();Pipeline.confirmCondition('${id}','financing',{heldChecked:true,release:'review'})">Approve, I will review the email first</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="App.closeModal()">Cancel</button>
+    `);
+  },
+
+  // Rebuilds each held email from the deal as it stands today, creates the
+  // lawyer's portal link if one was wanted, and moves it into Approvals. With
+  // mode 'send' it goes straight out: his tap on "Approve and send" IS the
+  // approval, made with the recipient named in front of him.
+  async releaseHeld(dealId, mode = 'review') {
+    const held = await Pipeline._heldFor(dealId);
+    if (!held.length) return 0;
+    const rec = (Pipeline.all || []).find(x => x.id === dealId) || {};
+    const now = new Date().toISOString();
+    let portalUrl = '';
+    const lawyerMeta = held.find(h => !h.context_data?.held?.is_client_copy)?.context_data?.held;
+    if (lawyerMeta?.want_portal && lawyerMeta.client_id) {
+      const { data } = await db.rpc('stakeholder_create', {
+        p_pipeline_id: dealId, p_client_id: lawyerMeta.client_id,
+        p_agent_id: currentAgent.id, p_role: 'lawyer',
+        p_name: lawyerMeta.name, p_email: lawyerMeta.email, p_phone: lawyerMeta.phone || null,
+        p_notes: 'Invited when financing was approved'
+      });
+      if (data?.ok) portalUrl = data.portal_url;
+    }
+    let released = 0;
+    for (const h of held) {
+      const meta = h.context_data?.held || {};
+      const deal = { ...(meta.deal || {}), _released_after_financing: true };
+      ['financing_date','financing_deadline','closing_date','inspection_date','walkthrough_date','acceptance_date']
+        .forEach(k => { if (rec[k]) deal[k] = rec[k]; });
+      const t = Notify.templates.offer_accepted_lawyer(meta.name, meta.client || {}, deal, currentAgent,
+        meta.is_client_copy ? '' : portalUrl);
+      const subject = Notify.deDash(t.subject);
+      const body    = Notify.tidyBody(Notify.deDash(t.body));
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>${EmailFormat.bodyHTML(body)}</body></html>`;
+      const ctx = { ...(h.context_data || {}), html: btoa(unescape(encodeURIComponent(html))), released_from_hold: now };
+      const { error } = await db.from('approval_queue').update({
+        status: 'Pending', email_subject: subject, email_body: body, context_data: ctx, updated_at: now
+      }).eq('id', h.id);
+      if (error) { console.error('[releaseHeld]', error); continue; }
+      released++;
+      if (mode === 'send' && typeof Approvals !== 'undefined') await Approvals.approve(h.id);
+    }
+    if (Pipeline._heldByDeal) Pipeline._heldByDeal[dealId] = [];
+    if (released) {
+      await App.logActivity('LAWYER_RELEASED', rec.client_name, rec.client_email,
+        `Financing approved; lawyer email to ${lawyerMeta?.name || 'the lawyer'} ${mode === 'send' ? 'sent' : 'moved to Approvals'}`,
+        rec.client_id || null);
+      if (typeof Notify !== 'undefined') Notify.updateBadge?.();
+    }
+    return released;
+  },
+
+  // The deal died before financing. The held email is retired, never sent, and
+  // the attachment copies staged for it are removed rather than left behind.
+  async cancelHeld(dealId) {
+    const held = await Pipeline._heldFor(dealId);
+    if (!held.length) return 0;
+    const paths = [];
+    held.forEach(h => (h.context_data?.attachments || []).forEach(a => { if (a?.path) paths.push(a.path); }));
+    if (paths.length) await db.storage.from('email-attachments').remove(paths).catch(() => {});
+    await db.from('approval_queue').update({ status: 'Cancelled', updated_at: new Date().toISOString() })
+      .in('id', held.map(h => h.id));
+    const rec = (Pipeline.all || []).find(x => x.id === dealId) || {};
+    const name = held.find(h => !h.context_data?.held?.is_client_copy)?.context_data?.held?.name;
+    await App.logActivity('LAWYER_HOLD_CANCELLED', rec.client_name, rec.client_email,
+      `Deal collapsed before financing; held lawyer email${name ? ' to ' + name : ''} cancelled, never sent`,
+      rec.client_id || null);
+    if (Pipeline._heldByDeal) Pipeline._heldByDeal[dealId] = [];
+    return held.length;
+  },
+
+  // ══════════════════════════════════════════════════════════════════════
+  // THE ONE-TAP QUESTION
+  // ══════════════════════════════════════════════════════════════════════
+  // Opened from a phone alert (?decide=financing&deal=…) or anywhere else.
+  // Three answers, nothing else on screen. iPhone web alerts cannot carry
+  // their own buttons (Safari shows only "View"), so the alert opens straight
+  // onto this card instead: one tap to open, one tap to answer.
+  async decide(id, key = 'financing') {
+    const meta0 = Pipeline.CONDITIONS[key];
+    if (!meta0) return;
+    let d = (Pipeline.all || []).find(x => x.id === id);
+    if (!d) { await Pipeline.load(); d = (Pipeline.all || []).find(x => x.id === id); }
+    if (!d) { App.toast('⚠️ That deal is no longer on your pipeline'); return; }
+    if (['Closed','Fell Through'].includes(d.stage)) { App.toast(`This deal is already ${d.stage.toLowerCase()}`); return; }
+    const isSell = (d.deal_side || 'buy') === 'sell';
+    const meta = (isSell && meta0.sellQuestion)
+      ? { ...meta0, question: meta0.sellQuestion, yesLabel: meta0.sellYesLabel || meta0.yesLabel } : meta0;
+    if (Pipeline.conditionState(d, key) === 'cleared') {
+      App.toast(`✅ ${meta.label} is already ${meta.clearedWord.toLowerCase()}`); return;
+    }
+    const held = key === 'financing' ? await Pipeline._heldFor(id) : [];
+    const lawyer = held.find(h => !h.context_data?.held?.is_client_copy)?.context_data?.held;
+    App.openModal(`
+      <div style="text-align:center;padding:4px 2px 0;">
+        <div style="font-size:42px;line-height:1;">${meta.icon}</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:9px;">${App.esc(d.client_name || '')} · ${App.esc(d.property_address || '')}</div>
+        <div style="font-size:22px;font-weight:800;margin:10px 0 4px;line-height:1.3;">${meta.question}</div>
+        ${d[meta.dateCol] ? `<div style="font-size:12.5px;color:var(--text2);">Deadline ${App.fmtDate(d[meta.dateCol])}</div>` : ''}
+      </div>
+      ${lawyer ? `<div style="margin-top:12px;padding:9px 12px;border:1px solid var(--yellow);border-radius:9px;font-size:12.5px;line-height:1.5;">⚖️ The lawyer email to <strong>${App.esc(lawyer.name || '')}</strong> is waiting on this answer.</div>` : ''}
+      <button class="btn btn-green btn-block" style="font-size:17px;padding:16px;margin-top:16px;"
+        onclick="App.closeModal();Pipeline.confirmCondition('${id}','${key}')">${meta.yesLabel}</button>
+      <button class="btn btn-outline btn-block" style="font-size:15px;padding:13px;margin-top:9px;"
+        onclick="App.closeModal();Pipeline.askConditionOutcome('${id}','${key}')">⏳ Not yet</button>
+      <button class="btn btn-outline btn-block" style="font-size:15px;padding:13px;margin-top:9px;border-color:var(--red);color:var(--red);"
+        onclick="Pipeline._decideNo('${id}')">❌ No, the deal is off</button>
+    `);
+  },
+
+  async _decideNo(id) {
+    const d = (Pipeline.all || []).find(x => x.id === id);
+    if (!confirm(`Mark the deal at ${d?.property_address || 'this property'} as fallen through?\n\nThe client and anyone already working the file get a notice in Approvals. A held lawyer email is cancelled and never sent.`)) return;
+    App.closeModal();
+    await Pipeline.markFellThrough(id);
+  },
+
   // Render the list of stakeholders attached to a deal — called inline by the
   // pipeline card render. Shows status (invited / accessed / completed) per role.
   renderDealStakeholders(dealId) {
     const stakes = (Pipeline._stakeholdersByPipelineId || {})[dealId] || [];
-    if (!stakes.length) return '';
+    const heldRow = Pipeline._heldLawyerRow(dealId);
+    if (!stakes.length && !heldRow) return '';
     const rows = stakes.map(s => {
       const role = Pipeline.ROLE_LABELS[s.role] || s.role || 'Stakeholder';
       const status = s.completed_at
@@ -5725,7 +5993,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     }).join('');
     return `<div style="margin:6px 0 8px;padding:6px 8px;border-left:2px solid var(--accent);background:rgba(15,23,42,0.04);">
       <div style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:4px;">STAKEHOLDERS</div>
-      ${rows}
+      ${rows}${heldRow}
     </div>`;
   },
 };

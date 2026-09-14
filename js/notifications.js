@@ -1117,12 +1117,14 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
         body: `Hi ${first},
 
-${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.
+${deal._released_after_financing
+  ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
+  : `${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
 
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
-Financing Deadline: ${fmtDate(deal.financing_date)}
+${deal._released_after_financing ? 'Financing: Approved' : 'Financing Deadline: ' + fmtDate(deal.financing_date)}
 
 BUYER CONTACT
    Name: ${client.full_name || '—'}
@@ -2240,6 +2242,13 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         ...(extraContext || {})
       };
     }
+    // A HELD email is parked rather than waiting on Maxwell: it is not shown in
+    // Approvals, never auto-approved, and raises no alert. Pipeline.releaseHeld
+    // flips it to Pending when the condition it is waiting on clears, and
+    // Pipeline.cancelHeld retires it if the deal dies first. Used for the
+    // lawyer's acceptance email, which must not reach the lawyer until financing
+    // is approved.
+    const held = !!(extraContext && extraContext.held);
     const insertRow = {
       agent_id: agentId,
       client_name: clientName,
@@ -2247,7 +2256,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       approval_type: type,
       email_subject: emailSubject,
       email_body: emailBody,
-      status: 'Pending'
+      status: held ? 'Held' : 'Pending'
     };
     // Only include optional fields when they have actual values — never send null for jsonb columns
     if (contextData !== null) insertRow.context_data = contextData;
@@ -2259,6 +2268,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       App.toast(`⚠️ ${error.code || ''} ${error.message} | hint: ${error.hint || ''} | details: ${error.details || ''}`, 'var(--red)');
       return false;
     }
+    // Parked: no auto-approve, no badge, no push. Nothing is waiting on him yet.
+    if (held) return true;
     // ── AUTO-APPROVE CHECK ──────────────────────────────────────────────
     const ap = JSON.parse(localStorage.getItem('df-auto-approve') || '{}');
     const t = type.toLowerCase();

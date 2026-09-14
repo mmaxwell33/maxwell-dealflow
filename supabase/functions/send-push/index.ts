@@ -240,7 +240,9 @@ serve(async (req) => {
       }
     }
 
-    const { title, body, tab = 'approvals', subscriptions } = await req.json();
+    // decide + deal are optional: when present the service worker opens the
+    // one-tap question card for that deal instead of just a tab.
+    const { title, body, tab = 'approvals', subscriptions, decide = null, deal = null } = await req.json();
     if (!title || !subscriptions?.length) {
       return new Response(JSON.stringify({ error: 'title + subscriptions required' }),
         { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -260,7 +262,7 @@ serve(async (req) => {
 
     const results = await Promise.allSettled(
       subscriptions.map((s: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
-        sendOne(s, { title, body, tab, icon: '/icons/icon-192.png' }, pubKeyRaw, privKeyRaw, SUB)
+        sendOne(s, { title, body, tab, decide, deal, icon: '/icons/icon-192.png' }, pubKeyRaw, privKeyRaw, SUB)
       )
     );
 
