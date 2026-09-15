@@ -1365,18 +1365,36 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 /* ── Commission: buyer / seller side ───────────────────────────────────── */
 /* Native radios in a fieldset, per the W3C APG radio pattern: one tab stop,
    arrow keys move between the sides, and nothing to hand-maintain in ARIA.
-   The circles are visually hidden; the pill is the target. */
-.cm-side { border: 0; padding: 0; margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 6px; }
-.cm-side legend { width: 100%; padding: 0; margin-bottom: 6px; }
-.cm-side label { position: relative; cursor: pointer; }
-.cm-side input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.cm-side span {
-  display: inline-block; padding: 8px 18px; border: 1px solid var(--border); border-radius: 999px;
-  font-size: 13px; font-weight: 700; color: var(--text2); background: var(--bg);
-  transition: background 80ms, color 80ms, border-color 80ms;
+   Drawn as a segmented control: one track, the chosen side raised on it. The
+   same look as the history filter below, so the two read as one system. */
+.cm-side { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.cm-side legend { padding: 0; margin-bottom: 6px; }
+
+.cm-seg, .cm-sfgroup {
+  display: inline-flex; align-items: stretch; gap: 2px; padding: 3px;
+  background: var(--bg2, var(--bg)); border: 1px solid var(--border); border-radius: 10px;
+  /* The raised segment. In dark, --card (#161D28) is almost the same as the
+     track (#121821), so the chosen side barely showed: lift it toward the text
+     colour instead. Light keeps the plain white card. */
+  --seg-on: #262D38;
+  --seg-on: color-mix(in srgb, var(--card), var(--text) 10%);
 }
-.cm-side input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-.cm-side input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: 2px; }
+body.theme-light .cm-seg, body.theme-light .cm-sfgroup { --seg-on: var(--card); }
+.cm-seg label { position: relative; margin: 0; cursor: pointer; }
+/* The input covers its segment, invisible, so the whole segment is the hit
+   target and the native radio keeps keyboard and screen-reader behaviour. */
+.cm-seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.cm-seg span {
+  display: block; min-width: 132px; padding: 9px 18px; border-radius: 7px; text-align: center;
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  transition: background 120ms, color 120ms, box-shadow 120ms;
+}
+.cm-seg label:hover span { color: var(--text); }
+.cm-seg input:checked + span {
+  background: var(--seg-on); color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.10), 0 0 0 1px var(--border);
+}
+.cm-seg input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: 2px; }
 
 /* The palette is monochrome by design, so the two sides differ by FILL and by
    word, never by hue: seller solid, buyer outlined. Readable without colour. */
@@ -1388,13 +1406,21 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
 .cm-side-chip.buy  { background: transparent; color: var(--accent2); }
 .cm-side-chip.sell { background: var(--accent); color: var(--bg); }
 
+/* History filter: the same segmented track as the side toggle. */
 .cm-sf {
-  font: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--border); background: var(--bg); color: var(--text2); white-space: nowrap;
+  font: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--text2); cursor: pointer; white-space: nowrap;
+  transition: background 120ms, color 120ms, box-shadow 120ms;
 }
-.cm-sf.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-.cm-sf b { font-weight: 900; }
-.cm-sf .n { font-weight: 600; opacity: 0.85; }
+.cm-sf:hover { color: var(--text); }
+.cm-sf.on {
+  background: var(--seg-on); color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.10), 0 0 0 1px var(--border);
+}
+.cm-sf:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.cm-sf b { font-weight: 800; margin-left: 2px; }
+.cm-sf .n { font-weight: 600; color: var(--text3); }
+.cm-sf.on .n { color: var(--text2); }
 
 /* ── Clients list filter chips + sort (PR #26) ──────────────────────────── */
 .cl-chip {

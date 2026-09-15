@@ -2406,7 +2406,7 @@ const Commission = {
           Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <div role="group" aria-label="Show commissions by side" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <div class="cm-sfgroup" role="group" aria-label="Show commissions by side">
             ${chip('all', 'All', st.all)}${chip('buy', 'Buying', st.buy)}${chip('sell', 'Selling', st.sell)}
           </div>
           <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
