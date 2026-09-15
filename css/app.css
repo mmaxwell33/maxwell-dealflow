@@ -1362,6 +1362,40 @@ body.theme-light .pill2-neutral{background:rgba(0,0,0,0.04);}
   transform: scale(0.96);
 }
 
+/* ── Commission: buyer / seller side ───────────────────────────────────── */
+/* Native radios in a fieldset, per the W3C APG radio pattern: one tab stop,
+   arrow keys move between the sides, and nothing to hand-maintain in ARIA.
+   The circles are visually hidden; the pill is the target. */
+.cm-side { border: 0; padding: 0; margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+.cm-side legend { width: 100%; padding: 0; margin-bottom: 6px; }
+.cm-side label { position: relative; cursor: pointer; }
+.cm-side input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.cm-side span {
+  display: inline-block; padding: 8px 18px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 13px; font-weight: 700; color: var(--text2); background: var(--bg);
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+.cm-side input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.cm-side input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: 2px; }
+
+/* The palette is monochrome by design, so the two sides differ by FILL and by
+   word, never by hue: seller solid, buyer outlined. Readable without colour. */
+.cm-side-chip {
+  display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 6px; vertical-align: middle;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  border: 1px solid var(--accent);
+}
+.cm-side-chip.buy  { background: transparent; color: var(--accent2); }
+.cm-side-chip.sell { background: var(--accent); color: var(--bg); }
+
+.cm-sf {
+  font: inherit; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text2); white-space: nowrap;
+}
+.cm-sf.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.cm-sf b { font-weight: 900; }
+.cm-sf .n { font-weight: 600; opacity: 0.85; }
+
 /* ── Clients list filter chips + sort (PR #26) ──────────────────────────── */
 .cl-chip {
   display: inline-flex; align-items: center; gap: 6px;

@@ -1751,7 +1751,10 @@ const Pipeline = {
       brokerage_fees: brokerFee,
       agent_net: net,
       close_date: dates.close || null,
-      status: 'Pending'
+      status: 'Pending',
+      // safeClientId is null unless it is a real id, so this cannot trip the
+      // FK and silently drop the commission (this insert is not error-checked).
+      client_id: safeClientId
     });
 
     await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
@@ -3610,6 +3613,8 @@ const Pipeline = {
       .select('id, commission_rate, brokerage_fee_rate')
       .eq('agent_id', currentAgent.id)
       .eq('property_address', rec.property_address)
+      // Same address, other side, on a dual agency: re-price only this side's.
+      .eq('deal_side', rec.deal_side === 'sell' ? 'sell' : 'buy')
       .order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (comm) {
       const rate      = parseFloat(comm.commission_rate)    || 2.5;
@@ -3662,6 +3667,9 @@ const Pipeline = {
         .update({ status: 'Closed', close_date: close, updated_at: new Date().toISOString() })
         .eq('agent_id', currentAgent.id)
         .eq('property_address', d.property_address)
+        // A dual agency has a buy row AND a sell row at this address. Matching
+        // on address alone closed both when either side closed.
+        .eq('deal_side', d.deal_side === 'sell' ? 'sell' : 'buy')
         .in('status', ['Pending']);
     }
     // Update client stage to Closed. We intentionally do NOT auto-archive
@@ -3723,7 +3731,10 @@ const Pipeline = {
     // The offer is the client-facing record of this deal. Leaving it at
     // 'Accepted' makes every client report and portal keep saying the deal is
     // alive long after the file collapsed.
-    if (d?.property_address) {
+    // offers holds BUYER offers only (seller offers live in listing_offers), so
+    // a seller-side collapse leaves them alone. On a dual agency the buyer's
+    // offer belongs to the buyer's deal, and that deal settles its own offer.
+    if (d?.property_address && d.deal_side !== 'sell') {
       await db.from('offers')
         .update({ status: 'Fell Through', updated_at: new Date().toISOString() })
         .eq('agent_id', currentAgent.id)
@@ -3736,6 +3747,9 @@ const Pipeline = {
         .update({ status: 'Archived', updated_at: new Date().toISOString() })
         .eq('agent_id', currentAgent.id)
         .eq('property_address', d.property_address)
+        // Only this side's. A buyer collapsing on a dual agency must not
+        // archive the seller-side commission, which is still owed.
+        .eq('deal_side', d.deal_side === 'sell' ? 'sell' : 'buy')
         .in('status', ['Pending', 'Closed']);
     }
     // Mark client stage as Fell Through (was: silently reset to 'Searching',
@@ -4022,10 +4036,13 @@ const Pipeline = {
       await safe('new_builds', () => db.from('new_builds').delete()
         .eq('agent_id', currentAgent.id).ilike('client_name', rec.client_name));
     }
-    // Commission — matched by agent + property address (same shape as closeDeal).
+    // Commission — matched by agent + property address + SIDE (same shape as
+    // closeDeal). Without the side, deleting the buyer's deal on a dual agency
+    // permanently deleted the seller-side commission on the same address too.
     if (rec.property_address) {
       await safe('commissions', () => db.from('commissions').delete()
-        .eq('agent_id', currentAgent.id).eq('property_address', rec.property_address));
+        .eq('agent_id', currentAgent.id).eq('property_address', rec.property_address)
+        .eq('deal_side', rec.deal_side === 'sell' ? 'sell' : 'buy'));
     }
     // Queued / sent emails for this client.
     if (rec.client_email) {
@@ -4034,7 +4051,9 @@ const Pipeline = {
     }
     // The offer that spawned this deal (pipeline has no offer_id column, so we
     // match by agent + property address).
-    if (deleteOffer && rec.property_address) {
+    // Buyer offers only: deleting a SELLER deal on a dual agency must not
+    // delete the buyer's offer on the same address.
+    if (deleteOffer && rec.property_address && rec.deal_side !== 'sell') {
       await safe('offers', () => db.from('offers').delete()
         .eq('agent_id', currentAgent.id).eq('property_address', rec.property_address));
     }

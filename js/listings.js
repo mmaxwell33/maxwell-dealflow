@@ -967,6 +967,7 @@ ${sigP}${disP}`;
     const brokerFee = gross * 0.20;
     const commRow = {
       agent_id: currentAgent.id,
+      client_id: l.client_id || null,
       client_name: l.clients?.full_name || 'Seller',
       property_address: l.property_address,
       sale_price: sale,

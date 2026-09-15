@@ -1942,6 +1942,11 @@ const Commission = {
       .filter(Commission.isPaidExplicit)
       .reduce((s, c) => s + Commission.feeOf(c), 0);
     const committed = thisYear.reduce((s, c) => s + Commission.feeOf(c), 0);
+    // eXp's cap is per agent, not per side: a listing's fee and a purchase's
+    // fee fill the same $16,000. Split out only so each side's share shows.
+    const bySide = (sd, onlyPaid) => thisYear
+      .filter(c => (c.deal_side || 'buy') === sd && (!onlyPaid || Commission.isPaidExplicit(c)))
+      .reduce((s, c) => s + Commission.feeOf(c), 0);
     const remaining = Math.max(0, cap - paid);
     // Deals already on the books that are set to close on or after the reset.
     // Their fees start the NEXT cap year from zero, not this one — which is the
@@ -1952,6 +1957,8 @@ const Commission = {
       (Commission.ymd(c.close_date) || '') >= cy.next);
     return {
       cap, paid, committed, remaining,
+      paidBuy: bySide('buy', true), paidSell: bySide('sell', true),
+      committedBuy: bySide('buy'), committedSell: bySide('sell'),
       year: Commission.capYearLabel(cy.key),      // display label, not a number
       capYearKey: cy.key, capYearStart: cy.start, capYearEnd: cy.end,
       resetDate: cy.next,
@@ -2016,6 +2023,13 @@ const Commission = {
         About <strong style="color:var(--text2);">${Commission.money(info.toCap)}</strong> more in invoiced commission
         caps you, at your ${Commission.feeRate()}% split.
       </div>` : ''}
+      ${info.committedSell > 0.005 ? (() => {
+        const z = (v) => v > 0.005 ? Commission.money(v) : '$0';
+        return `<div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">
+          Paid toward this cap: <strong style="color:var(--text2);">${z(info.paidBuy)}</strong> buyer side,
+          <strong style="color:var(--text2);">${z(info.paidSell)}</strong> seller side. Both sides draw from the one ${Commission.money(cap)} cap.
+        </div>`;
+      })() : ''}
       <div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">
         Cap year ${Commission.capYearRange(info.capYearKey)}. Resets in ${info.daysUntilReset} day${info.daysUntilReset === 1 ? '' : 's'}, on ${Commission.dateFull(info.resetDate)}.
         ${info.calendarYear ? `<span style="color:var(--yellow);">Set the start date above to your eXp anniversary; until then this tracks the calendar year.</span>` : ''}
@@ -2082,11 +2096,93 @@ const Commission = {
     if (!sel) return;
     let clients = window.Clients?.all || [];
     if (!clients.length && currentAgent?.id) {
-      const { data } = await db.from('clients').select('id,full_name').eq('agent_id', currentAgent.id).order('full_name');
+      const { data } = await db.from('clients').select('id,full_name,client_type').eq('agent_id', currentAgent.id).order('full_name');
       clients = data || [];
     }
+    // client_type (migration 038) rides on each option, and is spelled out in
+    // the option text, so the side is visible while picking, not after.
+    const typeTag = { buyer: 'Buyer', seller: 'Seller', both: 'Buying & selling' };
     sel.innerHTML = '<option value="">-- Select Client --</option>' +
-      clients.map(c => `<option value="${c.id}" data-name="${c.full_name}">${c.full_name}</option>`).join('');
+      clients.map(c => {
+        const t = typeTag[c.client_type] ? c.client_type : 'buyer';
+        return `<option value="${c.id}" data-name="${App.esc(c.full_name || '')}" data-type="${t}">${App.esc(c.full_name || '')} · ${typeTag[t]}</option>`;
+      }).join('');
+  },
+
+  // ── Buyer / seller side ───────────────────────────────────────────────────
+  // commissions.deal_side (migration 059) has always existed, but only the
+  // listings flow ever wrote it. The manual form never did, so a seller's
+  // commission typed in here was filed as a BUY. The side is now asked for,
+  // pre-set from the client's type, and required.
+  _side: 'all',                 // history filter: 'all' | 'buy' | 'sell'
+
+  // clients.client_type → commission side. 'both' is a client buying and
+  // selling at once, so that side is asked, never guessed.
+  clientSide(type) { return type === 'seller' ? 'sell' : type === 'both' ? null : 'buy'; },
+  _pickedSide() { return document.querySelector('input[name="cm-side"]:checked')?.value || null; },
+  _setSideRadio(side) {
+    document.querySelectorAll('input[name="cm-side"]').forEach(r => { r.checked = (r.value === side); });
+  },
+
+  onClientPick() {
+    const sel = document.getElementById('cm-client-sel');
+    const opt = sel?.options[sel.selectedIndex];
+    Commission._setSideRadio(sel?.value ? Commission.clientSide(opt?.dataset?.type) : null);
+    Commission.renderSideHint();
+  },
+  onSidePick() { Commission.renderSideHint(); },
+
+  // One line under the client picker: who they are, which side this will be
+  // recorded on, and whether the pipeline already recorded it.
+  renderSideHint() {
+    const hint = document.getElementById('cm-client-hint');
+    const sel  = document.getElementById('cm-client-sel');
+    if (!hint) return;
+    if (!sel?.value) { hint.innerHTML = ''; return; }
+    const opt  = sel.options[sel.selectedIndex];
+    const name = opt?.dataset?.name || '';
+    const type = opt?.dataset?.type || 'buyer';
+    const side = Commission._pickedSide();
+    const who  = `<strong style="color:var(--text);">${App.esc(name)}</strong>`;
+    const sideWord = side === 'sell' ? 'seller' : 'buyer';
+    let line;
+    if (!side)                                   line = `${who} is buying and selling. Choose the side this commission is for.`;
+    else if (type === 'both')                    line = `${who} is buying and selling. Recording this on the ${sideWord} side.`;
+    else if (Commission.clientSide(type) !== side) line = `${who} is on file as a ${type}. Recording this on the ${sideWord} side, as chosen.`;
+    else                                         line = `${who} is a ${type}, so this is recorded as a ${sideWord}-side commission.`;
+    // The pipeline records a commission on its own when an offer is accepted
+    // (buyer side) or a listing's winning offer is confirmed (seller side).
+    // Typing it in again here would count the same deal twice.
+    const nm = name.trim().toLowerCase();
+    const dupes = !side ? [] : (Commission.all || []).filter(c =>
+      Commission.statusFrom(c) !== 'Archived' &&
+      (c.deal_side || 'buy') === side &&
+      (c.client_id ? c.client_id === sel.value : (c.client_name || '').trim().toLowerCase() === nm));
+    if (dupes.length) {
+      line += `<div style="margin-top:6px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--bg);">
+        Already on record for this side: ${dupes.map(c => `<strong style="color:var(--text);">${App.esc(c.property_address || 'no address')}</strong> (${Commission.money(Commission.netOf(c))} net)`).join(', ')}.
+        Recording it again would count it twice.</div>`;
+    }
+    hint.innerHTML = line;
+  },
+
+  // Row count and live net per side. Counts include every row, to match the
+  // table; net leaves archived (fell-through) deals out, as every total does.
+  sideStats(list) {
+    const blank = () => ({ count: 0, net: 0 });
+    const out = { all: blank(), buy: blank(), sell: blank() };
+    (list || []).forEach(c => {
+      const k = (c.deal_side || 'buy') === 'sell' ? 'sell' : 'buy';
+      const live = Commission.statusFrom(c) !== 'Archived';
+      [out.all, out[k]].forEach(b => { b.count++; if (live) b.net += Commission.netOf(c); });
+    });
+    return out;
+  },
+  setSide(side) { Commission._side = side; Commission.render(Commission.all); },
+  sideChip(side) {
+    return side === 'sell'
+      ? '<span class="cm-side-chip sell">Seller</span>'
+      : '<span class="cm-side-chip buy">Buyer</span>';
   },
 
   calcPreview() {
@@ -2297,13 +2393,30 @@ const Commission = {
       return;
     }
     const th = (label, align) => `<th style="padding:10px 14px;text-align:${align||'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">${label}</th>`;
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    // Buyer / seller split. The chips always count every deal; the side picked
+    // only narrows what is listed underneath, so switching sides never changes
+    // the figures on the chips themselves.
+    const st = Commission.sideStats(list);
+    const side = Commission._side || 'all';
+    if (side !== 'all') list = list.filter(c => (c.deal_side || 'buy') === side);
+    const chip = (key, label, s) => `<button type="button" class="cm-sf${side === key ? ' on' : ''}" aria-pressed="${side === key}" onclick="Commission.setSide('${key}')">${label} <b>${s.count}</b>${s.net > 0.005 ? `<span class="n"> · ${Commission.money(s.net)}</span>` : ''}</button>`;
+    const header = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">
           Commission History &nbsp;<span style="color:var(--accent2);">(${list.length} record${list.length!==1?'s':''})</span>
         </div>
-        <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
-      </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <div role="group" aria-label="Show commissions by side" style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${chip('all', 'All', st.all)}${chip('buy', 'Buying', st.buy)}${chip('sell', 'Selling', st.sell)}
+          </div>
+          <button class="btn2 btn2-ghost btn2-sm" onclick="Commission.load()">Refresh</button>
+        </div>
+      </div>`;
+    if (!list.length) {
+      el.innerHTML = header + `<div class="card2" style="padding:22px;text-align:center;font-size:13px;color:var(--text2);">No ${side === 'sell' ? 'seller' : 'buyer'}-side commissions on record yet.</div>`;
+      return;
+    }
+    el.innerHTML = `${header}
       <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:860px;">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
@@ -2333,7 +2446,7 @@ const Commission = {
             return `
             <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
               <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
-              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}${c.deal_side === 'sell' ? ' <span style="font-size:9px;font-weight:800;letter-spacing:0.04em;background:var(--coral-soft);color:var(--coral);padding:2px 6px;border-radius:6px;vertical-align:middle;">SELL</span>' : ''}</td>
+              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}${Commission.sideChip(c.deal_side)}</td>
               <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(c.property_address||'—')}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;color:var(--text2);">${App.fmtMoney(c.sale_price||0)}</td>
               <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
@@ -2454,6 +2567,7 @@ const Commission = {
     const taxPct = sale && c.gross_commission ? (c.hst_collected || 0) * 100 / c.gross_commission : 15;
     const closeDate = c.close_date || '';
     const status = c.status || 'Closed';
+    const side = c.deal_side === 'sell' ? 'sell' : 'buy';
     App.openModal(`
       <h3 style="margin:0 0 14px;font-size:18px;">✏️ Edit Commission</h3>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
@@ -2464,6 +2578,13 @@ const Commission = {
       <div class="form-group">
         <label class="form-label">Property Address</label>
         <input class="form-input" id="cme-property" value="${property}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cme-side">Side</label>
+        <select class="form-input form-select" id="cme-side">
+          <option value="buy"  ${side === 'buy'  ? 'selected' : ''}>Buyer side</option>
+          <option value="sell" ${side === 'sell' ? 'selected' : ''}>Seller side</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -2554,6 +2675,7 @@ const Commission = {
     const taxPct    = parseFloat(document.getElementById('cme-tax')?.value)    || 15;
     const closeDate = document.getElementById('cme-close-date')?.value || null;
     const status    = document.getElementById('cme-status')?.value || 'Closed';
+    const side      = document.getElementById('cme-side')?.value === 'sell' ? 'sell' : 'buy';
     // Same gross+HST→brokerage math as saveNew() (PR #12 fix)
     const gross = sale * rate / 100;
     const hst = gross * taxPct / 100;
@@ -2573,6 +2695,7 @@ const Commission = {
       agent_net: net,
       close_date: closeDate,
       status: status,
+      deal_side: side,
     }).eq('id', id);
     if (error) {
       msg.style.color = 'var(--red)';
@@ -2591,6 +2714,8 @@ const Commission = {
     const salePrice = parseFloat(document.getElementById('cm-sale')?.value) || 0;
     const property = document.getElementById('cm-property')?.value.trim();
     if (!salePrice || !property) { msg.style.color='var(--red)'; msg.textContent='⚠️ Property address and sale price are required'; return; }
+    const side = Commission._pickedSide();
+    if (!side) { msg.style.color='var(--red)'; msg.textContent='⚠️ Choose which side this commission is for: buyer or seller'; return; }
     const rate = parseFloat(document.getElementById('cm-rate')?.value) || 2.5;
     const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 20;
     const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 15;
@@ -2610,17 +2735,31 @@ const Commission = {
     const net = grossPlusTax - brokerFee;
     msg.textContent = 'Saving...'; msg.style.color = 'var(--text2)';
     const closeDate = document.getElementById('cm-close-date')?.value || null;
-    const { error } = await db.from('commissions').insert({
-      agent_id: currentAgent.id, client_name: clientName, property_address: property,
+    // client_id has existed since migration 001 and was never written, which is
+    // why a client's commissions could only be found again by matching names.
+    const row = {
+      agent_id: currentAgent.id, client_id: clientSel.value || null, client_name: clientName, property_address: property,
       sale_price: salePrice, commission_rate: rate, gross_commission: gross,
       hst_collected: hst, brokerage_fee_rate: brokerPct, brokerage_fees: brokerFee,
-      agent_net: net, close_date: closeDate, status: 'Closed'
-    });
+      agent_net: net, close_date: closeDate, status: 'Closed', deal_side: side
+    };
+    let { error } = await db.from('commissions').insert(row);
+    // A database without migration 059 has no deal_side. Keep the commission
+    // and say plainly that the side did not save, rather than lose the deal.
+    let sideLost = false;
+    if (error && /deal_side/.test(error.message || '')) {
+      delete row.deal_side; sideLost = (side === 'sell');
+      ({ error } = await db.from('commissions').insert(row));
+    }
     if (error) { msg.style.color='var(--red)'; msg.textContent=error.message; return; }
-    App.toast('✅ Commission recorded!');
+    App.toast(sideLost
+      ? '⚠️ Recorded, but as buyer side: the database needs migration 059 to store seller side'
+      : `✅ ${side === 'sell' ? 'Seller' : 'Buyer'}-side commission recorded`, sideLost ? 'var(--yellow)' : undefined);
     msg.style.color='var(--green)'; msg.textContent='✅ Saved!';
     document.getElementById('cm-sale').value=''; document.getElementById('cm-property').value='';
     document.getElementById('cm-preview').style.display='none';
+    Commission._setSideRadio(null);
+    const hint = document.getElementById('cm-client-hint'); if (hint) hint.innerHTML = '';
     Commission.load();
   }
 };
