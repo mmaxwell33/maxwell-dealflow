@@ -3728,6 +3728,10 @@ const Pipeline = {
     // deal, so they get no introduction and no collapse notice either.
     await Pipeline.cancelHeld(id);
     await db.from('pipeline').update({ stage: 'Fell Through', updated_at: new Date().toISOString() }).eq('id', id);
+    // Pull any closing-countdown / condition reminders already waiting in Approvals.
+    if (typeof Notify !== 'undefined' && Notify.cancelDealReminders) {
+      await Notify.cancelDealReminders([id]).catch(e => console.warn('[markFellThrough] reminder cancel failed:', e));
+    }
     // The offer is the client-facing record of this deal. Leaving it at
     // 'Accepted' makes every client report and portal keep saying the deal is
     // alive long after the file collapsed.

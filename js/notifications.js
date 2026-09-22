@@ -2835,14 +2835,44 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     );
   },
 
+  // Countdown-style reminders that only make sense while a deal is alive.
+  DEAL_REMINDER_TYPES: [
+    'Closing Countdown (7d)', 'Closing Countdown (3d)', 'Closing Countdown (1d)',
+    'Financing Reminder (3d)', 'Financing Reminder (1d)',
+    'Inspection Reminder (3d)', 'Inspection Reminder (1d)',
+    'Walkthrough Reminder (1d)', 'Happy Closing Day! 🔑'
+  ],
+
+  // A deal that fell through (or was withdrawn) must not leave "7 days to
+  // closing" drafts sitting in Approvals. Cancels any still-pending ones.
+  async cancelDealReminders(dealIds) {
+    if (!currentAgent?.id || !dealIds?.length) return;
+    await db.from('approval_queue')
+      .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
+      .eq('agent_id', currentAgent.id)
+      .eq('status', 'Pending')
+      .in('related_id', dealIds)
+      .in('approval_type', Notify.DEAL_REMINDER_TYPES);
+  },
+
   async checkConditionDeadlines() {
     // Called on load — checks all active pipeline deals for upcoming deadlines
     if (!currentAgent?.id) return;
+    // pipeline.status stays 'Active' when a deal collapses; only stage changes.
+    // So dead deals have to be excluded by stage, not just 'Closed'.
+    const DEAD_STAGES = ['Closed', 'Fell Through', 'Withdrawn'];
+    try {
+      const { data: dead } = await db.from('pipeline')
+        .select('id')
+        .eq('agent_id', currentAgent.id)
+        .in('stage', ['Fell Through', 'Withdrawn']);
+      if (dead?.length) await Notify.cancelDealReminders(dead.map(d => d.id));
+    } catch (e) { console.warn('[checkConditionDeadlines] stale reminder sweep failed:', e); }
     const { data: deals } = await db.from('pipeline')
       .select('*, clients(full_name, email)')
       .eq('agent_id', currentAgent.id)
       .eq('status', 'Active')
-      .neq('stage', 'Closed');
+      .not('stage', 'in', `(${DEAD_STAGES.map(s => `"${s}"`).join(',')})`);
     if (!deals?.length) return;
 
     const today = new Date();
