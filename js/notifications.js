@@ -561,12 +561,18 @@ const Notify = {
       });
       const mapsPlain = uniqueAddrs.map(a => EmailFormat.mapLinkPlain(a)).join('');
       const mapsHTML  = uniqueAddrs.map(a => EmailFormat.mapBlockHTML(a)).join('');
+      // A seller's visit is a listing consultation at their home, not a finishes
+      // appointment, so it gets its own opening line.
+      const isListingVisit = stops.length > 0 && stops.every(s => s.type === 'Listing consultation');
+      const introLine = isListingVisit
+        ? "I've booked our listing consultation at your home. We'll walk through the house together and talk about pricing and next steps. Here's the plan:"
+        : "I've set up our appointment to pick out finishes. Here's the plan:";
 
-      const body = `Hi ${firstName},\n\nI've set up our appointment to pick out finishes. Here's the plan:\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.${mapsPlain}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
+      const body = `Hi ${firstName},\n\n${introLine}\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.${mapsPlain}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${firstName},</p>
-        <p>I've set up our appointment to pick out finishes. Here's the plan:</p>
+        <p>${introLine}</p>
         <table class="dt">${rows.join('')}</table>
         <a class="cal-btn" href="${gcalUrl}" target="_blank">Add to Calendar</a>
         <p class="cal-note">Click the button above to add this to your Google Calendar. An .ics file with every stop is also attached for other calendar apps.</p>

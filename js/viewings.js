@@ -1187,7 +1187,7 @@ const Meetings = {
 // 'appointment' and a `stops` array, shows on the Calendar, and emails the
 // client one Add-to-Calendar invite covering every stop — the viewing-email flow.
 const Appointments = {
-  TYPES: ['Flooring','Kitchen cabinets','Countertops','Lighting','Appliances','Tile','Paint & finishes','Plumbing fixtures','Other'],
+  TYPES: ['Flooring','Kitchen cabinets','Countertops','Lighting','Appliances','Tile','Paint & finishes','Plumbing fixtures','Listing consultation','Other'],
   _n: 0,
 
   _typeOpts() { return Appointments.TYPES.map(t => `<option value="${t}">${t}</option>`).join(''); },
@@ -1208,14 +1208,16 @@ const Appointments = {
       </div>`;
   },
 
-  openForm(prefillClientId) {
+  // prefill (optional): { address, type, intro }. A seller's visit passes their
+  // own property so it is never retyped; "Use another address" frees it.
+  openForm(prefillClientId, prefill = null) {
     Appointments._n = 0;
     const today = new Date().toISOString().slice(0,10);
     const clientOpts = (typeof Clients !== 'undefined' ? Clients.all : []).map(c =>
       `<option value="${c.id}" ${c.id === prefillClientId ? 'selected' : ''}>${App.esc(c.full_name)}</option>`).join('');
     App.openModal(`
       <div class="modal-title">📍 Set Up Appointment</div>
-      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">Meet your client at one or more spots to pick out finishes. They get an Add-to-Calendar invite, just like a viewing.</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">${App.esc(prefill?.intro || 'Meet your client at one or more spots to pick out finishes. They get an Add-to-Calendar invite, just like a viewing.')}</div>
       <div class="form-group">
         <label class="form-label">Client *</label>
         <select class="form-input form-select" id="appt-client" onchange="Appointments.onClientChange()"><option value="">Select client…</option>${clientOpts}<option value="__other__">➕ Other (not in my system)</option></select>
@@ -1251,6 +1253,32 @@ const Appointments = {
       </div>
     `);
     Appointments._wireOtherToggles();
+    if (prefill?.address) Appointments._prefillHome(prefill);
+  },
+
+  // Stop 1 = the seller's own property, locked so it is not retyped. One tap
+  // unlocks it for a different place, and one more puts their home back.
+  _prefillHome(prefill) {
+    const row  = document.querySelector('#appt-stops .appt-stop');
+    const sel  = row?.querySelector('.appt-type');
+    const addr = row?.querySelector('.appt-addr');
+    if (!row || !addr) return;
+    if (sel && prefill.type) sel.value = prefill.type;
+    addr.value = prefill.address;
+    addr.readOnly = true;
+    addr.style.opacity = '0.85';
+    addr.insertAdjacentHTML('afterend', `
+      <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px;" id="appt-home-toggle">Use another address</button>`);
+    const btn = document.getElementById('appt-home-toggle');
+    btn.onclick = () => {
+      if (addr.readOnly) {
+        addr.readOnly = false; addr.style.opacity = ''; addr.value = ''; addr.focus();
+        btn.textContent = "Use the seller's property";
+      } else {
+        addr.readOnly = true; addr.style.opacity = '0.85'; addr.value = prefill.address;
+        btn.textContent = 'Use another address';
+      }
+    };
   },
 
   // Reveal a stop's free-text box only when its type is "Other".

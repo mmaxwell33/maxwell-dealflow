@@ -1690,7 +1690,7 @@ const FormResponses = {
       // happened, so the walkthrough leads and the booking stops shouting.
       const lead = wt ? 'btn-outline' : 'btn-primary';
       const appt = cid
-        ? `<button class="btn ${lead} btn-sm" onclick="FormResponses.bookVisit('${cid}')">\uD83D\uDCCD Book the visit</button>` : '';
+        ? `<button class="btn ${lead} btn-sm" onclick="FormResponses.bookVisit('${cid}', '${esc(r.property_address || '')}')">\uD83D\uDCCD Book the visit</button>` : '';
       const walk = wt
         ? `<button class="btn btn-primary btn-sm" onclick="App.switchTab('walkthrough');Walkthrough.open('${wt.id}')">\uD83C\uDFDA\uFE0F ${wt.certified_at ? 'Consultation certified, open it' : 'Continue the walkthrough'}</button>`
         : `<button class="btn btn-outline btn-sm" onclick="Walkthrough.startFor(${cid ? `'${cid}'` : 'null'}, '${esc(r.property_address)}')">\uD83C\uDFDA\uFE0F Start the walkthrough</button>`;
@@ -1729,12 +1729,16 @@ const FormResponses = {
   // Opens the appointment booker against this client. Appointments builds its
   // dropdown from Clients.all, so a session that has not opened the Clients
   // screen yet would otherwise get an empty list and no prefill.
-  async bookVisit(clientId) {
+  async bookVisit(clientId, address) {
     if (typeof Appointments === 'undefined') { App.toast('⚠️ Appointments unavailable', 'var(--red)'); return; }
     if (typeof Clients !== 'undefined' && !(Clients.all || []).length) {
       try { await Clients.load(); } catch (e) { /* fall through with an empty list */ }
     }
-    Appointments.openForm(clientId);
+    // Their own property is the place: prefilled, with a way out for another address.
+    Appointments.openForm(clientId, address ? {
+      address, type: 'Listing consultation',
+      intro: "Visit the seller at their property for the listing consultation. They get an Add-to-Calendar invite with the address and a map."
+    } : null);
   },
 
   // Jumps to the client list with their name already in the search box, which
