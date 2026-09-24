@@ -13,11 +13,12 @@ const Approvals = {
     // base64 email HTML + file attachments (often MBs). Pulling it here made the
     // approvals query slow/hang. context_data is fetched per-row on openEdit/approve.
     const { data } = await db.from('approval_queue')
-      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at, updated_at')
+      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at, updated_at, assist_cid:context_data->>client_id')
       .eq('agent_id', agentId)
       .in('status', ['Pending', 'Failed'])
       .order('created_at', { ascending: false }).limit(50);
     const pending = data || [];
+    await Approvals._loadAssist(agentId);
     const badge = document.getElementById('approvals-badge');
     if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
     if (!pending.length) {
@@ -45,6 +46,7 @@ const Approvals = {
             ? `<span style="color:var(--accent2);">👁 Click to preview formatted email</span>`
             : App.esc(a.email_body.slice(0,200)) + (a.email_body.length>200?'…':'')}
         </div>` : ''}
+        ${a.status !== 'Approved' ? Approvals._assistTickHtml(a) : ''}
         ${a.status === 'Pending' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
@@ -91,6 +93,118 @@ const Approvals = {
   _data: [],
 
   _sending: new Set(), // in-memory lock — prevents double-tapping Approve
+
+  // ── Assisting agent copies ────────────────────────────────────────────────
+  // A client can have an assisting agent (client_contacts role 'assisting_agent').
+  // They see NOTHING by default. Each email about that client gets an unticked
+  // "copy" box here; only a ticked box sends them a separate copy (never a CC,
+  // so the client's address is not exposed), after the real email has gone out.
+  // Auto-approved emails never tick it, so they never reach the assisting agent.
+  _assist: { byClient: {}, byEmail: {} },
+  _assistPick: {},   // approval id -> { copy, attach }
+
+  async _loadAssist(agentId) {
+    const byClient = {}, byEmail = {};
+    try {
+      const { data: rows } = await db.from('client_contacts')
+        .select('client_id, name, email').eq('agent_id', agentId).eq('role', 'assisting_agent');
+      (rows || []).filter(r => r.email).forEach(r => { byClient[r.client_id] = r; });
+      const ids = Object.keys(byClient);
+      if (ids.length) {
+        // Older queued rows carry no client_id: match them by the client's own address.
+        const { data: cl } = await db.from('clients').select('id, email').in('id', ids);
+        (cl || []).forEach(c => { if (c.email) byEmail[c.email.trim().toLowerCase()] = byClient[c.id]; });
+      }
+    } catch (e) { console.warn('[assist] load skipped:', e?.message || e); }
+    Approvals._assist = { byClient, byEmail };
+  },
+
+  _assistFor(item) {
+    if (!item || ['Agent Update', 'Agent Delete', 'Agent Welcome'].includes(item.approval_type)) return null;
+    let cid = item.assist_cid || null;
+    if (!cid && item.context_data) {
+      try { const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data; cid = ctx?.client_id || null; } catch (_) {}
+    }
+    const to = (item.client_email || '').trim().toLowerCase();
+    const helper = (cid && Approvals._assist.byClient[cid]) || Approvals._assist.byEmail[to] || null;
+    if (!helper?.email || helper.email.trim().toLowerCase() === to) return null;  // the email already goes to them
+    return helper;
+  },
+
+  _setAssist(id, key, on) {
+    const p = Approvals._assistPick[id] || { copy: false, attach: true };
+    p[key] = !!on;
+    Approvals._assistPick[id] = p;
+    // Card and modal show the same choice; keep them in step.
+    document.querySelectorAll(`[data-assist-${key}="${id}"]`).forEach(el => { el.checked = !!on; });
+  },
+
+  _assistTickHtml(item, inModal = false) {
+    const h = Approvals._assistFor(item);
+    if (!h) return '';
+    const p = Approvals._assistPick[item.id] || { copy: false, attach: true };
+    return `
+      <div onclick="event.stopPropagation()" style="padding:8px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:${inModal ? 14 : 10}px;font-size:12px;color:var(--text2);">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text1);font-weight:600;">
+          <input type="checkbox" data-assist-copy="${item.id}" ${p.copy ? 'checked' : ''} onchange="Approvals._setAssist('${item.id}','copy',this.checked)">
+          🤝 Also send ${App.esc(h.name || 'the assisting agent')} a copy
+        </label>
+        ${inModal ? `
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:6px 0 0 24px;">
+          <input type="checkbox" data-assist-attach="${item.id}" ${p.attach ? 'checked' : ''} onchange="Approvals._setAssist('${item.id}','attach',this.checked)">
+          Include the attachments
+        </label>` : ''}
+        <div style="font-size:10.5px;color:var(--text3);margin-top:4px;">Assisting agent. Unticked means they never see this email.</div>
+      </div>`;
+  },
+
+  // Sends the assisting agent their own copy of an email that has just gone out.
+  // Private client links (portal, respond, review pages, tracked links) are
+  // removed so the copy cannot be used to act as the client.
+  async _sendAssistCopy(item, helper, pick, { subject, body, html, attachments }) {
+    const isPrivate = href => /\.html\?t=|[?&](t|token)=|\/functions\/v1\//i.test(href || '');
+    const when = new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+    const note = `Copy for your file. Sent by ${currentAgent?.name || 'Maxwell'} to ${item.client_name || 'the client'} on ${when}. Private client links have been removed.`;
+    let copyHtml = html ? html.replace(/<a\b[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, href, inner) => isPrivate(href) ? inner : m) : null;
+    if (copyHtml) {
+      const banner = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#374151;background:#f3f4f6;border-left:3px solid #5b5bd6;padding:10px 12px;margin:0 0 16px;">${App.esc(note)}</div>`;
+      copyHtml = /<body[^>]*>/i.test(copyHtml) ? copyHtml.replace(/<body[^>]*>/i, m => m + banner) : banner + copyHtml;
+    }
+    const copyBody = note + '\n\n' + String(body || '').replace(/https?:\/\/\S+/g, u => isPrivate(u) ? '[private link removed]' : u);
+    const copySubject = `Copy: ${subject}`;
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({
+          to: helper.email, cc: null, bcc: 'maxwelldelali22@gmail.com',
+          subject: copySubject, body: copyBody, html: copyHtml,
+          attachments: pick.attach ? (attachments || null) : null,
+          from_name: currentAgent?.name || currentAgent?.full_name || 'Maxwell Midodzi', from_email: null
+        })
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || result.message || 'send failed');
+      try {
+        await db.from('email_inbox').insert({
+          agent_id: currentAgent.id, direction: 'sent',
+          recipient_name: helper.name || 'Assisting agent', recipient_email: helper.email,
+          sender_name: currentAgent?.name || 'Maxwell Midodzi', sender_email: currentAgent?.email || 'maxwelldelali22@gmail.com',
+          subject: copySubject, body: copyBody, sent_html: copyHtml,
+          gmail_message_id: result.gmail_message_id || null, gmail_thread_id: result.gmail_thread_id || null,
+          is_read: true, created_at: new Date().toISOString()
+        });
+      } catch (_) { /* the log is best-effort, the copy already went */ }
+      App.logActivity('ASSIST_COPY_SENT', helper.name || 'Assisting agent', helper.email,
+        `Copy of "${subject}" (to ${item.client_name || 'client'}) sent to assisting agent${pick.attach && attachments?.length ? ` with ${attachments.length} attachment${attachments.length > 1 ? 's' : ''}` : ''}`);
+      return true;
+    } catch (e) {
+      console.error('[assist copy] failed:', e);
+      App.toast(`⚠️ The email went out, but the copy to ${helper.name || 'the assisting agent'} failed: ${e.message}`, 'var(--yellow)');
+      return false;
+    }
+  },
 
   // Persist a durable failure marker so a failed send — especially an auto-approve
   // fire-and-forget one — never vanishes silently. Sets status 'Failed' so the row
@@ -323,6 +437,7 @@ const Approvals = {
     // actually engaged. Deliberately clicks, not an open pixel: Apple Mail and
     // Gmail pre-load images, so "opens" would mostly be false positives.
     const messageKey = (crypto?.randomUUID) ? crypto.randomUUID() : null;
+    const htmlForCopy = outHtml;   // untracked: the assisting agent's clicks must not count as the client's
     if (messageKey && outHtml) {
       outHtml = await Approvals._trackLinks(outHtml, messageKey, toEmail);
     }
@@ -395,6 +510,17 @@ const Approvals = {
         // Mark approved in DB
         await db.from('approval_queue').update({ status: 'Approved', updated_at: new Date().toISOString() }).eq('id', id);
         App.logActivity('EMAIL_SENT', item.client_name, item.client_email, `Email sent: ${item.email_subject}`);
+
+        // Assisting agent copy — only when Maxwell ticked it for this email.
+        const assistPick = Approvals._assistPick[id];
+        delete Approvals._assistPick[id];
+        if (assistPick?.copy) {
+          const helper = Approvals._assistFor(item);
+          if (helper && await Approvals._sendAssistCopy(item, helper, assistPick,
+                { subject: cleanSubject, body: outBody, html: htmlForCopy, attachments: fileAttachments })) {
+            App.toast(`🤝 Copy sent to ${helper.name || 'the assisting agent'}`, 'var(--green)');
+          }
+        }
 
         // ── BATCH AUTO-APPROVE — fan out to siblings with same batch_id ────────
         if (item.batch_id) {
@@ -514,6 +640,8 @@ const Approvals = {
             <div style="font-size:11px;color:var(--text2);margin-top:2px;">${App.esc(item.approval_type||'Email')} · ${App.timeAgo(item.created_at)}</div>
           </div>
         </div>
+
+        ${Approvals._assistTickHtml(item, true)}
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">CC (comma-separated)</label>

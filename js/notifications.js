@@ -2234,11 +2234,14 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
     // Pack html + ics + real file attachments into context_data
     let contextData = null;
-    if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length || extraContext) {
+    if (htmlBody || icsBase64 || ccEmail || attachmentRefs?.length || extraContext || clientId) {
       const safeHtml = htmlBody ? btoa(unescape(encodeURIComponent(htmlBody))) : null;
       contextData = {
         html: safeHtml, ics: icsBase64 || null, cc: ccEmail || null,
         attachments: attachmentRefs?.length ? attachmentRefs : null,
+        // Which client this email is about, whoever it is addressed to. Approvals
+        // uses it to offer the client's assisting agent a copy (never automatic).
+        client_id: clientId || null,
         ...(extraContext || {})
       };
     }

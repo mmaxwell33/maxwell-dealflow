@@ -1002,12 +1002,117 @@ const Clients = {
         ${stakeRow('builder',         'Builder',         '🏗️')}
       </div>
 
+      <!-- Assisting agent — another agent helping on this file. Sees nothing
+           about this client unless you tick "copy" on an email in Approvals. -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+          🤝 Assisting Agent
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px;font-style:italic;">
+          Nothing is shared automatically. Each email in Approvals gets a box to copy them, unticked. Leave all fields empty and save to remove them.
+        </div>
+        ${stakeRow('assisting_agent', 'Assisting Agent', '🤝')}
+        ${byRole.assisting_agent?.email ? `<button class="btn2 btn2-ghost" style="width:100%;justify-content:center;" onclick="Clients.composeToAssist('${c.id}')">📎 Send ${App.esc(byRole.assisting_agent.name || 'them')} documents</button>` : ''}
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
         <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.archive('${c.id}','${App.escAttr(c.full_name)}')">🗂 Archive</button>
         <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Clients.update('${c.id}')">💾 Save</button>
       </div>
       <div id="ce-status" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
+  },
+
+  // ── Assisting agent: send documents on purpose ─────────────────────────────
+  // The only other way they hear anything is a ticked copy in Approvals. This
+  // goes through Approvals too, so it still waits for Maxwell's Approve. The
+  // deal's own documents are offered unticked, the same files stakeholders get.
+  async composeToAssist(clientId) {
+    const c = Clients.all.find(x => x.id === clientId);
+    const { data: helper } = await db.from('client_contacts')
+      .select('name, email').eq('client_id', clientId).eq('role', 'assisting_agent').maybeSingle();
+    if (!helper?.email) { App.toast('⚠️ Save an assisting agent with an email first', 'var(--yellow)'); return; }
+    const { data: deals } = await db.from('pipeline').select('id').eq('client_id', clientId);
+    const dealIds = (deals || []).map(d => d.id);
+    let docs = [];
+    if (dealIds.length) {
+      const { data } = await db.from('deal_documents')
+        .select('id, file_name, file_path, doc_type').in('pipeline_id', dealIds)
+        .order('created_at', { ascending: false });
+      docs = data || [];
+    }
+    Clients._assistDocs = docs;
+    const first = (c?.full_name || 'the client').split(' ')[0];
+    App.openModal(`
+      <div class="modal-title">📎 Send to ${App.esc(helper.name || 'assisting agent')}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">✉️ ${App.esc(helper.email)} · Assisting agent on ${App.esc(c?.full_name || 'this client')}</div>
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <input class="form-input" id="ca-subject" value="${App.esc('Documents: ' + first + ' file')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message</label>
+        <textarea class="form-input" id="ca-body" rows="6" placeholder="What you need them to do with these"></textarea>
+      </div>
+      ${docs.length ? `
+      <div class="form-group">
+        <label class="form-label">Deal documents (tick what they may see)</label>
+        ${docs.map((d, i) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="ca-doc-${i}"> 📄 ${App.esc(d.file_name || d.doc_type || 'Document')}
+          </label>`).join('')}
+      </div>` : ''}
+      <div class="form-group">
+        <label class="form-label">Other files</label>
+        <input type="file" id="ca-files" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:12px;color:var(--text2);">
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-style:italic;">Goes to Approvals first. Nothing reaches them until you tap Approve.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Clients.queueToAssist('${clientId}')">Queue for approval</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>
+      <div id="ca-status" style="text-align:center;margin-top:8px;font-size:12px;"></div>
+    `);
+    Clients._assistHelper = helper;
+  },
+
+  async queueToAssist(clientId) {
+    const st = document.getElementById('ca-status');
+    const helper = Clients._assistHelper;
+    const c = Clients.all.find(x => x.id === clientId);
+    const subject = document.getElementById('ca-subject')?.value.trim();
+    const bodyText = document.getElementById('ca-body')?.value.trim() || '';
+    if (!helper?.email || !subject) { st.style.color = 'var(--red)'; st.textContent = '⚠️ Subject is required'; return; }
+    st.style.color = 'var(--text2)'; st.textContent = 'Preparing files...';
+    const toB64 = blob => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(String(e.target.result).split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+    const files = [];
+    // Ticked deal documents: the deal-docs bucket is private, so download as Maxwell.
+    for (const [i, d] of (Clients._assistDocs || []).entries()) {
+      if (!document.getElementById(`ca-doc-${i}`)?.checked) continue;
+      const { data: blob, error } = await db.storage.from('deal-docs').download(d.file_path);
+      if (error || !blob) { st.style.color = 'var(--red)'; st.textContent = `❌ Couldn't load ${d.file_name || 'a document'}. Nothing was queued.`; return; }
+      files.push({ filename: d.file_name || 'document.pdf', mime_type: blob.type || 'application/octet-stream', data: await toB64(blob) });
+    }
+    for (const f of Array.from(document.getElementById('ca-files')?.files || [])) {
+      if (f.size > 20 * 1024 * 1024) { App.toast(`⚠️ ${f.name} is over 20 MB, skipped`, 'var(--yellow)'); continue; }
+      files.push({ filename: f.name, mime_type: f.type || 'application/octet-stream', data: await toB64(f) });
+    }
+    const { plainSig, fullBody } = EmailSend.buildSignedBody(bodyText, '', null);
+    const html = EmailSend.wrapHtml(bodyText, plainSig, '');
+    st.textContent = 'Sending to Approvals...';
+    const ok = await Notify.queue('Assisting Agent', clientId, helper.name || 'Assisting agent', helper.email,
+      subject, fullBody, null, html, null, null, files.length ? files : null);
+    if (ok === false) { st.style.color = 'var(--red)'; st.textContent = '❌ Could not queue it'; return; }
+    App.logActivity('EMAIL_QUEUED', helper.name || 'Assisting agent', helper.email,
+      `Assisting agent email queued for ${c?.full_name || 'client'}: ${subject}${files.length ? ` (${files.length} file${files.length > 1 ? 's' : ''})` : ''}`, clientId);
+    App.closeModal();
+    App.toast('✅ Queued in Approvals. Tap Approve to send.', 'var(--green)');
+    if (typeof Notify !== 'undefined' && Notify.updateBadge) Notify.updateBadge();
   },
 
   async update(id) {
@@ -1035,7 +1140,14 @@ const Clients = {
     if (paErr) console.warn('Pre-approval not saved — run migration 049_client_preapproval.sql:', paErr.message);
 
     // Upsert any stakeholder contacts entered. Skip empty rows.
-    const roles = ['mortgage_broker','lawyer','inspector','builder'];
+    const roles = ['mortgage_broker','lawyer','inspector','builder','assisting_agent'];
+    // An emptied assisting agent is a removal, not a skip: otherwise the old
+    // agent would keep being offered copies after Maxwell cleared them.
+    const assistEmpty = ['name','email','phone'].every(f => !(document.getElementById(`ce-assisting_agent-${f}`)?.value.trim()));
+    if (assistEmpty) {
+      const { error: dErr } = await db.from('client_contacts').delete().eq('client_id', id).eq('role', 'assisting_agent');
+      if (dErr) console.warn('assisting agent remove:', dErr);
+    }
     const contactRows = roles.map(role => {
       const name  = document.getElementById(`ce-${role}-name`)?.value.trim()  || '';
       const email = document.getElementById(`ce-${role}-email`)?.value.trim() || '';
