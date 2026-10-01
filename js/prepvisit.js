@@ -252,7 +252,7 @@ const PrepVisit = {
 
       <div class="form-group"><label class="form-label">Key focus</label>
         <div id="pv-focus"></div>
-        <input class="form-input" id="pv-focus-extra" style="margin-top:6px;" placeholder="Add your own, separated by commas">
+        <input class="form-input" id="pv-focus-extra" style="margin-top:6px;" placeholder="Add your own cleaning or work items, separated by commas">
       </div>
       <div class="form-group"><label class="form-label">Note for the vendor <span style="color:var(--text2);font-weight:400;">(goes in their email)</span></label>
         <textarea class="form-input" id="pv-notes" rows="2" placeholder="e.g. If anything can be done with the carpet on the stairs, that would be wonderful"></textarea></div>
@@ -525,6 +525,13 @@ const PrepVisit = {
     if (!f.name) return msg('Add the vendor\'s name.', 'var(--red)');
     if (!f.date || !f.time) return msg('Pick a date and time.', 'var(--red)');
     if (f.email && !/\S+@\S+\.\S+/.test(f.email)) return msg('That vendor email does not look right.', 'var(--red)');
+    // An address typed into the work-items box would be listed to the vendor as
+    // a job and the person would get nothing (happened 2026-10-01).
+    const strayEmail = f.focus.find(x => /\S+@\S+\.\S+/.test(x));
+    if (strayEmail) {
+      document.getElementById('pv-focus-extra')?.focus();
+      return msg(`"${strayEmail}" is in the work items box. To send that person a copy, remove it there and add it under Who gets a copy → Other.`, 'var(--red)');
+    }
     if (f.rateType === 'hourly' ? !f.rate : !f.amount) return msg(f.rateType === 'hourly' ? 'Add the rate per hour.' : 'Add the flat amount.', 'var(--red)');
     if (f.rateType === 'hourly' && !f.hours && !f.openEnded) return msg('Add how many hours, or tick "Until the job is done".', 'var(--red)');
     if (f.lawyerTicked && !/\S+@\S+\.\S+/.test(document.getElementById('pv-lawyer-email').value)) return msg('Add the lawyer\'s email, or untick Lawyer.', 'var(--red)');
