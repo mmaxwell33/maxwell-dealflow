@@ -18,16 +18,24 @@ const Approvals = {
       .in('status', ['Pending', 'Failed'])
       .order('created_at', { ascending: false }).limit(50);
     const pending = data || [];
+    // Scheduled sends (migration 111). An error here (column not there yet)
+    // just means nothing is shown as scheduled.
+    const { data: sched } = await db.from('approval_queue')
+      .select('id, client_name, client_email, approval_type, email_subject, status, batch_id, scheduled_at')
+      .eq('agent_id', agentId)
+      .in('status', ['Scheduled', 'Sending'])
+      .order('scheduled_at').limit(50);
+    const schedHTML = Approvals._scheduledHTML(sched || []);
     await Approvals._loadAssist(agentId);
     const badge = document.getElementById('approvals-badge');
     if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
     if (!pending.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
+      el.innerHTML = schedHTML + '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending approvals</div><div class="empty-sub">Client emails will appear here for your review before sending</div></div>';
       return;
     }
     const typeIcon = { 'Viewing Confirmation':'📅', 'Post-Viewing Follow-Up':'🏠', 'Offer Submitted':'📄', 'Offer Accepted 🎉':'🎉', 'Deal Closed 🏠':'🔑', 'Financing Reminder (3d)':'🏦', 'Financing Reminder (1d)':'🏦', 'Inspection Reminder (3d)':'🔍', 'Inspection Reminder (1d)':'🔍', 'Closing Countdown (7d)':'📅', 'Closing Countdown (3d)':'⏰', 'Closing Countdown (1d)':'🚨', 'Agent Welcome':'🧑‍💼', 'Agent Update':'✏️', 'Agent Delete':'🗑️' };
     Approvals._data = pending;
-    el.innerHTML = pending.map(a => `
+    el.innerHTML = schedHTML + pending.map(a => `
       <div class="card appr-card" style="margin-bottom:12px;border-left:3px solid ${a.status==='Pending'?'var(--accent2)':a.status==='Approved'?'var(--green)':'var(--red)'};cursor:pointer;" onclick="Approvals.openEdit('${a.id}')">
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
           <div style="font-size:22px;line-height:1;">${typeIcon[a.approval_type]||'📬'}</div>
@@ -50,6 +58,7 @@ const Approvals = {
         ${a.status === 'Pending' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.schedule('${a.id}')">⏰ Schedule</button>
             <button class="btn btn-outline btn-sm" onclick="Approvals.openEdit('${a.id}')">✏️ Preview & Edit</button>
             <button class="btn btn-sm" style="background:var(--text2);color:#fff;" onclick="Approvals.skip('${a.id}')">⏭ Skip (client aware)</button>
           </div>` : a.status === 'Failed' ? `
@@ -60,6 +69,117 @@ const Approvals = {
             <button class="btn btn-sm" style="background:var(--text2);color:#fff;" onclick="Approvals.skip('${a.id}')">⏭ Skip (client aware)</button>
           </div>` : `<div style="font-size:11px;color:var(--text2);">${a.status === 'Approved' ? '✅ Sent to client' : '⏭ Skipped — client already aware'} · ${App.fmtDate(a.updated_at)}</div>`}
       </div>`).join('');
+  },
+
+  // ── SCHEDULED SEND ──────────────────────────────────────────────────────
+  // The server sends these (send-scheduled, every 5 minutes), so they go out
+  // whether or not the app is open. See migration 111.
+  _scheduledHTML(rows) {
+    if (!rows.length) return '';
+    const when = iso => new Date(iso).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return `
+      <div style="font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.05em;margin:0 0 8px;">⏰ SCHEDULED</div>
+      ${rows.map(a => `
+        <div class="card" style="margin-bottom:10px;border-left:3px solid var(--yellow);padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="min-width:0;">
+              <div class="fw-700" style="font-size:14px;">${App.esc(a.client_name || 'Unknown')}</div>
+              <div class="text-muted" style="font-size:12px;">${App.esc(a.approval_type || 'Email')}${a.client_email ? ' · ' + App.esc(a.client_email) : ''}</div>
+              ${a.email_subject ? `<div style="font-size:12px;margin-top:4px;">📧 ${App.esc(a.email_subject)}</div>` : ''}
+            </div>
+            <div style="font-size:12.5px;font-weight:800;color:var(--yellow);white-space:nowrap;">${a.status === 'Sending' ? 'Sending now…' : 'Sends ' + when(a.scheduled_at)}</div>
+          </div>
+          ${a.status === 'Scheduled' ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button class="btn btn-green btn-sm" onclick="Approvals.sendNow('${a.id}')">✅ Send now</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.schedule('${a.id}')">⏰ Change time</button>
+            <button class="btn btn-outline btn-sm" onclick="Approvals.unschedule('${a.id}')">↩︎ Unschedule</button>
+          </div>` : ''}
+        </div>`).join('')}
+      <div style="height:6px;"></div>`;
+  },
+
+  schedule(id) {
+    const at = (dayOffset, h, m) => { const d = new Date(); d.setDate(d.getDate() + dayOffset); d.setHours(h, m, 0, 0); return d; };
+    const opts = [at(0, 17, 0), at(1, 9, 0), at(1, 13, 0)].filter(d => d > new Date(Date.now() + 5 * 60000));
+    const label = d => d.toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    const local = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    App.openModal(`
+      <div class="modal-title">⏰ Schedule this email</div>
+      <div style="font-size:13px;color:var(--text2);margin:-4px 0 14px;">It sends at that time even if the app is closed (within 5 minutes of the time you pick).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${opts.map(d => `<button class="btn btn-outline btn-sm" onclick="Approvals._doSchedule('${id}','${d.toISOString()}')">${label(d)}</button>`).join('')}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Or pick a date and time</label>
+        <input class="form-input" id="sch-at" type="datetime-local" value="${local(at(1, 9, 0))}" min="${local(new Date())}">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="Approvals._doSchedule('${id}', document.getElementById('sch-at').value ? new Date(document.getElementById('sch-at').value).toISOString() : '')">Schedule</button>
+    `);
+  },
+
+  async _doSchedule(id, iso) {
+    if (!iso || isNaN(new Date(iso)) || new Date(iso) <= new Date()) { App.toast('⚠️ Pick a time in the future', 'var(--yellow)'); return; }
+    App.closeModal();
+    const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
+    if (!item) return;
+    const ids = [id];
+    if (item.batch_id) {
+      const { data: sibs } = await db.from('approval_queue').select('id')
+        .eq('agent_id', item.agent_id).eq('batch_id', item.batch_id).in('status', ['Pending', 'Scheduled']).neq('id', id);
+      if (sibs?.length && confirm(`This is part of a batch of ${sibs.length + 1} emails.\n\nSchedule all of them for the same time?\n\n• OK = all of them\n• Cancel = only this one`)) ids.push(...sibs.map(s => s.id));
+    }
+    let ok = 0;
+    for (const x of ids) if (await Approvals._scheduleOne(x, iso)) ok++;
+    if (ok) App.toast(`⏰ ${ok} email${ok > 1 ? 's' : ''} scheduled for ${new Date(iso).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`, 'var(--green)');
+    Approvals.load();
+    if (typeof Notify !== 'undefined') Notify.updateBadge();
+  },
+
+  // Prepares the email exactly as approve() would and parks the finished
+  // message for the server. Staged attachments stay as storage paths; the
+  // server downloads them at send time.
+  async _scheduleOne(id, iso) {
+    const { data: item } = await db.from('approval_queue').select('*').eq('id', id).single();
+    if (!item) return false;
+    if (['Agent Update', 'Agent Delete'].includes(item.approval_type)) { App.toast('⚠️ Agent changes cannot be scheduled', 'var(--yellow)'); return false; }
+    const { htmlBody, icsAttachment, ccEmail, fileAttachments } = Approvals._parseCtx(item);
+    const fin = await Approvals._finalize(item, htmlBody, ccEmail);
+    if (fin.blocked) { App.toast('⚠️ This email has a repeated signature/notice. Open "Preview & Edit" to fix it before scheduling.', 'var(--red)'); return false; }
+    if (!fin.toEmail || !item.email_subject) { App.toast(`⚠️ ${item.client_name || 'This email'} has no email address, so it cannot be scheduled`, 'var(--yellow)'); return false; }
+    const agent = currentAgent || {};
+    const payload = {
+      to: fin.toEmail, cc: fin.actualCc, bcc: 'maxwelldelali22@gmail.com',
+      subject: fin.cleanSubject, body: fin.outBody, html: fin.outHtml, ics: icsAttachment,
+      attachments: fileAttachments || null,
+      from_name: agent.name || agent.full_name || 'Maxwell Midodzi',
+      sender_email: agent.email || 'maxwelldelali22@gmail.com',
+      message_key: fin.messageKey
+    };
+    const { error } = await db.from('approval_queue').update({
+      status: 'Scheduled', scheduled_at: iso, scheduled_payload: payload, updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (error) { App.toast('⚠️ ' + error.message + (/scheduled/.test(error.message) ? ' (run migration 111)' : ''), 'var(--red)'); return false; }
+    return true;
+  },
+
+  async unschedule(id) {
+    // Back to Pending; the prepared payload is dropped so any edit made now is
+    // what gets prepared next time.
+    // Conditional on still being Scheduled: if the server has already claimed it
+    // (Sending), nothing comes back and Send now must not send it a second time.
+    const { data: back, error } = await db.from('approval_queue')
+      .update({ status: 'Pending', scheduled_at: null, scheduled_payload: null, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('status', 'Scheduled').select('id');
+    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return false; }
+    if (!back?.length) { App.toast('⏳ It is already sending', 'var(--yellow)'); Approvals.load(); return false; }
+    Approvals.load();
+    if (typeof Notify !== 'undefined') Notify.updateBadge();
+    return true;
+  },
+
+  async sendNow(id) {
+    if (await Approvals.unschedule(id)) await Approvals.approve(id);
   },
 
   expandBody(id) {
@@ -257,6 +377,82 @@ const Approvals = {
     Approvals.load();
   },
 
+  // context_data → the html / ics / cc / attachment refs a send needs.
+  _parseCtx(item) {
+    let htmlBody = null, icsAttachment = null, ccEmail = null, fileAttachments = null;
+    if (item.context_data) {
+      try {
+        const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
+        const rawHtml = ctx.html || null;
+        if (rawHtml && !rawHtml.startsWith('<')) {
+          try { htmlBody = decodeURIComponent(escape(atob(rawHtml))); } catch { htmlBody = rawHtml; }
+        } else {
+          htmlBody = rawHtml;
+        }
+        icsAttachment   = ctx.ics         || null;
+        ccEmail         = ctx.cc          || null;
+        fileAttachments = ctx.attachments || null; // [{filename,mime_type,data}] or [{...,path}]
+      } catch {
+        htmlBody = item.context_data;
+      }
+    }
+    return { htmlBody, icsAttachment, ccEmail, fileAttachments };
+  },
+
+  // The finished email exactly as it leaves: recipient, de-dashed, disclaimer
+  // guaranteed, integrity-checked, links tracked. { blocked: true } if the
+  // integrity guard refuses it.
+  async _finalize(item, htmlBody, ccEmail) {
+    // Resolve the primary recipient: client email, or fall back to CC if client has no email
+    const toEmail = item.client_email || ccEmail;
+    const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
+
+    // Human tone: strip em/en dashes from the outgoing email no matter how it was
+    // queued (templates, manual composer, or AI all send through here).
+    const _dd = (typeof Notify !== 'undefined' && Notify.deDash) ? Notify.deDash : (x => x);
+    const _tidy = (typeof Notify !== 'undefined' && Notify.tidyBody) ? Notify.tidyBody : (x => x);
+    const cleanSubject = _dd(item.email_subject);
+    const cleanBody    = _tidy(_dd(item.email_body || ''));
+    htmlBody           = _dd(htmlBody);
+
+    // Safety net: guarantee the confidentiality disclaimer on EVERY outgoing email,
+    // including ad-hoc ones (build / builder portal links) that don't use the shared
+    // templates. Skip when it's already present so templated emails never double up.
+    let outBody = cleanBody, outHtml = htmlBody;
+    if (!/CONFIDENTIALITY NOTICE/i.test((outHtml || '') + (outBody || ''))) {
+      outBody = (outBody || '') + '\n\n---\n\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.';
+      if (outHtml) {
+        const disHtml = '<hr style="border:none;border-top:1px solid #eee;margin:20px 0 12px;"><p style="font-size:10.5px;color:#9ca3af;line-height:1.55;margin:0;"><strong style="color:#6b7280;">CONFIDENTIALITY NOTICE:</strong> This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>';
+        outHtml = outHtml.includes('</body>') ? outHtml.replace('</body>', disHtml + '</body>') : (outHtml + disHtml);
+      }
+    }
+
+    // ── PRE-SEND INTEGRITY GUARD ─────────────────────────────────────────────
+    // Last line of defence: no email leaves with a duplicated signature or
+    // confidentiality notice, whatever upstream code did. Auto-cleans the known
+    // doubling (an appended signature+notice tail after the message body); if it
+    // still looks doubled after cleaning, the send is blocked so a messy email
+    // never reaches a client.
+    {
+      const chk = Approvals._dedupeOutgoing(outHtml, outBody);
+      outHtml = chk.html; outBody = chk.body;
+      if (chk.fixed) console.warn('[approve] pre-send guard cleaned a duplicated signature/notice before sending');
+      if (chk.blocked) return { blocked: true };
+    }
+
+    // ── CLICK TRACKING ───────────────────────────────────────────────────────
+    // Route each link through track-click so it's visible whether the client
+    // actually engaged. Deliberately clicks, not an open pixel: Apple Mail and
+    // Gmail pre-load images, so "opens" would mostly be false positives.
+    const messageKey = (crypto?.randomUUID) ? crypto.randomUUID() : null;
+    const htmlForCopy = outHtml;   // untracked: the assisting agent's clicks must not count as the client's
+    if (messageKey && outHtml) {
+      outHtml = await Approvals._trackLinks(outHtml, messageKey, toEmail);
+    }
+
+    return { toEmail, actualCc, cleanSubject, outBody, outHtml, messageKey, htmlForCopy };
+  },
+
   async approve(id) {
     // ── SEND LOCK — block if already in flight ──────────────────────────────
     if (Approvals._sending.has(id)) {
@@ -320,23 +516,7 @@ const Approvals = {
     App.toast('Sending email...', 'var(--accent2)');
 
     // Parse context_data — html, ics, cc, and real file attachments
-    let htmlBody = null, icsAttachment = null, ccEmail = null, fileAttachments = null;
-    if (item.context_data) {
-      try {
-        const ctx = typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data;
-        const rawHtml = ctx.html || null;
-        if (rawHtml && !rawHtml.startsWith('<')) {
-          try { htmlBody = decodeURIComponent(escape(atob(rawHtml))); } catch { htmlBody = rawHtml; }
-        } else {
-          htmlBody = rawHtml;
-        }
-        icsAttachment   = ctx.ics         || null;
-        ccEmail         = ctx.cc          || null;
-        fileAttachments = ctx.attachments || null; // [{filename,mime_type,data}] or [{...,path}]
-      } catch {
-        htmlBody = item.context_data;
-      }
-    }
+    let { htmlBody, icsAttachment, ccEmail, fileAttachments } = Approvals._parseCtx(item);
     // Resolve storage-backed attachments: download each staged file from the
     // email-attachments bucket and turn it into the {filename,mime_type,data} the
     // send path needs. Inline attachments (with .data) are used as-is. Staged paths
@@ -390,57 +570,16 @@ const Approvals = {
       return;
     }
 
-    // Resolve the primary recipient: client email, or fall back to CC if client has no email
-    const toEmail = item.client_email || ccEmail;
-    const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
-
-    // Human tone: strip em/en dashes from the outgoing email no matter how it was
-    // queued (templates, manual composer, or AI all send through here).
-    const _dd = (typeof Notify !== 'undefined' && Notify.deDash) ? Notify.deDash : (x => x);
-    const _tidy = (typeof Notify !== 'undefined' && Notify.tidyBody) ? Notify.tidyBody : (x => x);
-    const cleanSubject = _dd(item.email_subject);
-    const cleanBody    = _tidy(_dd(item.email_body || ''));
-    htmlBody           = _dd(htmlBody);
-
-    // Safety net: guarantee the confidentiality disclaimer on EVERY outgoing email,
-    // including ad-hoc ones (build / builder portal links) that don't use the shared
-    // templates. Skip when it's already present so templated emails never double up.
-    let outBody = cleanBody, outHtml = htmlBody;
-    if (!/CONFIDENTIALITY NOTICE/i.test((outHtml || '') + (outBody || ''))) {
-      outBody = (outBody || '') + '\n\n---\n\nCONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.';
-      if (outHtml) {
-        const disHtml = '<hr style="border:none;border-top:1px solid #eee;margin:20px 0 12px;"><p style="font-size:10.5px;color:#9ca3af;line-height:1.55;margin:0;"><strong style="color:#6b7280;">CONFIDENTIALITY NOTICE:</strong> This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.</p>';
-        outHtml = outHtml.includes('</body>') ? outHtml.replace('</body>', disHtml + '</body>') : (outHtml + disHtml);
-      }
+    // Recipient, de-dash, disclaimer, integrity guard and click tracking: shared
+    // with Approvals.schedule() so a scheduled email is prepared identically.
+    const fin = await Approvals._finalize(item, htmlBody, ccEmail);
+    if (fin.blocked) {
+      App.toast('⚠️ This email looked like it had a repeated signature/notice that could not be auto-cleaned, so it was NOT sent. Open "Preview & Edit" to check it.', 'var(--red)');
+      await Approvals._markFailed(id, item, 'blocked by pre-send guard: duplicated signature/notice');
+      Approvals._sending.delete(id);
+      return;
     }
-
-    // ── PRE-SEND INTEGRITY GUARD ─────────────────────────────────────────────
-    // Last line of defence: no email leaves with a duplicated signature or
-    // confidentiality notice, whatever upstream code did. Auto-cleans the known
-    // doubling (an appended signature+notice tail after the message body); if it
-    // still looks doubled after cleaning, the send is blocked so a messy email
-    // never reaches a client.
-    {
-      const chk = Approvals._dedupeOutgoing(outHtml, outBody);
-      outHtml = chk.html; outBody = chk.body;
-      if (chk.fixed) console.warn('[approve] pre-send guard cleaned a duplicated signature/notice before sending');
-      if (chk.blocked) {
-        App.toast('⚠️ This email looked like it had a repeated signature/notice that could not be auto-cleaned, so it was NOT sent. Open "Preview & Edit" to check it.', 'var(--red)');
-        await Approvals._markFailed(id, item, 'blocked by pre-send guard: duplicated signature/notice');
-        Approvals._sending.delete(id);
-        return;
-      }
-    }
-
-    // ── CLICK TRACKING ───────────────────────────────────────────────────────
-    // Route each link through track-click so it's visible whether the client
-    // actually engaged. Deliberately clicks, not an open pixel: Apple Mail and
-    // Gmail pre-load images, so "opens" would mostly be false positives.
-    const messageKey = (crypto?.randomUUID) ? crypto.randomUUID() : null;
-    const htmlForCopy = outHtml;   // untracked: the assisting agent's clicks must not count as the client's
-    if (messageKey && outHtml) {
-      outHtml = await Approvals._trackLinks(outHtml, messageKey, toEmail);
-    }
+    const { toEmail, actualCc, cleanSubject, outBody, outHtml, messageKey, htmlForCopy } = fin;
 
     if (toEmail && item.email_subject) {
       // ── SEND VIA RESEND EDGE FUNCTION ──────────────────────────────────────
