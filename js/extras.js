@@ -13,7 +13,7 @@ const Approvals = {
     // base64 email HTML + file attachments (often MBs). Pulling it here made the
     // approvals query slow/hang. context_data is fetched per-row on openEdit/approve.
     const { data } = await db.from('approval_queue')
-      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at, updated_at, assist_cid:context_data->>client_id')
+      .select('id, agent_id, client_name, client_email, approval_type, email_subject, email_body, status, batch_id, related_id, created_at, updated_at')
       .eq('agent_id', agentId)
       .in('status', ['Pending', 'Failed'])
       .order('created_at', { ascending: false }).limit(50);
