@@ -510,6 +510,7 @@ const Walkthrough = {
     Walkthrough.edits   = edits.data   || [];
 
     await Walkthrough.signPhotos();
+    if (typeof PrepVisit !== 'undefined') await PrepVisit.loadFor(id);
     Walkthrough.installLifecycle();
     Walkthrough.render();
     Walkthrough.offerResume();
@@ -548,6 +549,7 @@ const Walkthrough = {
       ${w.roomsHTML()}
       ${w.systemsHTML()}
       ${w.notesHTML()}
+      ${typeof PrepVisit !== 'undefined' ? PrepVisit.sectionHTML() : ''}
       ${w.actionsHTML()}
     `;
   },

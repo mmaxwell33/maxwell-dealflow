@@ -137,8 +137,12 @@ const Calendar = {
     (meetings || []).forEach(m => {
       if (!m.meeting_date) return;
       const isAppt = m.kind === 'appointment';
+      const isPrep = m.kind === 'prep_visit';
+      if (isPrep && m.details?.status === 'cancelled') return;
       let sub;
-      if (isAppt) {
+      if (isPrep) {
+        sub = (m.builder_name || '') + (m.location ? ' · ' + m.location : '');
+      } else if (isAppt) {
         const stops = Array.isArray(m.stops) ? m.stops : [];
         sub = stops.length ? stops.map(s => s.type).join(' · ') + (stops[0]?.address ? ' — ' + stops[0].address : '')
                            : (m.purpose || '');
@@ -147,9 +151,9 @@ const Calendar = {
       }
       events.push({
         date:      m.meeting_date.slice(0,10),
-        label:     isAppt ? (m.purpose || 'Appointment') : 'Builder Meeting',
+        label:     isPrep ? (m.details?.trade || 'Prep visit') : isAppt ? (m.purpose || 'Appointment') : 'Builder Meeting',
         type:      'builder_visit',
-        icon:      isAppt ? '📍' : '🏗️',
+        icon:      isPrep ? '🧽' : isAppt ? '📍' : '🏗️',
         client:    m.client_name || '—',
         sub,
         time:      m.meeting_time ? (m.meeting_time+'').slice(0,5) : null,
