@@ -577,10 +577,10 @@ const PrepVisit = {
     // scheduled) is retired and rewritten from the new details. Anything that
     // already went out stays as sent, and the rewrite is labelled an update so
     // nobody is confused by a second letter.
-    let anySent = false;
+    const sentTo = new Set();   // who already has a letter about this visit
     if (editing) {
-      const { data: old } = await db.from('approval_queue').select('id, status').eq('related_id', editing.id);
-      anySent = (old || []).some(o => o.status === 'Approved');
+      const { data: old } = await db.from('approval_queue').select('id, status, client_email').eq('related_id', editing.id);
+      (old || []).filter(o => o.status === 'Approved').forEach(o => sentTo.add(String(o.client_email || '').toLowerCase()));
       const waiting = (old || []).filter(o => ['Pending', 'Failed', 'Scheduled'].includes(o.status)).map(o => o.id);
       if (waiting.length) {
         await db.from('approval_queue').update({ status: 'Skipped', updated_at: now })
@@ -597,7 +597,9 @@ const PrepVisit = {
     f.copies.forEach(c => { const t = P.copyLetter(f, wt, c, agent); sends.push(['Prep Visit: Copy', c.name || c.email, c.email, t, null]); });
     const batchId = sends.length > 1 ? crypto.randomUUID().replace(/-/g, '') : null;
     for (const [type, name, email, t, inv] of sends) {
-      const subject = anySent ? 'Updated: ' + t.subject : t.subject;
+      // "Updated:" only for someone who already got the first one. A person
+      // added on this edit gets a normal first letter.
+      const subject = sentTo.has(String(email).toLowerCase()) ? 'Updated: ' + t.subject : t.subject;
       await Notify.queue(type, seller?.id || null, name, email, subject, t.body, m.id, null, inv, null, null, batchId);
     }
 
