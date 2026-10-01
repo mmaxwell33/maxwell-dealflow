@@ -15,9 +15,8 @@
 //
 // PAYMENT IS PRIVATE. details.payer / rate_type / rate / hours / amount /
 // prepaid are Maxwell's record of what it costs and whether it is settled. The
-// vendor letter never carries figures. The figures go to whoever pays only when
-// he ticks "send the payment details": into the seller's letter when the seller
-// pays, or a private summary to himself when he does.
+// vendor letter never carries figures. They go into the seller's letter only
+// when the seller pays and he ticks it; otherwise nothing about money is emailed.
 //
 // Requires migration 110.
 
@@ -104,10 +103,11 @@ const PrepVisit = {
     return '$' + x.toLocaleString('en-CA', { minimumFractionDigits: x % 1 ? 2 : 0, maximumFractionDigits: 2 });
   },
   // "$40 per hour for 3 hours, $120 in total" / "a flat $250 for about 3 hours"
+  // No hours = "until the job is done": billed for the time it takes.
   payText(d) {
     const P = PrepVisit, h = Number(d.hours) || 0, hrs = `${h} hour${h === 1 ? '' : 's'}`;
-    if (d.rate_type === 'hourly') return `${P.money(d.rate)} per hour for ${hrs}, ${P.money(d.amount)} in total`;
-    return `a flat ${P.money(d.amount)} for about ${hrs}`;
+    if (d.rate_type === 'hourly') return h ? `${P.money(d.rate)} per hour for ${hrs}, ${P.money(d.amount)} in total` : `${P.money(d.rate)} per hour, for the time the job takes`;
+    return h ? `a flat ${P.money(d.amount)} for about ${hrs}` : `a flat ${P.money(d.amount)}`;
   },
 
   first(name) { return String(name || '').trim().split(/\s+/)[0] || 'there'; },
@@ -154,9 +154,10 @@ const PrepVisit = {
           <div style="font-size:12.5px;color:var(--text2);margin-top:4px;">
             ${P.esc(App.fmtDate(v.meeting_date))}${v.meeting_time ? ' · ' + P.fmt12h(v.meeting_time) : ''}${(d.units || []).length ? ' · ' + P.esc(d.units.join(', ')) : ''}
           </div>
-          <div style="font-size:12px;margin-top:4px;">🔒 ${pay}${d.amount ? ' · ' + P.esc(d.rate_type === 'hourly' ? `${P.money(d.rate)}/hr × ${d.hours} h = ${P.money(d.amount)}` : `Flat ${P.money(d.amount)} (${d.hours} h)`) : ''} · ${paid}</div>
+          <div style="font-size:12px;margin-top:4px;">🔒 ${pay}${(d.rate || d.amount) ? ' · ' + P.esc(d.rate_type === 'hourly' ? (d.hours ? `${P.money(d.rate)}/hr × ${d.hours} h = ${P.money(d.amount)}` : `${P.money(d.rate)}/hr, until done`) : `Flat ${P.money(d.amount)}${d.hours ? ` (${d.hours} h)` : ''}`) : ''} · ${paid}</div>
           ${st === 'booked' ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            <button class="btn btn-outline btn-sm" onclick="PrepVisit.openBook('${v.id}')">✏️ Edit</button>
             <button class="btn btn-outline btn-sm" onclick="PrepVisit.setStatus('${v.id}','done')">✅ Mark done</button>
             ${d.prepaid ? '' : `<button class="btn btn-outline btn-sm" onclick="PrepVisit.markPaid('${v.id}')">💳 Mark paid</button>`}
             <button class="btn btn-outline btn-sm" onclick="PrepVisit.setStatus('${v.id}','cancelled')">✕ Cancel</button>
@@ -185,9 +186,10 @@ const PrepVisit = {
   },
 
   // ── Booking modal ─────────────────────────────────────────────────────────
-  async openBook() {
+  async openBook(editId) {
     const P = PrepVisit, W = Walkthrough, wt = W.current;
     if (!wt) return;
+    P._editId = editId || null;
     const uid = await W.uid();
 
     const [vend, sellerQ, lawyerQ] = await Promise.all([
@@ -211,7 +213,7 @@ const PrepVisit = {
     const grid = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;';
 
     App.openModal(`
-      <div class="modal-title">Book prep visit</div>
+      <div class="modal-title">${editId ? 'Edit prep visit' : 'Book prep visit'}</div>
       <div style="font-size:13px;color:var(--text2);margin:-4px 0 14px;">${P.esc(wt.property_address)}${wt.property_type ? ' · ' + P.esc(wt.property_type) : ''}${seller ? ' · 👤 ' + P.esc(seller.full_name) : ''}</div>
 
       <div class="form-group">
@@ -278,12 +280,13 @@ const PrepVisit = {
           <div class="form-group" style="margin:0;"><label class="form-label" id="pv-rate-label">Rate per hour ($) *</label>
             <input class="form-input" id="pv-rate" inputmode="decimal" placeholder="e.g. 40" oninput="PrepVisit.payCalc()"></div>
           <div class="form-group" style="margin:0;"><label class="form-label">How many hours *</label>
-            <input class="form-input" id="pv-hours" type="number" min="0.5" step="0.5" value="3" oninput="PrepVisit.payCalc()"></div>
+            <input class="form-input" id="pv-hours" type="number" min="0.5" step="0.5" value="3" oninput="PrepVisit.payCalc()">
+            <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin-top:6px;color:var(--text2);"><input type="checkbox" id="pv-untildone" onchange="PrepVisit.payCalc()"> Until the job is done</label></div>
         </div>
         <div id="pv-total" style="font-size:13px;font-weight:700;margin:8px 0;"></div>
         <label style="font-size:13px;display:flex;gap:7px;align-items:center;margin-bottom:6px;"><input type="checkbox" id="pv-prepaid"> Already prepaid</label>
-        <label style="font-size:13px;display:flex;gap:7px;align-items:center;"><input type="checkbox" id="pv-sendpay"> Send the payment details to whoever pays</label>
-        <div style="font-size:11.5px;color:var(--text2);margin-top:6px;">The vendor's email never shows these figures. Ticked: if the seller pays, the figures go in their email; if you pay, a private summary comes to you.</div>
+        <label style="font-size:13px;display:flex;gap:7px;align-items:center;"><input type="checkbox" id="pv-sendpay"> When the seller pays, put these figures in their email</label>
+        <div style="font-size:11.5px;color:var(--text2);margin-top:6px;">The vendor's email never shows these figures, and nothing is emailed to you. They stay on this visit and in the activity log.</div>
       </div>
 
       <div class="form-group"><label class="form-label">Who gets a copy</label>
@@ -295,11 +298,50 @@ const PrepVisit = {
       </div>
 
       <div id="pv-msg" style="font-size:12.5px;margin-bottom:8px;"></div>
-      <button class="btn btn-primary btn-block" id="pv-save" onclick="PrepVisit.save()">📨 Book and queue the emails</button>
+      <button class="btn btn-primary btn-block" id="pv-save" onclick="PrepVisit.save()">${editId ? '💾 Save and update the emails' : '📨 Book and queue the emails'}</button>
       <div style="font-size:11.5px;color:var(--text2);text-align:center;margin-top:6px;">Everything waits in Approvals for you to read before it sends.</div>
     `);
     P.renderFocus();
+    if (editId) P.prefill(P.visits.find(x => x.id === editId));
     P.payCalc();
+  },
+
+  // Puts a booked visit back into the form. Visits booked before copy choices
+  // were stored have them worked out from who the emails went to.
+  prefill(v) {
+    if (!v) return;
+    const P = PrepVisit, d = v.details || {}, { seller, lawyer } = P._ctx;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+    const tick = (id, on) => { const el = document.getElementById(id); if (el) el.checked = !!on; };
+    const vend = P.vendors.find(x => x.id === v.vendor_id);
+    set('pv-vendor', vend ? vend.id : '');
+    set('pv-trade', P.TRADES[d.trade] ? d.trade : 'Other');
+    set('pv-name', v.builder_name); set('pv-email', v.builder_email);
+    set('pv-phone', vend?.phone); set('pv-company', vend?.company);
+    set('pv-date', v.meeting_date); set('pv-time', String(v.meeting_time || '').slice(0, 5));
+    document.querySelectorAll('[data-pv-unit]').forEach(c => { c.checked = (d.units || []).includes(c.value); });
+    document.querySelectorAll('[data-pv-area]').forEach(c => { c.checked = (d.areas || []).includes(c.value); });
+    P.renderFocus();
+    const shown = new Set([...document.querySelectorAll('[data-pv-focus]')].map(c => c.value));
+    document.querySelectorAll('[data-pv-focus]').forEach(c => { c.checked = (d.focus || []).includes(c.value); });
+    set('pv-focus-extra', (d.focus || []).filter(x => !shown.has(x)).join(', '));
+    tick('pv-tenanted', d.tenanted);
+    set('pv-notes', v.notes); set('pv-access', d.access || 'owner'); set('pv-access-note', d.access_note);
+    const radio = (name, val) => { const el = document.querySelector(`input[name="${name}"][value="${val}"]`); if (el) el.checked = true; };
+    radio('pv-payer', d.payer === 'seller' ? 'seller' : 'agent');
+    radio('pv-ratetype', d.rate_type === 'flat' ? 'flat' : 'hourly');
+    set('pv-rate', d.rate_type === 'flat' ? d.amount : d.rate);
+    tick('pv-untildone', !d.hours); if (d.hours) set('pv-hours', d.hours);
+    tick('pv-prepaid', d.prepaid); tick('pv-sendpay', d.send_pay);
+    const sent = (d.sent_to || []).map(e => String(e).toLowerCase());
+    const cp = d.copy || {
+      seller: !!(seller?.email && sent.includes(seller.email.toLowerCase())),
+      lawyer: lawyer?.email && sent.includes(lawyer.email.toLowerCase()) ? lawyer.email : null,
+      other: sent.filter(e => e !== String(v.builder_email || '').toLowerCase() && e !== String(seller?.email || '').toLowerCase() && e !== String(lawyer?.email || '').toLowerCase())
+    };
+    tick('pv-copy-seller', cp.seller);
+    tick('pv-copy-lawyer', !!cp.lawyer); if (cp.lawyer) set('pv-lawyer-email', cp.lawyer);
+    tick('pv-copy-other', (cp.other || []).length); set('pv-copy-extra', (cp.other || []).join(', '));
   },
 
   // Live total under the rate, so the figure on the record is the one he saw.
@@ -309,8 +351,12 @@ const PrepVisit = {
     const hourly = document.querySelector('input[name="pv-ratetype"]:checked')?.value !== 'flat';
     document.getElementById('pv-rate-label').textContent = hourly ? 'Rate per hour ($) *' : 'Flat amount ($) *';
     const rate = Number((document.getElementById('pv-rate').value || '').replace(/[^0-9.]/g, '')) || 0;
-    const hours = Number(document.getElementById('pv-hours').value) || 0;
-    el.textContent = !rate ? '' : hourly ? `Total: ${P.money(rate * hours)} (${P.money(rate)} × ${hours} h)` : `Total: ${P.money(rate)} flat`;
+    const open = !!document.getElementById('pv-untildone')?.checked;
+    document.getElementById('pv-hours').disabled = open;
+    const hours = open ? 0 : (Number(document.getElementById('pv-hours').value) || 0);
+    el.textContent = !rate ? ''
+      : hourly ? (open ? `${P.money(rate)} per hour, until the job is done` : `Total: ${P.money(rate * hours)} (${P.money(rate)} × ${hours} h)`)
+      : `Total: ${P.money(rate)} flat`;
   },
 
   onVendorPick() {
@@ -352,14 +398,16 @@ const PrepVisit = {
       .forEach(e => copies.push({ name: '', email: e, label: 'Copy' }));
     const rateType = document.querySelector('input[name="pv-ratetype"]:checked')?.value === 'flat' ? 'flat' : 'hourly';
     const rate = Number(v('pv-rate').replace(/[^0-9.]/g, '')) || 0;
-    const hours = Number(v('pv-hours')) || 0;
+    const openEnded = on('pv-untildone');
+    const hours = openEnded ? 0 : (Number(v('pv-hours')) || 0);
     return {
+      openEnded,
       vendorId: v('pv-vendor') || null,
       trade: v('pv-trade') || 'Other',
       name: v('pv-name'), email: v('pv-email'), phone: v('pv-phone'), company: v('pv-company'),
       date: v('pv-date'), time: v('pv-time'), hours,
       rateType, rate: rateType === 'hourly' ? rate : null,
-      amount: rateType === 'hourly' ? Math.round(rate * hours * 100) / 100 : rate,
+      amount: rateType === 'hourly' ? (hours ? Math.round(rate * hours * 100) / 100 : null) : rate,
       sendPay: on('pv-sendpay'),
       lawyerTicked: on('pv-copy-lawyer'), otherTicked: on('pv-copy-other'),
       units: ticked('unit'), areas: ticked('area'),
@@ -441,19 +489,6 @@ const PrepVisit = {
     return { subject: `${f.trade === 'Other' ? 'Visit' : f.trade} booked for ${wt.property_address}, ${dateStr} at ${P.fmt12h(f.time)}`, body };
   },
 
-  // Private, to Maxwell only, when he pays and ticks "send the payment details".
-  agentPayLetter(f, wt) {
-    const P = PrepVisit;
-    const body = [
-      `Payment record for your ${f.trade === 'Other' ? 'vendor' : f.trade.toLowerCase()} visit at ${wt.property_address}.`,
-      [`Vendor: ${f.name}${f.company ? ' (' + f.company + ')' : ''}`, `Date: ${P.fmtDateLong(f.date)} at ${P.fmt12h(f.time)}`,
-       `Payment: ${P.payText({ rate_type: f.rateType, rate: f.rate, hours: f.hours, amount: f.amount })}`,
-       `Paid by: you`, `Status: ${f.prepaid ? 'Already prepaid' : 'Not paid yet'}`].join('\n'),
-      'This is kept on the visit in DealFlow as well.'
-    ].join('\n\n');
-    return { subject: `Payment record: ${f.name}, ${wt.property_address}, ${P.money(f.amount)}`, body };
-  },
-
   copyLetter(f, wt, person, agent) {
     const P = PrepVisit, trade = P.TRADES[f.trade] || P.TRADES.Other;
     const dateStr = P.fmtDateLong(f.date);
@@ -472,7 +507,7 @@ const PrepVisit = {
     const t = s => String(s || '').replace(/([,;\\])/g, '\\$1');
     const z = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');  // keeps toISOString's own Z
     const st = new Date(`${f.date}T${f.time}:00`);
-    const en = new Date(st.getTime() + f.hours * 3600000);
+    const en = new Date(st.getTime() + (f.hours || 3) * 3600000);  // until-done: a 3 hour block
     const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Maxwell DealFlow CRM//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
       'BEGIN:VEVENT', `UID:prep-${meetingId}@maxwell-dealflow`, `DTSTAMP:${z(new Date())}`,
       `DTSTART:${z(st)}`, `DTEND:${z(en)}`,
@@ -490,8 +525,8 @@ const PrepVisit = {
     if (!f.name) return msg('Add the vendor\'s name.', 'var(--red)');
     if (!f.date || !f.time) return msg('Pick a date and time.', 'var(--red)');
     if (f.email && !/\S+@\S+\.\S+/.test(f.email)) return msg('That vendor email does not look right.', 'var(--red)');
-    if (!f.hours) return msg('Add how many hours.', 'var(--red)');
-    if (!f.amount) return msg(f.rateType === 'hourly' ? 'Add the rate per hour.' : 'Add the flat amount.', 'var(--red)');
+    if (f.rateType === 'hourly' ? !f.rate : !f.amount) return msg(f.rateType === 'hourly' ? 'Add the rate per hour.' : 'Add the flat amount.', 'var(--red)');
+    if (f.rateType === 'hourly' && !f.hours && !f.openEnded) return msg('Add how many hours, or tick "Until the job is done".', 'var(--red)');
     if (f.lawyerTicked && !/\S+@\S+\.\S+/.test(document.getElementById('pv-lawyer-email').value)) return msg('Add the lawyer\'s email, or untick Lawyer.', 'var(--red)');
     if (f.otherTicked && !f.copies.some(c => c.label === 'Copy')) return msg('Add an email under Other, or untick it.', 'var(--red)');
 
@@ -509,15 +544,22 @@ const PrepVisit = {
     if (vq.error) { if (btn) btn.disabled = false; return msg('⚠️ ' + vq.error.message + ' (run migration 110?)', 'var(--red)'); }
     vendorId = vq.data.id;
 
+    const editing = P._editId ? P.visits.find(x => x.id === P._editId) : null;
+    const was = editing?.details || {};
     const details = {
       trade: f.trade, units: f.units, areas: f.areas, focus: f.focus, tenanted: f.tenanted,
       access: f.access, access_note: f.accessNote, hours: f.hours,
       payer: f.payer, rate_type: f.rateType, rate: f.rate, amount: f.amount, send_pay: f.sendPay,
-      prepaid: f.prepaid, paid_at: f.prepaid ? now : null,
-      status: 'booked',
+      prepaid: f.prepaid, paid_at: f.prepaid ? (was.paid_at || now) : null,
+      status: was.status || 'booked',
+      copy: {
+        seller: f.copySeller,
+        lawyer: f.lawyerTicked ? (f.copies.find(c => c.label === 'Lawyer')?.email || null) : null,
+        other: f.copies.filter(c => c.label === 'Copy').map(c => c.email)
+      },
       sent_to: [f.email, f.copySeller ? seller.email : null, ...f.copies.map(c => c.email)].filter(Boolean)
     };
-    const { data: m, error } = await db.from('meetings').insert({
+    const row = {
       agent_id: uid, kind: 'prep_visit',
       client_id: seller?.id || wt.client_id || null,
       client_name: seller?.full_name || null, client_email: seller?.email || null,
@@ -525,8 +567,26 @@ const PrepVisit = {
       location: wt.property_address, meeting_date: f.date, meeting_time: f.time,
       purpose: `${f.trade}: ${f.name}`, notes: f.notes || null,
       walkthrough_id: wt.id, vendor_id: vendorId, details
-    }).select('*').single();
+    };
+    const { data: m, error } = editing
+      ? await db.from('meetings').update({ ...row, updated_at: now }).eq('id', editing.id).select('*').single()
+      : await db.from('meetings').insert(row).select('*').single();
     if (error) { if (btn) btn.disabled = false; return msg('⚠️ ' + error.message + ' (run migration 110?)', 'var(--red)'); }
+
+    // Editing: anything of this visit's still waiting (pending, failed or
+    // scheduled) is retired and rewritten from the new details. Anything that
+    // already went out stays as sent, and the rewrite is labelled an update so
+    // nobody is confused by a second letter.
+    let anySent = false;
+    if (editing) {
+      const { data: old } = await db.from('approval_queue').select('id, status').eq('related_id', editing.id);
+      anySent = (old || []).some(o => o.status === 'Approved');
+      const waiting = (old || []).filter(o => ['Pending', 'Failed', 'Scheduled'].includes(o.status)).map(o => o.id);
+      if (waiting.length) {
+        await db.from('approval_queue').update({ status: 'Skipped', updated_at: now })
+          .in('id', waiting).in('status', ['Pending', 'Failed', 'Scheduled']);
+      }
+    }
 
     // Separate letters, one batch: approving any one offers to send them all.
     const agent = currentAgent;
@@ -535,21 +595,21 @@ const PrepVisit = {
     if (f.email) { const t = P.vendorLetter(f, wt, seller, agent); sends.push(['Prep Visit: Vendor', f.name, f.email, t, ics]); }
     if (f.copySeller) { const t = P.sellerLetter(f, wt, seller, agent); sends.push(['Prep Visit: Seller', seller.full_name, seller.email, t, ics]); }
     f.copies.forEach(c => { const t = P.copyLetter(f, wt, c, agent); sends.push(['Prep Visit: Copy', c.name || c.email, c.email, t, null]); });
-    const me = EmailFormat._agent(agent).email;
-    if (f.sendPay && f.payer === 'agent' && me) { const t = P.agentPayLetter(f, wt); sends.push(['Prep Visit: Payment Record', 'You (payment record)', me, t, null]); }
     const batchId = sends.length > 1 ? crypto.randomUUID().replace(/-/g, '') : null;
     for (const [type, name, email, t, inv] of sends) {
-      await Notify.queue(type, seller?.id || null, name, email, t.subject, t.body, m.id, null, inv, null, null, batchId);
+      const subject = anySent ? 'Updated: ' + t.subject : t.subject;
+      await Notify.queue(type, seller?.id || null, name, email, subject, t.body, m.id, null, inv, null, null, batchId);
     }
 
-    await Walkthrough.log('PREP_VISIT_BOOKED', seller,
-      `${f.trade} ${f.name} booked for ${wt.property_address} on ${f.date} at ${P.fmt12h(f.time)}` +
+    await Walkthrough.log(editing ? 'PREP_VISIT_UPDATED' : 'PREP_VISIT_BOOKED', seller,
+      `${f.trade} ${f.name} ${editing ? 'updated' : 'booked'} for ${wt.property_address} on ${f.date} at ${P.fmt12h(f.time)}` +
       `${f.units.length ? ' (' + f.units.join(', ') + ')' : ''}. ${f.payer === 'seller' ? 'Seller pays' : 'Agent pays'}` +
       `, ${P.payText({ rate_type: f.rateType, rate: f.rate, hours: f.hours, amount: f.amount })}${f.prepaid ? ', prepaid' : ', not paid yet'}.`,
       wt.client_id);
 
     App.closeModal();
-    App.toast(sends.length ? `📬 Booked. ${sends.length} email${sends.length > 1 ? 's' : ''} waiting in Approvals` : '✅ Booked (no emails: add the vendor\'s email to send one)', 'var(--green)');
+    P._editId = null;
+    App.toast(sends.length ? `📬 ${editing ? 'Updated' : 'Booked'}. ${sends.length} email${sends.length > 1 ? 's' : ''} waiting in Approvals` : '✅ Booked (no emails: add the vendor\'s email to send one)', 'var(--green)');
     Walkthrough.open(wt.id);
   },
 

@@ -52,7 +52,7 @@ const Approvals = {
         <div style="font-size:12px;color:var(--text2);background:var(--bg);padding:10px;border-radius:6px;margin-bottom:10px;line-height:1.6;">
           ${a.email_body.trim().startsWith('<!DOCTYPE') || a.email_body.trim().startsWith('<html')
             ? `<span style="color:var(--accent2);">👁 Click to preview formatted email</span>`
-            : App.esc(a.email_body.slice(0,200)) + (a.email_body.length>200?'…':'')}
+            : App.esc(Array.from(a.email_body).slice(0,200).join('')) + (a.email_body.length>200?'…':'')}
         </div>` : ''}
         ${a.status !== 'Approved' ? Approvals._assistTickHtml(a) : ''}
         ${a.status === 'Pending' ? `
