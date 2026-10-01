@@ -768,6 +768,23 @@ const Clients = {
         .then(x => x, () => ({ data: [] }));
       if (frs && frs.length && (frs[0].snapshot_status || frs[0].snapshot_max_amount != null)) fin = frs[0];
     }
+    // A seller's home lives on its walkthrough record (the property file: the
+    // walkthrough, prep visits, the agreed record). Surfaced here so Maxwell
+    // never has to go back through Form Responses to find it.
+    const { data: wts } = await db.from('walkthroughs')
+      .select('id, property_address, status').eq('client_id', id).is('archived_at', null)
+      .order('created_at', { ascending: false }).limit(3)
+      .then(x => x, () => ({ data: [] }));
+    const _wtStat = { draft: 'Walkthrough in progress', sent_to_seller: 'Sent to seller for review', seller_reviewed: 'Seller has reviewed', certified: 'Consultation complete' };
+    const sellHTML = (wts || []).map(w => `
+      <div class="card2" style="margin-top:12px;padding:14px;border:1px solid var(--accent2);">
+        <div class="fw-800" style="font-size:14px;">🏡 Selling: ${App.esc(w.property_address)}</div>
+        <div style="font-size:12px;color:var(--text2);margin:3px 0 10px;">${_wtStat[w.status] || 'Walkthrough'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn2 btn2-primary" style="justify-content:center;" onclick="App.closeModal();App.switchTab('walkthrough');Walkthrough.open('${w.id}')">📂 Open property file</button>
+          <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="PrepVisit.bookFrom('${w.id}')">🧽 Book prep visit</button>
+        </div>
+      </div>`).join('');
     const _finStat = { pre_approved:'Pre-approved', conditional:'Conditional', soft_prequal:'Soft pre-qual', declined:'Declined' };
     const finHTML = fin ? `
       <div class="card2" style="margin-top:12px;padding:14px;border:1px solid var(--green);">
@@ -823,6 +840,7 @@ const Clients = {
           <div style="font-size:11px;color:var(--text2);">Status</div>
         </div>
       </div>
+      ${sellHTML}
       <div class="divider"></div>
       ${c.email ? `<div class="activity-row"><span style="font-size:18px;">📧</span><div><div class="activity-title">Email</div><div class="activity-meta">${c.email}</div></div></div>` : ''}
       ${c.phone ? `<div class="activity-row"><span style="font-size:18px;">📞</span><div><div class="activity-title">Phone</div><div class="activity-meta">${c.phone}</div></div></div>` : ''}

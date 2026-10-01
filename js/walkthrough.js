@@ -184,6 +184,9 @@ const Walkthrough = {
     // die for it. The fixed bar keeps it visible and stoppable from anywhere.
     // What must not happen is `current` going null underneath a phrase arriving.
     if (!Walkthrough._listening) Walkthrough.current = null;
+    // switchTab() loads the list and callers often open a record straight after.
+    // Whichever was asked for last wins: a slower list must not paint over it.
+    const nav = Walkthrough._nav = (Walkthrough._nav || 0) + 1;
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text2);">Loading walkthroughs…</div>`;
 
     const uid = await Walkthrough.uid();
@@ -224,6 +227,7 @@ const Walkthrough = {
       (eds || []).forEach(e => { pendingBy[e.walkthrough_id] = (pendingBy[e.walkthrough_id] || 0) + 1; });
     }
 
+    if (nav !== Walkthrough._nav) return;
     el.innerHTML = Walkthrough.listHTML(pendingBy);
   },
 
@@ -488,6 +492,7 @@ const Walkthrough = {
   async open(id) {
     const el = document.getElementById('screen-walkthrough');
     if (!el) return;
+    Walkthrough._nav = (Walkthrough._nav || 0) + 1;
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text2);">Opening…</div>`;
 
     const [{ data: wt, error }, rooms, defects, photos, edits] = await Promise.all([

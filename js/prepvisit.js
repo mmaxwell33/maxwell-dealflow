@@ -175,6 +175,15 @@ const PrepVisit = {
       </div>`;
   },
 
+  // One tap from anywhere outside the record (the client's card, Form
+  // Responses): open the property file, then the booking form on top of it.
+  async bookFrom(walkthroughId) {
+    App.closeModal();
+    App.switchTab('walkthrough');
+    await Walkthrough.open(walkthroughId);
+    PrepVisit.openBook();
+  },
+
   // ── Booking modal ─────────────────────────────────────────────────────────
   async openBook() {
     const P = PrepVisit, W = Walkthrough, wt = W.current;
