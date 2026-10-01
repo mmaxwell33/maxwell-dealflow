@@ -13,9 +13,11 @@
 // All of it goes through Approvals as one batch, lands on the Calendar as a
 // meetings row (kind 'prep_visit'), and is logged on the seller's activity.
 //
-// PAYMENT IS PRIVATE. details.payer / details.prepaid / details.amount are
-// Maxwell's record of who pays and whether it is settled. The vendor letter only
-// ever says who will look after payment, and says nothing at all once prepaid.
+// PAYMENT IS PRIVATE. details.payer / rate_type / rate / hours / amount /
+// prepaid are Maxwell's record of what it costs and whether it is settled. The
+// vendor letter never carries figures. The figures go to whoever pays only when
+// he ticks "send the payment details": into the seller's letter when the seller
+// pays, or a private summary to himself when he does.
 //
 // Requires migration 110.
 
@@ -23,7 +25,7 @@ const PrepVisit = {
 
   visits:  [],
   vendors: [],
-  _ctx:    null,   // { wt, seller, others } while the booking modal is open
+  _ctx:    null,   // { wt, seller, lawyer } while the booking modal is open
 
   TRADES: {
     'Cleaner': {
@@ -97,6 +99,17 @@ const PrepVisit = {
     const [h, m] = String(t).split(':').map(Number);
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
   },
+  money(n) {
+    const x = Number(n) || 0;
+    return '$' + x.toLocaleString('en-CA', { minimumFractionDigits: x % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  },
+  // "$40 per hour for 3 hours, $120 in total" / "a flat $250 for about 3 hours"
+  payText(d) {
+    const P = PrepVisit, h = Number(d.hours) || 0, hrs = `${h} hour${h === 1 ? '' : 's'}`;
+    if (d.rate_type === 'hourly') return `${P.money(d.rate)} per hour for ${hrs}, ${P.money(d.amount)} in total`;
+    return `a flat ${P.money(d.amount)} for about ${hrs}`;
+  },
+
   first(name) { return String(name || '').trim().split(/\s+/)[0] || 'there'; },
   joinList(a) {
     if (!a.length) return '';
@@ -141,7 +154,7 @@ const PrepVisit = {
           <div style="font-size:12.5px;color:var(--text2);margin-top:4px;">
             ${P.esc(App.fmtDate(v.meeting_date))}${v.meeting_time ? ' · ' + P.fmt12h(v.meeting_time) : ''}${(d.units || []).length ? ' · ' + P.esc(d.units.join(', ')) : ''}
           </div>
-          <div style="font-size:12px;margin-top:4px;">🔒 ${pay}${d.amount ? ' · $' + P.esc(d.amount) : ''} · ${paid}</div>
+          <div style="font-size:12px;margin-top:4px;">🔒 ${pay}${d.amount ? ' · ' + P.esc(d.rate_type === 'hourly' ? `${P.money(d.rate)}/hr × ${d.hours} h = ${P.money(d.amount)}` : `Flat ${P.money(d.amount)} (${d.hours} h)`) : ''} · ${paid}</div>
           ${st === 'booked' ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
             <button class="btn btn-outline btn-sm" onclick="PrepVisit.setStatus('${v.id}','done')">✅ Mark done</button>
@@ -168,22 +181,17 @@ const PrepVisit = {
     if (!wt) return;
     const uid = await W.uid();
 
-    const [vend, sellerQ, contactsQ, guestsQ] = await Promise.all([
+    const [vend, sellerQ, lawyerQ] = await Promise.all([
       db.from('vendors').select('*').eq('agent_id', uid).order('name'),
       wt.client_id ? db.from('clients').select('id, full_name, email, phone').eq('id', wt.client_id).maybeSingle() : Promise.resolve({ data: null }),
-      wt.client_id ? db.from('client_contacts').select('role, name, email').eq('client_id', wt.client_id) : Promise.resolve({ data: [] }),
-      wt.client_id ? db.from('clients').select('full_name, email').eq('linked_client_id', wt.client_id) : Promise.resolve({ data: [] })
+      wt.client_id ? db.from('client_contacts').select('name, email').eq('client_id', wt.client_id).eq('role', 'lawyer').maybeSingle() : Promise.resolve({ data: null })
     ]);
     if (vend.error) { App.toast('⚠️ Run migration 110 in the Supabase SQL Editor first', 'var(--red)'); return; }
 
     P.vendors = vend.data || [];
     const seller = sellerQ.data || null;
-    const ROLE = { mortgage_broker: 'Mortgage broker', lawyer: 'Lawyer', inspector: 'Inspector', builder: 'Builder', assisting_agent: 'Assisting agent' };
-    const others = [
-      ...(guestsQ.data || []).filter(g => g.email).map(g => ({ name: g.full_name, email: g.email, label: 'Linked to the seller' })),
-      ...(contactsQ.data || []).filter(c => c.email).map(c => ({ name: c.name || ROLE[c.role] || c.role, email: c.email, label: ROLE[c.role] || c.role }))
-    ];
-    P._ctx = { wt, seller, others };
+    const lawyer = lawyerQ.data || null;
+    P._ctx = { wt, seller, lawyer };
 
     const units = P.unitsFor(wt.property_type);
     const areas = P.areasFor(W.rooms);
@@ -215,13 +223,9 @@ const PrepVisit = {
       </div>
       <div class="form-group"><label class="form-label">Company <span style="color:var(--text2);font-weight:400;">(optional)</span></label><input class="form-input" id="pv-company"></div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="pv-date" type="date"></div>
         <div class="form-group"><label class="form-label">Time *</label><input class="form-input" id="pv-time" type="time" value="10:00"></div>
-        <div class="form-group"><label class="form-label">About</label>
-          <select class="form-input form-select" id="pv-hours">
-            ${[1, 2, 3, 4, 6, 8].map(h => `<option value="${h}" ${h === 3 ? 'selected' : ''}>${h} hour${h > 1 ? 's' : ''}</option>`).join('')}
-          </select></div>
       </div>
 
       <div class="form-group"><label class="form-label">Which part of the home</label>
@@ -257,17 +261,28 @@ const PrepVisit = {
           <label><input type="radio" name="pv-payer" value="agent" checked> I pay</label>
           <label><input type="radio" name="pv-payer" value="seller"> Seller pays</label>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;">
-          <label style="font-size:13px;display:flex;gap:7px;align-items:center;"><input type="checkbox" id="pv-prepaid"> Already prepaid</label>
-          <input class="form-input" id="pv-amount" inputmode="decimal" placeholder="Amount, e.g. 250">
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin-bottom:8px;">
+          <label><input type="radio" name="pv-ratetype" value="hourly" checked onchange="PrepVisit.payCalc()"> Per hour</label>
+          <label><input type="radio" name="pv-ratetype" value="flat" onchange="PrepVisit.payCalc()"> Flat payment</label>
         </div>
-        <div style="font-size:11.5px;color:var(--text2);margin-top:6px;">Never shown to the vendor. Prepaid means their email says nothing about payment at all.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin:0;"><label class="form-label" id="pv-rate-label">Rate per hour ($) *</label>
+            <input class="form-input" id="pv-rate" inputmode="decimal" placeholder="e.g. 40" oninput="PrepVisit.payCalc()"></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">How many hours *</label>
+            <input class="form-input" id="pv-hours" type="number" min="0.5" step="0.5" value="3" oninput="PrepVisit.payCalc()"></div>
+        </div>
+        <div id="pv-total" style="font-size:13px;font-weight:700;margin:8px 0;"></div>
+        <label style="font-size:13px;display:flex;gap:7px;align-items:center;margin-bottom:6px;"><input type="checkbox" id="pv-prepaid"> Already prepaid</label>
+        <label style="font-size:13px;display:flex;gap:7px;align-items:center;"><input type="checkbox" id="pv-sendpay"> Send the payment details to whoever pays</label>
+        <div style="font-size:11.5px;color:var(--text2);margin-top:6px;">The vendor's email never shows these figures. Ticked: if the seller pays, the figures go in their email; if you pay, a private summary comes to you.</div>
       </div>
 
       <div class="form-group"><label class="form-label">Who gets a copy</label>
         ${seller ? `<label style="display:flex;gap:7px;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="pv-copy-seller" ${seller.email ? 'checked' : 'disabled'}> ${P.esc(seller.full_name)} (seller)${seller.email ? '' : ' · no email on file'}</label>` : `<div style="font-size:12px;color:var(--yellow);margin-bottom:6px;">No seller attached to this walkthrough.</div>`}
-        ${others.map((o, i) => `<label style="display:flex;gap:7px;font-size:13px;margin-bottom:6px;"><input type="checkbox" data-pv-copy="${i}"> ${P.esc(o.name)} · ${P.esc(o.label)}</label>`).join('')}
-        <input class="form-input" id="pv-copy-extra" placeholder="Anyone else: email addresses, separated by commas">
+        <label style="display:flex;gap:7px;font-size:13px;margin-bottom:6px;align-items:center;"><input type="checkbox" id="pv-copy-lawyer"> Lawyer${lawyer?.name ? ': ' + P.esc(lawyer.name) : ''}</label>
+        <input class="form-input" id="pv-lawyer-email" type="email" style="margin-bottom:8px;" value="${P.esc(lawyer?.email || '')}" placeholder="Lawyer's email">
+        <label style="display:flex;gap:7px;font-size:13px;margin-bottom:6px;align-items:center;"><input type="checkbox" id="pv-copy-other"> Other</label>
+        <input class="form-input" id="pv-copy-extra" placeholder="Email addresses, separated by commas">
       </div>
 
       <div id="pv-msg" style="font-size:12.5px;margin-bottom:8px;"></div>
@@ -275,6 +290,18 @@ const PrepVisit = {
       <div style="font-size:11.5px;color:var(--text2);text-align:center;margin-top:6px;">Everything waits in Approvals for you to read before it sends.</div>
     `);
     P.renderFocus();
+    P.payCalc();
+  },
+
+  // Live total under the rate, so the figure on the record is the one he saw.
+  payCalc() {
+    const P = PrepVisit, el = document.getElementById('pv-total');
+    if (!el) return;
+    const hourly = document.querySelector('input[name="pv-ratetype"]:checked')?.value !== 'flat';
+    document.getElementById('pv-rate-label').textContent = hourly ? 'Rate per hour ($) *' : 'Flat amount ($) *';
+    const rate = Number((document.getElementById('pv-rate').value || '').replace(/[^0-9.]/g, '')) || 0;
+    const hours = Number(document.getElementById('pv-hours').value) || 0;
+    el.textContent = !rate ? '' : hourly ? `Total: ${P.money(rate * hours)} (${P.money(rate)} × ${hours} h)` : `Total: ${P.money(rate)} flat`;
   },
 
   onVendorPick() {
@@ -307,16 +334,25 @@ const PrepVisit = {
   collect() {
     const v = id => (document.getElementById(id)?.value || '').trim();
     const ticked = g => [...document.querySelectorAll(`[data-pv-${g}]:checked`)].map(c => c.value);
-    const { seller, others } = PrepVisit._ctx;
+    const { seller, lawyer } = PrepVisit._ctx;
+    const on = id => !!document.getElementById(id)?.checked;
     const extraFocus = v('pv-focus-extra').split(',').map(s => s.trim()).filter(Boolean);
-    const copies = [...document.querySelectorAll('[data-pv-copy]:checked')].map(c => others[+c.dataset.pvCopy]);
-    v('pv-copy-extra').split(',').map(s => s.trim()).filter(s => /\S+@\S+\.\S+/.test(s))
+    const copies = [];
+    if (on('pv-copy-lawyer') && v('pv-lawyer-email')) copies.push({ name: lawyer?.name || '', email: v('pv-lawyer-email'), label: 'Lawyer' });
+    if (on('pv-copy-other')) v('pv-copy-extra').split(',').map(s => s.trim()).filter(s => /\S+@\S+\.\S+/.test(s))
       .forEach(e => copies.push({ name: '', email: e, label: 'Copy' }));
+    const rateType = document.querySelector('input[name="pv-ratetype"]:checked')?.value === 'flat' ? 'flat' : 'hourly';
+    const rate = Number(v('pv-rate').replace(/[^0-9.]/g, '')) || 0;
+    const hours = Number(v('pv-hours')) || 0;
     return {
       vendorId: v('pv-vendor') || null,
       trade: v('pv-trade') || 'Other',
       name: v('pv-name'), email: v('pv-email'), phone: v('pv-phone'), company: v('pv-company'),
-      date: v('pv-date'), time: v('pv-time'), hours: Number(v('pv-hours')) || 2,
+      date: v('pv-date'), time: v('pv-time'), hours,
+      rateType, rate: rateType === 'hourly' ? rate : null,
+      amount: rateType === 'hourly' ? Math.round(rate * hours * 100) / 100 : rate,
+      sendPay: on('pv-sendpay'),
+      lawyerTicked: on('pv-copy-lawyer'), otherTicked: on('pv-copy-other'),
       units: ticked('unit'), areas: ticked('area'),
       focus: [...ticked('focus'), ...extraFocus],
       tenanted: !!document.getElementById('pv-tenanted')?.checked,
@@ -324,7 +360,6 @@ const PrepVisit = {
       access: v('pv-access') || 'owner', accessNote: v('pv-access-note'),
       payer: document.querySelector('input[name="pv-payer"]:checked')?.value || 'agent',
       prepaid: !!document.getElementById('pv-prepaid')?.checked,
-      amount: v('pv-amount').replace(/[^0-9.]/g, ''),
       copySeller: !!(seller?.email && document.getElementById('pv-copy-seller')?.checked),
       copies
     };
@@ -377,9 +412,12 @@ const PrepVisit = {
                  : f.access === 'lockbox' ? 'They will use the lockbox, so you do not need to be home.'
                  : '';
     const tenant = f.tenanted ? `As the ${f.units.length ? P.joinList(f.units.map(u => u.toLowerCase())) : 'unit'} is tenanted, please make sure your tenant has written notice of the visit at least 24 hours ahead.` : '';
-    const pay = f.payer === 'seller'
-      ? `As we discussed, payment for this visit is settled directly between you and ${P.first(f.name)}.`
-      : 'This is complimentary, arranged and covered by me as part of preparing your home for sale.';
+    const figures = P.payText({ rate_type: f.rateType, rate: f.rate, hours: f.hours, amount: f.amount });
+    const pay = f.payer !== 'seller'
+      ? 'This is complimentary, arranged and covered by me as part of preparing your home for sale.'
+      : f.prepaid
+        ? (f.sendPay ? `Payment of ${figures.replace(/^a flat /, '')} has already been made, so there is nothing to settle on the day.` : 'Payment for this visit has already been made, so there is nothing to settle on the day.')
+        : (f.sendPay ? `As we discussed, payment is settled directly between you and ${P.first(f.name)}: ${figures}.` : `As we discussed, payment for this visit is settled directly between you and ${P.first(f.name)}.`);
 
     const body = [
       `Hi ${P.first(seller.full_name)},`,
@@ -392,6 +430,19 @@ const PrepVisit = {
     ].filter(Boolean).join('\n\n');
 
     return { subject: `${f.trade === 'Other' ? 'Visit' : f.trade} booked for ${wt.property_address}, ${dateStr} at ${P.fmt12h(f.time)}`, body };
+  },
+
+  // Private, to Maxwell only, when he pays and ticks "send the payment details".
+  agentPayLetter(f, wt) {
+    const P = PrepVisit;
+    const body = [
+      `Payment record for your ${f.trade === 'Other' ? 'vendor' : f.trade.toLowerCase()} visit at ${wt.property_address}.`,
+      [`Vendor: ${f.name}${f.company ? ' (' + f.company + ')' : ''}`, `Date: ${P.fmtDateLong(f.date)} at ${P.fmt12h(f.time)}`,
+       `Payment: ${P.payText({ rate_type: f.rateType, rate: f.rate, hours: f.hours, amount: f.amount })}`,
+       `Paid by: you`, `Status: ${f.prepaid ? 'Already prepaid' : 'Not paid yet'}`].join('\n'),
+      'This is kept on the visit in DealFlow as well.'
+    ].join('\n\n');
+    return { subject: `Payment record: ${f.name}, ${wt.property_address}, ${P.money(f.amount)}`, body };
   },
 
   copyLetter(f, wt, person, agent) {
@@ -430,6 +481,10 @@ const PrepVisit = {
     if (!f.name) return msg('Add the vendor\'s name.', 'var(--red)');
     if (!f.date || !f.time) return msg('Pick a date and time.', 'var(--red)');
     if (f.email && !/\S+@\S+\.\S+/.test(f.email)) return msg('That vendor email does not look right.', 'var(--red)');
+    if (!f.hours) return msg('Add how many hours.', 'var(--red)');
+    if (!f.amount) return msg(f.rateType === 'hourly' ? 'Add the rate per hour.' : 'Add the flat amount.', 'var(--red)');
+    if (f.lawyerTicked && !/\S+@\S+\.\S+/.test(document.getElementById('pv-lawyer-email').value)) return msg('Add the lawyer\'s email, or untick Lawyer.', 'var(--red)');
+    if (f.otherTicked && !f.copies.some(c => c.label === 'Copy')) return msg('Add an email under Other, or untick it.', 'var(--red)');
 
     const btn = document.getElementById('pv-save'); if (btn) btn.disabled = true;
     msg('Saving…');
@@ -448,7 +503,8 @@ const PrepVisit = {
     const details = {
       trade: f.trade, units: f.units, areas: f.areas, focus: f.focus, tenanted: f.tenanted,
       access: f.access, access_note: f.accessNote, hours: f.hours,
-      payer: f.payer, prepaid: f.prepaid, amount: f.amount || null, paid_at: f.prepaid ? now : null,
+      payer: f.payer, rate_type: f.rateType, rate: f.rate, amount: f.amount, send_pay: f.sendPay,
+      prepaid: f.prepaid, paid_at: f.prepaid ? now : null,
       status: 'booked',
       sent_to: [f.email, f.copySeller ? seller.email : null, ...f.copies.map(c => c.email)].filter(Boolean)
     };
@@ -470,6 +526,8 @@ const PrepVisit = {
     if (f.email) { const t = P.vendorLetter(f, wt, seller, agent); sends.push(['Prep Visit: Vendor', f.name, f.email, t, ics]); }
     if (f.copySeller) { const t = P.sellerLetter(f, wt, seller, agent); sends.push(['Prep Visit: Seller', seller.full_name, seller.email, t, ics]); }
     f.copies.forEach(c => { const t = P.copyLetter(f, wt, c, agent); sends.push(['Prep Visit: Copy', c.name || c.email, c.email, t, null]); });
+    const me = EmailFormat._agent(agent).email;
+    if (f.sendPay && f.payer === 'agent' && me) { const t = P.agentPayLetter(f, wt); sends.push(['Prep Visit: Payment Record', 'You (payment record)', me, t, null]); }
     const batchId = sends.length > 1 ? crypto.randomUUID().replace(/-/g, '') : null;
     for (const [type, name, email, t, inv] of sends) {
       await Notify.queue(type, seller?.id || null, name, email, t.subject, t.body, m.id, null, inv, null, null, batchId);
@@ -478,7 +536,7 @@ const PrepVisit = {
     await Walkthrough.log('PREP_VISIT_BOOKED', seller,
       `${f.trade} ${f.name} booked for ${wt.property_address} on ${f.date} at ${P.fmt12h(f.time)}` +
       `${f.units.length ? ' (' + f.units.join(', ') + ')' : ''}. ${f.payer === 'seller' ? 'Seller pays' : 'Agent pays'}` +
-      `${f.amount ? ', $' + f.amount : ''}${f.prepaid ? ', prepaid' : ', not paid yet'}.`,
+      `, ${P.payText({ rate_type: f.rateType, rate: f.rate, hours: f.hours, amount: f.amount })}${f.prepaid ? ', prepaid' : ', not paid yet'}.`,
       wt.client_id);
 
     App.closeModal();
