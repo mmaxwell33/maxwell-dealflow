@@ -2012,6 +2012,7 @@ const Commission = {
     Commission.applyCap(Commission.all);
     Commission.renderSummary(Commission.all);
     Commission.renderCapCard();
+    Commission.renderIncoming();
     Commission.render(Commission.all);
     Commission.populateClients();
   },
@@ -2150,14 +2151,19 @@ const Commission = {
       (years[y] = years[y] || []).push(c);
     });
     Object.keys(years).forEach(y => {
-      // Oldest first, so the deal that crosses the cap is the one charged in part.
+      // Deals MARKED paid fill the cap first: that money has actually gone to
+      // eXp. Then everything still under contract, earliest closing first, so
+      // the deal that crosses the cap is the one charged in part and every
+      // deal after it projects at $0 (Maxwell, 2026-10-03).
+      const when = c => new Date(c.close_date || c.created_at || 0);
       const list = years[y].sort((a, b) =>
-        new Date(a.close_date || a.created_at || 0) - new Date(b.close_date || b.created_at || 0));
+        (Commission.isPaidExplicit(b) - Commission.isPaidExplicit(a)) || (when(a) - when(b)));
       let paid = 0;
       list.forEach(c => {
         const room = cap > 0 ? Math.max(0, cap - paid) : Infinity;
         const fee  = Math.min(c._rawFee, room);
         paid += fee;
+        c._capUsed   = paid;     // running total paid toward this cap year, after this deal
         c._brokerFee = fee;
         c._capAdj    = c._rawFee - fee;
         c._net = c._grossPlusTax > 0
@@ -2313,6 +2319,72 @@ const Commission = {
       <div id="cm-cap-msg" style="margin-top:6px;font-size:12px;"></div>`;
   },
 
+  // ── Coming into your account ──────────────────────────────────────────────
+  // Every deal still under contract, in the order it is expected to close, with
+  // what actually lands in Maxwell's account: commission + HST, less the eXp
+  // fee the cap allocation above leaves on it. The cap column runs the total
+  // paid toward the cap, so the deal that caps him is visible, and every deal
+  // after it shows the full amount. Marking a deal paid, or changing a closing
+  // date, re-runs applyCap and this card with it.
+  renderIncoming() {
+    const el = document.getElementById('comm-incoming');
+    if (!el) return;
+    const cap = Number(Commission.cap) || 0;
+    const when = c => new Date(c.close_date || c.created_at || 0);
+    const rows = (Commission.all || [])
+      .filter(c => Commission.statusFrom(c) !== 'Archived' && !Commission.isPaidExplicit(c))
+      .sort((a, b) => when(a) - when(b));
+    if (!rows.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+
+    const total = rows.reduce((t, c) => t + Commission.netOf(c), 0);
+    // The deal the cap is reached on: the first one the cap reduced at all.
+    const capper = cap > 0 ? rows.find(c => (c._capAdj || 0) > 0.01) : null;
+    const yearOf = c => Commission.capYearLabel(Commission.capYearOf(c));
+    const years = new Set(rows.map(yearOf));
+    const td = 'padding:9px 10px;border-right:1px solid var(--border-strong, var(--border));border-bottom:1px solid var(--border);font-size:13px;';
+    const th = (t, al) => `<th style="${td}text-align:${al || 'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;background:var(--bg);white-space:nowrap;">${t}</th>`;
+    const feeNote = c => {
+      if (!(cap > 0) || (c._capAdj || 0) < 0.01) return '';
+      return Commission.feeOf(c) > 0.005
+        ? `<div style="font-size:10.5px;color:var(--green);">Cap reached on this deal</div>`
+        : `<div style="font-size:10.5px;color:var(--green);">Capped: you keep 100%</div>`;
+    };
+    const body = rows.map(c => `
+      <tr>
+        <td style="${td}white-space:nowrap;">${c.close_date ? App.fmtDate(c.close_date) : 'No date'}${years.size > 1 ? `<div style="font-size:10.5px;color:var(--text3);">Cap year ${yearOf(c)}</div>` : ''}</td>
+        <td style="${td}font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${App.escAttr(c.client_name || '')}">${App.esc(c.client_name || 'No name')}</td>
+        <td style="${td}text-align:right;">${Commission.money(c.gross_commission || 0)}</td>
+        <td style="${td}text-align:right;color:var(--yellow);">+${Commission.money(c.hst_collected || 0)}</td>
+        <td style="${td}text-align:right;color:var(--red);">${Commission.feeOf(c) > 0.005 ? '-' + Commission.money(Commission.feeOf(c)) : '$0'}${feeNote(c)}</td>
+        <td style="${td}text-align:right;font-weight:900;color:var(--green);">${Commission.money(Commission.netOf(c))}</td>
+        <td style="${td}text-align:right;border-right:none;color:var(--text2);white-space:nowrap;">${cap > 0 ? `${Commission.money(Math.min(cap, c._capUsed || 0))} of ${Commission.money(cap)}` : 'No cap set'}</td>
+      </tr>`).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <div style="font-size:16px;font-weight:800;">🏦 Coming into your account</div>
+        <div style="text-align:right;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">When these close</div>
+          <div style="font-size:20px;font-weight:900;color:var(--green);">${Commission.money(total)}</div></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px;">
+        What lands in your account on each deal still under contract: your commission plus HST, less the eXp fee.
+        ${capper ? `You reach your ${Commission.money(cap)} cap on <strong style="color:var(--text1);">${App.esc(capper.client_name || 'a deal')}</strong>'s closing${capper.close_date ? ' (' + App.fmtDate(capper.close_date) + ')' : ''}. Every deal after that is 100% yours.`
+          : cap > 0 ? 'These deals do not reach your cap on their own, so each one pays the full fee.' : ''}
+        Worked out in closing-date order. When a deal pays, tick ✅ in the history below and this recalculates.
+      </div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+        <table style="width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed;">
+          <colgroup><col style="width:110px"><col><col style="width:110px"><col style="width:100px"><col style="width:160px"><col style="width:140px"><col style="width:160px"></colgroup>
+          <thead><tr>${th('Closing')}${th('Client')}${th('Commission', 'right')}${th('HST', 'right')}${th('eXp fee', 'right')}${th('Into your account', 'right')}${th('Paid to cap after', 'right')}</tr></thead>
+          <tbody>${body}
+            <tr><td style="${td}font-weight:800;border-bottom:none;" colspan="5">Total coming in</td>
+              <td style="${td}text-align:right;font-weight:900;color:var(--green);border-bottom:none;">${Commission.money(total)}</td><td style="${td}border-right:none;border-bottom:none;"></td></tr>
+          </tbody>
+        </table>
+      </div>`;
+  },
+
   // The closing-date warning. A deal that closes the day before the reset pays
   // into a cap Maxwell is already partway through; the same deal a day later
   // starts a fresh one at zero. Worth up to the whole remaining cap, and
@@ -2361,6 +2433,7 @@ const Commission = {
     Commission.applyCap(Commission.all);
     Commission.renderSummary(Commission.all);
     Commission.renderCapCard();
+    Commission.renderIncoming();
     Commission.render(Commission.all);
     Commission.calcPreview();
     App.toast('✅ Cap saved');
@@ -2667,7 +2740,10 @@ const Commission = {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">No commissions yet</div><div class="empty-sub">Use the form above to record your first commission</div></div>';
       return;
     }
-    const th = (label, align) => `<th style="padding:10px 14px;text-align:${align||'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">${label}</th>`;
+    // Fixed columns with a rule between each, so every row lines up (2026-10-03).
+    const LINE = 'border-right:1px solid var(--border-strong, var(--border));';
+    const CELL = 'padding:11px 12px;' + LINE + 'vertical-align:middle;';
+    const th = (label, align) => `<th style="padding:10px 12px;${LINE}text-align:${align||'left'};font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}</th>`;
     // Buyer / seller split. The chips always count every deal; the side picked
     // only narrows what is listed underneath, so switching sides never changes
     // the figures on the chips themselves.
@@ -2693,9 +2769,14 @@ const Commission = {
     }
     el.innerHTML = `${header}
       <div class="card2" style="padding:0;overflow:hidden;overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;min-width:860px;">
+        <table style="width:100%;border-collapse:collapse;min-width:1360px;table-layout:fixed;">
+          <colgroup>
+            <col style="width:78px"><col style="width:166px"><col style="width:74px"><col>
+            <col style="width:100px"><col style="width:100px"><col style="width:108px"><col style="width:120px">
+            <col style="width:118px"><col style="width:76px"><col style="width:116px"><col style="width:104px">
+          </colgroup>
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--bg);">
-            ${th('Deal ID')}${th('Client')}${th('Property')}${th('Price','right')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Net','right')}${th('Date')}${th('Status','center')}${th('','center')}
+            ${th('Deal ID')}${th('Client')}${th('Side','center')}${th('Property')}${th('Price','right')}${th('Gross','right')}${th('HST','right')}${th('Fee','right')}${th('Into account','right')}${th('Date')}${th('Status','center')}<th style="padding:10px 8px;"></th>
           </tr></thead>
           <tbody>${list.map(c => {
             const status = Commission.statusFrom(c);
@@ -2720,13 +2801,14 @@ const Commission = {
                 style="background:none;border:none;color:var(--red);cursor:pointer;border-radius:6px;">🗑️</button>`;
             return `
             <tr style="border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-              <td style="padding:11px 14px;font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
-              <td style="padding:11px 14px;font-weight:700;white-space:nowrap;">${App.esc(c.client_name||'—')}${Commission.sideChip(c.deal_side)}</td>
-              <td style="padding:11px 14px;font-size:12px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${App.esc(c.property_address||'—')}</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:700;color:var(--text2);">${App.fmtMoney(c.sale_price||0)}</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
-              <td style="padding:11px 14px;text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
-              <td style="padding:11px 14px;text-align:right;color:var(--red);white-space:nowrap;">${
+              <td style="${CELL}font-size:10px;color:var(--text3);font-family:monospace;letter-spacing:0.5px;">#${(c.id||'').slice(-6).toUpperCase()}</td>
+              <td style="${CELL}font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${nameAttr}">${App.esc(c.client_name||'—')}</td>
+              <td style="${CELL}text-align:center;white-space:nowrap;">${Commission.sideChip(c.deal_side).replace('<span ', '<span style="margin-left:0" ')}</td>
+              <td style="${CELL}font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${propAttr}">${App.esc(c.property_address||'—')}</td>
+              <td style="${CELL}text-align:right;font-weight:700;color:var(--text2);">${App.fmtMoney(c.sale_price||0)}</td>
+              <td style="${CELL}text-align:right;font-weight:700;">${App.fmtMoney(c.gross_commission||0)}</td>
+              <td style="${CELL}text-align:right;color:var(--yellow);">+${App.fmtMoney(c.hst_collected||0)}</td>
+              <td style="${CELL}text-align:right;color:var(--red);white-space:nowrap;">${
                 // fmtMoney renders 0 as an em-dash placeholder, which would print
                 // "-—" on a deal the cap zeroed out. Say $0 plainly instead.
                 Commission.feeOf(c) > 0.005 ? '-' + Commission.money(Commission.feeOf(c)) : '$0'
@@ -2735,9 +2817,9 @@ const Commission = {
                   ? ` <span title="Reduced by your ${Commission.money(Commission.cap)} eXp cap. Full fee would have been ${Commission.money(c._rawFee)}." style="color:var(--green);font-size:11px;cursor:help;">🎯</span>`
                   : ''
               }</td>
-              <td style="padding:11px 14px;text-align:right;font-weight:900;color:var(--green);">${Commission.money(Commission.netOf(c))}</td>
-              <td style="padding:11px 14px;font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
-              <td style="padding:11px 14px;text-align:center;">
+              <td style="${CELL}text-align:right;font-weight:900;color:var(--green);">${Commission.money(Commission.netOf(c))}</td>
+              <td style="${CELL}font-size:12px;color:var(--text2);white-space:nowrap;">${App.fmtDate(c.close_date)}</td>
+              <td style="${CELL}text-align:center;">
                 ${(() => {
                   // The pill has to tell the truth about MONEY, not about the
                   // calendar. It used to print a green "Paid" the moment a
