@@ -636,6 +636,7 @@ const PrepVisit = {
 
   async setStatus(id, status) {
     if (status === 'cancelled' && !confirm('Mark this visit as cancelled?\n\nThis only updates your record. Nobody is emailed, so let the vendor and seller know yourself.')) return;
+    if (status === 'done' && typeof LaunchPlan !== 'undefined') await LaunchPlan.onPrepVisitDone(id);
     await PrepVisit._patch(id, { status, [status + '_at']: new Date().toISOString() }, status === 'done' ? 'marked done' : 'cancelled');
   },
 

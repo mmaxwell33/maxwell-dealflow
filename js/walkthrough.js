@@ -516,6 +516,7 @@ const Walkthrough = {
 
     await Walkthrough.signPhotos();
     if (typeof PrepVisit !== 'undefined') await PrepVisit.loadFor(id);
+    if (typeof LaunchPlan !== 'undefined') await LaunchPlan.loadFor(id);
     Walkthrough.installLifecycle();
     Walkthrough.render();
     Walkthrough.offerResume();
@@ -555,6 +556,7 @@ const Walkthrough = {
       ${w.systemsHTML()}
       ${w.notesHTML()}
       ${typeof PrepVisit !== 'undefined' ? PrepVisit.sectionHTML() : ''}
+      ${typeof LaunchPlan !== 'undefined' ? LaunchPlan.sectionHTML() : ''}
       ${w.actionsHTML()}
     `;
   },

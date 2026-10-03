@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Token-protected. Never indexed, same as walkthrough-review.html. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Your Launch Plan · Maxwell DealFlow</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;color:#1a1a2e;}
+    .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:640px;width:100%;overflow:hidden;}
+    .header{background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:24px 26px 20px;color:#fff;}
+    .header-logo{font-size:12px;font-weight:700;color:rgba(255,255,255,.55);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+    .header-addr{font-size:19px;font-weight:800;line-height:1.35;}
+    .header-sub{font-size:13px;color:rgba(255,255,255,.7);margin-top:5px;}
+    .body{padding:24px 26px 28px;}
+    .lede{font-size:14.5px;color:#444;line-height:1.65;margin-bottom:18px;}
+    .dates{background:#f8faff;border:1px solid #dde8ff;border-radius:12px;padding:12px 15px;margin-bottom:20px;font-size:13.5px;color:#333;line-height:1.8;}
+    .dates b{color:#0F172A;}
+    .section-title{font-size:16px;font-weight:800;color:#0F172A;margin:22px 0 4px;}
+    .section-sub{font-size:12.5px;color:#777;margin-bottom:10px;line-height:1.55;}
+    .unit{font-size:13px;font-weight:800;color:#334155;margin:14px 0 4px;}
+    .row{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;padding:10px 0;border-bottom:1px solid #eee;}
+    .tick{width:28px;height:28px;border-radius:8px;border:2px solid #cbd5e1;background:#fff;color:#fff;font-weight:800;font-size:15px;cursor:pointer;}
+    .tick.done{background:#059669;border-color:#059669;}
+    .tick:disabled{cursor:default;opacity:.9;}
+    .tick:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #3b82f6;outline-offset:2px;}
+    .r-title{font-size:14.5px;font-weight:650;color:#111;}
+    .r-meta{font-size:12.5px;color:#777;margin-top:3px;}
+    .who{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:#f1f5f9;color:#475569;margin-right:6px;}
+    .who.you{background:#e0f2fe;color:#0369a1;}
+    .dot{width:10px;height:10px;border-radius:50%;margin:5px 4px 0;border:2px solid #cbd5e1;}
+    .dot.done{background:#059669;border-color:#059669;}
+    details{margin-top:18px;border:1px solid #e6e6e6;border-radius:12px;padding:12px 15px;}
+    summary{cursor:pointer;font-weight:700;font-size:14px;color:#0F172A;}
+    .stage{border:1px solid #dbe3f0;border-radius:12px;padding:16px;margin-top:22px;}
+    .stage.locked{background:#f8fafc;color:#64748b;}
+    .stage h3{font-size:15.5px;color:#0F172A;margin-bottom:6px;}
+    .consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.55;color:#333;margin-top:10px;cursor:pointer;}
+    .consent input{width:18px;height:18px;margin-top:3px;flex:none;}
+    label.lbl{display:block;font-size:11.5px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 5px;}
+    input.txt{width:100%;padding:12px 13px;border:1.5px solid #d1d5db;border-radius:9px;font-size:16px;color:#1a1a2e;font-family:inherit;}
+    input.txt:focus{border-color:#3b82f6;outline:none;}
+    .btn{display:block;width:100%;padding:15px;border-radius:12px;border:none;font-size:16px;font-weight:700;color:#fff;cursor:pointer;margin-top:16px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);}
+    .btn:disabled{opacity:.45;cursor:not-allowed;}
+    .fine{font-size:12px;color:#888;line-height:1.6;margin-top:10px;}
+    .hint{font-size:13px;color:#b45309;margin-top:4px;}
+    .ok{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:14px 16px;margin-top:22px;font-size:14px;color:#166534;line-height:1.6;}
+    .err{font-size:13px;color:#dc2626;margin-top:10px;text-align:center;}
+    #state-loading{text-align:center;padding:60px 20px;}
+    #state-expired,#state-main{display:none;}
+    .spinner{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media (prefers-reduced-motion:reduce){.spinner{animation:none;}}
+    .pad{padding:44px 26px;text-align:center;}
+    .pad-title{font-size:19px;font-weight:800;margin-bottom:8px;}
+    .pad-sub{font-size:14px;color:#555;line-height:1.65;}
+    footer{margin-top:20px;font-size:11px;color:#aaa;text-align:center;}
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <div id="state-loading">
+    <div class="spinner"></div>
+    <div style="color:#555;font-size:14px;">Loading your launch plan…</div>
+  </div>
+
+  <div id="state-expired">
+    <div class="header">
+      <div class="header-logo">Maxwell DealFlow</div>
+      <div class="header-addr">This link is not active</div>
+    </div>
+    <div class="pad">
+      <div class="pad-title">Nothing to show here</div>
+      <div class="pad-sub">This link may be incomplete or no longer in use.<br>Please contact Maxwell directly for a fresh one.</div>
+    </div>
+  </div>
+
+  <div id="state-main">
+    <div class="header">
+      <div class="header-logo" id="h-agent">Listing launch plan</div>
+      <div class="header-addr" id="h-addr"></div>
+      <div class="header-sub">Getting your home ready to list</div>
+    </div>
+    <div class="body" id="main"></div>
+  </div>
+
+</div>
+<footer>Maxwell DealFlow &nbsp;•&nbsp; Maxwell Delali Midodzi, REALTOR® | eXp Realty</footer>
+
+<script src="config.js"></script>
+<script>
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+// Everything here goes through the SECURITY DEFINER functions in migration 112.
+// The link can read the plan, tick the seller's own items, sign once, and
+// approve the photos. Nothing else.
+async function rpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => null); throw new Error(e?.message || r.statusText); }
+  return r.json().catch(() => null);
+}
+
+function show(s) {
+  ['loading', 'expired', 'main'].forEach(id => { const el = document.getElementById('state-' + id); if (el) el.style.display = 'none'; });
+  const t = document.getElementById('state-' + s);
+  if (t) t.style.display = 'block';
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+const WHO = { agent: 'Maxwell', seller: 'You', tenant: 'Tenant', cleaner: 'Cleaner', painter: 'Painter', handyman: 'Handyman',
+              photographer: 'Photographer', stager: 'Stager', printer: 'Print shop', lawyer: 'Lawyer', vendor: 'Vendor' };
+
+// ── Dates: the same rules as js/launchplan.js ───────────────────────────────
+function parseLocal(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(String(v || ''));
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0) : null;
+}
+function neededToSign(due, photo) {
+  if (!due) return true;
+  if (due === '@by-photo' || due === '@photo') return true;
+  if (due.charAt(0) === '@') return false;
+  if (!photo) return true;
+  return due <= photo;
+}
+function resolveDue(due, d) {
+  if (!due) return null;
+  if (due.charAt(0) !== '@') { const x = parseLocal(due); return x ? { d: x } : null; }
+  const photo = parseLocal(d.photo), fin = parseLocal(d.final), live = parseLocal(d.live), off = parseLocal(d.offers);
+  return ({
+    '@photo': photo && { d: photo }, '@by-photo': photo && { d: photo, by: true },
+    '@photo+24': photo && { d: new Date(photo.getTime() + 864e5) }, '@photo+48': photo && { d: new Date(photo.getTime() + 1728e5) },
+    '@final': fin && { d: fin }, '@by-final': fin && { d: fin, by: true },
+    '@live': live && { d: live }, '@by-live': live && { d: live, by: true },
+    '@offers': off && { d: off, dateOnly: true }
+  })[due] || null;
+}
+function fmtWhen(r) {
+  if (!r || !r.d || isNaN(r.d)) return '';
+  let s = r.d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (!r.dateOnly && (r.d.getHours() || r.d.getMinutes())) s += ', ' + (r.d.getHours() % 12 || 12) + ':' + String(r.d.getMinutes()).padStart(2, '0') + (r.d.getHours() >= 12 ? ' PM' : ' AM');
+  return (r.by ? 'By ' : '') + s;
+}
+
+let P = null, ITEMS = [], busy = false;
+
+async function init() {
+  if (!TOKEN) { show('expired'); return; }
+  try {
+    const res = await rpc('launch_plan_for_token', { p_token: TOKEN });
+    if (!res || !res.plan) { show('expired'); return; }
+    P = res.plan; ITEMS = res.items || [];
+    render();
+    show('main');
+  } catch (e) {
+    console.error(e);
+    show('expired');
+  }
+}
+
+function mine() { return ITEMS.filter(i => i.who === 'seller' && i.item_key !== 'final'); }
+function openToSign() { const photo = (P.dates || {}).photo; return mine().filter(i => i.status !== 'done' && neededToSign(i.due, photo)).length; }
+function consentText() {
+  return `I have reviewed this plan for ${P.property_address}. My items are complete, and I authorise ${P.agent_name || 'Maxwell Midodzi'} of eXp Realty to proceed with photography and the listing launch on the dates shown.`;
+}
+
+function groupBy(list) {
+  const out = [];
+  list.forEach(i => { let g = out.find(x => x.unit === i.unit); if (!g) out.push(g = { unit: i.unit, items: [] }); g.items.push(i); });
+  return out;
+}
+
+function render() {
+  const d = P.dates || {};
+  const first = (P.seller_name || '').split(' ')[0] || 'there';
+  document.getElementById('h-addr').textContent = P.property_address || '';
+  document.getElementById('h-agent').textContent = `${P.agent_name || 'Maxwell'} · eXp Realty`;
+
+  const signed = P.status === 'signed';
+  const my = mine(), others = ITEMS.filter(i => !my.includes(i));
+  const dl = [['Photo shoot', d.photo], ['Final viewing with you', d.final], ['Listing goes live', d.live], ['Offers due', d.offers]]
+    .filter(x => x[1]).map(x => `${x[0]}: <b>${esc(fmtWhen({ d: parseLocal(x[1]), dateOnly: x[0] === 'Offers due' }))}</b>`).join('<br>');
+
+  let h = `<div class="lede">Hi ${esc(first)}, here is everything being done to get <strong>${esc(P.property_address)}</strong> ready to list, who is looking after each part, and when.
+    ${my.length ? (signed ? 'You have signed off. You can still tick anything left as it gets done.' : 'Please tick your items as they are done, then sign at the bottom so Maxwell can go ahead with photos.') : ''}</div>`;
+  if (dl) h += `<div class="dates">${dl}</div>`;
+
+  if (my.length) {
+    h += `<div class="section-title">Your items</div><div class="section-sub">Your ticks save straight away and go to Maxwell.</div>`;
+    groupBy(my).forEach(g => {
+      h += `<div class="unit">${esc(g.unit)}</div>` + g.items.map(i => {
+        const w = fmtWhen(resolveDue(i.due, d)), done = i.status === 'done';
+        return `<div class="row">
+          <button class="tick ${done ? 'done' : ''}" data-id="${esc(i.id)}" aria-pressed="${done}" aria-label="${done ? 'Mark not done' : 'Mark done'}: ${esc(i.title)}">${done ? '✓' : ''}</button>
+          <div><div class="r-title">${esc(i.title)}</div>${w ? `<div class="r-meta">${esc(w)}</div>` : ''}</div>
+        </div>`;
+      }).join('');
+    });
+  }
+
+  if (others.length) {
+    h += `<details ${my.length ? '' : 'open'}><summary>Everything else on the plan (${others.length})</summary>` +
+      groupBy(others).map(g => `<div class="unit">${esc(g.unit)}</div>` + g.items.map(i => {
+        const w = fmtWhen(resolveDue(i.due, d));
+        return `<div class="row"><div class="dot ${i.status === 'done' ? 'done' : ''}" aria-hidden="true"></div>
+          <div><div class="r-title">${esc(i.title)}</div><div class="r-meta"><span class="who ${i.who === 'seller' ? 'you' : ''}">${esc(WHO[i.who] || 'Vendor')}</span>${esc(w)}${i.status === 'done' ? ' · Done' : ''}</div></div></div>`;
+      }).join('')).join('') + `</details>`;
+  }
+
+  if (!signed) {
+    const open = openToSign();
+    h += `<div class="stage">
+      <h3>Sign off: ready for photos</h3>
+      ${open ? `<div class="hint">Tick your ${open} remaining item${open === 1 ? '' : 's'} due before photos to sign. Later items can be ticked after.</div>` : ''}
+      <label class="consent" for="c-intent"><input type="checkbox" id="c-intent"><span>${esc(consentText())}</span></label>
+      <label class="lbl" for="c-name">Type your full name to sign</label>
+      <input class="txt" id="c-name" autocomplete="name" placeholder="First and last name">
+      <button class="btn" id="sign" disabled>Sign and send to Maxwell</button>
+      <div class="err" id="err"></div>
+      <div class="fine">This confirms your home is ready to market. It does not replace your Listing Agreement. Your name, the time, and this exact list are recorded, and you will get a signed copy by email.</div>
+    </div>`;
+  } else {
+    const sd = P.signed_at ? new Date(P.signed_at) : null;
+    const when = sd && !isNaN(sd) ? sd.toLocaleDateString('en-CA', { month: 'long', day: 'numeric' }) + ' at ' + (sd.getHours() % 12 || 12) + ':' + String(sd.getMinutes()).padStart(2, '0') + (sd.getHours() >= 12 ? ' PM' : ' AM') : '';
+    h += `<div class="ok"><strong>Signed by ${esc(P.signed_name || '')}</strong>${when ? ` on ${esc(when)}` : ''}. Thank you. A signed copy is on its way to your email.</div>`;
+    const sent = ITEMS.some(i => i.item_key === 'photoreview' && i.status === 'done');
+    if (P.media_approved_at) {
+      h += `<div class="ok">You approved the photos and video. Thank you.</div>`;
+    } else if (sent) {
+      h += `<div class="stage"><h3>Approve photos and video</h3>
+        <div class="section-sub" style="margin:0;">The photos are in your email. If anything needs changing, reply to Maxwell before approving.</div>
+        <button class="btn" id="approve">I approve the photos and video</button><div class="err" id="err"></div></div>`;
+    } else {
+      h += `<div class="stage locked"><h3>Next: approve photos and video</h3><div style="font-size:13.5px;">This opens on this same link once Maxwell sends you the photos.</div></div>`;
+    }
+  }
+
+  document.getElementById('main').innerHTML = h;
+  wire();
+}
+
+function wire() {
+  document.querySelectorAll('.tick[data-id]').forEach(b => b.addEventListener('click', () => tick(b)));
+  const sign = document.getElementById('sign');
+  if (sign) {
+    const intent = document.getElementById('c-intent'), name = document.getElementById('c-name');
+    const upd = () => { sign.disabled = openToSign() > 0 || !intent.checked || name.value.trim().split(/\s+/).filter(Boolean).length < 2; };
+    intent.addEventListener('change', upd); name.addEventListener('input', upd); upd();
+    sign.addEventListener('click', doSign);
+  }
+  const ap = document.getElementById('approve');
+  if (ap) ap.addEventListener('click', approve);
+}
+
+async function tick(btn) {
+  if (busy) return;
+  const it = ITEMS.find(i => i.id === btn.dataset.id);
+  if (!it) return;
+  const done = it.status !== 'done';
+  busy = true; btn.disabled = true;
+  try {
+    const res = await rpc('launch_plan_tick', { p_token: TOKEN, p_item: it.id, p_done: done });
+    if (!res || !res.ok) throw new Error('not saved');
+    it.status = done ? 'done' : 'open';
+  } catch (e) {
+    alert('That tick did not save. Please check your connection and try again.');
+  }
+  busy = false;
+  const name = document.getElementById('c-name')?.value || '', intent = document.getElementById('c-intent')?.checked;
+  render();
+  if (document.getElementById('c-name')) { document.getElementById('c-name').value = name; document.getElementById('c-intent').checked = !!intent; document.getElementById('c-name').dispatchEvent(new Event('input')); }
+}
+
+async function doSign() {
+  const btn = document.getElementById('sign'), err = document.getElementById('err');
+  const name = document.getElementById('c-name').value.trim();
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Signing…';
+  try {
+    const res = await rpc('launch_plan_sign', { p_token: TOKEN, p_name: name, p_user_agent: navigator.userAgent });
+    if (!res || !res.ok) {
+      const why = res && res.reason;
+      throw new Error(why === 'name' ? 'Please type your first and last name.'
+        : why === 'open' ? 'Some of your items due before photos are not ticked yet.'
+        : 'This plan cannot be signed right now. Please contact Maxwell.');
+    }
+    await init();
+    window.scrollTo(0, 0);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Sign and send to Maxwell';
+    err.textContent = e.message || 'Something went wrong. Please try again.';
+  }
+}
+
+async function approve() {
+  const btn = document.getElementById('approve'), err = document.getElementById('err');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const res = await rpc('launch_plan_approve_media', { p_token: TOKEN });
+    if (!res || !res.ok) throw new Error('This could not be saved. Please contact Maxwell.');
+    await init();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'I approve the photos and video';
+    err.textContent = e.message;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
