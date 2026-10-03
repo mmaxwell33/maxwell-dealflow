@@ -1729,33 +1729,19 @@ const Pipeline = {
       });
     }
 
-    // Build & insert the Commission row (status=Pending, will flip on close/fell-through)
-    const sale = parseFloat(offer.offer_amount) || 0;
-    const rate = parseFloat(dates.rate) || 2.5;
-    const brokerPct = 20;
-    const taxPct = 15;
-    const gross = sale * rate / 100;
-    const hst = gross * taxPct / 100;
-    // Brokerage fee is taken on (gross + HST) — must match the manual form in extras.js (PR #12)
-    const brokerFee = (gross + hst) * brokerPct / 100;
-    const net = (gross + hst) - brokerFee;
-    await db.from('commissions').insert({
-      agent_id: currentAgent.id,
+    // Commission row (status=Pending, will flip on close/fell-through). Checked
+    // now: a failed insert used to vanish without a word.
+    const comm = await Pipeline.ensureCommission({
+      client_id: safeClientId,
       client_name: client?.full_name || offer.client_name,
       property_address: offer.property_address,
-      sale_price: sale,
-      commission_rate: rate,
-      gross_commission: gross,
-      hst_collected: hst,
-      brokerage_fee_rate: brokerPct,
-      brokerage_fees: brokerFee,
-      agent_net: net,
-      close_date: dates.close || null,
-      status: 'Pending',
-      // safeClientId is null unless it is a real id, so this cannot trip the
-      // FK and silently drop the commission (this insert is not error-checked).
-      client_id: safeClientId
-    });
+      offer_amount: offer.offer_amount,
+      closing_date: dates.close || null,
+      deal_side: 'buy'
+    }, dates.rate);
+    if (!comm.ok) {
+      App.toast(`⚠️ Deal created, but the commission did not save (${comm.error}). It will be retried when you open Commissions.`, 'var(--yellow)');
+    }
 
     await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
     if (typeof Notify !== "undefined" && client?.email) {
@@ -1802,6 +1788,19 @@ const Pipeline = {
 
     // Auto-generate 22-task closing checklist
     await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
+
+    // This quick path never recorded a commission at all. Now it does.
+    if (pipelineId) {
+      const comm = await Pipeline.ensureCommission({
+        client_id: offer.client_id,
+        client_name: client?.full_name || offer.client_name,
+        property_address: offer.property_address,
+        offer_amount: offer.offer_amount,
+        closing_date: offer.closing_date || null,
+        deal_side: 'buy'
+      });
+      if (!comm.ok) App.toast(`⚠️ Deal created, but the commission did not save (${comm.error}). It will be retried when you open Commissions.`, 'var(--yellow)');
+    }
 
     await App.logActivity('PIPELINE_CREATED', client?.full_name, client?.email,
       `Deal pipeline created: ${offer.property_address}`, offer.client_id);
@@ -1862,6 +1861,105 @@ const Pipeline = {
     }));
 
     await db.from('deal_checklist').insert(rows);
+  },
+
+  // ── Commission safety net ─────────────────────────────────────────────────
+  // Every live deal must have a commission row. Two holes let one slip:
+  // the quick "mark accepted" path (createFromOffer) never wrote one, and the
+  // full acceptance path wrote it without checking the result, so a failed
+  // insert vanished silently (Chikaeze, 2026-10-03).
+  //
+  // ensureCommission: looks first (same address + side = already recorded, so
+  // never a duplicate), then inserts, retrying without the optional columns an
+  // older schema or a bad client id can reject. Returns { ok, created, error }.
+  async ensureCommission(deal, rateIn) {
+    if (!currentAgent?.id || !deal?.property_address) return { ok: false, error: 'no deal' };
+    const side = deal.deal_side === 'sell' ? 'sell' : 'buy';
+    const { data: existing, error: qErr } = await db.from('commissions')
+      .select('id').eq('agent_id', currentAgent.id)
+      .eq('property_address', deal.property_address).eq('deal_side', side)
+      .neq('status', 'Archived').limit(1);   // archived = an earlier deal on this address that fell through
+    if (qErr) return { ok: false, error: qErr.message };
+    if (existing && existing.length) return { ok: true, created: false };
+
+    const sale = parseFloat(deal.offer_amount) || 0;
+    const rate = parseFloat(rateIn) || 2.5;
+    const brokerPct = 20, taxPct = 15;
+    const gross = sale * rate / 100;
+    const hst = gross * taxPct / 100;
+    // Same maths as each side's own creator: buy = fee on (gross + HST) (PR #12),
+    // sell = fee on gross (listings.js confirmWinner).
+    const brokerFee = side === 'sell' ? gross * brokerPct / 100 : (gross + hst) * brokerPct / 100;
+    const row = {
+      agent_id: currentAgent.id,
+      client_name: deal.client_name || (side === 'sell' ? 'Seller' : 'Client'),
+      property_address: deal.property_address,
+      sale_price: sale,
+      commission_rate: rate,
+      gross_commission: gross,
+      hst_collected: hst,
+      brokerage_fee_rate: brokerPct,
+      brokerage_fees: brokerFee,
+      agent_net: (gross + hst) - brokerFee,
+      close_date: deal.closing_date || null,
+      status: 'Pending',
+      deal_side: side,
+      client_id: deal.client_id && String(deal.client_id).length > 30 ? deal.client_id : null
+    };
+    let { error } = await db.from('commissions').insert(row);
+    if (error && row.client_id) { delete row.client_id; ({ error } = await db.from('commissions').insert(row)); }
+    if (error) { delete row.deal_side; ({ error } = await db.from('commissions').insert(row)); }
+    if (error) {
+      console.error('[ensureCommission] insert failed:', error);
+      if (App.logError) App.logError(error, { where: 'ensureCommission', address: deal.property_address });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, created: true };
+  },
+
+  // Self-check, run whenever the Commissions screen loads: any live deal in the
+  // pipeline with no commission gets one, at the default rate, and Maxwell is
+  // told. Closed and fell-through deals are left alone (history), and a
+  // commission he deleted himself is never put back (Commission.doDelete logs
+  // COMMISSION_DELETED, which this reads).
+  _reconciling: false,
+  async reconcileCommissions() {
+    if (!currentAgent?.id || Pipeline._reconciling) return [];
+    Pipeline._reconciling = true;
+    const fixed = [];
+    try {
+      const [{ data: deals, error: dErr }, { data: comms }, { data: deleted }] = await Promise.all([
+        db.from('pipeline').select('id, client_id, client_name, property_address, offer_amount, closing_date, deal_side, stage, status')
+          .eq('agent_id', currentAgent.id).in('stage', ['Accepted', 'Conditions', 'Closing']),
+        db.from('commissions').select('property_address, deal_side').eq('agent_id', currentAgent.id).neq('status', 'Archived'),
+        db.from('activity_log').select('description').eq('agent_id', currentAgent.id).eq('activity_type', 'COMMISSION_DELETED')
+      ]);
+      if (dErr || !deals) return [];
+      const norm = s => String(s || '').trim().toLowerCase();
+      const have = new Set((comms || []).map(c => norm(c.property_address) + '|' + (c.deal_side === 'sell' ? 'sell' : 'buy')));
+      const gone = (deleted || []).map(x => norm(x.description));
+      for (const d of deals) {
+        if (!d.property_address || d.status === 'Archived') continue;
+        const side = d.deal_side === 'sell' ? 'sell' : 'buy';
+        if (have.has(norm(d.property_address) + '|' + side)) continue;
+        if (gone.some(t => t.includes(norm(d.property_address)) && t.includes('[' + side + ']'))) continue;
+        const r = await Pipeline.ensureCommission(d);
+        if (r.ok && r.created) {
+          fixed.push(d);
+          have.add(norm(d.property_address) + '|' + side);
+          await App.logActivity('COMMISSION_AUTO_RECORDED', d.client_name, null,
+            `Commission was missing for ${d.property_address} [${side}]. Recorded automatically at 2.5%. Check the rate.`, d.client_id || null);
+        }
+      }
+    } catch (e) {
+      console.warn('[reconcileCommissions] skipped', e);
+    } finally {
+      Pipeline._reconciling = false;
+    }
+    if (fixed.length) {
+      App.toast(`🔧 Found ${fixed.length} deal${fixed.length > 1 ? 's' : ''} with no commission (${fixed.map(d => d.client_name || d.property_address).join(', ')}). Recorded at 2.5%: check the rate.`, 'var(--yellow)');
+    }
+    return fixed;
   },
 
   // ── The sell-side list ────────────────────────────────────────────────────

@@ -1999,6 +1999,10 @@ const Commission = {
         if (b && b.commission_cap != null) Commission.cap = Number(b.commission_cap);
       }
     }
+    // Self-check: any live deal with no commission gets one before the list is read.
+    if (typeof Pipeline !== 'undefined' && Pipeline.reconcileCommissions) {
+      try { await Pipeline.reconcileCommissions(); } catch (e) { console.warn('[Commission] self-check skipped', e); }
+    }
     const { data } = await db.from('commissions')
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
@@ -2779,9 +2783,17 @@ const Commission = {
 
   async doDelete(id) {
     if (!id) { App.closeModal(); return; }
+    const gone = Commission.all.find(c => c.id === id);
     const { error } = await db.from('commissions').delete().eq('id', id);
     App.closeModal();
     if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    // Recorded so the Commissions self-check never puts a deleted one back.
+    if (gone?.property_address) {
+      try {
+        await App.logActivity('COMMISSION_DELETED', gone.client_name || '', null,
+          `Commission deleted: ${gone.property_address} [${gone.deal_side === 'sell' ? 'sell' : 'buy'}]`, gone.client_id || null);
+      } catch (e) { console.warn('[Commission] delete log skipped', e); }
+    }
     App.toast('✅ Commission deleted');
     Commission.load();
   },
