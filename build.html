@@ -350,6 +350,22 @@ async function init() {
 
     document.getElementById('sections-list').innerHTML = sectionsHtml;
 
+    // Current stage = the furthest stage with a step ticked, moving on once that
+    // stage is finished. Same rule as NewBuilds.getWorkingStage in js/extras.js,
+    // so a skipped step in an earlier stage no longer holds the label back.
+    const stepsOf = i => ((pm[SECTIONS[i].key] || {}).steps) || {};
+    const fullSec = i => SECTIONS[i].steps.every(x => stepsOf(i)[x.key]);
+    let furthest = -1;
+    SECTIONS.forEach((sec, i) => { if (sec.steps.some(x => stepsOf(i)[x.key])) furthest = i; });
+    if (furthest !== -1) {
+      let cur = furthest;
+      while (cur < SECTIONS.length && fullSec(cur)) cur++;
+      currentSectionIdx = cur >= SECTIONS.length ? -1 : cur;
+      const nxt = currentSectionIdx === -1 ? null : SECTIONS[cur].steps.find(x => !stepsOf(cur)[x.key]);
+      nextStepLabel = nxt ? nxt.label : null;
+    }
+    const stagesDone = SECTIONS.filter((_, i) => fullSec(i)).length;
+
     const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
     document.getElementById('progress-pct').textContent = pct + '%';
     document.getElementById('progress-fill').style.width = pct + '%';
@@ -417,7 +433,7 @@ async function init() {
     const progRows = [
       ['Steps complete', doneSteps + ' of ' + totalSteps],
       ['Current stage',  allComplete ? 'Complete' : currentLabel],
-      ['Stages done',    (allComplete ? SECTIONS.length : currentSectionIdx) + ' of ' + SECTIONS.length],
+      ['Stages done',    stagesDone + ' of ' + SECTIONS.length],
     ];
     document.getElementById('build-progress-rows').innerHTML = progRows.map(([l,v]) =>
       '<div class="row"><span class="label">'+l+'</span><span class="val">'+v+'</span></div>'

@@ -3892,6 +3892,22 @@ const NewBuilds = {
     return last;
   },
 
+  // The stage the build is actually IN, for anything the client reads: the
+  // furthest stage with a step ticked, moving on to the next once that stage is
+  // finished. getCurrentMajorStage (last FULLY done stage) said "Financing"
+  // while construction steps were being ticked, and a skipped step in an
+  // earlier stage held it back for good (2026-10-03). build.html uses the same rule.
+  getWorkingStage(pm) {
+    const S = NewBuilds.STAGES;
+    const ticked = st => NewBuilds.allStepsFor(st, pm).some(x => pm[st.key]?.steps?.[x.key]);
+    const full   = st => NewBuilds.allStepsFor(st, pm).every(x => pm[st.key]?.steps?.[x.key]);
+    let i = -1;
+    S.forEach((st, n) => { if (ticked(st)) i = n; });
+    if (i === -1) return null;
+    while (i < S.length - 1 && full(S[i])) i++;
+    return S[i];
+  },
+
   // Built-in steps for a stage plus any custom steps the agent added to THIS build
   allStepsFor(stage, pm) {
     const custom = pm?.[stage.key]?.custom || [];
@@ -4402,7 +4418,7 @@ const NewBuilds = {
     pm[stageKey].done = allStepsDone;
 
     // Current stage label = highest stage that has any activity
-    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const majorStage = NewBuilds.getWorkingStage(pm);
     const isComplete = pm['possession']?.done === true;
     const stageLabel = majorStage ? majorStage.label.replace(/[📋🏦🏗️✅🎉]\s*/u, '') : 'Pre-Construction';
 
@@ -4505,7 +4521,7 @@ const NewBuilds = {
 
     const { done: doneCount, total: totalCount } = NewBuilds.countAllSteps(pm);
     const pctVal = Math.round((doneCount / totalCount) * 100);
-    const majorStageFull = NewBuilds.getCurrentMajorStage(pm);
+    const majorStageFull = NewBuilds.getWorkingStage(pm);
 
     // Live buyer-portal link so the client can click straight to live updates
     const portalToken = await NewBuilds.ensureBuildToken(buildId);
@@ -4867,7 +4883,7 @@ const NewBuilds = {
     const b = NewBuilds.all.find(x => x.id === id);
     if (!b) return;
     const pm = b.pipeline_milestones || {};
-    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const majorStage = NewBuilds.getWorkingStage(pm);
     const { done, total } = NewBuilds.countAllSteps(pm);
     const pct = Math.round((done / total) * 100);
 
@@ -4891,7 +4907,7 @@ const NewBuilds = {
     const b = NewBuilds.all.find(x => x.id === id);
     if (!b) return;
     const pm = b.pipeline_milestones || {};
-    const majorStage = NewBuilds.getCurrentMajorStage(pm);
+    const majorStage = NewBuilds.getWorkingStage(pm);
     const { done, total } = NewBuilds.countAllSteps(pm);
     const pct = Math.round((done / total) * 100);
     const customNote = document.getElementById('nb-notify-note')?.value?.trim() || '';
