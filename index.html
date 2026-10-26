@@ -66,7 +66,7 @@
   <script defer src="js/ai.js"></script>
   <script defer src="js/calendar.js"></script>
   <script defer src="js/reviews.js"></script>
-  <script defer src="js/marketing.js?v=3"></script>
+  <script defer src="js/marketing.js?v=4"></script>
   <script defer src="js/briefing.js"></script>
 </head>
 <body>
@@ -2183,6 +2183,9 @@
             <input id="mk-area" type="text" placeholder="St. John's" oninput="Marketing.render()" onchange="Marketing._refreshCaption()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
         </div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">What stands out <span style="font-weight:400;color:var(--text3);">(optional, goes in the caption)</span>
+          <input id="mk-highlight" type="text" placeholder="overlooking Octagon Pond, with a rental apartment" onchange="Marketing._refreshCaption()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+        </label>
 
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -2194,7 +2197,7 @@
               <button id="mk-regen" class="btn btn-outline btn-sm" onclick="Marketing.genCaption(true)" title="Try another wording">↻ Another</button>
             </div>
           </div>
-          <textarea id="mk-caption" rows="6" placeholder="Pick a style above for a short caption, or write your own." style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;"></textarea>
+          <textarea id="mk-caption" rows="10" placeholder="Pick a style above for a short caption, or write your own." style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;"></textarea>
         </div>
 
         <!-- consent gate -->

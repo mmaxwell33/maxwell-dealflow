@@ -118,6 +118,7 @@ const Marketing = {
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
     m.querySelector('#mk-area').value  = prefill.area || '';
     m.querySelector('#mk-place').value = prefill.place || '';
+    const hlIn = m.querySelector('#mk-highlight'); if (hlIn) hlIn.value = '';
     m.querySelector('#mk-sqft').value  = prefill.sqft || '';
     m.querySelector('#mk-beds').value  = prefill.beds || '';
     m.querySelector('#mk-baths').value = prefill.baths || '';
@@ -598,13 +599,76 @@ const Marketing = {
   // rather than by AI, so they read like him and never like a press release.
   // They change with the deal: Offer Accepted vs Just Sold, and existing home
   // vs new construction. ↻ cycles to the next wording in the same style.
-  // Rules: two or three short lines, no names, no price, no dashes.
+  // Rules: no names, no price, no dashes.
+  // Warm is a full post in the shape agents here actually write (emoji header,
+  // the home, what it means, the next step, an invite, then the sign-off). Each
+  // part has a few wordings; ↻ steps through them so no two posts read the same.
+  FULL: {
+    accepted: {
+      existing: {
+        head: ["🏡 OFFER ACCEPTED! 🔑✨", "🎉 ACCEPTED OFFER! 🏡", "✨ OFFER ACCEPTED in {loc}! 🔑"],
+        home: ["A beautiful home in {loc}{hl}. The perfect fit for my clients! 🤝",
+               "This one is about to welcome its new owners! A lovely home in {loc}{hl}. 🏡",
+               "We found it! A wonderful home in {loc}{hl}. 🙌"],
+        mean: ["My clients put their hearts into this search, and seeing it all come together never gets old. 💛",
+               "Finding the right home takes patience, and my clients stayed the course. So proud of them! 💪",
+               "Moments like this are exactly why I love what I do. Congratulations to my amazing clients! 🎉"],
+        next: ["Offer accepted, and now we're one step closer to closing! 🔑",
+               "Next stop, closing day! 🔑",
+               "Now on to the next steps, and soon, the keys! 🔑"],
+        ask:  ["Looking for a home that works for your lifestyle and your goals? Let's explore the possibilities together. 🤝",
+               "Thinking about buying in {area}? I'd love to help you find the one. 🏡",
+               "Ready to start your own search? Send me a message and let's chat. 🤝"],
+      },
+      new: {
+        head: ["🏗️ OFFER ACCEPTED! 🔑✨", "🎉 ACCEPTED OFFER on a brand new build! 🏡", "✨ NEW CONSTRUCTION, OFFER ACCEPTED! 🔑"],
+        home: ["My clients are building their brand new home in {loc}{hl}! 🏡",
+               "A fresh start in {loc}{hl}. My clients just secured their brand new home! 🙌",
+               "Brand new, built for them, and right here in {loc}{hl}! 🏡"],
+        mean: ["Watching a home go from plans to walls is such an exciting journey, and I'll be with them every step of the way. 💛",
+               "Choosing finishes, watching it take shape, and picturing life inside. This part is so much fun! 🎨",
+               "So proud of my clients for making this big move. Congratulations! 🎉"],
+        next: ["Offer accepted, and now the build begins! 🔨",
+               "Next up, construction, and then the keys! 🔑",
+               "Now we watch it come to life, one stage at a time. 🔑"],
+        ask:  ["Curious about new construction in {area}? I'd love to walk you through your options. 🤝",
+               "Thinking about building your own home? Let's talk about what's possible. 🏗️",
+               "Looking for something brand new? Send me a message and let's explore together. 🤝"],
+      },
+    },
+    sold: {
+      existing: {
+        head: ["🔑 SOLD! 🎉", "🎉 JUST SOLD! 🔑✨", "🏡 ANOTHER ONE SOLD! ✨"],
+        home: ["Officially closed on a beautiful home in {loc}{hl}! 🏡",
+               "Keys handed over on a lovely home in {loc}{hl}! 🔑",
+               "It's official! We just closed on a wonderful home in {loc}{hl}. 🙌"],
+        mean: ["Thank you to my clients for trusting me with such a big move. It truly means the world. 💛",
+               "Every deal is a story, and I'm so grateful to have been part of this one. Congratulations! 🎉",
+               "So happy for my clients as they start this new chapter. Enjoy every moment! ✨"],
+        next: ["", "", ""],
+        ask:  ["Thinking about buying or selling in {area}? Let's chat about your next move. 🤝",
+               "Curious what your home could do in today's market? I'm always happy to talk. 🏡",
+               "Ready for your own next chapter? Send me a message and let's get started. 🔑"],
+      },
+      new: {
+        head: ["🔑 FROM PLANS TO KEYS! 🎉", "🎉 JUST SOLD! Brand new and all theirs. 🔑", "🏡 WELCOME HOME! ✨"],
+        home: ["My clients just got the keys to their brand new home in {loc}{hl}! 🔑",
+               "From blueprint to move in day in {loc}{hl}. It's officially theirs! 🏡",
+               "Brand new, built for them, and now fully theirs in {loc}{hl}! 🙌"],
+        mean: ["Watching this one go from plans to keys has been such a joy. Congratulations! 💛",
+               "Thank you to my clients for trusting me through every stage of the build. 🎉",
+               "So happy for my clients as they settle into a home made just for them. ✨"],
+        next: ["", "", ""],
+        ask:  ["Curious about new construction in {area}? I'd love to walk you through your options. 🤝",
+               "Thinking about building or buying? Let's talk about your next move. 🏗️",
+               "Ready for your own fresh start? Send me a message and let's explore together. 🔑"],
+      },
+    },
+  },
+
   CAPTIONS: {
     accepted: {
       existing: {
-        warm:  ["Congratulations to my clients on their accepted offer on a beautiful home in {loc}! 🎉\nSo happy for you, and excited for what comes next.",
-                "Accepted offer! 🏡 Huge congratulations to my clients on their new home in {loc}.\nNext stop, closing day!",
-                "Offer accepted! 🎉 So proud of my clients on landing a lovely home in {loc}.\nThank you for trusting me with your search."],
         short: ["Accepted offer in {loc}! 🎉 Congrats to my clients.",
                 "Offer accepted! 🏡 Congratulations to my clients on their home in {loc}.",
                 "Another accepted offer in {loc}. Congrats to my clients! 🎉"],
@@ -613,9 +677,6 @@ const Marketing = {
                 "Happy to share that my clients have an accepted offer on a home in {loc}.\nCongratulations!"],
       },
       new: {
-        warm:  ["Congratulations to my clients on their accepted offer on a brand new home in {loc}! 🎉\nCan't wait to see it come together.",
-                "Accepted offer on new construction in {loc}! 🏡 So excited for my clients as they watch their new home being built.",
-                "Offer accepted! 🎉 My clients are building their new home in {loc}.\nSo happy for you, and I can't wait for move in day."],
         short: ["Accepted offer on a new build in {loc}! 🎉 Congrats to my clients.",
                 "New construction, offer accepted in {loc}! 🏡 Congratulations to my clients.",
                 "Brand new home, accepted offer in {loc}. Congrats to my clients! 🎉"],
@@ -626,9 +687,6 @@ const Marketing = {
     },
     sold: {
       existing: {
-        warm:  ["Just sold in {loc}! 🎉 Congratulations to my clients, and thank you for trusting me with such a big move.",
-                "Sold! 🔑 Congratulations to my clients on their home in {loc}.\nIt was a pleasure working with you.",
-                "Another one closed in {loc}! 🎉 So happy for my clients.\nThank you for letting me be part of it."],
         short: ["Just sold in {loc}! 🔑 Congrats to my clients.",
                 "Sold in {loc}! 🎉 Congratulations to my clients.",
                 "Another one closed in {loc}. Congrats to my clients! 🔑"],
@@ -637,9 +695,6 @@ const Marketing = {
                 "Pleased to share another sale in {loc}. Congratulations to my clients!"],
       },
       new: {
-        warm:  ["Keys to a brand new home in {loc}! 🔑 Congratulations to my clients.\nWelcome home!",
-                "Just sold! 🎉 Congratulations to my clients on their brand new home in {loc}.\nEnjoy every moment of it.",
-                "From blueprint to keys in hand in {loc}! 🔑 So happy for my clients.\nWelcome home."],
         short: ["Sold! New construction in {loc}. 🔑 Congrats to my clients.",
                 "Brand new and just sold in {loc}! 🎉 Congrats to my clients.",
                 "New build, keys in hand in {loc}! 🔑 Congratulations to my clients."],
@@ -657,16 +712,40 @@ const Marketing = {
     const area = f.area || "St. John's";
     const loc = f.place || area;
     const kind = Marketing.kind === 'new' ? 'new' : 'existing';
-    const style = Marketing.captionStyle in Marketing.CAPTIONS.sold.existing ? Marketing.captionStyle : 'warm';
-    const pool = Marketing.CAPTIONS[Marketing.current === 'sold' ? 'sold' : 'accepted'][kind][style];
+    const style = ['warm', 'short', 'professional'].includes(Marketing.captionStyle) ? Marketing.captionStyle : 'warm';
+    const tpl = Marketing.current === 'sold' ? 'sold' : 'accepted';
     if (next) Marketing._capIx = (Marketing._capIx || 0) + 1;
-    const line = pool[(Marketing._capIx || 0) % pool.length]
+    const ix = Marketing._capIx || 0;
+    // "overlooking Octagon Pond, with a rental apartment" -> ", overlooking ..."
+    const hl = (document.getElementById('mk-highlight')?.value || '').trim().replace(/[.!]+$/, '');
+    const fill = s => s
       .replace(/\{loc\}/g, loc)
+      .replace(/\{area\}/g, area)
+      .replace(/\{hl\}/g, hl ? ', ' + hl : '')
       .replace(/\{town\}/g, loc.toLowerCase() === area.toLowerCase() ? '' : ', ' + area);
+    // Who he is, the way agents here sign their posts.
+    const agentName = (currentAgent?.full_name || 'Maxwell Midodzi').replace(/\s+/g, ' ').trim();
+    const parts = agentName.split(' ');
+    const signName = parts.length > 2 ? parts[0] + ' ' + parts[parts.length - 1] : agentName;
+    const sign = `${signName}, REALTOR®\neXp Realty | St. John's, Newfoundland and Labrador\nCell: ${currentAgent?.phone || '709-325-0545'}\nEmail: ${Marketing.EMAIL}`;
+    let body;
+    if (style === 'warm') {
+      // Each part steps at its own pace so ↻ gives a fresh mix, not the same set.
+      const F = Marketing.FULL[tpl][kind];
+      const pick = (arr, k) => arr[(ix * k + k - 1) % arr.length];
+      const specs = f.beds ? `With ${f.beds} bedrooms${f.baths ? ' and ' + f.baths + ' bathrooms' : ''}, there's space for everyone. ✨` : '';
+      body = [pick(F.head, 1), pick(F.home, 1), specs, pick(F.mean, 2), pick(F.next, 1), pick(F.ask, 2), sign]
+        .map(fill).filter(Boolean).join('\n\n');
+    } else {
+      const pool = Marketing.CAPTIONS[tpl][kind][style];
+      body = fill(pool[ix % pool.length]);
+      if (style === 'professional') body += '\n\n' + sign;
+    }
     const tags = ['#StJohnsRealEstate', '#NLRealEstate',
       Marketing.current === 'sold' ? '#JustSold' : '#AcceptedOffer',
       ...(kind === 'new' ? ['#NewConstruction'] : []), '#eXpRealty'].join(' ');
-    ta.value = Marketing._autoCap = `${line}\n\n${tags}`;
+    // No long dashes, ever, even if one comes in through a typed highlight.
+    ta.value = Marketing._autoCap = `${body}\n\n${tags}`.replace(/\s*[–—]\s*/g, ', ');
   },
 
   // Template / home type changed: rewrite the caption to match, unless he has
