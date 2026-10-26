@@ -12,9 +12,9 @@
 //     capitals, with a thin blue rule under it
 //   • listing photo (he uploads it) filling the middle edge to edge
 //   • white strip: the place (e.g. "Southlands") in a large serif, with a small
-//     spaced subline "NEW CONSTRUCTION · ST. JOHN'S, NL" (or EXISTING HOME)
+//     spaced subline "NEW CONSTRUCTION · ST. JOHN'S, NEWFOUNDLAND AND LABRADOR" (resales: place only)
 //   • navy footer: name + REALTOR®, phone | email, and eXp Realty +
-//     ST. JOHN'S, NEWFOUNDLAND on the right
+//     ST. JOHN'S, NEWFOUNDLAND AND LABRADOR on the right
 //
 // Compliance guardrails (per Abena): consent gate before any action; NO sold
 // price; area/neighbourhood only, never a civic number; eXp Realty + REALTOR®
@@ -39,7 +39,7 @@ const Marketing = {
   },
   // Resale vs new construction changes the subline on the card and the caption.
   KINDS: {
-    existing: { label: 'Existing home',    sub: 'EXISTING HOME' },
+    existing: { label: 'Existing home',    sub: '' },   // resale: no label, the place says enough
     new:      { label: 'New construction', sub: 'NEW CONSTRUCTION' },
   },
 
@@ -427,14 +427,14 @@ const Marketing = {
       ctx.restore();
       ctx.fillStyle = Marketing.GREY;
       ctx.font = `400 15px ${SANS}`;
-      track("ST. JOHN'S, NEWFOUNDLAND", 1022, fy + 34 + lh + 30, 3, 'right');
+      track("ST. JOHN'S, NEWFOUNDLAND AND LABRADOR", 1022, fy + 34 + lh + 30, 3, 'right');
     } else {
       ctx.fillStyle = Marketing.WHITE;
       ctx.font = `700 46px ${SANS}`; ctx.textAlign = 'right';
       ctx.fillText('eXp Realty', 1022, fy + 80);
       ctx.fillStyle = Marketing.GREY;
       ctx.font = `400 15px ${SANS}`;
-      track("ST. JOHN'S, NEWFOUNDLAND", 1022, fy + 116, 3, 'right');
+      track("ST. JOHN'S, NEWFOUNDLAND AND LABRADOR", 1022, fy + 116, 3, 'right');
     }
 
     // optional specs, quietly on the right of the white strip
@@ -467,8 +467,8 @@ const Marketing = {
     ctx.fillStyle = TH.band; ctx.textAlign = 'left';
     ctx.fillText(place, px, py);
     const placeW = ctx.measureText(place).width;
-    // "NEW CONSTRUCTION · ST. JOHN'S, NL"; when the place IS the town, name the province instead
-    const subline = `${kind.sub}  ·  ${place.toLowerCase() === area.toLowerCase() ? 'NEWFOUNDLAND AND LABRADOR' : area.toUpperCase() + ', NL'}`;
+    // "NEW CONSTRUCTION · ST. JOHN'S, NEWFOUNDLAND AND LABRADOR"; resales show the place alone
+    const subline = [kind.sub, `${area.toUpperCase()}, NEWFOUNDLAND AND LABRADOR`].filter(Boolean).join('  ·  ');
     ctx.fillStyle = '#5A6275';
     ctx.font = `400 15px ${SANS}`;
     const subW = track(subline, px, py + 32, 3);
