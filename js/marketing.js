@@ -814,13 +814,14 @@ const Marketing = {
       const sq = f.sqft ? f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' sq ft' : '';
       const bits = [f.beds && f.beds + ' bedrooms', f.baths && f.baths + ' bathrooms', sq].filter(Boolean);
       const specs = bits.length ? `With ${bits.length > 1 ? bits.slice(0, -1).join(', ') + ' and ' + bits[bits.length - 1] : bits[0]}, there's space for everyone. ✨` : '';
-      // A two or three apartment home: say what that means for the clients.
+      // A two or three apartment home: space and flexibility, no money talk.
       const apts = +(document.getElementById('mk-apts')?.value || 0);
       const n = { 2: 'two', 3: 'three' }[apts];
+      const N = n && n[0].toUpperCase() + n.slice(1);
       const aptLine = n ? [
-        `This ${n}-apartment home pairs comfortable living with rental income, a great way to help with the mortgage and build toward the future. 📈🏡`,
-        `With ${n} apartments, my clients get a place to call home plus income from the rental side. Such a smart move! 📈`,
-        `Live in one, rent the ${apts > 2 ? 'others' : 'other'}! This ${n}-apartment home gives my clients real flexibility for years to come. 🏡📈`,
+        `${N} apartments under one roof, giving my clients space and flexibility for whatever comes next. 🏡`,
+        `A ${n}-apartment home with room for the whole family, and then some! 🏡`,
+        `With ${n} apartments, this one has room to grow and options for years to come. ✨`,
       ][ix % 3] : '';
       body = [pick(F.head, 1), pick(F.home, 1), aptLine, specs, pick(F.mean, 2), pick(F.next, 1), pick(F.ask, 2), sign]
         .map(fill).filter(Boolean).join('\n\n');
