@@ -12,7 +12,7 @@
 //     capitals, with a thin blue rule under it
 //   • listing photo (he uploads it) filling the middle edge to edge
 //   • white strip: the place (e.g. "Southlands") in a large serif, with a small
-//     spaced subline "NEW CONSTRUCTION · ST. JOHN'S, NEWFOUNDLAND AND LABRADOR" (resales: place only)
+//     spaced subline "NEW CONSTRUCTION" (new builds only)
 //   • navy footer: name + REALTOR®, phone | email, and eXp Realty +
 //     ST. JOHN'S, NEWFOUNDLAND AND LABRADOR on the right
 //
@@ -461,15 +461,17 @@ const Marketing = {
     Marketing._hits.head = { x: headX - headW / 2, y: headY - fs * 0.8, w: headW, h: fs * 1.1 };
 
     // place name in a large serif, with the spaced subline under it
-    const px = 58 + OF.specs.x, py = sy0 + 64 + OF.specs.y;
+    // with no subline under it (resales), the name sits lower so it is centred in the strip
+    const px = 58 + OF.specs.x, py = sy0 + (kind.sub ? 64 : 76) + OF.specs.y;
     const placeMax = (specs.length ? 1022 - specsW - 40 : 1022) - px;
     let pfs = SZ.specs; ctx.font = `${wt('specs')} ${pfs}px ${SF}`;
     while (ctx.measureText(place).width > placeMax && pfs > 18) { pfs -= 2; ctx.font = `${wt('specs')} ${pfs}px ${SF}`; }
     ctx.fillStyle = TH.band; ctx.textAlign = 'left';
     ctx.fillText(place, px, py);
     const placeW = ctx.measureText(place).width;
-    // "NEW CONSTRUCTION · ST. JOHN'S, NEWFOUNDLAND AND LABRADOR"; resales show the place alone
-    const subline = [kind.sub, `${area.toUpperCase()}, NEWFOUNDLAND AND LABRADOR`].filter(Boolean).join('  ·  ');
+    // "NEW CONSTRUCTION" under the name on new builds only; the town and
+    // province already sit under the eXp logo, so they are not repeated here
+    const subline = kind.sub;
     ctx.fillStyle = '#5A6275';
     ctx.font = `400 15px ${SANS}`;
     const subW = track(subline, px, py + 32, 3);
