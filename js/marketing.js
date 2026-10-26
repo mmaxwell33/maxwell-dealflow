@@ -2,16 +2,19 @@
 // marketing.js — Deal-post generator (board-approved, brand-board session).
 //
 // Turns a closed/accepted deal into a branded 1080x1080 Instagram graphic +
-// an editable AI caption, then lets Maxwell download / copy / share it. It
+// a short, human caption, then lets Maxwell download / copy / share it. It
 // NEVER auto-publishes and there is NO "post to Instagram" button — Instagram
 // does not allow programmatic posting from a personal account, so the honest
 // flow is: generate -> preview/edit -> download image + copy caption -> he posts.
 //
-// The card layout matches Maxwell's real Instagram posts exactly:
-//   • navy top band: status word (SOLD / OFFER ACCEPTED) in white serif + blue rule
-//   • listing photo (he uploads it) with a centred white "SQF · BED · BATH" strip
-//   • navy footer: name + REALTOR®, MLS®#, blue-dot contact (phone · email ·
-//     website), and eXp Realty + ST. JOHN'S, NEWFOUNDLAND on the right
+// The card layout copies Maxwell's real Instagram posts:
+//   • thin navy top band: ACCEPTED OFFER / JUST SOLD in light, widely spaced
+//     capitals, with a thin blue rule under it
+//   • listing photo (he uploads it) filling the middle edge to edge
+//   • white strip: the place (e.g. "Southlands") in a large serif, with a small
+//     spaced subline "NEW CONSTRUCTION · ST. JOHN'S, NL" (or EXISTING HOME)
+//   • navy footer: name + REALTOR®, phone | email, and eXp Realty +
+//     ST. JOHN'S, NEWFOUNDLAND on the right
 //
 // Compliance guardrails (per Abena): consent gate before any action; NO sold
 // price; area/neighbourhood only, never a civic number; eXp Realty + REALTOR®
@@ -27,10 +30,17 @@ const Marketing = {
   WHITE: '#FAFAF7',
   GREY:  '#B7C0D8',
   WEB:   'maxwellmidodzi.com',
+  // The public address on his posts (his login email can differ).
+  EMAIL: 'maxwell.midodzi@exprealty.com',
 
   TEMPLATES: {
-    sold:     { label: 'Just Sold',      status: 'SOLD',           hint: 'A closed, completed deal.' },
-    accepted: { label: 'Offer Accepted', status: 'OFFER ACCEPTED', hint: 'Under contract — best posted once the deal is firm.' },
+    sold:     { label: 'Just Sold',      status: 'JUST SOLD',      hint: 'A closed, completed deal.' },
+    accepted: { label: 'Offer Accepted', status: 'ACCEPTED OFFER', hint: 'Under contract. Best posted once the deal is firm.' },
+  },
+  // Resale vs new construction changes the subline on the card and the caption.
+  KINDS: {
+    existing: { label: 'Existing home',    sub: 'EXISTING HOME' },
+    new:      { label: 'New construction', sub: 'NEW CONSTRUCTION' },
   },
 
   // Background colour options for the top/bottom bands. Navy is the eXp default;
@@ -47,33 +57,39 @@ const Marketing = {
   },
 
   current: 'sold',
+  kind: 'existing',
   // 'branded' = the navy-band card (all contact details on the image).
   // 'clean'   = full-bleed photo with one soft panel: status, specs, and who you
   //             are. Far less busy; MLS/phone/email/website live in the caption.
   layout: 'branded',
   theme: 'navy',
   // Real font sizes in px (what the number box shows) and drag offsets in canvas
-  // px, per zone. Defaults reproduce the original layout exactly.
-  sizes:    { head: 90, specs: 30, name: 42 },
+  // px, per zone. On the branded card 'specs' is the place name in the white
+  // strip. The clean layout keeps its own original sizes.
+  sizes:    { head: 34, specs: 64, name: 36 },
   offsets:  { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } },
-  DEFAULTS: { head: 90, specs: 30, name: 42 },
+  DEFAULTS: { head: 34, specs: 64, name: 36 },
+  CLEAN_DEFAULTS: { head: 90, specs: 30, name: 42 },
+  DEF_WEIGHTS:       { head: 'slim', specs: 'slim', name: 'normal' },
+  CLEAN_DEF_WEIGHTS: { head: 'bold', specs: 'bold', name: 'bold' },
   // Font families. Canvas can only use fonts already on the device, so these are
   // all system faces present on Mac/iOS, each with a serif + sans pairing.
   FONTS: {
+    signature: { label: 'Signature', serif: 'Didot, "Bodoni 72", "Playfair Display", Georgia, serif', sans: '"Helvetica Neue", "Avenir Next", Arial, sans-serif' },
     classic:   { label: 'Classic',   serif: 'Georgia, "Times New Roman", serif',         sans: '-apple-system, system-ui, sans-serif' },
     elegant:   { label: 'Elegant',   serif: 'Didot, "Playfair Display", Georgia, serif', sans: 'Optima, Candara, sans-serif' },
     modern:    { label: 'Modern',    serif: '"Helvetica Neue", Arial, sans-serif',        sans: '"Helvetica Neue", Arial, sans-serif' },
     geometric: { label: 'Geometric', serif: 'Futura, "Avenir Next", sans-serif',          sans: '"Avenir Next", Futura, sans-serif' },
   },
-  font: 'classic',
-  // Per-zone weight: bold (the original look), normal, or slim.
-  weights:  { head: 'bold', specs: 'bold', name: 'bold' },
+  font: 'signature',
+  // Per-zone weight: bold, normal, or slim.
+  weights:  { head: 'slim', specs: 'slim', name: 'normal' },
   WEIGHT_IX: { bold: 0, normal: 1, slim: 2 },
   WEIGHTS:  { head: [700, 500, 300], specs: [700, 500, 400], name: [800, 600, 400] },
   // Each block drags only inside its own horizontal band (top band / photo /
   // footer). Without this, blocks could be piled on top of each other into an
   // unusable mess. [minY, maxY] on the 1080 card.
-  BOUNDS:   { head: [0, 196], specs: [196, 792], name: [792, 1080], panel: [0, 1080] },
+  BOUNDS:   { head: [0, 96], specs: [780, 896], name: [896, 1080], panel: [0, 1080] },
   sizeZone: 'head',            // which zone the number box + drag handles target
   captionStyle: 'warm',
   _hits: {},                   // zone -> {x,y,w,h} hit boxes recorded during _draw
@@ -85,19 +101,23 @@ const Marketing = {
     const m = document.getElementById('marketing-modal');
     if (!m) { alert('Marketing composer not found.'); return; }
     Marketing.current = prefill.template || 'sold';
+    Marketing.kind = prefill.kind === 'new' ? 'new' : 'existing';
     // Which client's folder the finished post gets filed into (null when the
     // composer is opened standalone rather than from a deal).
     Marketing._clientId = prefill.clientId || null;
     Marketing._address  = prefill.address  || '';
     Marketing.theme = 'navy';
+    Marketing.layout = 'branded';
     Marketing.sizes = { ...Marketing.DEFAULTS };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
-    Marketing.weights = { head: 'bold', specs: 'bold', name: 'bold' };
-    Marketing.font = 'classic';
+    Marketing.weights = { ...Marketing.DEF_WEIGHTS };
+    Marketing.font = 'signature';
+    Marketing._capIx = 0; Marketing._autoCap = '';
     Marketing.sizeZone = 'head';
     Marketing.captionStyle = 'warm';
     Marketing._photoDataUrl = null; Marketing._photoImg = null;
     m.querySelector('#mk-area').value  = prefill.area || '';
+    m.querySelector('#mk-place').value = prefill.place || '';
     m.querySelector('#mk-sqft').value  = prefill.sqft || '';
     m.querySelector('#mk-beds').value  = prefill.beds || '';
     m.querySelector('#mk-baths').value = prefill.baths || '';
@@ -143,10 +163,12 @@ const Marketing = {
     if (m) m.style.display = 'none';
   },
 
-  setTemplate(t) { Marketing.current = t; Marketing._setTemplateUI(); Marketing.render(); },
+  setTemplate(t) { Marketing.current = t; Marketing._setTemplateUI(); Marketing.render(); Marketing._refreshCaption(); },
+  setKind(k)     { Marketing.kind = k;    Marketing._setTemplateUI(); Marketing.render(); Marketing._refreshCaption(); },
 
   _setTemplateUI() {
     document.querySelectorAll('#marketing-modal .mk-tab').forEach(b => b.classList.toggle('active', b.dataset.tpl === Marketing.current));
+    document.querySelectorAll('#marketing-modal .mk-kind').forEach(b => b.classList.toggle('active', b.dataset.kind === Marketing.kind));
     const hint = document.getElementById('mk-tpl-hint');
     if (hint) hint.textContent = Marketing.TEMPLATES[Marketing.current].hint;
   },
@@ -168,7 +190,7 @@ const Marketing = {
     m.querySelectorAll('.mk-zone').forEach(b => b.classList.toggle('active', b.dataset.zone === Marketing.sizeZone));
     const box = m.querySelector('#mk-size-num');
     if (box) box.value = Marketing.sizes[Marketing.sizeZone];
-    const curW = Marketing.weights[Marketing.sizeZone] || 'bold';
+    const curW = Marketing.weights[Marketing.sizeZone] || 'normal';
     m.querySelectorAll('.mk-weight').forEach(b => b.classList.toggle('active', b.dataset.weight === curW));
     m.querySelectorAll('.mk-font').forEach(b => b.classList.toggle('active', b.dataset.font === Marketing.font));
     m.querySelectorAll('.mk-capstyle').forEach(b => b.classList.toggle('active', b.dataset.style === Marketing.captionStyle));
@@ -202,18 +224,18 @@ const Marketing = {
   },
   setLayout(l) {
     Marketing.layout = l;
-    // Positions are layout-specific, so start the new layout from its defaults.
-    Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
+    // Positions, sizes and weights are layout-specific, so start from its defaults.
     Marketing.sizeZone = 'head';
-    Marketing._setStyleUI(); Marketing.render();
+    Marketing.resetLayout();
   },
   resetLayout() {
-    Marketing.sizes = { ...Marketing.DEFAULTS };
+    const clean = Marketing.layout === 'clean';
+    Marketing.sizes = { ...(clean ? Marketing.CLEAN_DEFAULTS : Marketing.DEFAULTS) };
     Marketing.offsets = { head: { x: 0, y: 0 }, specs: { x: 0, y: 0 }, name: { x: 0, y: 0 }, panel: { x: 0, y: 0 } };
-    Marketing.weights = { head: 'bold', specs: 'bold', name: 'bold' };
+    Marketing.weights = { ...(clean ? Marketing.CLEAN_DEF_WEIGHTS : Marketing.DEF_WEIGHTS) };
     Marketing._setStyleUI(); Marketing.render();
   },
-  setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._setStyleUI(); Marketing.genCaption(); },
+  setCaptionStyle(s) { Marketing.captionStyle = s; Marketing._capIx = 0; Marketing._setStyleUI(); Marketing.genCaption(); },
 
   // Download/share need BOTH the client's consent and a listing photo — a post
   // with the empty navy fallback isn't something to publish. Copy caption stays
@@ -247,7 +269,7 @@ const Marketing = {
   _fields() {
     const m = document.getElementById('marketing-modal');
     const v = id => (m.querySelector('#' + id)?.value || '').trim();
-    return { area: v('mk-area'), sqft: v('mk-sqft'), beds: v('mk-beds'), baths: v('mk-baths'), mls: v('mk-mls') };
+    return { area: v('mk-area'), place: v('mk-place'), sqft: v('mk-sqft'), beds: v('mk-beds'), baths: v('mk-baths'), mls: v('mk-mls') };
   },
 
   // Build the 1080x1080 card. Layout matches Maxwell's real posts.
@@ -256,24 +278,22 @@ const Marketing = {
     const tpl = Marketing.TEMPLATES[Marketing.current];
     const agentName = (currentAgent?.full_name || 'Maxwell Midodzi').replace(/\s+/g, ' ').trim();
     const phone = currentAgent?.phone || '709-325-0545';
-    const email = currentAgent?.email || 'maxwell.midodzi@exprealty.com';
-    const web = Marketing.WEB;
-    const DOT = '   ·   ';
+    const email = Marketing.EMAIL;
 
     const canvas = document.createElement('canvas');
     canvas.width = 1080; canvas.height = 1080;
     const ctx = canvas.getContext('2d');
 
-    const TOP = 196, BOT = 288, MIDy = TOP, MIDh = 1080 - TOP - BOT;
+    const TOP = 96, BOT = 300, MIDy = TOP, MIDh = 1080 - TOP - BOT;
     const TH = Marketing._theme();          // chosen background theme
     const SZ = Marketing.sizes   || { ...Marketing.DEFAULTS };
     const OF = Object.assign({ head:{x:0,y:0}, specs:{x:0,y:0}, name:{x:0,y:0}, panel:{x:0,y:0} }, Marketing.offsets || {});
     // Chosen weight per zone (bold / normal / slim) and the chosen font pairing.
-    const WG = Marketing.weights || { head:'bold', specs:'bold', name:'bold' };
+    const WG = Marketing.weights || Marketing.DEF_WEIGHTS;
     const wt = z => Marketing.WEIGHTS[z][Marketing.WEIGHT_IX[WG[z]] ?? 0];
-    const FT = Marketing.FONTS[Marketing.font] || Marketing.FONTS.classic;
-    // One family for the entire card. Mixing the serif and sans slots was what
-    // made the status word and the footer details look like different designs.
+    const FT = Marketing.FONTS[Marketing.font] || Marketing.FONTS.signature;
+    // The clean layout uses one family throughout; the branded card pairs the
+    // serif (place, name) with a light sans (status, sublines), like his posts.
     const SF = FT.serif;
     Marketing._hits = {};                   // rebuilt every draw for drag hit-testing
 
@@ -352,7 +372,25 @@ const Marketing = {
       return canvas;
     }
 
-    // middle: listing photo (cover) or branded navy fallback
+    // ── BRANDED LAYOUT: copies Maxwell's own posts ──────────────────────────
+    const STRIP = 116, sy0 = 1080 - BOT, fy = sy0 + STRIP;   // white strip, then footer
+    const SANS = FT.sans;
+    const RULE = Marketing.theme === 'navy' ? Marketing.BLUE2 : TH.rule;
+    const kind = Marketing.KINDS[Marketing.kind] || Marketing.KINDS.existing;
+    const area = f.area || "St. John's";
+    const place = f.place || area;
+    // Letter-spaced text drawn a character at a time, since canvas
+    // letterSpacing is not in every Safari the app runs on.
+    const trackW = (str, gap) => [...str].reduce((s, c) => s + ctx.measureText(c).width, 0) + gap * Math.max(0, [...str].length - 1);
+    const track = (str, x, y, gap, align = 'left') => {
+      const w = trackW(str, gap);
+      let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+      ctx.textAlign = 'left';
+      [...str].forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + gap; });
+      return w;
+    };
+
+    // middle: listing photo (cover), edge to edge
     if (Marketing._photoImg && Marketing._photoDataUrl) {
       const img = Marketing._photoImg;
       const scale = Math.max(1080 / img.width, MIDh / img.height);
@@ -364,108 +402,93 @@ const Marketing = {
       const g = ctx.createLinearGradient(0, MIDy, 1080, MIDy + MIDh);
       g.addColorStop(0, TH.band); g.addColorStop(1, TH.deep);
       ctx.fillStyle = g; ctx.fillRect(0, MIDy, 1080, MIDh);
-      if (f.area) {
-        ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-        ctx.font = '600 58px ' + SF;
-        ctx.fillText(f.area, 540, MIDy + MIDh / 2);
-        ctx.textAlign = 'left';
-      }
+      ctx.fillStyle = 'rgba(183,192,216,.55)';
+      ctx.font = `300 26px ${SANS}`;
+      track('ADD THE LISTING PHOTO', 540, MIDy + MIDh / 2 + 9, 6, 'center');
     }
 
-    // ── LAYER 1: fixed chrome (bands, accent rule, eXp logo) ────────────────
-    // All of this is painted BEFORE the draggable text below. Draw order is
-    // z-order on a canvas, so if a band were filled after the title, dragging
-    // the title into that band would bury it and it would look deleted.
-    const by = 1080 - BOT;
-    ctx.fillStyle = TH.band; ctx.fillRect(0, 0, 1080, TOP);        // top band
-    ctx.fillStyle = TH.rule; ctx.fillRect(70, TOP - 28, 940, 5);   // accent rule
-    ctx.fillStyle = TH.band; ctx.fillRect(0, by, 1080, BOT);       // bottom band
+    // ── LAYER 1: fixed chrome (bands, rules, eXp logo) ──────────────────────
+    // Painted BEFORE the draggable text below: draw order is z-order on a
+    // canvas, so a band filled after a block would bury it when dragged.
+    ctx.fillStyle = TH.band;   ctx.fillRect(0, 0, 1080, TOP);         // top band
+    ctx.fillStyle = RULE;      ctx.fillRect(0, TOP - 6, 1080, 6);     // rule under it
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, sy0, 1080, STRIP);     // place strip
+    ctx.fillStyle = TH.band;   ctx.fillRect(0, fy, 1080, 1080 - fy);  // footer
+    ctx.fillStyle = RULE;      ctx.fillRect(0, fy, 1080, 4);          // rule over it
 
-    // right: official eXp logo (flipped to white for the navy footer) + location
+    // right of footer: official eXp logo (flipped to white) + location
     const logo = Marketing._expLogo;
+    ctx.fillStyle = Marketing.GREY;
     if (logo && logo.complete && logo.naturalWidth) {
-      const lw = 200, lh = lw * (logo.naturalHeight / logo.naturalWidth);
+      const lw = 170, lh = lw * (logo.naturalHeight / logo.naturalWidth);
       ctx.save();
       ctx.filter = 'invert(1)';   // solid-black logo -> white; transparent stays transparent
-      ctx.drawImage(logo, 1020 - lw, by + 28, lw, lh);
+      ctx.drawImage(logo, 1022 - lw, fy + 34, lw, lh);
       ctx.restore();
-      ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px ' + SF;
-      ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 28 + lh + 30);
-      ctx.textAlign = 'left';
+      ctx.font = `400 15px ${SANS}`;
+      track("ST. JOHN'S, NEWFOUNDLAND", 1022, fy + 34 + lh + 30, 3, 'right');
     } else {
-      ctx.textAlign = 'right';
       ctx.fillStyle = Marketing.WHITE;
-      ctx.font = '800 46px ' + SF;
-      ctx.fillText('eXp Realty', 1020, by + 68);
+      ctx.font = `700 46px ${SANS}`; ctx.textAlign = 'right';
+      ctx.fillText('eXp Realty', 1022, fy + 80);
       ctx.fillStyle = Marketing.GREY;
-      ctx.font = '600 20px ' + SF;
-      ctx.fillText("ST. JOHN'S, NEWFOUNDLAND", 1020, by + 104);
-      ctx.textAlign = 'left';
+      ctx.font = `400 15px ${SANS}`;
+      track("ST. JOHN'S, NEWFOUNDLAND", 1022, fy + 116, 3, 'right');
+    }
+
+    // optional specs, quietly on the right of the white strip
+    const specs = [];
+    if (f.beds)  specs.push(f.beds + ' BED');
+    if (f.baths) specs.push(f.baths + ' BATH');
+    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQ FT');
+    let specsW = 0;
+    if (specs.length) {
+      ctx.fillStyle = '#5A6275';
+      ctx.font = `400 16px ${SANS}`;
+      specsW = track(specs.join('  ·  '), 1022, sy0 + STRIP / 2 + 6, 2.5, 'right');
     }
 
     // ── LAYER 2: the draggable text, always painted on top ──────────────────
 
-    // centred white SQF · BED · BATH strip
-    const specs = [];
-    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQF');
-    if (f.beds)  specs.push(f.beds + ' BED');
-    if (f.baths) specs.push(f.baths + ' BATH');
-    if (specs.length) {
-      const label = specs.join(DOT);
-      const sfs = SZ.specs;
-      ctx.font = `${wt('specs')} ${sfs}px ${SF}`;
-      const tw = ctx.measureText(label).width, padX = 42, sh = Math.round(sfs * 2.4), sw = tw + padX * 2;
-      const sx = (1080 - sw) / 2 + OF.specs.x, sy = MIDy + MIDh - sh - 38 + OF.specs.y;
-      ctx.fillStyle = 'rgba(255,255,255,.95)';
-      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 6); ctx.fill(); }
-      else ctx.fillRect(sx, sy, sw, sh);
-      ctx.fillStyle = TH.band; ctx.textAlign = 'center';
-      ctx.fillText(label, sx + sw / 2, sy + sh / 2 + sfs / 3);
-      ctx.textAlign = 'left';
-      Marketing._hits.specs = { x: sx, y: sy, w: sw, h: sh };
-    }
-
-    // status word (title)
-    ctx.fillStyle = Marketing.WHITE; ctx.textAlign = 'center';
-    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px ${SF}`;
-    const spaced = tpl.status.split('').join(' ');
-    while (ctx.measureText(spaced).width > 960 && fs > 20) { fs -= 2; ctx.font = `${wt('head')} ${fs}px ${SF}`; }
-    const headX = 540 + OF.head.x, headY = TOP / 2 + fs / 3 + OF.head.y;
-    ctx.fillText(spaced, headX, headY);
-    const headW = ctx.measureText(spaced).width;
-    ctx.textAlign = 'left';
-    Marketing._hits.head = { x: headX - headW / 2, y: headY - fs, w: headW, h: fs * 1.3 };
-
-    // name / MLS / contact column — moves together as the "Name" block
+    // status word: light, thin, widely spaced capitals
     ctx.fillStyle = Marketing.WHITE;
-    const nx = 60 + OF.name.x, ny = by + 64 + OF.name.y;
-    // Auto-fit the name so it never runs into the eXp logo on the right.
-    const nameStr = agentName + ', REALTOR®';
-    let nfs = SZ.name;
-    ctx.font = `${wt('name')} ${nfs}px ${SF}`;
-    while (ctx.measureText(nameStr).width > 720 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px ${SF}`; }
+    let fs = SZ.head; ctx.font = `${wt('head')} ${fs}px ${SANS}`;
+    while (trackW(tpl.status, fs * 0.5) > 960 && fs > 14) { fs -= 1; ctx.font = `${wt('head')} ${fs}px ${SANS}`; }
+    const headX = 540 + OF.head.x, headY = (TOP - 6) / 2 + fs * 0.36 + OF.head.y;
+    const headW = track(tpl.status, headX, headY, fs * 0.5, 'center');
+    Marketing._hits.head = { x: headX - headW / 2, y: headY - fs * 0.8, w: headW, h: fs * 1.1 };
+
+    // place name in a large serif, with the spaced subline under it
+    const px = 58 + OF.specs.x, py = sy0 + 64 + OF.specs.y;
+    const placeMax = (specs.length ? 1022 - specsW - 40 : 1022) - px;
+    let pfs = SZ.specs; ctx.font = `${wt('specs')} ${pfs}px ${SF}`;
+    while (ctx.measureText(place).width > placeMax && pfs > 18) { pfs -= 2; ctx.font = `${wt('specs')} ${pfs}px ${SF}`; }
+    ctx.fillStyle = TH.band; ctx.textAlign = 'left';
+    ctx.fillText(place, px, py);
+    const placeW = ctx.measureText(place).width;
+    // "NEW CONSTRUCTION · ST. JOHN'S, NL"; when the place IS the town, name the province instead
+    const subline = `${kind.sub}  ·  ${place.toLowerCase() === area.toLowerCase() ? 'NEWFOUNDLAND AND LABRADOR' : area.toUpperCase() + ', NL'}`;
+    ctx.fillStyle = '#5A6275';
+    ctx.font = `400 15px ${SANS}`;
+    const subW = track(subline, px, py + 32, 3);
+    Marketing._hits.specs = { x: px, y: py - pfs * 0.78, w: Math.max(placeW, subW), h: pfs * 0.78 + 38 };
+
+    // name + phone | email, moving together as the "Name" block
+    const parts = agentName.split(' ');
+    const nameStr = (parts.length > 2 ? parts[0] + ' ' + parts[parts.length - 1] : agentName) + ', REALTOR®';
+    const nx = 58 + OF.name.x, ny = fy + 72 + OF.name.y;
+    let nfs = SZ.name; ctx.font = `${wt('name')} ${nfs}px ${SF}`;
+    while (ctx.measureText(nameStr).width > 680 && nfs > 18) { nfs -= 2; ctx.font = `${wt('name')} ${nfs}px ${SF}`; }
+    ctx.fillStyle = Marketing.WHITE;
     ctx.fillText(nameStr, nx, ny);
     const nameW = ctx.measureText(nameStr).width;
-    let ly = ny + 40;
-    if (f.mls) {
-      ctx.fillStyle = Marketing.GREY;
-      ctx.font = `${wt('name')} 24px ${SF}`;
-      ctx.fillText('MLS® #' + f.mls, nx, ly); ly += 44;
-    }
-    // Footer keeps only the website alongside the name, MLS® # and the eXp logo.
-    // Phone and email were pulled off the image to cut the clutter; they live in
-    // the caption, where they are tappable anyway.
-    const dot = (x, y) => { ctx.fillStyle = TH.rule; ctx.beginPath(); ctx.arc(x + 6, y - 8, 6, 0, Math.PI * 2); ctx.fill(); };
-    ctx.font = `${wt('name')} 24px ${SF}`;
-    [web].filter(Boolean).forEach((line, i) => {
-      if (i) ly += 38;
-      dot(nx, ly);
-      ctx.fillStyle = Marketing.WHITE;
-      ctx.fillText(line, nx + 22, ly);
-    });
-    Marketing._hits.name = { x: nx, y: ny - nfs, w: Math.max(nameW, 420), h: (ly + 12) - (ny - nfs) };
+    ctx.fillStyle = Marketing.GREY;
+    ctx.font = `400 21px ${SANS}`;
+    const contact = [phone, email].filter(Boolean).join('   |   ');
+    ctx.fillText(contact, nx, ny + 46);
+    const contactW = ctx.measureText(contact).width;
+    Marketing._hits.name = { x: nx, y: ny - nfs * 0.8, w: Math.max(nameW, contactW), h: nfs * 0.8 + 56 };
 
     return canvas;
   },
@@ -571,30 +594,86 @@ const Marketing = {
     }
   },
 
-  async genCaption() {
-    const btn = document.getElementById('mk-regen');
+  // Captions are written from short, plain templates in Maxwell's own voice
+  // rather than by AI, so they read like him and never like a press release.
+  // They change with the deal: Offer Accepted vs Just Sold, and existing home
+  // vs new construction. ↻ cycles to the next wording in the same style.
+  // Rules: two or three short lines, no names, no price, no dashes.
+  CAPTIONS: {
+    accepted: {
+      existing: {
+        warm:  ["Congratulations to my clients on their accepted offer on a beautiful home in {loc}! 🎉\nSo happy for you, and excited for what comes next.",
+                "Accepted offer! 🏡 Huge congratulations to my clients on their new home in {loc}.\nNext stop, closing day!",
+                "Offer accepted! 🎉 So proud of my clients on landing a lovely home in {loc}.\nThank you for trusting me with your search."],
+        short: ["Accepted offer in {loc}! 🎉 Congrats to my clients.",
+                "Offer accepted! 🏡 Congratulations to my clients on their home in {loc}.",
+                "Another accepted offer in {loc}. Congrats to my clients! 🎉"],
+        professional: ["Pleased to share an accepted offer for my clients in {loc}.\nCongratulations, and thank you for trusting me with your search.",
+                "Accepted offer in {loc}. Congratulations to my clients, and thank you for letting me be part of it.",
+                "Happy to share that my clients have an accepted offer on a home in {loc}.\nCongratulations!"],
+      },
+      new: {
+        warm:  ["Congratulations to my clients on their accepted offer on a brand new home in {loc}! 🎉\nCan't wait to see it come together.",
+                "Accepted offer on new construction in {loc}! 🏡 So excited for my clients as they watch their new home being built.",
+                "Offer accepted! 🎉 My clients are building their new home in {loc}.\nSo happy for you, and I can't wait for move in day."],
+        short: ["Accepted offer on a new build in {loc}! 🎉 Congrats to my clients.",
+                "New construction, offer accepted in {loc}! 🏡 Congratulations to my clients.",
+                "Brand new home, accepted offer in {loc}. Congrats to my clients! 🎉"],
+        professional: ["Pleased to share an accepted offer on new construction in {loc}{town}.\nCongratulations to my clients, and thank you for trusting me with this one.",
+                "Accepted offer on a new build in {loc}{town}. Congratulations to my clients!",
+                "Happy to share that my clients have an accepted offer on a new home in {loc}{town}.\nCongratulations!"],
+      },
+    },
+    sold: {
+      existing: {
+        warm:  ["Just sold in {loc}! 🎉 Congratulations to my clients, and thank you for trusting me with such a big move.",
+                "Sold! 🔑 Congratulations to my clients on their home in {loc}.\nIt was a pleasure working with you.",
+                "Another one closed in {loc}! 🎉 So happy for my clients.\nThank you for letting me be part of it."],
+        short: ["Just sold in {loc}! 🔑 Congrats to my clients.",
+                "Sold in {loc}! 🎉 Congratulations to my clients.",
+                "Another one closed in {loc}. Congrats to my clients! 🔑"],
+        professional: ["Another home sold in {loc}.\nThank you to my clients for trusting me with such a big move. Congratulations!",
+                "Just sold in {loc}. Congratulations to my clients, and thank you for the trust.",
+                "Pleased to share another sale in {loc}. Congratulations to my clients!"],
+      },
+      new: {
+        warm:  ["Keys to a brand new home in {loc}! 🔑 Congratulations to my clients.\nWelcome home!",
+                "Just sold! 🎉 Congratulations to my clients on their brand new home in {loc}.\nEnjoy every moment of it.",
+                "From blueprint to keys in hand in {loc}! 🔑 So happy for my clients.\nWelcome home."],
+        short: ["Sold! New construction in {loc}. 🔑 Congrats to my clients.",
+                "Brand new and just sold in {loc}! 🎉 Congrats to my clients.",
+                "New build, keys in hand in {loc}! 🔑 Congratulations to my clients."],
+        professional: ["Just sold: new construction in {loc}{town}.\nCongratulations to my clients, and thank you for trusting me with this one.",
+                "Pleased to share another new build sold in {loc}{town}. Congratulations to my clients!",
+                "Another new construction home sold in {loc}{town}. Congratulations to my clients!"],
+      },
+    },
+  },
+
+  genCaption(next) {
     const ta = document.getElementById('mk-caption');
+    if (!ta) return;
     const f = Marketing._fields();
-    const tpl = Marketing.TEMPLATES[Marketing.current];
-    if (btn) { btn.disabled = true; btn.textContent = 'Writing…'; }
-    const system = `You write Instagram captions for Maxwell Midodzi, a REALTOR® with eXp Realty in St. John's, Newfoundland. His voice: warm, sincere, gratitude-forward, plain-spoken — never hype. Rules: open with one short warm line; 2-4 short sentences; a soft call to action ("Thinking about buying or selling? Reach out."); NEVER mention a sale price; NEVER name the client; refer to the area only, not a street number; end with a contact block on its own lines "Maxwell Midodzi, REALTOR®", "eXp Realty | St. John's, NL", the phone, the email, and "maxwellmidodzi.com"; then 8-10 relevant hashtags (local St. John's/NL + category + brand). No emojis in the first line; at most one elsewhere.`;
-    const styleMap = {
-      warm:         'Style: warm, sincere, gratitude-forward — his usual voice.',
-      short:        'Style: short and punchy — one or two crisp sentences before the contact block, confident and classy, no filler.',
-      professional: 'Style: polished and professional — understated, market-savvy, quietly confident.',
-    };
-    const user = `Write a caption for a "${tpl.label}" post. Area: ${f.area || "St. John's"}. ${f.beds ? f.beds + ' bed. ' : ''}${f.baths ? f.baths + ' bath. ' : ''}${f.sqft ? f.sqft + ' sq ft.' : ''} ${styleMap[Marketing.captionStyle] || styleMap.warm}`;
-    try {
-      const { data, error } = await db.functions.invoke('claude-chat', {
-        body: { system, messages: [{ role: 'user', content: user }], model: 'claude-haiku-4-5', max_tokens: 600 }
-      });
-      if (error || data?.error) throw new Error(error?.message || data?.error);
-      ta.value = (data?.text || '').trim();
-    } catch (e) {
-      ta.value = `${tpl.status === 'SOLD' ? 'Another one closed' : 'Another one under contract'} in ${f.area || "St. John's"}. Grateful to have helped — every deal is a real family and a real milestone.\n\nThinking about buying or selling? Reach out, I'm happy to walk you through it.\n\nMaxwell Midodzi, REALTOR®\neXp Realty | St. John's, NL\n709-325-0545\nmaxwell.midodzi@exprealty.com\nmaxwellmidodzi.com\n\n#StJohnsRealEstate #NLRealEstate #Newfoundland #${tpl.status === 'SOLD' ? 'JustSold' : 'UnderContract'} #eXpRealty`;
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '↻ Regenerate caption'; }
-    }
+    const area = f.area || "St. John's";
+    const loc = f.place || area;
+    const kind = Marketing.kind === 'new' ? 'new' : 'existing';
+    const style = Marketing.captionStyle in Marketing.CAPTIONS.sold.existing ? Marketing.captionStyle : 'warm';
+    const pool = Marketing.CAPTIONS[Marketing.current === 'sold' ? 'sold' : 'accepted'][kind][style];
+    if (next) Marketing._capIx = (Marketing._capIx || 0) + 1;
+    const line = pool[(Marketing._capIx || 0) % pool.length]
+      .replace(/\{loc\}/g, loc)
+      .replace(/\{town\}/g, loc.toLowerCase() === area.toLowerCase() ? '' : ', ' + area);
+    const tags = ['#StJohnsRealEstate', '#NLRealEstate',
+      Marketing.current === 'sold' ? '#JustSold' : '#AcceptedOffer',
+      ...(kind === 'new' ? ['#NewConstruction'] : []), '#eXpRealty'].join(' ');
+    ta.value = Marketing._autoCap = `${line}\n\n${tags}`;
+  },
+
+  // Template / home type changed: rewrite the caption to match, unless he has
+  // already typed his own.
+  _refreshCaption() {
+    const ta = document.getElementById('mk-caption');
+    if (ta && (!ta.value.trim() || ta.value === Marketing._autoCap)) Marketing.genCaption();
   },
 
   _toBlob() { return new Promise(res => Marketing._draw().toBlob(b => res(b), 'image/png')); },
@@ -695,11 +774,12 @@ const Marketing = {
     const items = [];
     try {
       const { data: offers } = await db.from('offers')
-        .select('id, client_id, property_address, status, mls_number, clients(full_name)')
+        .select('id, client_id, property_address, status, mls_number, property_type, clients(full_name)')
         .in('status', ['Accepted','Conditions','Closing']);
       (offers || []).forEach(o => items.push({
         template: 'accepted', address: o.property_address || '', mls: o.mls_number || '',
         client: o.clients?.full_name || '', clientId: o.client_id || null, tag: o.status,
+        kind: o.property_type === 'new_build' ? 'new' : 'existing',
       }));
     } catch (e) {}
     try {
@@ -713,11 +793,23 @@ const Marketing = {
             existing.template = 'sold'; existing.tag = 'Closed';
             if (!existing.mls && p.mls_number) existing.mls = p.mls_number;
             if (!existing.clientId && p.client_id) existing.clientId = p.client_id;
+            if (p.deal_type === 'new_build') existing.kind = 'new';
           }
-          else items.push({ template: 'sold', address: addr, mls: p.mls_number || '', client: p.client_name || '', clientId: p.client_id || null, tag: 'Closed' });
+          else items.push({ template: 'sold', address: addr, mls: p.mls_number || '', client: p.client_name || '', clientId: p.client_id || null, tag: 'Closed',
+                            kind: p.deal_type === 'new_build' ? 'new' : 'existing' });
         }
       });
     } catch (e) {}
+    // New builds: put the development name (e.g. "Southlands") on the post.
+    if (items.some(i => i.kind === 'new' && i.clientId)) {
+      try {
+        const { data: builds } = await db.from('new_builds').select('client_id, community');
+        items.forEach(i => {
+          const b = i.kind === 'new' && (builds || []).find(x => x.client_id === i.clientId && x.community);
+          if (b) i.place = b.community.trim();
+        });
+      } catch (e) {}
+    }
 
     if (!items.length) {
       host.innerHTML = `<div style="text-align:center;color:var(--text2);padding:40px 20px;border:1px dashed var(--border);border-radius:12px;">
@@ -753,7 +845,8 @@ const Marketing = {
     if (!it) return Marketing.openComposer();
     Marketing.openComposer({
       template: it.template, area: Marketing._area(it.address), mls: it.mls || '',
-      clientId: it.clientId || null, address: it.address || ''
+      clientId: it.clientId || null, address: it.address || '',
+      kind: it.kind || 'existing', place: it.place || ''
     });
     setTimeout(() => Marketing.genCaption(), 100);
   },
