@@ -688,9 +688,68 @@ async function initReturningGate() {
     window.__inviteToken = token;
     window.__isReturning = true;
     _rtFill(rec);
+    _confirmGreeting((rec.full_name || '').trim().split(/\s+/)[0]);
     _rtShowGate('known');
+    applySellPrefill(token);
   } catch (e) {
     _rtShowGate('ask');
+  }
+}
+
+// ── Pre-filled answers (migration 114) ────────────────────────────────────
+// Maxwell met this client in person and noted what they told him about their
+// home. Their link opens the form with those answers already chosen, so they
+// only confirm, correct or add. get_intake_prefill only answers to their token.
+function _setPills(groupId, vals) {
+  const want = (Array.isArray(vals) ? vals : [vals]).filter(Boolean).map(String);
+  if (!want.length) return;
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p => {
+    if (want.includes(p.dataset.val)) p.classList.add('selected');
+  });
+}
+
+// A confirmation link is not a returning client, so it should not say so.
+function _confirmGreeting(first) {
+  if (new URLSearchParams(location.search).get('confirm') !== '1') return;
+  const h = document.getElementById('rt-hello');
+  if (h) h.textContent = 'Hi ' + (first || 'there') + ', here is what I have so far';
+  const p = document.querySelector('#rt-known .section-hdr p');
+  if (p) p.textContent = "I've filled in what you shared with me. First, a quick check of your contact details.";
+}
+
+async function applySellPrefill(token) {
+  try {
+    const { data, error } = await db.rpc('get_intake_prefill', { p_token: token });
+    const s = (!error && data && data.sell) || null;
+    if (!s) return false;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '' && !el.value) el.value = v; };
+    set('f-address', s.address);
+    set('f-ptype', s.ptype);
+    set('f-sqft', s.sqft != null ? String(s.sqft) : '');
+    set('f-notes', s.notes);
+    _setPills('pills-bed', s.bed);
+    _setPills('pills-bath', s.bath);
+    _setPills('pills-reason', s.reason);
+    _setPills('pills-timeline', s.timeline);
+    if (s.price) {
+      // The exact figure they mentioned ("Tell me what you're aiming for").
+      // The range slider moves in $25,000 steps, so it would show a different number.
+      set('f-price-firm', '$' + Number(s.price).toLocaleString());
+      selectPriceMode('firm');
+    }
+    if (!document.getElementById('prefill-note')) {
+      const w = document.querySelector('.wrap');
+      if (w) {
+        const n = document.createElement('div');
+        n.id = 'prefill-note';
+        n.style.cssText = 'margin:0 0 18px;padding:12px 14px;border:1px solid #7C9DD6;border-radius:10px;background:rgba(124,157,214,0.12);font-size:14px;line-height:1.55;';
+        n.textContent = "I've filled in what you shared with me about your home. Check each step, change anything that is not right, and add anything I missed.";
+        w.insertBefore(n, w.firstChild);
+      }
+    }
+    return true;
+  } catch (e) {
+    return false;   // a plain blank form is always the fallback
   }
 }
 
@@ -704,7 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // "already submitted" screen instead of the form. Client must contact
   // Maxwell directly to update their info.
   try {
-    if (localStorage.getItem('df-seller-intake-submitted')) {
+    // A personal link (?c=) is never blocked: the token proves who it is.
+    if (localStorage.getItem('df-seller-intake-submitted') && !new URLSearchParams(location.search).get('c')) {
       document.querySelector('.wrap').style.display = 'none';
       document.querySelector('.progress-wrap').style.display = 'none';
       document.querySelector('.hdr').style.display = 'none';
@@ -871,6 +931,12 @@ async function submitIntake() {
   const qp = new URLSearchParams(location.search);
   if (qp.get('then') === 'buy') {
     document.getElementById('both-cta').style.display = 'block';
+    // Carry the personal link across, or their buying answers would arrive as
+    // a stranger's and lose what Maxwell pre-filled (migration 114).
+    const carry = ['c', 'a', 'confirm'].filter(k => qp.get(k))
+      .map(k => k + '=' + encodeURIComponent(qp.get(k))).join('&');
+    const link = document.querySelector('#both-cta a');
+    if (link && carry) link.href = 'intake.html?type=buy&' + carry;
   }
 
   window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -160,6 +160,10 @@
       var w  = document.querySelector('.wrap');
       if (skipRouter) {
         if (r) r.style.display = 'none';
+        // A personal link straight to the buyer form (or carried over from the
+        // seller form's "doing both" button): who they are is already known,
+        // so attach the token and fill in what Maxwell noted (migration 114).
+        if (qp.get('c') && typeof applyInviteLink === 'function') applyInviteLink(qp.get('c'));
         return;                       // seller flow already identified them
       }
       // Hide both the router and the form; the gate decides what comes next.
@@ -955,10 +959,93 @@ async function initReturningGate() {
       (rec.email ? `<div style="color:#94a3b8;">${esc(rec.email)}</div>` : '') +
       (rec.phone ? `<div style="color:#94a3b8;">${esc(rec.phone)}</div>` : '');
 
+    _confirmGreeting(parts[0]);
     _rtShowGate('known');
+    applyBuyPrefill(token);
   } catch (e) {
     _rtShowGate('ask');   // never leave the visitor stuck on a blank screen
   }
+}
+
+// ── Pre-filled answers (migration 114) ────────────────────────────────────
+// Maxwell met this client in person and noted what they told him. Their link
+// opens the form with those answers already chosen, so they only confirm,
+// correct or add. get_intake_prefill only answers to the client's own token.
+function _setPills(groupId, vals) {
+  const want = (Array.isArray(vals) ? vals : [vals]).filter(Boolean).map(String);
+  if (!want.length) return;
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p => {
+    if (want.includes(p.dataset.val)) p.classList.add('selected');
+  });
+}
+
+// A confirmation link is not a returning client, so it should not say so.
+function _confirmGreeting(first) {
+  if (new URLSearchParams(location.search).get('confirm') !== '1') return;
+  const h = document.getElementById('rt-hello');
+  if (h) h.textContent = 'Hi ' + (first || 'there') + ', here is what I have so far';
+  const p = document.querySelector('#rt-known .section-hdr p');
+  if (p) p.textContent = "I've filled in what you shared with me. First, a quick check of your contact details.";
+}
+
+function _showPrefillNote() {
+  if (document.getElementById('prefill-note')) return;
+  const w = document.querySelector('.wrap');
+  if (!w) return;
+  const n = document.createElement('div');
+  n.id = 'prefill-note';
+  n.style.cssText = 'margin:0 0 18px;padding:12px 14px;border:1px solid #7C9DD6;border-radius:10px;background:rgba(124,157,214,0.12);font-size:14px;line-height:1.55;';
+  n.textContent = "I've filled in what you shared with me. Check each step, change anything that is not right, and add anything I missed.";
+  w.insertBefore(n, w.firstChild);
+}
+
+async function applyBuyPrefill(token) {
+  try {
+    const { data, error } = await db.rpc('get_intake_prefill', { p_token: token });
+    const b = (!error && data && data.buy) || null;
+    if (!b) return false;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '' && !el.value) el.value = v; };
+    _setPills('pills-living', b.living);
+    _setPills('pills-ptype', b.ptype);
+    _setPills('pills-bed', b.bed);
+    _setPills('pills-bath', b.bath);
+    _setPills('pills-features', b.features);
+    _setPills('pills-timeline', b.timeline);
+    _setPills('pills-preapproval', b.preapproval);
+    _setPills('pills-sell', b.sell);
+    if (b.budget_max) { clearBudgetPills(); set('f-budget-max', String(b.budget_max)); }
+    if (b.areas) {
+      // Areas that match a button are chosen as buttons; the rest go in the box.
+      const known = [...document.querySelectorAll('#pills-areas .pill')].map(p => p.dataset.val);
+      const list = String(b.areas).split(',').map(s => s.trim()).filter(Boolean);
+      _setPills('pills-areas', list.filter(a => known.includes(a)));
+      set('f-areas', list.filter(a => !known.includes(a)).join(', '));
+    }
+    set('f-notes', b.notes);
+    _showPrefillNote();
+    return true;
+  } catch (e) {
+    return false;   // a plain blank form is always the fallback
+  }
+}
+
+// Straight-to-buyer personal link: no gate to show, just attach and fill in.
+async function applyInviteLink(token) {
+  try {
+    const { data, error } = await db.rpc('resolve_intake_invite', { p_token: token });
+    const rec = (!error && Array.isArray(data) && data.length) ? data[0] : null;
+    if (!rec) return;
+    window.__inviteToken = token;
+    window.__isReturning = true;
+    if (rec.agent_id) window.__intakeAgentId = rec.agent_id;
+    const parts = (rec.full_name || '').trim().split(/\s+/);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value) el.value = v; };
+    set('f-firstname', parts[0] || '');
+    set('f-lastname',  parts.slice(1).join(' '));
+    set('f-email',     rec.email || '');
+    set('f-phone',     rec.phone || '');
+    await applyBuyPrefill(token);
+  } catch (e) { /* the blank form still works */ }
 }
 
 function showSection(n) {
@@ -984,7 +1071,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // and show the "already submitted" screen. Client must contact Maxwell
   // directly to update their info.
   try {
-    if (localStorage.getItem('df-buyer-intake-submitted')) {
+    // A personal link (?c=) is never blocked: the token proves who it is, and a
+    // client confirming their details may well have used this device before.
+    if (localStorage.getItem('df-buyer-intake-submitted') && !new URLSearchParams(location.search).get('c')) {
       var pw = document.querySelector('.progress-wrap'); if (pw) pw.style.display = 'none';
       var w  = document.querySelector('.wrap');          if (w)  w.style.display  = 'none';
       var h  = document.querySelector('.hdr');           if (h)  h.style.display  = 'none';

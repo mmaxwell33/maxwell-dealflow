@@ -550,6 +550,249 @@ const Clients = {
     App.toast('📧 Queued in Approvals for you to send');
   },
 
+  // ── What they've told me (migration 114) ────────────────────────────────
+  // For a client met in person who has never filled in the intake form.
+  // Maxwell records what they said; their personal link then opens the intake
+  // forms already filled in, so the client only confirms, corrects or adds.
+  // Option values are copied EXACTLY from intake.html / seller-intake.html,
+  // because the forms select their buttons by matching these strings.
+  PREFILL_OPTS: {
+    sell: {
+      ptype:    ['Single Family Home','Detached','Semi-Detached','Townhouse','Row House','Condo / Apartment','Multi-Family (Duplex / Triplex)','Mobile / Manufactured','Cottage / Cabin','Vacant Land / Lot','Acreage / Farm','Commercial','Other'],
+      bed:      ['1','2','3','4','5+'],
+      bath:     ['1','1.5','2','2.5','3+'],
+      reason:   ['Moving','Upsizing','Downsizing','Investment','Estate','Other'],
+      timeline: ['ASAP','1–3 months','3–6 months','6–12 months','Just exploring']
+    },
+    buy: {
+      living:      ['Currently Renting','Homeowner — buying another','Living with family / friends','Relocating','Investor — rental / income property'],
+      ptype:       ['Single Family Home','Detached House','Semi-Detached','2-Apartment','Townhouse','Condo / Apartment','New Build','Open to anything'],
+      bed:         ['1','2','2+','3','4','5+'],
+      bath:        ['1','2','3','3+'],
+      features:    ['Garage','Basement','Backyard','Home Office','Open Concept','Near Schools','Near Transit','Fireplace','Wheelchair Access','In-law Suite'],
+      timeline:    ['ASAP — actively looking','1–3 months','3–6 months','6–12 months','Just exploring'],
+      preapproval: ['Yes — fully pre-approved','In progress','Not yet — need guidance','Paying cash'],
+      sell:        ['Yes — need to sell first','Yes — already listed','No — just buying']
+    }
+  },
+
+  // Display words only. The stored value stays the form's exact string.
+  _optLabel(v) { return String(v).replace(/\s+[—–]\s+/g, ', ').replace(/–/g, ' to '); },
+
+  _prefillSides(c) {
+    const t = c?.client_type || 'buyer';
+    return { sell: t === 'seller' || t === 'both', buy: t === 'buyer' || t === 'both' };
+  },
+
+  prefillCardHTML(c) {
+    if (!c || c.is_guest) return '';
+    const p = c.intake_prefill || {};
+    const sides = Clients._prefillSides(c);
+    const s = p.sell || {}, b = p.buy || {};
+    const line = (k, v) => v ? `<div style="font-size:12px;"><span style="color:var(--text2);">${k}:</span> ${App.esc(Array.isArray(v) ? v.map(Clients._optLabel).join(', ') : Clients._optLabel(v))}</div>` : '';
+    const sellHtml = sides.sell ? [
+      line('Home', s.address), line('Type', s.ptype),
+      line('Beds / baths', [s.bed, s.bath].filter(Boolean).join(' / ')),
+      line('Hoping for', s.price ? App.fmtMoney(s.price) : ''), line('Timeline', s.timeline)
+    ].join('') : '';
+    const buyHtml = sides.buy ? [
+      line('Looking for', b.ptype), line('Beds / baths', [b.bed, b.bath].filter(Boolean).join(' / ')),
+      line('Max budget', b.budget_max ? App.fmtMoney(b.budget_max) : ''), line('Areas', b.areas),
+      line('Timeline', b.timeline)
+    ].join('') : '';
+    const has = !!(sellHtml || buyHtml);
+    const sent = p.sent_at ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;">Sent for confirmation ${App.fmtDate(p.sent_at)}</div>` : '';
+    return `<div class="card2" style="margin-top:12px;padding:14px;">
+      <div class="fw-800" style="font-size:14px;margin-bottom:6px;">📝 What they've told me</div>
+      ${has
+        ? `${sellHtml ? `<div style="font-size:11px;font-weight:700;color:var(--accent2);margin:4px 0 2px;">SELLING</div>${sellHtml}` : ''}
+           ${buyHtml ? `<div style="font-size:11px;font-weight:700;color:var(--accent2);margin:8px 0 2px;">BUYING</div>${buyHtml}` : ''}`
+        : `<div style="font-size:12px;color:var(--text2);">Met them in person? Note what they told you, then send it to them to check and add to.</div>`}
+      ${sent}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+        <button class="btn2 btn2-ghost" style="justify-content:center;" onclick="Clients.openPrefill('${c.id}')">✏️ ${has ? 'Edit' : 'Fill in'}</button>
+        <button class="btn2 btn2-primary" style="justify-content:center;" onclick="Clients.sendConfirmInvite('${c.id}')" ${has && c.email ? '' : 'disabled title="Fill in their details and email first"'}>📨 Send to confirm</button>
+      </div>
+    </div>`;
+  },
+
+  openPrefill(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    const p = c.intake_prefill || {};
+    const s = p.sell || {}, b = p.buy || {};
+    const O = Clients.PREFILL_OPTS;
+    const sides = Clients._prefillSides(c);
+    const sel = (fid, opts, cur) => `<select class="form-input form-select" id="${fid}">
+        <option value="">Not discussed</option>
+        ${opts.map(o => `<option value="${App.esc(o)}" ${cur === o ? 'selected' : ''}>${App.esc(Clients._optLabel(o))}</option>`).join('')}
+      </select>`;
+    const checks = (name, opts, cur) => `<div style="display:flex;flex-wrap:wrap;gap:6px 12px;">
+        ${opts.map(o => `<label style="display:flex;align-items:center;gap:5px;font-size:13px;"><input type="checkbox" name="${name}" value="${App.esc(o)}" ${(cur || []).includes(o) ? 'checked' : ''}> ${App.esc(Clients._optLabel(o))}</label>`).join('')}
+      </div>`;
+    const grp = (label, inner) => `<div class="form-group"><label class="form-label">${label}</label>${inner}</div>`;
+    const v = x => App.esc(x == null ? '' : String(x));
+
+    const sellHtml = !sides.sell ? '' : `
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin:4px 0 8px;">🏡 The home they are selling</div>
+      ${grp('Address', `<input class="form-input" id="pf-s-address" value="${v(s.address)}" placeholder="45 Elm St, St. John's NL">`)}
+      ${grp('Property type', sel('pf-s-ptype', O.sell.ptype, s.ptype))}
+      <div class="form-row">
+        ${grp('Bedrooms', sel('pf-s-bed', O.sell.bed, s.bed))}
+        ${grp('Bathrooms', sel('pf-s-bath', O.sell.bath, s.bath))}
+      </div>
+      <div class="form-row">
+        ${grp('Square feet', `<input class="form-input" id="pf-s-sqft" type="number" value="${v(s.sqft)}">`)}
+        ${grp('Price they hope for ($)', `<input class="form-input" id="pf-s-price" type="number" value="${v(s.price)}">`)}
+      </div>
+      <div class="form-row">
+        ${grp('Why selling', sel('pf-s-reason', O.sell.reason, s.reason))}
+        ${grp('Timeline', sel('pf-s-timeline', O.sell.timeline, s.timeline))}
+      </div>
+      ${grp('Anything else about the home', `<textarea class="form-input" id="pf-s-notes" rows="2" placeholder="Updates done, condition, what they love about it...">${v(s.notes)}</textarea>`)}`;
+
+    const buyHtml = !sides.buy ? '' : `
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin:${sides.sell ? '16px' : '4px'} 0 8px;">🔑 What they want to buy</div>
+      ${grp('Their situation now', sel('pf-b-living', O.buy.living, b.living))}
+      ${grp('Type of home', checks('pf-b-ptype', O.buy.ptype, b.ptype))}
+      <div class="form-row">
+        ${grp('Bedrooms', sel('pf-b-bed', O.buy.bed, b.bed))}
+        ${grp('Bathrooms', sel('pf-b-bath', O.buy.bath, b.bath))}
+      </div>
+      <div class="form-row">
+        ${grp('Max budget ($)', `<input class="form-input" id="pf-b-budget" type="number" value="${v(b.budget_max)}">`)}
+        ${grp('Timeline', sel('pf-b-timeline', O.buy.timeline, b.timeline))}
+      </div>
+      ${grp('Areas', `<input class="form-input" id="pf-b-areas" value="${v(b.areas)}" placeholder="Mount Pearl, Paradise">`)}
+      ${grp('Must-haves', checks('pf-b-features', O.buy.features, b.features))}
+      <div class="form-row">
+        ${grp('Pre-approval', sel('pf-b-preapproval', O.buy.preapproval, b.preapproval))}
+        ${grp('Selling first?', sel('pf-b-sell', O.buy.sell, b.sell || (sides.sell ? O.buy.sell[0] : '')))}
+      </div>
+      ${grp('Anything else they want', `<textarea class="form-input" id="pf-b-notes" rows="2">${v(b.notes)}</textarea>`)}`;
+
+    App.openModal(`
+      <div class="modal-title">📝 What ${App.esc(c.full_name.split(' ')[0])} told me</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;">
+        Fill in only what you know. They will see it filled in on their form and can confirm, correct or add.
+        ${sides.sell && sides.buy ? '' : `Selling and buying sections follow their type (${App.esc(c.client_type || 'buyer')}); change it under Edit Client.`}
+      </div>
+      ${sellHtml}${buyHtml}
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Clients.savePrefill('${id}')">💾 Save</button>
+      <div id="pf-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+  },
+
+  async savePrefill(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    const val = fid => (document.getElementById(fid)?.value || '').trim() || null;
+    const num = fid => { const n = Number(String(val(fid) || '').replace(/[^0-9.]/g, '')); return n > 0 ? n : null; };
+    const ticked = name => [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(x => x.value);
+    const sides = Clients._prefillSides(c);
+    const prev = c.intake_prefill || {};
+    const next = { ...prev, updated_at: new Date().toISOString() };
+    if (sides.sell) next.sell = {
+      address: val('pf-s-address'), ptype: val('pf-s-ptype'), bed: val('pf-s-bed'), bath: val('pf-s-bath'),
+      sqft: num('pf-s-sqft'), price: num('pf-s-price'), reason: val('pf-s-reason'),
+      timeline: val('pf-s-timeline'), notes: val('pf-s-notes')
+    };
+    if (sides.buy) next.buy = {
+      living: val('pf-b-living'), ptype: ticked('pf-b-ptype'), bed: val('pf-b-bed'), bath: val('pf-b-bath'),
+      budget_max: num('pf-b-budget'), timeline: val('pf-b-timeline'), areas: val('pf-b-areas'),
+      features: ticked('pf-b-features'), preapproval: val('pf-b-preapproval'), sell: val('pf-b-sell'),
+      notes: val('pf-b-notes')
+    };
+    const msg = document.getElementById('pf-msg');
+    const { error } = await db.from('clients').update({ intake_prefill: next }).eq('id', id);
+    if (error) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = /intake_prefill/.test(error.message) ? 'Run migration 114_intake_prefill.sql first.' : error.message; }
+      return;
+    }
+    c.intake_prefill = next;
+    // The selling address also opens their listing record, same as Add Client.
+    if (next.sell?.address && typeof FormResponses !== 'undefined') {
+      const res = await FormResponses._ensureSellerListing({ intake_type: 'seller', property_address: next.sell.address }, id);
+      if (res === 'created' && typeof Listings !== 'undefined') Listings.load();
+    }
+    App.closeModal();
+    App.toast('✅ Saved. Send it to them to confirm when you are ready.', 'var(--green)');
+    setTimeout(() => Clients.openDetail ? Clients.openDetail(id) : null, 300);
+  },
+
+  // Their personal link, pointed at the right form(s) and marked as a
+  // confirmation so the form greets them with "here is what I have". On a
+  // Vercel branch preview or localhost the link points at that same preview,
+  // so the whole loop can be tested before it reaches the live site.
+  _confirmUrl(c, token) {
+    const h = location.hostname;
+    const preview = h === 'localhost' || h === '127.0.0.1' || (h.endsWith('.vercel.app') && h.includes('-git-'));
+    const base = preview ? location.origin : 'https://maxwellmidodzi.com';
+    const q = `c=${token}&confirm=1${currentAgent?.id ? '&a=' + currentAgent.id : ''}`;
+    const t = c.client_type || 'buyer';
+    if (t === 'both')   return `${base}/seller-intake.html?then=buy&${q}`;
+    if (t === 'seller') return `${base}/seller-intake.html?${q}`;
+    return `${base}/intake.html?type=buy&${q}`;
+  },
+
+  async sendConfirmInvite(id) {
+    const c = Clients.all.find(x => x.id === id);
+    if (!c) return;
+    if (!c.email) { App.toast('⚠️ No email on file for this client', 'var(--red)'); return; }
+    const { data: row, error } = await db.from('clients').select('intake_token').eq('id', id).single();
+    if (error || !row?.intake_token) { App.toast('⚠️ ' + (error?.message || 'No invite token on this client'), 'var(--red)'); return; }
+
+    const url = Clients._confirmUrl(c, row.intake_token);
+    const first = (c.full_name || '').split(' ')[0] || 'there';
+    const sides = Clients._prefillSides(c);
+    const what = sides.sell && sides.buy ? 'your home and the home you are looking for'
+               : sides.sell ? 'your home' : 'the home you are looking for';
+    const after = sides.sell
+      ? 'Once it is in, I will prepare the assessment of your home and we will go over the next steps together.'
+      : 'Once it is in, I will line up homes that fit and we will go over the next steps together.';
+    const sig = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain)
+      ? '\n\nWarm regards,\n\n' + EmailFormat.signaturePlain(currentAgent)
+      : '\n\nWarm regards,\nMaxwell Midodzi\nREALTOR, eXp Realty';
+    const subject = 'Everything in one place for your move';
+    const both = sides.sell && sides.buy;
+    const body = `Hi ${first},\n\nThank you again for taking the time to meet with me. To keep everything organized, I have put what you shared about ${what} into ${both ? 'a short form in two parts' : 'one short form'}:\n\n${url}\n\nHere is how it works:\n\n1. Open the link. Your details and what you told me are already filled in.\n2. Check that everything is accurate, and correct anything that is not.\n3. Add anything I missed, then press Submit.${both ? '\n4. You will then see a button to the second part, about the home you are looking for. It is filled in the same way.' : ''}\n\nIt takes about ${both ? 'ten' : 'five'} minutes. ${after}` + sig;
+
+    App.openModal(`
+      <div class="modal-title">📨 Send for confirmation</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+        <strong>${App.esc(c.full_name)}</strong> gets a link that opens ${sides.sell && sides.buy ? 'the selling form, then the buying form,' : 'their form'} already filled in with what you noted.
+        Whatever they send comes back on their record in Form Responses. Nothing about commission is asked.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <textarea class="form-input" id="cc-body" rows="12" style="font-size:13px;line-height:1.6;">${App.esc(body)}</textarea>
+      </div>
+      <button class="btn2 btn2-primary" style="width:100%;justify-content:center;" onclick="Clients._queueConfirmInvite('${id}')">📧 Queue for approval</button>
+      <button class="btn2 btn2-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="navigator.clipboard.writeText('${App.escAttr(url)}').then(()=>App.toast('✅ Link copied'))">🔗 Just copy the link</button>
+      <div id="cc-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
+    `);
+    Clients._pendingConfirm = { id, subject, client: c };
+  },
+
+  async _queueConfirmInvite(id) {
+    const p = Clients._pendingConfirm;
+    if (!p || p.id !== id) { App.toast('⚠️ Something went stale, try again', 'var(--red)'); return; }
+    const body = document.getElementById('cc-body')?.value.trim();
+    if (!body) return;
+    const msg = document.getElementById('cc-msg');
+    if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Queueing...'; }
+    const ok = await Notify.queue('Intake Confirmation', p.client.id, p.client.full_name, p.client.email, p.subject, body, p.client.id);
+    if (ok === false) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = 'Could not queue it. Try again.'; } return; }
+    const sentAt = new Date().toISOString();
+    const pre = { ...(p.client.intake_prefill || {}), sent_at: sentAt };
+    const { error } = await db.from('clients').update({ intake_prefill: pre }).eq('id', id);
+    if (!error) p.client.intake_prefill = pre;
+    await App.logActivity('INTAKE_CONFIRM_SENT', p.client.full_name, p.client.email,
+      `Pre-filled intake sent to ${p.client.full_name} to confirm`, p.client.id);
+    App.closeModal();
+    App.toast('📧 Queued in Approvals for you to send');
+  },
+
   // ── Guest viewings (migration 088) ──────────────────────────────────────
   // Turn a viewing guest into a real client. This is the "one button" — the
   // clients row already exists and already carries the viewing, so nothing has
@@ -898,6 +1141,7 @@ const Clients = {
       ${c.price_range ? `<div class="activity-row"><span style="font-size:18px;">💰</span><div><div class="activity-title">Budget</div><div class="activity-meta">${c.price_range}</div></div></div>` : ''}
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
+      ${Clients.prefillCardHTML(c)}
       ${finHTML}
       ${c.is_guest ? `<div style="margin-top:12px;">${Clients.guestCardHTML(c)}</div>` : Clients.proxyCardHTML(c)}
       <div class="card2" style="margin-top:12px;padding:12px;">
