@@ -136,6 +136,74 @@ const Marketing = {
     // file, so fill them in. Buyer-side deals have no stored specs, so those
     // stay blank and get typed by hand rather than guessed.
     Marketing._prefillSpecsFromListing(prefill.mls || '', prefill.address || '');
+    // Buyer-side deals: read them off the MLS sheet saved with the viewing.
+    Marketing._prefillSpecsFromSheet(prefill.mls || '');
+  },
+
+  // The MLS sheet dropped on a viewing is kept in deal-docs, but only its
+  // remarks are stored as text. Read sq ft, beds, baths and apartments from
+  // the sheet itself (same reader as MLS drop), once per MLS, then remember
+  // the answer on this device. Fills only boxes that are still empty.
+  async _prefillSpecsFromSheet(mls) {
+    mls = String(mls || '').trim();
+    if (!mls) return;
+    const m = document.getElementById('marketing-modal');
+    const put = (id, val) => {
+      const el = m?.querySelector('#' + id);
+      if (el && !el.value && val) el.value = String(val).trim();
+    };
+    const apply = x => {
+      if (!m || m.style.display === 'none' || (m.querySelector('#mk-mls')?.value || '').trim() !== mls) return;
+      put('mk-sqft', x.square_feet); put('mk-beds', x.bedrooms); put('mk-baths', x.bathrooms);
+      if (+x.apartments >= 2) put('mk-apts', String(Math.min(3, +x.apartments)));
+      Marketing.render(); Marketing._refreshCaption();
+    };
+    const key = 'mk-specs-' + mls;
+    try { const c = JSON.parse(localStorage.getItem(key) || 'null'); if (c) return apply(c); } catch (e) {}
+    try {
+      const { data } = await db.from('viewings').select('mls_doc_path, listing_remarks')
+        .eq('mls_number', mls).not('mls_doc_path', 'is', null).limit(1);
+      const v = (data || [])[0];
+      if (!v) return;
+      // Quick answer from the remarks while the sheet is read.
+      const r = v.listing_remarks || '';
+      const sq = r.match(/([\d,]{3,6})\s*(?:square\s*f(?:ee|oo)t|sq\.?\s*ft)/i);
+      const ap = /\b(two|2)[\s-]*(?:apartment|unit)/i.test(r) ? 2 : /\b(three|3)[\s-]*(?:apartment|unit)/i.test(r) ? 3 : 0;
+      apply({ square_feet: sq ? sq[1].replace(/,/g, '') : '', apartments: ap });
+
+      const sqIn = m?.querySelector('#mk-sqft'); const ph = sqIn?.placeholder;
+      if (sqIn) sqIn.placeholder = 'reading sheet…';
+      const { data: blob, error: dlErr } = await db.storage.from('deal-docs').download(v.mls_doc_path);
+      if (dlErr || !blob) { if (sqIn) sqIn.placeholder = ph; return; }
+      const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.onerror = rej; fr.readAsDataURL(blob); });
+      const isPdf = /pdf/i.test(blob.type) || /\.pdf$/i.test(v.mls_doc_path);
+      const source = isPdf
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+        : { type: 'image', source: { type: 'base64', media_type: blob.type || 'image/jpeg', data: b64 } };
+      const str = d => ({ type: 'string', description: d });
+      const { data: out } = await db.functions.invoke('claude-chat', { body: {
+        system: 'You read a residential MLS listing sheet and return a few facts as JSON. Read only what the sheet says; empty string if not stated. Digits only.',
+        model: (typeof MLSDrop !== 'undefined' && MLSDrop.MODEL) || 'claude-opus-5',
+        max_tokens: 2000,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: {
+          type: 'object', additionalProperties: false,
+          required: ['square_feet', 'bedrooms', 'bathrooms', 'apartments'],
+          properties: {
+            square_feet: str('Total finished square feet, digits only. Use the stated total, not one floor.'),
+            bedrooms:    str('Total bedrooms in the whole property, digits only.'),
+            bathrooms:   str('Total bathrooms; full and half baths printed as "2 \\ 1" mean 2.5. Digits and a decimal only.'),
+            apartments:  str('Number of separate dwelling units (a registered two-apartment home is 2). "1" if a single home.'),
+          } } } },
+        messages: [{ role: 'user', content: [source, { type: 'text', text: 'Read the size facts from this listing sheet.' }] }],
+      } });
+      if (sqIn) sqIn.placeholder = ph;
+      const x = (typeof MLSDrop !== 'undefined' ? MLSDrop.parse(out?.text) : JSON.parse(out?.text || 'null'));
+      if (!x) return;
+      // The sheet's own total beats the remarks' "approximately".
+      if (x.square_feet && sqIn && sqIn.value === (sq ? sq[1].replace(/,/g, '') : '')) sqIn.value = '';
+      try { localStorage.setItem(key, JSON.stringify(x)); } catch (e) {}
+      apply(x);
+    } catch (e) { /* no sheet on file, or the read failed: type them in by hand */ }
   },
 
   // Best-effort: never blocks the composer, never overwrites a typed value.
@@ -409,6 +477,21 @@ const Marketing = {
       track('ADD THE LISTING PHOTO', 540, MIDy + MIDh / 2 + 9, 6, 'center');
     }
 
+    // "2,500 SQ FT · 5 BED · 4 BATH" on a dark bar across the bottom of the
+    // photo, so it is part of the picture wherever the image gets posted
+    const specs = [];
+    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQ FT');
+    if (f.beds)  specs.push(f.beds + ' BED');
+    if (f.baths) specs.push(f.baths + ' BATH');
+    if (specs.length) {
+      const barH = 72;
+      ctx.fillStyle = 'rgba(10,16,38,.78)';
+      ctx.fillRect(0, MIDy + MIDh - barH, 1080, barH);
+      ctx.fillStyle = Marketing.WHITE;
+      ctx.font = `700 30px ${SANS}`;
+      track(specs.join('   ·   '), 540, MIDy + MIDh - barH / 2 + 11, 3, 'center');
+    }
+
     // ── LAYER 1: fixed chrome (bands, rules, eXp logo) ──────────────────────
     // Painted BEFORE the draggable text below: draw order is z-order on a
     // canvas, so a band filled after a block would bury it when dragged.
@@ -439,18 +522,8 @@ const Marketing = {
       track("ST. JOHN'S, NEWFOUNDLAND AND LABRADOR", 1022, fy + 116, 3, 'right');
     }
 
-    // optional specs on the right of the white strip, bold and easy to read:
-    // "2,100 SQ FT · 4 BED · 2 BATH", the way agents here show them
-    const specs = [];
-    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQ FT');
-    if (f.beds)  specs.push(f.beds + ' BED');
-    if (f.baths) specs.push(f.baths + ' BATH');
-    let specsW = 0;
-    if (specs.length) {
-      ctx.fillStyle = TH.band;
-      ctx.font = `700 24px ${SANS}`;
-      specsW = track(specs.join('  ·  '), 1022, sy0 + STRIP / 2 + 9, 2, 'right');
-    }
+    // the specs now sit on the photo (above), so the white strip is the name alone
+    const specsW = 0;
 
     // ── LAYER 2: the draggable text, always painted on top ──────────────────
 

@@ -66,7 +66,7 @@
   <script defer src="js/ai.js"></script>
   <script defer src="js/calendar.js"></script>
   <script defer src="js/reviews.js"></script>
-  <script defer src="js/marketing.js?v=6"></script>
+  <script defer src="js/marketing.js?v=7"></script>
   <script defer src="js/briefing.js"></script>
 </head>
 <body>
@@ -2182,7 +2182,7 @@
         </label>
         <div style="display:flex;gap:10px;">
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">MLS® #
-            <input id="mk-mls" type="text" placeholder="1295896" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-mls" type="text" onchange="Marketing._prefillSpecsFromSheet(this.value)" placeholder="1295896" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Area <span style="font-weight:400;color:var(--text3);">(town)</span>
             <input id="mk-area" type="text" placeholder="St. John's" oninput="Marketing.render()" onchange="Marketing._refreshCaption()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
