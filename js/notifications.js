@@ -2162,6 +2162,74 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }
   },
 
+  // ── Communication style (migration 113) ────────────────────────────────
+  // How each style reads. Based on plain-language guidance for older readers:
+  // most important point first, short sentences, everyday words, steps spelled
+  // out. A style, never an age, so no client record labels a person "older".
+  STYLE_GUIDE: {
+    plain: 'Plain and detailed. Put the most important point first. Use short sentences and everyday words. No real estate jargon: if a term is needed, explain it in a few plain words. Anything they need to do goes as numbered steps. Warm and respectful, never talking down. It may be a little longer than the original.',
+    brief: 'Brief and quick. Lead with the point. Keep only what they need to know or do. Short paragraphs, no filler. Aim for about half the length of the original.'
+  },
+
+  async _styleClient(clientId) {
+    const roster = (typeof Clients !== 'undefined' && Array.isArray(Clients.all)) ? Clients.all : [];
+    const hit = roster.find(c => c.id === clientId);
+    if (hit && 'comm_style' in hit) return hit;
+    // Not on the loaded roster (daily automation, other screens): ask the
+    // database. Before migration 113 the column is missing and this returns null.
+    const { data, error } = await db.from('clients').select('email, comm_style').eq('id', clientId).maybeSingle();
+    return error ? null : data;
+  },
+
+  // Rewrites the message part of a plain-text email in the client's style.
+  // The signature and confidentiality notice are split off first and put back
+  // untouched. Returns null (keep the original) on any failure, or if a single
+  // link or number from the original is missing from the rewrite.
+  async restyle(body, style) {
+    const guide = Notify.STYLE_GUIDE[style];
+    if (!guide || !body) return null;
+    let cut = -1;
+    try {
+      const sig = (typeof EmailFormat !== 'undefined' && EmailFormat.signaturePlain)
+        ? EmailFormat.signaturePlain(currentAgent).trim() : '';
+      // Last occurrence: the name can also appear earlier in the message.
+      if (sig) cut = body.lastIndexOf(sig);
+      if (sig && cut < 0) cut = body.lastIndexOf(sig.split('\n')[0]);
+    } catch (e) { /* no signature helper, fall through */ }
+    if (cut < 0) cut = body.indexOf('CONFIDENTIALITY NOTICE');
+    const head = cut > 0 ? body.slice(0, cut) : body;
+    const tail = cut > 0 ? body.slice(cut) : '';
+
+    const system =
+      "You rewrite a real estate agent's email to their client in a requested style. " +
+      'Keep every fact exactly as written: names, addresses, dates, times, prices, amounts, ' +
+      'phone numbers, email addresses, and every link (copy each URL character for character). ' +
+      'Do not add facts, promises, advice or requests that are not in the original. ' +
+      'Keep the greeting and the closing line (such as "Warm regards,"). ' +
+      'Plain text only: no markdown, no bold, no headings, no em dashes or en dashes. ' +
+      'Return only the rewritten email text, nothing before or after it.\n\nStyle: ' + guide;
+    const { data, error } = await db.functions.invoke('claude-chat', {
+      body: { system, model: 'claude-haiku-4-5', max_tokens: 1500,
+              messages: [{ role: 'user', content: head.trim() }] }
+    });
+    if (error || data?.error) { console.warn('[Notify.restyle] failed:', error?.message || data?.error); return null; }
+    let out = String(data?.text || '').trim();
+    if (!out) return null;
+
+    // Safety net: nothing that matters may go missing. Every URL and every
+    // number of 3+ digits (prices, phone numbers, years, street numbers).
+    const keep = [
+      ...(head.match(/https?:\/\/[^\s)>\]]+/g) || []),
+      ...((head.match(/\d[\d,]{2,}/g) || []).map(n => n.replace(/,/g, '')))
+    ];
+    const flat = out.replace(/,/g, '');
+    const lost = keep.filter(k => !(k.startsWith('http') ? out : flat).includes(k));
+    if (lost.length) { console.warn('[Notify.restyle] rewrite dropped', lost, '- keeping original'); return null; }
+
+    out = Notify.deDash(out);
+    return Notify.tidyBody(tail ? out + '\n\n' + tail : out);
+  },
+
   // extraContext is merged into context_data alongside the html/ics/cc payload.
   // Added for the listing digest, which has to remember which properties it has
   // already gathered so a rebuild does not lose them. Anything passed here is
@@ -2176,6 +2244,25 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     emailSubject = Notify.deDash(emailSubject);
     emailBody    = Notify.tidyBody(Notify.deDash(emailBody));
     htmlBody     = Notify.deDash(htmlBody);
+
+    // Communication style (migration 113): a client who prefers plain or brief
+    // emails gets this one rewritten in that style. Only plain-text emails are
+    // rewritten here, because a rewrite would flatten a designed layout (those
+    // get a Rewrite button in Approvals instead). Only mail addressed to the
+    // client themself, never a held email. Words written by AI always wait for
+    // Maxwell's look, so a rewritten email never auto-sends (see below).
+    let restyled = null;
+    if (!htmlBody && emailBody && clientId && !(extraContext && extraContext.held)) {
+      try {
+        const sc = await Notify._styleClient(clientId);
+        const to = (clientEmail || '').trim().toLowerCase();
+        if (sc && (sc.comm_style === 'plain' || sc.comm_style === 'brief')
+            && to && to === (sc.email || '').trim().toLowerCase()) {
+          const out = await Notify.restyle(emailBody, sc.comm_style);
+          if (out) { restyled = { style: sc.comm_style, original: emailBody }; emailBody = out; }
+        }
+      } catch (e) { console.warn('[Notify.queue] style rewrite skipped:', e?.message || e); }
+    }
 
     // Consistency net: if a template only supplied plain text (no HTML version),
     // auto-wrap it in the SAME branded shell every other email uses — so every
@@ -2248,6 +2335,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         // Which client this email is about, whoever it is addressed to. Approvals
         // uses it to offer the client's assisting agent a copy (never automatic).
         client_id: clientId || null,
+        ...(restyled ? { restyled } : {}),
         ...(extraContext || {})
       };
     }
@@ -2286,7 +2374,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     // Maxwell. These go out asking a favour and are judged as his voice, so they
     // must never leave on an auto-approve rule, whatever they get renamed to.
     const neverAuto = /review|check-in|checkin|feedback|testimonial/.test(t);
-    const shouldAuto = !neverAuto && (
+    const shouldAuto = !neverAuto && !restyled && (
       (ap.viewing  && (t.startsWith('viewing') || t.startsWith('post-viewing'))) ||
       (ap.offer    && t.includes('offer')) ||
       (ap.reminder && (t.includes('reminder') || t.includes('countdown') || t.includes('closing day'))) ||
@@ -2897,7 +2985,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       // so it does NOT go through the approval queue. One ask per deal per day.
       if (typeof Pipeline !== 'undefined' && Pipeline.conditionState) {
         const todayKey = new Date().toISOString().slice(0, 10);
-        for (const key of ['financing', 'inspection']) {
+        for (const key of ['financing', 'inspection', 'sale']) {
           if (Pipeline.conditionState(deal, key) !== 'asking') continue;
           const meta = Pipeline.CONDITIONS[key];
           const stamp = `cond-ask:${deal.id}:${key}`;

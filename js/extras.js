@@ -701,6 +701,59 @@ const Approvals = {
     }
   },
 
+  // ── Communication style (migration 113) ──────────────────────────────────
+  // Shows in Review & Edit for any email about a client. Pick a style for this
+  // one email and rewrite the message box; nothing is sent until Approve.
+  // An email Notify.queue already rewrote says so and can be put back.
+  _styleBarHtml(item) {
+    let ctx = {};
+    try { ctx = (typeof item.context_data === 'string' ? JSON.parse(item.context_data) : item.context_data) || {}; } catch (_) {}
+    const c = ctx.client_id && typeof Clients !== 'undefined'
+      ? (Clients.all || []).find(x => x.id === ctx.client_id) : null;
+    if (!c && !ctx.restyled) return '';
+    const names = (typeof Clients !== 'undefined' && Clients.COMM_STYLES) || {};
+    const cur = ctx.restyled?.style || c?.comm_style || 'standard';
+    // Plain-text emails are auto-wrapped with no links or tables (Notify.queue),
+    // so either one in the HTML means a template with a designed layout.
+    const { htmlBody } = Approvals._parseCtx(item);
+    const rich = !ctx.restyled && !ctx.edited && /<table|<a\s/i.test(htmlBody || '');
+    Approvals._restyleOriginal = ctx.restyled?.original || null;
+    return `<div style="margin-bottom:16px;padding:10px 12px;background:var(--bg);border-radius:8px;">
+      <div class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✍️ Writing style</div>
+      ${ctx.restyled ? `<div style="font-size:12px;color:var(--accent2);margin-bottom:8px;">Rewritten as "${App.esc((names[ctx.restyled.style] || ctx.restyled.style).split(' (')[0])}" for ${App.esc((c?.full_name || item.client_name || 'this client').split(' ')[0])}. Check it reads right before you send. <a href="#" onclick="event.preventDefault();Approvals.restoreOriginal()" style="color:var(--accent);">Put the original back</a></div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select class="form-input form-select" id="edit-appr-style" style="flex:1;min-width:160px;font-size:13px;">
+          ${Object.entries(names).filter(([k]) => k !== 'standard').map(([k, v]) =>
+            `<option value="${k}" ${cur === k ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline btn-sm" id="edit-appr-restyle" onclick="Approvals.restyleInModal()">Rewrite</button>
+      </div>
+      ${rich ? `<div style="font-size:11px;color:var(--text2);margin-top:6px;">This email has a designed layout. Rewriting sends it as a plain, well-spaced email instead.</div>` : ''}
+    </div>`;
+  },
+
+  async restyleInModal() {
+    const ta = document.getElementById('edit-appr-body');
+    const style = document.getElementById('edit-appr-style')?.value;
+    const btn = document.getElementById('edit-appr-restyle');
+    if (!ta || !style) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Rewriting…'; }
+    const out = await Notify.restyle(ta.value, style).catch(() => null);
+    if (btn) { btn.disabled = false; btn.textContent = 'Rewrite'; }
+    if (!out) { App.toast('⚠️ Could not rewrite this one safely. The original is unchanged.', 'var(--yellow)'); return; }
+    ta.value = out;
+    ta.dataset.dirty = '1';   // saveEdit rebuilds the HTML from the new words
+    App.toast('✍️ Rewritten. Read it over, then Approve & Send.', 'var(--green)');
+  },
+
+  restoreOriginal() {
+    const ta = document.getElementById('edit-appr-body');
+    if (!ta || !Approvals._restyleOriginal) return;
+    ta.value = Approvals._restyleOriginal;
+    ta.dataset.dirty = '1';
+    App.toast('↩️ Original wording is back', 'var(--green)');
+  },
+
   openEdit(id) {
     db.from('approval_queue').select('*').eq('id', id).single().then(({ data: item }) => {
       if (!item) return;
@@ -781,6 +834,8 @@ const Approvals = {
         </div>
 
         ${Approvals._assistTickHtml(item, true)}
+
+        ${Approvals._styleBarHtml(item)}
 
         <div class="form-group">
           <label class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">CC (comma-separated)</label>

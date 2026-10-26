@@ -697,7 +697,7 @@ const App = {
     // pipeline advances until Maxwell says whether it actually cleared.
     if (typeof Pipeline !== 'undefined' && Pipeline.conditionState) {
       (conditionRes?.data || []).forEach(d => {
-        ['financing','inspection'].forEach(key => {
+        ['financing','inspection','sale'].forEach(key => {
           if (Pipeline.conditionState(d, key) !== 'asking') return;
           const meta = Pipeline.CONDITIONS[key];
           items.push({

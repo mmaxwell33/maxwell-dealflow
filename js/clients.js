@@ -360,6 +360,25 @@ const Clients = {
     Clients.render(filtered);
   },
 
+  // How a client likes to be written to (migration 113). A style, never an age:
+  // the record should never label a person "older". Notify.queue reads it.
+  COMM_STYLES: {
+    standard: 'Standard',
+    plain:    'Plain and detailed (step by step, no jargon)',
+    brief:    'Brief and quick (straight to the point)'
+  },
+
+  commStyleField(id, current) {
+    return `<div class="form-group">
+        <label class="form-label">✍️ Communication style</label>
+        <select class="form-input form-select" id="${id}">
+          ${Object.entries(Clients.COMM_STYLES).map(([k, v]) =>
+            `<option value="${k}" ${(current || 'standard') === k ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Emails to them are rewritten in this style and wait in Approvals for your look.</div>
+      </div>`;
+  },
+
   openAdd() {
     App.openModal(`
       <div class="modal-title">➕ Add Client</div>
@@ -387,6 +406,19 @@ const Clients = {
           <input class="form-input" id="cf-bmax" type="number" placeholder="500000">
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">They are</label>
+        <select class="form-input form-select" id="cf-type" onchange="document.getElementById('cf-sell-wrap').style.display=this.value==='buyer'?'none':'block'">
+          <option value="buyer">Buying</option>
+          <option value="seller">Selling</option>
+          <option value="both">Buying and selling</option>
+        </select>
+      </div>
+      <div class="form-group" id="cf-sell-wrap" style="display:none;">
+        <label class="form-label">Home they are selling <span style="color:var(--text2);font-weight:400;">(optional)</span></label>
+        <input class="form-input" id="cf-sell-addr" placeholder="45 Elm St, St. John's NL">
+      </div>
+      ${Clients.commStyleField('cf-style', 'standard')}
       <div class="form-group">
         <label class="form-label">Stage</label>
         <select class="form-input form-select" id="cf-stage">
@@ -425,11 +457,29 @@ const Clients = {
       stage: document.getElementById('cf-stage').value,
       city: document.getElementById('cf-city').value.trim(),
       notes: document.getElementById('cf-notes').value.trim(),
+      client_type: document.getElementById('cf-type')?.value || 'buyer',
       status: 'Active'
     }).select().single();
 
     if (error) { statusEl.style.color='var(--red)'; statusEl.textContent = error.message; return; }
     await App.logActivity('CLIENT_ADDED', name, data.email, `New client added: ${name}`, data.id);
+
+    // Communication style lives in a column added by migration 113. Written
+    // separately and best-effort, so the client still saves before it is run.
+    const style = document.getElementById('cf-style')?.value || 'standard';
+    if (style !== 'standard') {
+      const { error: sErr } = await db.from('clients').update({ comm_style: style }).eq('id', data.id);
+      if (sErr) console.warn('Communication style not saved. Run migration 113_sale_condition_and_comm_style.sql:', sErr.message);
+      else data.comm_style = style;
+    }
+
+    // Selling too: open their listing record now, the same one a seller intake
+    // would have made, so the selling side has somewhere to live.
+    const sellAddr = document.getElementById('cf-sell-addr')?.value.trim();
+    if (sellAddr && data.client_type !== 'buyer' && typeof FormResponses !== 'undefined') {
+      const res = await FormResponses._ensureSellerListing({ intake_type: 'seller', property_address: sellAddr }, data.id);
+      if (res === 'created' && typeof Listings !== 'undefined') Listings.load();
+    }
 
     // Queue welcome email for approval if client has an email
     if (data.email && typeof Notify !== "undefined") {
@@ -844,6 +894,7 @@ const Clients = {
       <div class="divider"></div>
       ${c.email ? `<div class="activity-row"><span style="font-size:18px;">📧</span><div><div class="activity-title">Email</div><div class="activity-meta">${c.email}</div></div></div>` : ''}
       ${c.phone ? `<div class="activity-row"><span style="font-size:18px;">📞</span><div><div class="activity-title">Phone</div><div class="activity-meta">${c.phone}</div></div></div>` : ''}
+      ${c.comm_style && c.comm_style !== 'standard' ? `<div class="activity-row"><span style="font-size:18px;">✍️</span><div><div class="activity-title">Writes to them</div><div class="activity-meta">${App.esc(Clients.COMM_STYLES[c.comm_style] || c.comm_style)}</div></div></div>` : ''}
       ${c.price_range ? `<div class="activity-row"><span style="font-size:18px;">💰</span><div><div class="activity-title">Budget</div><div class="activity-meta">${c.price_range}</div></div></div>` : ''}
       ${c.city ? `<div class="activity-row"><span style="font-size:18px;">📍</span><div><div class="activity-title">Area</div><div class="activity-meta">${c.city}</div></div></div>` : ''}
       ${c.notes ? `<div class="card2" style="margin-top:12px;padding:12px;"><div style="font-size:11px;color:var(--text2);margin-bottom:4px;">NOTES</div><div style="font-size:13px;">${c.notes}</div></div>` : ''}
@@ -984,6 +1035,14 @@ const Clients = {
             `<option ${c.stage===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">They are</label>
+        <select class="form-input form-select" id="ce-type">
+          ${[['buyer','Buying'],['seller','Selling'],['both','Buying and selling']].map(([k,v])=>
+            `<option value="${k}" ${(c.client_type||'buyer')===k?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      ${Clients.commStyleField('ce-style', c.comm_style)}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Min Budget ($)</label>
@@ -1146,9 +1205,15 @@ const Clients = {
       budget_min: parseNum(document.getElementById('ce-bmin')?.value),
       budget_max: parseNum(document.getElementById('ce-bmax')?.value),
       notes: document.getElementById('ce-notes').value.trim(),
+      client_type: document.getElementById('ce-type')?.value || 'buyer',
       updated_at: new Date().toISOString()
     }).eq('id', id);
     if (error) { st.style.color='var(--red)'; st.textContent = error.message; return; }
+
+    // Communication style (migration 113), best-effort like pre-approval below.
+    const comm_style = document.getElementById('ce-style')?.value || 'standard';
+    const { error: csErr } = await db.from('clients').update({ comm_style }).eq('id', id);
+    if (csErr) console.warn('Communication style not saved. Run migration 113_sale_condition_and_comm_style.sql:', csErr.message);
 
     // Pre-approval lives in a column added by migration 049. Write it
     // separately + best-effort, so if that migration hasn't been run yet the

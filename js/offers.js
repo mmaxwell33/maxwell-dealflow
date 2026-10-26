@@ -195,6 +195,11 @@ const Offers = {
         <textarea class="form-input" id="of-conditions" rows="2" placeholder="Financing, inspection..."></textarea>
       </div>
       <div class="form-group">
+        <label class="form-label">🏡 Sale of their own home, condition date <span style="color:var(--text2);font-weight:400;">(Schedule A, optional)</span></label>
+        <input class="form-input" id="of-sale-date" type="date">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Only if this offer depends on them selling first. You will be asked whether it sold firm when this date arrives.</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Notes</label>
         <textarea class="form-input" id="of-notes" rows="2" placeholder="Agent notes..."></textarea>
       </div>
@@ -251,7 +256,15 @@ const Offers = {
     statusEl.textContent = 'Submitting...';
 
     const offerId = 'OFFER-' + Date.now();
+    // Sale-of-property date (migration 113) is only sent when filled in, so an
+    // offer without one still saves before that migration is run.
+    const saleDate = document.getElementById('of-sale-date')?.value || null;
+    let conditionsText = document.getElementById('of-conditions').value.trim();
+    if (saleDate && !/sale/i.test(conditionsText)) {
+      conditionsText = [conditionsText, "Sale of buyer's property"].filter(Boolean).join(', ');
+    }
     const { data, error } = await db.from('offers').insert({
+      ...(saleDate ? { sale_condition_date: saleDate } : {}),
       offer_id: offerId,
       agent_id: currentAgent.id,
       client_id: clientId,
@@ -261,7 +274,7 @@ const Offers = {
       offer_amount: amount,
       offer_date: document.getElementById('of-date').value,
       status: status,
-      conditions: document.getElementById('of-conditions').value.trim(),
+      conditions: conditionsText,
       agent_notes: document.getElementById('of-notes').value.trim(),
       seller_response_due: document.getElementById('of-response-due')?.value ? new Date(document.getElementById('of-response-due').value).toISOString() : null,
       followup_notified: false
@@ -1269,6 +1282,10 @@ const Pipeline = {
             <input type="checkbox" id="ad-walkthrough-skip"> Skip walkthrough
           </label>
         </div>
+        <div class="form-group" style="margin-bottom:0;grid-column:1 / -1;">
+          <label class="form-label">🏡 Sale of their own home <span style="color:var(--text2);font-weight:400;">(leave empty if not a condition)</span></label>
+          <input class="form-input" type="date" id="ad-sale" value="${offer.sale_condition_date ? String(offer.sale_condition_date).slice(0,10) : ''}">
+        </div>
       </div>
 
       <!-- Commission -->
@@ -1327,6 +1344,7 @@ const Pipeline = {
     const fin = document.getElementById('ad-financing').value;
     const walk = document.getElementById('ad-walkthrough').value;
     const close = document.getElementById('ad-closing').value;
+    const sale  = document.getElementById('ad-sale')?.value || null;
     const insSkip  = document.getElementById('ad-inspection-skip')?.checked;
     const walkSkip = document.getElementById('ad-walkthrough-skip')?.checked;
     const newBuild = !!document.getElementById('ad-new-build')?.checked;
@@ -1345,11 +1363,12 @@ const Pipeline = {
     offer.financing_date = fin;
     offer.walkthrough_date = walkSkip ? null : walk;
     offer.closing_date = close;
+    offer.sale_condition_date = sale;
     offer.inspection_skipped = !!insSkip;
     offer.walkthrough_skipped = !!walkSkip;
 
     // Create the pipeline row + commission row + fire client congrats email (single source)
-    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, rate, insSkip, walkSkip, newBuild });
+    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, sale, rate, insSkip, walkSkip, newBuild });
 
     // Look up the just-created pipeline row so we can attach stakeholders + docs to it.
     // Use auth.uid() for the agent_id filter — same as the insert — so RLS-aware SELECT matches.
@@ -1673,9 +1692,12 @@ const Pipeline = {
       financing_deadline:  dates.fin || null,
       walkthrough_date: dates.walk || null,
       closing_date:    dates.close || null,
+      // Sale of the buyer's own home (migration 113). Only sent when set, so a
+      // deal without one still saves before that migration is run.
+      ...((dates.sale || offer.sale_condition_date) ? { sale_condition_date: dates.sale || offer.sale_condition_date } : {}),
       // A resale offer with written conditions (financing, inspection, etc.)
       // starts in the Conditions stage; a clean offer starts at Accepted.
-      stage: (!isNewBuild && offer.conditions && String(offer.conditions).trim()) ? 'Conditions' : 'Accepted',
+      stage: (!isNewBuild && ((offer.conditions && String(offer.conditions).trim()) || dates.sale)) ? 'Conditions' : 'Accepted',
       status: 'Active',
       deal_type: isNewBuild ? 'new_build' : 'existing_home'
     };
@@ -1691,6 +1713,7 @@ const Pipeline = {
       // Last-resort fallback: try without optional columns (older schemas)
       const fallback = { ..._pInsert };
       delete fallback.mls_number;
+      delete fallback.sale_condition_date;   // migration 113 not run yet
       delete fallback.client_id;   // also drop client_id in case FK is the issue
       const { error: fbErr } = await db.from('pipeline').insert(fallback).select('id').single().then(r => ({ error: r.error })).catch(e => ({ error: e }));
       if (fbErr) {
@@ -1834,6 +1857,10 @@ const Pipeline = {
       { title: 'Attend home inspection with client', category: 'Inspection', due: addDays(acceptDate, 7) },
       { title: 'Review inspection report and negotiate repairs if needed', category: 'Inspection', due: addDays(acceptDate, 9) },
       { title: 'Ensure inspection condition is waived or resolved', category: 'Inspection', due: offer.inspection_date || addDays(acceptDate, 10) },
+      // Sale of the buyer's own home (Schedule A). Only when it is a condition.
+      ...(offer.sale_condition_date ? [
+        { title: "Ensure the sale-of-property condition is met or waived in writing", category: 'Legal', due: String(offer.sale_condition_date).slice(0,10) },
+      ] : []),
       // Insurance & Utilities
       { title: 'Remind client to arrange home insurance', category: 'General', due: addDays(acceptDate, 14) },
       { title: 'Remind client to transfer utilities (hydro, water, gas, internet)', category: 'General', due: addDays(acceptDate, 21) },
@@ -2083,6 +2110,20 @@ const Pipeline = {
         reinspection:   'Re-inspection required',
         other:          'Other'
       }
+    },
+    // Schedule A: the buyer must sell their own home first (migration 113).
+    sale: {
+      label: 'Sale of their home', icon: '🏡',
+      dateCol: 'sale_condition_date', deadlineCol: 'sale_condition_date',
+      question: 'Has their own home sold firm?',
+      yesLabel: '✅ Yes, sold firm', clearedWord: 'Sold firm',
+      reasons: {
+        not_listed:      'Not listed yet',
+        no_offers:       'Listed, no acceptable offer yet',
+        conditional:     'Sold, but still conditional',
+        buyer_fell_away: 'Their buyer fell through',
+        other:           'Other'
+      }
     }
   },
 
@@ -2125,7 +2166,7 @@ const Pipeline = {
     // Sell-side deals ask about the deposit and the financing letter. Inspection
     // is the buyer's condition to clear, not the listing side's to chase.
     const isSell = (d.deal_side || 'buy') === 'sell';
-    const defaults = isSell ? ['deposit','financing'] : ['financing','inspection'];
+    const defaults = isSell ? ['deposit','financing'] : ['financing','inspection','sale'];
     (keys || defaults).forEach(key => {
       const meta0 = Pipeline.CONDITIONS[key];
       // Same milestone, different words depending on which side of it you sit.
@@ -2899,6 +2940,7 @@ const Pipeline = {
           ${dateField('Inspection','🔍',`pl-ins-${d.id}`,d.inspection_date,'inspection')}
           ${dateField('Walkthrough','🚶',`pl-walk-${d.id}`,d.walkthrough_date,'walkthrough')}
           ${dateField('Closing','📅',`pl-close-${d.id}`,d.closing_date,'closing')}
+          ${(d.deal_side || 'buy') !== 'sell' ? dateField('Sale of their home','🏡',`pl-sale-${d.id}`,d.sale_condition_date) : ''}
         </div>
         ${!isClosed && !isFell ? `<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="Pipeline.saveDates('${d.id}')">Save Dates</button>` : ''}
         <!-- Only the decisions that move the deal stay on the card; everything
@@ -3284,9 +3326,15 @@ const Pipeline = {
     const insSkip  = document.getElementById(`pl-ins-${id}-skip`)?.value  === 'skip';
     const walkSkip = document.getElementById(`pl-walk-${id}-skip`)?.value === 'skip';
     const now  = new Date().toISOString();
+    // Sale of their own home (migration 113). Only written when it has or had a
+    // value, so deals without one still save before that migration is run.
+    const sale = document.getElementById(`pl-sale-${id}`)?.value || null;
+    const hadSale = !!Pipeline.all?.find(x => x.id === id)?.sale_condition_date;
+    const saleCol = (sale || hadSale) ? { sale_condition_date: sale } : {};
 
     // Try saving all 5 milestone dates + skip flags
     let { error } = await db.from('pipeline').update({
+      ...saleCol,
       updated_at:           now,
       acceptance_date:      acc,
       financing_date:       fin,
@@ -3321,12 +3369,13 @@ const Pipeline = {
       financing_date:   fin,
       inspection_date:  ins,
       walkthrough_date: walk,
-      closing_date:     close
+      closing_date:     close,
+      ...(error ? {} : saleCol)
     });
 
     // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
-    const merged = Object.assign({}, rec, {
+    const merged = Object.assign({}, rec, error ? {} : saleCol, {
       acceptance_date:      acc,
       financing_date:       fin,
       inspection_date:      ins,
@@ -4927,9 +4976,11 @@ const Pipeline = {
     { col: 'financing_status',  label: 'Financing',           kind: 'condition', ckey: 'financing'  },
     { col: 'inspection_status', label: 'Inspection',          kind: 'condition', ckey: 'inspection' },
     { col: 'deposit_status',    label: 'Deposit',             kind: 'condition', ckey: 'deposit'    },
+    { col: 'sale_status',       label: 'Sale of your home',   kind: 'condition', ckey: 'sale'       },
     { col: 'financing_date',    label: 'Financing deadline',  kind: 'date', pair: 'financing_deadline'  },
     { col: 'inspection_date',   label: 'Inspection deadline', kind: 'date', pair: 'inspection_deadline' },
     { col: 'deposit_due_date',  label: 'Deposit due',         kind: 'date'   },
+    { col: 'sale_condition_date', label: 'Sale of your home deadline', kind: 'date' },
     { col: 'walkthrough_date',  label: 'Final walkthrough',   kind: 'date'   },
     { col: 'closing_date',      label: 'Closing date',        kind: 'date'   },
     { col: 'deposit_paid',      label: 'Deposit',             kind: 'flag', trueWord: 'received' }
