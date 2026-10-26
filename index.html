@@ -66,7 +66,7 @@
   <script defer src="js/ai.js"></script>
   <script defer src="js/calendar.js"></script>
   <script defer src="js/reviews.js"></script>
-  <script defer src="js/marketing.js?v=5"></script>
+  <script defer src="js/marketing.js?v=6"></script>
   <script defer src="js/briefing.js"></script>
 </head>
 <body>
@@ -2163,13 +2163,18 @@
         </label>
         <div style="display:flex;gap:10px;">
           <label style="flex:1.4;font-size:12px;font-weight:600;color:var(--text2);">Sq ft <span style="font-weight:400;color:var(--text3);">(optional)</span>
-            <input id="mk-sqft" type="text" placeholder="e.g. 3178" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-sqft" type="text" onchange="Marketing._refreshCaption()" placeholder="e.g. 3178" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Beds
-            <input id="mk-beds" type="text" placeholder="e.g. 5" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-beds" type="text" onchange="Marketing._refreshCaption()" placeholder="e.g. 5" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
           </label>
           <label style="flex:1;font-size:12px;font-weight:600;color:var(--text2);">Baths
-            <input id="mk-baths" type="text" placeholder="e.g. 3" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+            <input id="mk-baths" type="text" onchange="Marketing._refreshCaption()" placeholder="e.g. 3" oninput="Marketing.render()" style="width:100%;margin-top:4px;padding:9px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+          </label>
+          <label style="flex:1.2;font-size:12px;font-weight:600;color:var(--text2);">Apartments
+            <select id="mk-apts" onchange="Marketing._refreshCaption()" style="width:100%;margin-top:4px;padding:9px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;">
+              <option value="">1</option><option value="2">2</option><option value="3">3</option>
+            </select>
           </label>
         </div>
         <label style="font-size:12px;font-weight:600;color:var(--text2);">Name on the post <span style="font-weight:400;color:var(--text3);">(development or neighbourhood, e.g. Southlands; blank uses the area)</span>

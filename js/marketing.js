@@ -119,6 +119,7 @@ const Marketing = {
     m.querySelector('#mk-area').value  = prefill.area || '';
     m.querySelector('#mk-place').value = prefill.place || '';
     const hlIn = m.querySelector('#mk-highlight'); if (hlIn) hlIn.value = '';
+    const apIn = m.querySelector('#mk-apts'); if (apIn) apIn.value = '';
     m.querySelector('#mk-sqft').value  = prefill.sqft || '';
     m.querySelector('#mk-beds').value  = prefill.beds || '';
     m.querySelector('#mk-baths').value = prefill.baths || '';
@@ -438,16 +439,17 @@ const Marketing = {
       track("ST. JOHN'S, NEWFOUNDLAND AND LABRADOR", 1022, fy + 116, 3, 'right');
     }
 
-    // optional specs, quietly on the right of the white strip
+    // optional specs on the right of the white strip, bold and easy to read:
+    // "2,100 SQ FT · 4 BED · 2 BATH", the way agents here show them
     const specs = [];
+    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQ FT');
     if (f.beds)  specs.push(f.beds + ' BED');
     if (f.baths) specs.push(f.baths + ' BATH');
-    if (f.sqft)  specs.push(f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' SQ FT');
     let specsW = 0;
     if (specs.length) {
-      ctx.fillStyle = '#5A6275';
-      ctx.font = `400 16px ${SANS}`;
-      specsW = track(specs.join('  ·  '), 1022, sy0 + STRIP / 2 + 6, 2.5, 'right');
+      ctx.fillStyle = TH.band;
+      ctx.font = `700 24px ${SANS}`;
+      specsW = track(specs.join('  ·  '), 1022, sy0 + STRIP / 2 + 9, 2, 'right');
     }
 
     // ── LAYER 2: the draggable text, always painted on top ──────────────────
@@ -735,8 +737,19 @@ const Marketing = {
       // Each part steps at its own pace so ↻ gives a fresh mix, not the same set.
       const F = Marketing.FULL[tpl][kind];
       const pick = (arr, k) => arr[(ix * k + k - 1) % arr.length];
-      const specs = f.beds ? `With ${f.beds} bedrooms${f.baths ? ' and ' + f.baths + ' bathrooms' : ''}, there's space for everyone. ✨` : '';
-      body = [pick(F.head, 1), pick(F.home, 1), specs, pick(F.mean, 2), pick(F.next, 1), pick(F.ask, 2), sign]
+      // "With 4 bedrooms, 2 bathrooms and 2,100 sq ft, there's space for everyone."
+      const sq = f.sqft ? f.sqft.replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' sq ft' : '';
+      const bits = [f.beds && f.beds + ' bedrooms', f.baths && f.baths + ' bathrooms', sq].filter(Boolean);
+      const specs = bits.length ? `With ${bits.length > 1 ? bits.slice(0, -1).join(', ') + ' and ' + bits[bits.length - 1] : bits[0]}, there's space for everyone. ✨` : '';
+      // A two or three apartment home: say what that means for the clients.
+      const apts = +(document.getElementById('mk-apts')?.value || 0);
+      const n = { 2: 'two', 3: 'three' }[apts];
+      const aptLine = n ? [
+        `This ${n}-apartment home pairs comfortable living with rental income, a great way to help with the mortgage and build toward the future. 📈🏡`,
+        `With ${n} apartments, my clients get a place to call home plus income from the rental side. Such a smart move! 📈`,
+        `Live in one, rent the ${apts > 2 ? 'others' : 'other'}! This ${n}-apartment home gives my clients real flexibility for years to come. 🏡📈`,
+      ][ix % 3] : '';
+      body = [pick(F.head, 1), pick(F.home, 1), aptLine, specs, pick(F.mean, 2), pick(F.next, 1), pick(F.ask, 2), sign]
         .map(fill).filter(Boolean).join('\n\n');
     } else {
       const pool = Marketing.CAPTIONS[tpl][kind][style];
