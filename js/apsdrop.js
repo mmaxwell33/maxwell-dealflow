@@ -49,10 +49,26 @@ const ApsDrop = {
       completion_date:  { type: 'string', description: 'Completion / closing / possession date, YYYY-MM-DD. Empty if not stated.' },
       flooring:         { type: 'string', description: 'Flooring selection if stated, e.g. "Hardwood / Tile". Empty otherwise.' },
       notes:            { type: 'string', description: 'Short summary of upgrades, inclusions, and conditions with their deadlines (e.g. "Financing by 2026-11-15"). One or two lines. Empty if none.' },
+      selections: {
+        type: 'array',
+        description: "Every selection the BUYERS must make themselves, from the builder's appendix / schedule (e.g. choosing flooring, cabinets, countertops, tile, colours at a vendor or showroom). Empty array if the document lists none.",
+        items: {
+          type: 'object',
+          properties: {
+            item:           { type: 'string', description: 'What they pick, short, e.g. "Flooring", "Kitchen cabinets".' },
+            vendor_name:    { type: 'string', description: 'Vendor / supplier / showroom name. Empty if not stated.' },
+            vendor_contact: { type: 'string', description: 'Vendor phone, email or address as written. Empty if not stated.' },
+            details:        { type: 'string', description: 'What exactly they choose there, one short line. Empty if not stated.' },
+            due_date:       { type: 'string', description: 'Date it must be done by, YYYY-MM-DD. If the document gives a number of days after acceptance, work it out from the acceptance date. Empty if no date.' },
+          },
+          required: ['item','vendor_name','vendor_contact','details','due_date'],
+          additionalProperties: false,
+        },
+      },
     },
     required: ['buyer_name','buyer_email','buyer_phone','co_buyer_name','co_buyer_email','co_buyer_phone','builder_name','builder_contact',
                'builder_email','lot_address','mls_number','purchase_price','deposit_amount','deposit_date',
-               'offer_date','accepted_date','completion_date','flooring','notes'],
+               'offer_date','accepted_date','completion_date','flooring','notes','selections'],
     additionalProperties: false,
   },
 
@@ -113,6 +129,8 @@ const ApsDrop = {
         'return an empty string. Never guess and never carry a number from one field to another. The buyer is the ' +
         'purchaser; the builder is the vendor. Check the purchaser names AND the signature blocks: when two people ' +
         'sign as purchasers (often a couple), the first is the buyer and the second is the co-buyer. ' +
+        "Read every appendix and schedule too, especially the builder's appendix: list each selection the buyers " +
+        'must make themselves (flooring, cabinets, countertops, colours and so on) with its vendor and deadline. ' +
         'Amounts are digits only with no currency symbol, commas or decimals. ' +
         'Dates are YYYY-MM-DD.';
 
@@ -120,7 +138,7 @@ const ApsDrop = {
         body: {
           system,
           model: ApsDrop.MODEL,
-          max_tokens: 2000,
+          max_tokens: 4000,
           output_config: { format: { type: 'json_schema', schema: ApsDrop.SCHEMA } },
           messages: [{
             role: 'user',
@@ -216,10 +234,26 @@ const ApsDrop = {
         </div>
       </div>` : '';
 
+    // Selections from the builder's appendix: checked here, saved with the build
+    ApsDrop._selCount = (x.selections || []).length;
+    const selHtml = ApsDrop._selCount ? `
+      <div style="margin-top:12px;">🎨 <strong>${ApsDrop._selCount} buyer selection${ApsDrop._selCount === 1 ? '' : 's'} in the builder's appendix.</strong>
+        <span style="color:var(--text2);">They go in the congratulations email and the buyers are reminded until each is marked done. Untick any that are not the buyers' job.</span>
+        ${(x.selections || []).map((s, i) => `
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;">
+            <input type="checkbox" id="aps-sel-${i}-on" checked style="width:16px;height:16px;">
+            <input class="form-input" id="aps-sel-${i}-item" value="${ApsDrop.esc(s.item)}" placeholder="What" style="font-size:12px;padding:7px;flex:1 1 110px;">
+            <input class="form-input" id="aps-sel-${i}-vendor_name" value="${ApsDrop.esc(s.vendor_name)}" placeholder="Vendor" style="font-size:12px;padding:7px;flex:1 1 110px;">
+            <input class="form-input" id="aps-sel-${i}-details" value="${ApsDrop.esc(s.details)}" placeholder="What to choose" style="font-size:12px;padding:7px;flex:2 1 160px;">
+            <input class="form-input" type="date" id="aps-sel-${i}-due_date" value="${/^\d{4}-\d{2}-\d{2}$/.test(s.due_date || '') ? s.due_date : ''}" style="font-size:12px;padding:7px;flex:0 1 140px;">
+            <input type="hidden" id="aps-sel-${i}-vendor_contact" value="${ApsDrop.esc(s.vendor_contact)}">
+          </div>`).join('')}
+      </div>` : `<div style="margin-top:10px;color:var(--text2);">🎨 No buyer selections found in the appendix. You can add them on the build card after it is created.</div>`;
+
     if (box) box.innerHTML = ApsDrop.banner('green',
       `✅ Read from <strong>${ApsDrop.esc(ApsDrop._file?.name || 'the agreement')}</strong>. ` +
       `<span style="color:var(--text2);">Check every figure against the document before you create the build. Nothing is saved until you do.</span>` +
-      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}`);
+      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}${selHtml}`);
   },
 
   // Loose name match: "John Smith and Jane Smith" finds the client "John Smith"
@@ -276,9 +310,21 @@ const ApsDrop = {
 
   // Called by NewBuilds.save() after the build is written. Non-fatal: the build
   // is already saved, so a storage hiccup is only reported, never thrown.
-  async afterSave(clientId, lotAddress) {
+  async afterSave(clientId, lotAddress, buildId) {
     const file = ApsDrop._file;
     ApsDrop._file = null;
+    // Ticked selections from the appendix (as corrected on screen)
+    const sels = [];
+    for (let i = 0; i < (ApsDrop._selCount || 0); i++) {
+      if (!document.getElementById(`aps-sel-${i}-on`)?.checked) continue;
+      const f = k => document.getElementById(`aps-sel-${i}-${k}`)?.value.trim() || '';
+      sels.push({ item: f('item'), vendor_name: f('vendor_name'), vendor_contact: f('vendor_contact'), details: f('details'), due_date: f('due_date') });
+    }
+    ApsDrop._selCount = 0;
+    if (buildId && sels.length && typeof BuildSelections !== 'undefined') {
+      const n = await BuildSelections.saveFromAps(buildId, clientId, sels);
+      if (n) App.toast(`🎨 ${n} buyer selection${n === 1 ? '' : 's'} added to the build`, 'var(--green)');
+    }
     // Partner read off the signatures (and checked on screen) goes on the client
     const pv = k => document.getElementById('aps-partner-' + k)?.value.trim() || '';
     if (clientId && typeof CoBuyer !== 'undefined' && (pv('name') || pv('email'))) {

@@ -1166,6 +1166,61 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
+    // ── NEW BUILD — congratulations + the selections they must make ─────
+    // selections: build_selections rows (js/selections.js), any order.
+    new_build_welcome: (client, build, selections, agent) => {
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '';
+      const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
+      const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
+      const todo = (selections || []).filter(s => s.status !== 'done')
+        .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+      const list = todo.map((s, i) => `${i + 1}. ${s.item}${s.vendor_name ? ' with ' + s.vendor_name : ''}${s.due_date ? ', by ' + fmtDate(s.due_date) : ''}
+${s.details ? '   What to choose: ' + s.details + '\n' : ''}${s.vendor_contact ? '   Contact: ' + s.vendor_contact + '\n' : ''}`).join('\n');
+      return {
+        subject: `Congratulations on your new home${build.lot_address ? ' at ' + build.lot_address : ''}!`,
+        body: `Hi ${hi},
+
+Congratulations! Your agreement with ${build.builder_name || 'the builder'} is signed, and your new home is officially under way. This is a big milestone, and I am delighted for you.
+
+Property: ${build.lot_address || ''}
+Builder: ${build.builder_name || ''}${build.purchase_price ? '\nPurchase Price: $' + Number(build.purchase_price).toLocaleString() : ''}${build.est_completion_date ? '\nEstimated Completion: ' + fmtDate(build.est_completion_date) : ''}
+${todo.length ? `
+WHAT YOU NEED TO DO
+The builder's appendix asks you to make the following selections yourselves. Please book each appointment with the vendor directly and have it done by the date shown, so construction stays on schedule:
+
+${list}
+I will send you a reminder as each date gets close. Once you have finished an appointment, just reply and let me know, and I will mark it complete on your file.
+` : ''}
+I will keep you updated as each stage of construction is completed. If you have any questions along the way, I am always a call or an email away.
+
+${EmailFormat.signaturePlain(agent)}`
+      };
+    },
+
+    // when: '7d' | '2d' | 'appt' | 'overdue'
+    selection_reminder: (client, build, s, when, agent) => {
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '';
+      const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
+      const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
+      const withV = s.vendor_name ? ` with ${s.vendor_name}` : '';
+      const line = when === 'appt'
+        ? `A quick reminder that your ${s.item} appointment${withV} is tomorrow, ${fmtDate(s.appointment_date)}.`
+        : when === 'overdue'
+          ? `Your ${s.item} selection${withV} was due on ${fmtDate(s.due_date)}. Have you been able to complete it? If you have, just reply and let me know and I will update your file. If not, please book it as soon as you can so the builder can keep construction on schedule.`
+          : `A friendly reminder that your ${s.item} selection${withV} needs to be done by ${fmtDate(s.due_date)}, ${when === '7d' ? 'one week from today' : 'in two days'}. Have you booked your appointment yet?`;
+      return {
+        subject: `Reminder: ${s.item} selection${s.due_date && when !== 'appt' ? ' due ' + fmtDate(s.due_date) : ''}`,
+        body: `Hi ${hi},
+
+${line}
+${s.details ? `\nWhat to choose: ${s.details}` : ''}${s.vendor_contact ? `\nVendor contact: ${s.vendor_contact}` : ''}${build.lot_address ? `\nYour home: ${build.lot_address}` : ''}
+
+Once it is done, reply to this email and I will mark it complete.
+
+${EmailFormat.signaturePlain(agent)}`
+      };
+    },
+
     // ── DEAL CLOSED — thank-you fan-out to all stakeholders ──────────────
     closing_day_stakeholder_thanks: (stakeholderName, role, client, deal, agent) => {
       const first = stakeholderName?.split(' ')[0] || 'there';

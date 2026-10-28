@@ -4151,6 +4151,8 @@ const NewBuilds = {
         </div>
         <!-- Builder visit-request banner (if pending) -->
         <div id="nb-visit-banner-${b.id}"></div>
+        <!-- Buyer selections from the builder's appendix (js/selections.js) -->
+        <div id="nb-sel-${b.id}"></div>
         <!-- Grouped Stage Sections -->
         <div style="margin-bottom:10px;">${stageSections}</div>
         <div id="nb-card-msg-${b.id}" style="margin-top:4px;font-size:12px;"></div>
@@ -4169,6 +4171,7 @@ const NewBuilds = {
     }).join('');
     // After render: fetch pending visit requests and paint banners
     NewBuilds._renderVisitBanners(list);
+    if (typeof BuildSelections !== 'undefined') BuildSelections.paint(list);
   },
 
   // ── EDIT EXISTING NEW BUILD: pre-fill form with row values ─────────────
@@ -4578,6 +4581,8 @@ const NewBuilds = {
     // Update local cache + re-render immediately
     b.pipeline_milestones = pm;
     NewBuilds.render(NewBuilds.all);
+    // "Flooring picked up" ticked by hand closes the flooring selection too
+    if (typeof BuildSelections !== 'undefined') await BuildSelections.onStepChecked(buildId, stepKey, checked);
 
     // Ticking a step NEVER emails the client automatically. It only saves
     // progress and keeps the internal deal pipeline in sync. The agent decides
@@ -5252,7 +5257,9 @@ const NewBuilds = {
     // Auto-create / update pipeline entry
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
-    if (typeof ApsDrop !== 'undefined') await ApsDrop.afterSave(clientId, lotAddress); // file the signed APS
+    if (typeof ApsDrop !== 'undefined') await ApsDrop.afterSave(clientId, lotAddress, saved?.id); // file the signed APS + its selections
+    // New build only: congratulations email with the buyer's selections, into Approvals
+    if (!NewBuilds._editingId && saved?.id && typeof BuildSelections !== 'undefined') await BuildSelections.queueWelcome(saved.id);
 
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
