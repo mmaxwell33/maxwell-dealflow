@@ -2229,6 +2229,10 @@ const Pipeline = {
       const held = await Pipeline._heldFor(id);
       if (held.length) { Pipeline._askReleaseHeld(id, held); return; }
     }
+    if (key === 'financing' && !opts.updateChecked) {
+      const early = await Pipeline._earlyLawyerFor(id);
+      if (early) { Pipeline._askLawyerUpdate(id, early); return; }
+    }
     const now = new Date().toISOString();
     const updates = {
       [key + '_status']:        'cleared',
@@ -2246,6 +2250,9 @@ const Pipeline = {
       date_from: rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : null
     });
     App.toast(`✅ ${meta.label}: ${meta.clearedWord.toLowerCase()}`);
+    if (opts.lawyerUpdate && await Pipeline.queueLawyerFinancingUpdate(id)) {
+      App.toast('📬 Update for the lawyer is in Approvals');
+    }
     if (opts.release) {
       const n = await Pipeline.releaseHeld(id, opts.release);
       if (n) App.toast(opts.release === 'send'
@@ -2384,6 +2391,7 @@ const Pipeline = {
     // A snooze is Maxwell's own reminder, not news — everything else is.
     if (action !== 'snooze') await Pipeline.notifyDealUpdate(id, updates);
     Object.assign(rec, updates);
+    if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([id]);   // old-date reminders withdrawn
 
     await Pipeline._logConditionEvent(id, key, {
       outcome, action, reason, notes,
@@ -3372,6 +3380,7 @@ const Pipeline = {
       closing_date:     close,
       ...(error ? {} : saleCol)
     });
+    if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([id]);   // old-date reminders withdrawn
 
     // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
@@ -3534,6 +3543,7 @@ const Pipeline = {
       return;
     }
     Object.assign(rec, updates);
+    if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([id]);   // old-date reminders withdrawn
 
     // 3) Shift the 3 closing-relative checklist task due dates by the delta.
     // Matches the auto-generated 22-task closing checklist (see this file,
@@ -3701,6 +3711,7 @@ const Pipeline = {
       return;
     }
     rec.closing_date = newDate;
+    if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([pipelineId]);   // old-date reminders withdrawn
 
     // 3) Shift checklist tasks by (newDate - prevDateTo) so they line up with
     //    the corrected closing rather than the typo'd one.
@@ -6007,8 +6018,72 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     if (!h) return '';
     return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;">
       <span style="color:var(--text);"><strong>${Pipeline.ROLE_LABELS.lawyer}</strong> · ${App.esc(h.context_data?.held?.name || '')}</span>
-      <span style="color:var(--yellow);font-weight:700;">⏸ Held until financing</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--yellow);font-weight:700;">⏸ Held until financing</span>
+        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;" onclick="Pipeline.sendHeldEarly('${dealId}')">Send now</button>
+      </span>
     </div>`;
+  },
+
+  // Send the held lawyer email before financing is approved. Maxwell's call:
+  // some files need the lawyer engaged early. The email says financing is still
+  // in progress, and approving financing later offers the lawyer an update.
+  async sendHeldEarly(dealId) {
+    const held = await Pipeline._heldFor(dealId);
+    if (!held.length) { App.toast('Nothing is held on this deal any more'); return; }
+    const lawyer = held.find(h => !h.context_data?.held?.is_client_copy)?.context_data?.held || {};
+    const d = (Pipeline.all || []).find(x => x.id === dealId) || {};
+    App.openModal(`
+      <div class="modal-title">⚖️ Send the lawyer email now?</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">${App.esc(d.client_name || '')} · ${App.esc(d.property_address || '')}</div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.55;">
+        <strong>${App.esc(lawyer.name || 'Lawyer')}</strong> · ${App.esc(lawyer.email || '')}<br>
+        It goes out with today's dates and says financing is still in progress${d.financing_date ? ` (deadline ${App.esc(App.fmtDate(d.financing_date))})` : ''}.
+        When you mark financing approved, you will be offered a short update to send them.
+      </div>
+      <button class="btn btn-green btn-block" style="padding:13px;font-size:15px;" onclick="App.closeModal();Pipeline.releaseHeld('${dealId}','send',{early:true}).then(n=>{if(n)App.toast('✅ Lawyer email sent');Pipeline.render(Pipeline.all);})">Send it now</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="App.closeModal();Pipeline.releaseHeld('${dealId}','review',{early:true}).then(n=>{if(n)App.toast('📬 Lawyer email is in Approvals');Pipeline.render(Pipeline.all);})">Let me review it in Approvals first</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="App.closeModal()">Keep holding it</button>
+    `);
+  },
+
+  // A lawyer email that went out before financing (sendHeldEarly). Found when
+  // financing is approved, so the lawyer can be told.
+  async _earlyLawyerFor(dealId) {
+    const { data } = await db.from('approval_queue')
+      .select('id, context_data').eq('related_id', dealId).eq('status', 'Approved')
+      .not('context_data->>released_early', 'is', null);
+    return (data || []).find(h => !h.context_data?.held?.is_client_copy && !h.context_data?.financing_update_queued) || null;
+  },
+
+  _askLawyerUpdate(id, early) {
+    const lawyer = early.context_data?.held || {};
+    App.openModal(`
+      <div class="modal-title">🏦 Financing approved</div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.55;">
+        You sent <strong>${App.esc(lawyer.name || 'the lawyer')}</strong> the file before financing was approved.
+        Send them a short update that financing is now approved?
+      </div>
+      <button class="btn btn-green btn-block" style="padding:13px;font-size:15px;" onclick="App.closeModal();Pipeline.confirmCondition('${id}','financing',{heldChecked:true,updateChecked:true,lawyerUpdate:true})">✅ Approve and put the update in Approvals</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="App.closeModal();Pipeline.confirmCondition('${id}','financing',{heldChecked:true,updateChecked:true})">Approve, no update</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="App.closeModal()">Cancel</button>
+    `);
+  },
+
+  async queueLawyerFinancingUpdate(id) {
+    const early = await Pipeline._earlyLawyerFor(id);
+    if (!early) return false;
+    const m = early.context_data?.held || {};
+    const d = (Pipeline.all || []).find(x => x.id === id) || {};
+    const first = (m.name || '').split(' ')[0] || 'there';
+    const buyer = d.client_name || m.client?.full_name || 'my buyer';
+    const subject = `Financing approved: ${d.property_address || ''}`;
+    const body = `Hi ${first},\n\nA quick update on ${buyer}'s purchase of ${d.property_address || 'the property'}: financing has now been approved.\n\nClosing is still set for ${d.closing_date ? App.fmtDate(d.closing_date) : 'the date in the file'}. Please let me know if you need anything else from me.\n\n${EmailFormat.signaturePlain(currentAgent)}`;
+    const ok = await Notify.queue('Financing approved → lawyer 📨', d.client_id || null, m.name || 'Lawyer', m.email, subject, body, id);
+    if (ok) {
+      await db.from('approval_queue').update({ context_data: { ...early.context_data, financing_update_queued: new Date().toISOString() } }).eq('id', early.id);
+    }
+    return !!ok;
   },
 
   _askReleaseHeld(id, held) {
@@ -6035,7 +6110,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
   // lawyer's portal link if one was wanted, and moves it into Approvals. With
   // mode 'send' it goes straight out: his tap on "Approve and send" IS the
   // approval, made with the recipient named in front of him.
-  async releaseHeld(dealId, mode = 'review') {
+  async releaseHeld(dealId, mode = 'review', opts = {}) {
     const held = await Pipeline._heldFor(dealId);
     if (!held.length) return 0;
     const rec = (Pipeline.all || []).find(x => x.id === dealId) || {};
@@ -6054,7 +6129,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     let released = 0;
     for (const h of held) {
       const meta = h.context_data?.held || {};
-      const deal = { ...(meta.deal || {}), _released_after_financing: true };
+      const deal = { ...(meta.deal || {}), ...(opts.early ? { _early_release: true } : { _released_after_financing: true }) };
       ['financing_date','financing_deadline','closing_date','inspection_date','walkthrough_date','acceptance_date']
         .forEach(k => { if (rec[k]) deal[k] = rec[k]; });
       const t = Notify.templates.offer_accepted_lawyer(meta.name, meta.client || {}, deal, currentAgent,
@@ -6062,7 +6137,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       const subject = Notify.deDash(t.subject);
       const body    = Notify.tidyBody(Notify.deDash(t.body));
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>${EmailFormat.bodyHTML(body)}</body></html>`;
-      const ctx = { ...(h.context_data || {}), html: btoa(unescape(encodeURIComponent(html))), released_from_hold: now };
+      const ctx = { ...(h.context_data || {}), html: btoa(unescape(encodeURIComponent(html))), released_from_hold: now, ...(opts.early ? { released_early: now } : {}) };
       const { error } = await db.from('approval_queue').update({
         status: 'Pending', email_subject: subject, email_body: body, context_data: ctx, updated_at: now
       }).eq('id', h.id);
@@ -6073,7 +6148,7 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     if (Pipeline._heldByDeal) Pipeline._heldByDeal[dealId] = [];
     if (released) {
       await App.logActivity('LAWYER_RELEASED', rec.client_name, rec.client_email,
-        `Financing approved; lawyer email to ${lawyerMeta?.name || 'the lawyer'} ${mode === 'send' ? 'sent' : 'moved to Approvals'}`,
+        `${opts.early ? 'Before financing' : 'Financing approved'}; lawyer email to ${lawyerMeta?.name || 'the lawyer'} ${mode === 'send' ? 'sent' : 'moved to Approvals'}`,
         rec.client_id || null);
       if (typeof Notify !== 'undefined') Notify.updateBadge?.();
     }

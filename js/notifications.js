@@ -1125,12 +1125,14 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
 ${deal._released_after_financing
   ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
-  : `${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
+  : deal._early_release
+    ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find the accepted offer and the MLS listing attached so you can open the file.`
+    : `${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
 
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
-${deal._released_after_financing ? 'Financing: Approved' : 'Financing Deadline: ' + fmtDate(deal.financing_date)}
+${deal._released_after_financing ? 'Financing: Approved' : 'Financing Deadline: ' + fmtDate(deal.financing_date) + (deal._early_release ? ' (in progress)' : '')}
 
 BUYER CONTACT
    Name: ${client.full_name || '—'}
@@ -2952,6 +2954,63 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       .in('approval_type', Notify.DEAL_REMINDER_TYPES);
   },
 
+  // A deal date as a LOCAL day. new Date('2026-10-29') is midnight UTC, which
+  // in Newfoundland is the evening of the 28th, so every countdown fired a day
+  // early ("your walkthrough is TOMORROW" two days out).
+  _localDay(ymd) {
+    return new Date(String(ymd).slice(0, 10) + 'T00:00:00');
+  },
+
+  // The app and the daily-automation edge function name the same reminder
+  // differently ("(3d)" here, "(3 days)" there), so each saw the other's as
+  // missing and the client was queued two. Every check now looks for both.
+  _reminderNames(base, n) {
+    return [`${base} (${n}d)`, `${base} (${n} day${n === 1 ? '' : 's'})`];
+  },
+
+  // A reminder waiting in Approvals is only right on the day it was written,
+  // for the date the deal has NOW. Once the date moves (or a day passes), its
+  // "in 3 days" / "TOMORROW" is wrong, so it is withdrawn; the next check
+  // writes a fresh one if one is still due. Runs on load and after any date
+  // is saved, so a changed closing date never leaves the old one reminding.
+  async reconcileDealReminders(dealIds = null) {
+    if (!currentAgent?.id) return 0;
+    try {
+      let q = db.from('approval_queue').select('id, related_id, approval_type, created_at')
+        .eq('agent_id', currentAgent.id).eq('status', 'Pending')
+        .or('approval_type.ilike.Financing Reminder%,approval_type.ilike.Inspection Reminder%,approval_type.ilike.Walkthrough Reminder%,approval_type.ilike.Closing Countdown%,approval_type.ilike.Happy Closing Day%');
+      if (dealIds?.length) q = q.in('related_id', dealIds);
+      const { data: rows } = await q;
+      if (!rows?.length) return 0;
+      const ids = [...new Set(rows.map(r => r.related_id).filter(Boolean))];
+      const { data: deals } = await db.from('pipeline')
+        .select('id, stage, financing_date, inspection_date, walkthrough_date, closing_date').in('id', ids);
+      const byId = Object.fromEntries((deals || []).map(d => [d.id, d]));
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const daysTo = v => v ? Math.round((Notify._localDay(v) - today) / 86400000) : null;
+      const stale = rows.filter(r => {
+        const d = byId[r.related_id];
+        if (!d) return false;   // not a deal we can read: leave it alone
+        if (new Date(r.created_at) < today) return true;   // written on an earlier day
+        const t = r.approval_type;
+        const n = Number((t.match(/\((\d+)/) || [])[1]);
+        const col = /^Financing/.test(t) ? 'financing_date' : /^Inspection/.test(t) ? 'inspection_date'
+                  : /^Walkthrough/.test(t) ? 'walkthrough_date' : 'closing_date';
+        const want = /^Happy Closing/.test(t) ? 0 : n;
+        return daysTo(d[col]) !== want;
+      }).map(r => r.id);
+      if (!stale.length) return 0;
+      await db.from('approval_queue')
+        .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
+        .in('id', stale);
+      Notify.updateBadge?.();
+      return stale.length;
+    } catch (e) {
+      console.warn('[reconcileDealReminders] skipped:', e?.message || e);
+      return 0;
+    }
+  },
+
   async checkConditionDeadlines() {
     // Called on load — checks all active pipeline deals for upcoming deadlines
     if (!currentAgent?.id) return;
@@ -2965,6 +3024,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         .in('stage', ['Fell Through', 'Withdrawn']);
       if (dead?.length) await Notify.cancelDealReminders(dead.map(d => d.id));
     } catch (e) { console.warn('[checkConditionDeadlines] stale reminder sweep failed:', e); }
+    await Notify.reconcileDealReminders();
     const { data: deals } = await db.from('pipeline')
       .select('*, clients(full_name, email)')
       .eq('agent_id', currentAgent.id)
@@ -3002,9 +3062,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       }
 
       // Check financing deadline
-      if (deal.financing_date) {
-        const finDate = new Date(deal.financing_date);
-        finDate.setHours(0,0,0,0);
+      if (deal.financing_date && !['cleared', 'blocked'].includes(String(deal.financing_status || ''))) {
+        const finDate = Notify._localDay(deal.financing_date);
         const daysLeft = Math.round((finDate - today) / (1000 * 60 * 60 * 24));
         if (daysLeft === 3 || daysLeft === 1) {
           // Check if we already queued this recently
@@ -3012,7 +3071,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('approval_type', `Financing Reminder (${daysLeft}d)`)
+            .in('approval_type', Notify._reminderNames('Financing Reminder', daysLeft))
+            .neq('status', 'Cancelled')
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.conditions_reminder(client, deal, daysLeft, 'Financing', agent);
@@ -3022,16 +3082,16 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       }
 
       // Check inspection deadline
-      if (deal.inspection_date) {
-        const insDate = new Date(deal.inspection_date);
-        insDate.setHours(0,0,0,0);
+      if (deal.inspection_date && !deal.inspection_skipped && deal.inspection_status !== 'cleared') {
+        const insDate = Notify._localDay(deal.inspection_date);
         const daysLeft = Math.round((insDate - today) / (1000 * 60 * 60 * 24));
         if (daysLeft === 3 || daysLeft === 1) {
           const { count } = await db.from('approval_queue')
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('approval_type', `Inspection Reminder (${daysLeft}d)`)
+            .in('approval_type', Notify._reminderNames('Inspection Reminder', daysLeft))
+            .neq('status', 'Cancelled')
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.conditions_reminder(client, deal, daysLeft, 'Inspection', agent);
@@ -3042,15 +3102,15 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       // Check walkthrough reminder (1 day before)
       if (deal.walkthrough_date) {
-        const walkDate = new Date(deal.walkthrough_date);
-        walkDate.setHours(0,0,0,0);
+        const walkDate = Notify._localDay(deal.walkthrough_date);
         const daysLeft = Math.round((walkDate - today) / (1000 * 60 * 60 * 24));
         if (daysLeft === 1) {
           const { count } = await db.from('approval_queue')
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('approval_type', 'Walkthrough Reminder (1d)')
+            .in('approval_type', Notify._reminderNames('Walkthrough Reminder', 1))
+            .neq('status', 'Cancelled')
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.walkthrough_reminder(client, deal, agent);
@@ -3061,15 +3121,15 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 
       // Check closing countdown (7d, 3d, 1d) + closing day (0d)
       if (deal.closing_date) {
-        const closeDate = new Date(deal.closing_date);
-        closeDate.setHours(0,0,0,0);
+        const closeDate = Notify._localDay(deal.closing_date);
         const daysLeft = Math.round((closeDate - today) / (1000 * 60 * 60 * 24));
         if ([7, 3, 1].includes(daysLeft)) {
           const { count } = await db.from('approval_queue')
             .select('*', { count: 'exact', head: true })
             .eq('agent_id', currentAgent.id)
             .eq('related_id', deal.id)
-            .eq('approval_type', `Closing Countdown (${daysLeft}d)`)
+            .in('approval_type', Notify._reminderNames('Closing Countdown', daysLeft))
+            .neq('status', 'Cancelled')
             .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
           if (!count) {
             const tmpl = Notify.templates.closing_countdown(client, deal, daysLeft, agent);
