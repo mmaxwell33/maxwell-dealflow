@@ -4797,14 +4797,20 @@ const NewBuilds = {
 
   async syncPipeline(build, pipelineStage) {
     const { data: existing } = await db.from('pipeline')
-      .select('id').eq('agent_id', currentAgent.id).eq('client_name', build.client_name).limit(1);
+      .select('id, closing_date, walkthrough_date, walkthrough_skipped').eq('agent_id', currentAgent.id).eq('client_name', build.client_name).limit(1);
     const updates = {
       stage: pipelineStage,
       updated_at: new Date().toISOString(),
       ...(build.est_completion_date ? { closing_date: build.est_completion_date } : {})
     };
     if (existing?.length) {
+      // A new completion date moves the walkthrough with it (see Pipeline.shiftedWalkthrough)
+      const newWalk = (build.est_completion_date && typeof Pipeline !== 'undefined' && Pipeline.shiftedWalkthrough)
+        ? Pipeline.shiftedWalkthrough(existing[0], build.est_completion_date) : null;
+      if (newWalk) updates.walkthrough_date = newWalk;
       await db.from('pipeline').update(updates).eq('id', existing[0].id);
+      if (updates.closing_date && typeof Notify !== 'undefined' && Notify.reconcileDealReminders)
+        Notify.reconcileDealReminders([existing[0].id]);   // old-date reminders withdrawn
     } else {
       await db.from('pipeline').insert({
         pipeline_id: 'BUILD-' + Date.now(),

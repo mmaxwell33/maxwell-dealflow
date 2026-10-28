@@ -3435,6 +3435,21 @@ const Pipeline = {
   // updates pipeline.closing_date to the new value, shifts the 3 closing-
   // relative checklist task due dates by the same delta, and optionally
   // queues a buyer-facing email through the approval queue.
+  // The walkthrough is tied to the closing (usually the day or two before).
+  // When the closing moves, the walkthrough moves by the same number of days,
+  // otherwise it stays on the old date and the client is told "your walkthrough
+  // is TOMORROW" for a day that no longer exists. Returns the new date, or
+  // null when there is nothing to move (no walkthrough, skipped, no change).
+  shiftedWalkthrough(rec, newClose) {
+    if (!rec?.walkthrough_date || rec.walkthrough_skipped || !rec.closing_date || !newClose) return null;
+    const day = v => new Date(String(v).slice(0, 10) + 'T00:00:00');
+    const delta = Math.round((day(newClose) - day(rec.closing_date)) / 86400000);
+    if (!delta) return null;
+    const w = day(rec.walkthrough_date);
+    w.setDate(w.getDate() + delta);
+    return `${w.getFullYear()}-${String(w.getMonth() + 1).padStart(2, '0')}-${String(w.getDate()).padStart(2, '0')}`;
+  },
+
   rescheduleClosing(id) {
     const rec = Pipeline.all?.find(x => x.id === id);
     if (!rec) { App.toast('⚠️ Deal not found'); return; }
@@ -3536,6 +3551,8 @@ const Pipeline = {
     // 2) Update pipeline — freeze original_closing_date the FIRST time only.
     const updates = { closing_date: newClose, updated_at: now };
     if (!rec.original_closing_date) updates.original_closing_date = oldClose;
+    const newWalk = Pipeline.shiftedWalkthrough(rec, newClose);   // walkthrough moves with the closing
+    if (newWalk) updates.walkthrough_date = newWalk;
     const { error: pipeErr } = await db.from('pipeline').update(updates).eq('id', id);
     if (pipeErr) {
       console.error('pipeline update on reschedule:', pipeErr);
