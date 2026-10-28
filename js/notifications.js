@@ -3011,6 +3011,44 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
     }
   },
 
+  // Self-check: a walkthrough belongs just before its closing. Until 13c4094 a
+  // moved closing left the walkthrough on the old day, so any live deal whose
+  // walkthrough is AFTER its closing, or more than 14 days before it, is still
+  // pointing at a closing that no longer exists. Move it back in front of the
+  // current closing, keeping the gap it had to the original closing when we
+  // know it (original_closing_date), otherwise the day before. Runs before
+  // the reminder pass, so no reminder is written for the stale day, and
+  // reconcileDealReminders then withdraws any already queued for it.
+  async repairWalkthroughDates(deadStages) {
+    try {
+      const { data: deals } = await db.from('pipeline')
+        .select('id, client_id, client_name, stage, walkthrough_date, walkthrough_skipped, closing_date, original_closing_date')
+        .eq('agent_id', currentAgent.id).eq('status', 'Active')
+        .not('walkthrough_date', 'is', null).not('closing_date', 'is', null);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const days = (a, b) => Math.round((Notify._localDay(a) - Notify._localDay(b)) / 86400000);
+      const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const fixed = [];
+      for (const d of deals || []) {
+        if (d.walkthrough_skipped || deadStages.includes(d.stage)) continue;
+        if (Notify._localDay(d.closing_date) < today) continue;      // past closings are history, leave them
+        const gap = days(d.closing_date, d.walkthrough_date);
+        if (gap >= 0 && gap <= 14) continue;                          // already in front of its closing
+        const was = d.original_closing_date ? days(d.original_closing_date, d.walkthrough_date) : null;
+        const offset = (was !== null && was >= 0 && was <= 14) ? was : 1;
+        const w = Notify._localDay(d.closing_date); w.setDate(w.getDate() - offset);
+        const newWalk = ymd(w);
+        const { error } = await db.from('pipeline').update({ walkthrough_date: newWalk, updated_at: new Date().toISOString() }).eq('id', d.id);
+        if (error) { console.warn('[repairWalkthroughDates]', d.id, error.message); continue; }
+        fixed.push(d.client_name || 'a deal');
+        await App.logActivity('WALKTHROUGH_REALIGNED', d.client_name, null,
+          `Walkthrough moved from ${d.walkthrough_date} to ${newWalk} to sit before the closing on ${String(d.closing_date).slice(0, 10)}`, d.client_id || null);
+      }
+      if (fixed.length) App.toast(`🚶 Walkthrough date moved to match the closing: ${fixed.join(', ')}`, 'var(--yellow)');
+      return fixed.length;
+    } catch (e) { console.warn('[repairWalkthroughDates] skipped:', e?.message || e); return 0; }
+  },
+
   async checkConditionDeadlines() {
     // Called on load — checks all active pipeline deals for upcoming deadlines
     if (!currentAgent?.id) return;
@@ -3024,6 +3062,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         .in('stage', ['Fell Through', 'Withdrawn']);
       if (dead?.length) await Notify.cancelDealReminders(dead.map(d => d.id));
     } catch (e) { console.warn('[checkConditionDeadlines] stale reminder sweep failed:', e); }
+    await Notify.repairWalkthroughDates(DEAD_STAGES);   // before reconcile, so old-day reminders are withdrawn
     await Notify.reconcileDealReminders();
     const { data: deals } = await db.from('pipeline')
       .select('*, clients(full_name, email)')
