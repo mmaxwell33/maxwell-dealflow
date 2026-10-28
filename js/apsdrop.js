@@ -308,7 +308,7 @@ const ApsDrop = {
       full_name: name,
       email: document.getElementById('aps-new-email')?.value.trim() || '',
       phone: document.getElementById('aps-new-phone')?.value.trim() || '',
-      stage: 'Accepted',
+      stage: 'Offers',          // becomes 'Accepted' when Accepted is tapped on the offer
       client_type: 'buyer',
       notes: 'Added from signed new build Purchase and Sale Agreement',
       status: 'Active',
@@ -316,6 +316,8 @@ const ApsDrop = {
     if (error) throw error;
     await App.logActivity('CLIENT_ADDED', name, data.email, `New client added from signed APS: ${name}`, data.id);
     ApsDrop._newClient = null;
+    // Offers.sellerAccepted looks the client up in Clients.all
+    if (typeof Clients !== 'undefined' && Array.isArray(Clients.all) && !Clients.all.some(c => c.id === data.id)) Clients.all.push(data);
     return data;
   },
 

@@ -1745,8 +1745,9 @@ const Pipeline = {
     // a New Build card in the pipeline). The construction tracker is created by
     // Maxwell via the rich New Build form. ensureFromDeal only runs if that helper
     // exists on the live module — guarded so acceptance can never throw.
+    let welcomed = false;   // new build congratulations (with selections) replaces the generic one below
     if (isNewBuild && typeof NewBuilds !== 'undefined' && typeof NewBuilds.ensureFromDeal === 'function') {
-      await NewBuilds.ensureFromDeal({
+      const buildId = await NewBuilds.ensureFromDeal({
         client_id: safeClientId,
         client_name: client?.full_name || offer.client_name || 'Unknown',
         client_email: client?.email || offer.client_email || '',
@@ -1754,6 +1755,10 @@ const Pipeline = {
         offer_amount: safeOfferAmt,
         closing_date: dates.close || null,
       });
+      // The build held as "Offer Submitted" since the APS upload goes live now
+      if (typeof BuildHandoff !== 'undefined') {
+        welcomed = await BuildHandoff.onOfferAccepted({ buildId, pipelineId, clientId: safeClientId, acceptDate: today, closeDate: dates.close || null });
+      }
     }
 
     // Commission row (status=Pending, will flip on close/fell-through). Checked
@@ -1771,7 +1776,7 @@ const Pipeline = {
     }
 
     await Pipeline.generateChecklist(pipelineId, offer, client, acceptDate);
-    if (typeof Notify !== "undefined" && client?.email) {
+    if (typeof Notify !== "undefined" && client?.email && !welcomed) {
       try { await Notify.onOfferAccepted(offer, client); } catch(_){}
     }
     await App.logActivity('PIPELINE_CREATED', client?.full_name, client?.email,

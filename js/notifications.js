@@ -1051,7 +1051,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const first = brokerName?.split(' ')[0] || 'there';
       const clientFirst = client.full_name?.split(' ')[0] || 'the client';
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
-      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
+      const nb = deal.deal_type === 'new_build' || deal.property_type === 'new_build';   // new build: signed APS, no MLS listing
       return {
         subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
         body: `Hi ${first},
@@ -1121,7 +1121,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
       // A couple buying together (client_contacts role 'co_buyer', see cobuyer.js)
       const partner = client.co_buyer?.name ? client.co_buyer : null;
-      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
+      const nb = deal.deal_type === 'new_build' || deal.property_type === 'new_build';   // new build: signed APS, no MLS listing
       const docs = nb ? 'the signed Agreement of Purchase and Sale with the builder' : 'the accepted offer and the MLS listing';
       const buyers = partner ? `${client.full_name || 'My buyer'} and ${partner.name}` : (client.full_name || 'My buyer');
       const buyersOffer = partner ? `${buyers}' offer` : `${buyers}'s offer`;

@@ -3919,9 +3919,29 @@ const NewBuilds = {
       .select('*').eq('agent_id', currentAgent.id)
       .order('created_at', { ascending: false });
     NewBuilds.all = data || [];
-    NewBuilds.renderStats(data || []);
+    // Builds whose APS the builder has not accepted are still offers: they wait
+    // in Offers → Submitted and join the list once Accepted is tapped there.
+    const live = (data || []).filter(b => b.status !== 'Offer Submitted');
+    NewBuilds.renderStats(live);
     await NewBuilds.populateClients();
-    NewBuilds.render(data || []);
+    NewBuilds.render(live);
+    NewBuilds.renderWaiting((data || []).filter(b => b.status === 'Offer Submitted'));
+  },
+
+  renderWaiting(list) {
+    const host = document.getElementById('newbuilds-list');
+    if (!host || !list.length) return;
+    const esc = s => (App.esc ? App.esc(s) : String(s ?? ''));
+    host.insertAdjacentHTML('afterbegin', `
+      <div class="card" style="margin-bottom:14px;border-style:dashed;">
+        <div style="font-size:13px;font-weight:800;margin-bottom:6px;">⏳ Waiting on the builder</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">These offers are in Offers → Submitted. Tap Accepted there when the builder accepts, and the build joins this list with its Pipeline deal and commission.</div>
+        ${list.map(b => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);font-size:12.5px;">
+          <div style="flex:1;"><strong>${esc(b.client_name)}</strong> · ${esc(b.lot_address || '')} · ${esc(b.builder_name || '')}${b.purchase_price ? ' · ' + App.fmtMoney(b.purchase_price) : ''}</div>
+          <button class="btn btn-outline btn-sm" onclick="App.switchTab('offers')">📄 Open Offers</button>
+          <button class="btn btn-outline btn-sm" onclick="NewBuilds.openEdit('${b.id}')">✏️ Edit</button>
+        </div>`).join('')}
+      </div>`);
   },
 
   async populateClients() {
@@ -4809,6 +4829,7 @@ const NewBuilds = {
   },
 
   async syncPipeline(build, pipelineStage) {
+    if (build?.status === 'Offer Submitted') return;   // still an offer: its deal is made on Accepted
     const { data: existing } = await db.from('pipeline')
       .select('id, closing_date, walkthrough_date, walkthrough_skipped').eq('agent_id', currentAgent.id).eq('client_name', build.client_name).limit(1);
     const updates = {
@@ -5237,8 +5258,13 @@ const NewBuilds = {
       status: 'Active'
     };
     // Was the vendor acceptance already on file? (edit only; drives the handoff below)
-    const prevAccepted = NewBuilds._editingId
-      ? ((NewBuilds.all || []).find(x => x.id === NewBuilds._editingId)?.pa_accepted_date || null) : null;
+    const editingRow = NewBuilds._editingId ? (NewBuilds.all || []).find(x => x.id === NewBuilds._editingId) : null;
+    const prevAccepted = editingRow?.pa_accepted_date || null;
+    // Offer first, like Submit Offer: a new build is an offer until Accepted is
+    // tapped on it in Offers. No Pipeline row or commission before then
+    // (BuildHandoff.submitOffer / onOfferAccepted).
+    const offerStage = editingRow ? editingRow.status === 'Offer Submitted' : typeof BuildHandoff !== 'undefined';
+    if (offerStage) payload.status = 'Offer Submitted';
     // EDIT MODE: update existing row, preserve pipeline_milestones
     let saved, error;
     if (NewBuilds._editingId) {
@@ -5265,29 +5291,31 @@ const NewBuilds = {
 
     // Auto-create / update pipeline entry
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
-    await NewBuilds.syncPipeline(buildObj, pipelineStage);
+    if (!offerStage) await NewBuilds.syncPipeline(buildObj, pipelineStage);   // offers get their deal on Accepted
     const apsFile = typeof ApsDrop !== 'undefined' ? ApsDrop._file : null;          // afterSave clears it
     const apsConditions = typeof ApsDrop !== 'undefined' ? ApsDrop._conditions : null;
     if (typeof ApsDrop !== 'undefined') { await ApsDrop.afterSave(clientId, lotAddress, saved?.id); ApsDrop._conditions = null; } // file the signed APS + its selections
-    // Same order as Submit Offer: "Offer Submitted" while the builder has not
-    // accepted; the congratulations (with the buyer's selections) once they have,
-    // either at creation or when the acceptance date is added later.
-    if (saved?.id && typeof BuildSelections !== 'undefined') {
-      if (!NewBuilds._editingId && !saved.pa_accepted_date) await BuildSelections.queueSubmitted(saved.id);
-      else if (saved.pa_accepted_date && (!NewBuilds._editingId || !prevAccepted)) await BuildSelections.queueWelcome(saved.id);
-    }
-    // Link the Pipeline deal (client, dates, signed APS); once the vendor has accepted,
-    // open Mark Offer Accepted. On an edit, only when the acceptance date is new.
-    if (saved && typeof BuildHandoff !== 'undefined' && (!NewBuilds._editingId || (saved.pa_accepted_date && !prevAccepted)))
+    if (offerStage && saved?.id) {
+      // New: a Submitted offer in Offers. Already accepted by the builder (date on the
+      // APS, or added later in Edit Details): open the normal Accepted window now.
+      const offer = editingRow ? await BuildHandoff.offerFor(saved) : await BuildHandoff.submitOffer(saved, apsConditions);
+      if (saved.pa_accepted_date && (!editingRow || !prevAccepted)) setTimeout(() => BuildHandoff.accept(offer), 600);
+      else if (!editingRow && typeof BuildSelections !== 'undefined') await BuildSelections.queueSubmitted(saved.id);
+    } else if (saved && typeof BuildHandoff !== 'undefined' && NewBuilds._editingId && saved.pa_accepted_date && !prevAccepted) {
+      // Older builds made before offers came first: link the deal, open Mark Offer Accepted
+      if (typeof BuildSelections !== 'undefined') await BuildSelections.queueWelcome(saved.id);
       await BuildHandoff.run(saved, { file: apsFile, conditions: apsConditions });
+    }
 
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
     NewBuilds._editingId = null; // reset edit flag for next use
     const editBtn = document.querySelector('#newbuilds-form-wrap button[onclick*="NewBuilds.save"]');
     if (editBtn) editBtn.textContent = '💾 Save Build';
-    App.toast(wasEdit ? '✅ Build updated — all sections synced.' : '✅ New Build created! Pipeline entry auto-created.');
-    st.style.color='var(--green)'; st.textContent = wasEdit ? '✅ Build updated' : `✅ Build created · Pipeline → ${pipelineStage}`;
+    App.toast(wasEdit ? '✅ Build updated — all sections synced.'
+      : offerStage ? '📄 Offer submitted. It is in Offers → Submitted; tap Accepted there when the builder accepts.'
+      : '✅ New Build created! Pipeline entry auto-created.');
+    st.style.color='var(--green)'; st.textContent = wasEdit ? '✅ Build updated' : offerStage ? '📄 Offer submitted · waiting on the builder' : `✅ Build created · Pipeline → ${pipelineStage}`;
     NewBuilds.toggleForm();
     NewBuilds.load();
   }
