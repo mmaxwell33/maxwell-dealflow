@@ -1119,31 +1119,42 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const first = lawyerName?.split(' ')[0] || 'Counsel';
       const clientFirst = client.full_name?.split(' ')[0] || 'the buyer';
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      // A couple buying together (client_contacts role 'co_buyer', see cobuyer.js)
+      const partner = client.co_buyer?.name ? client.co_buyer : null;
+      const buyers = partner ? `${client.full_name || 'My buyer'} and ${partner.name}` : (client.full_name || 'My buyer');
+      const buyersOffer = partner ? `${buyers}' offer` : `${buyers}'s offer`;
+      const ccFirsts = partner ? `${clientFirst} and ${partner.name.split(' ')[0]}` : clientFirst;
       return {
-        subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
+        subject: `New file for your client — ${partner ? buyers : (client.full_name || 'Buyer')} · ${deal.property_address}`,
         body: `Hi ${first},
 
 ${deal._released_after_financing
-  ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
+  ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
   : deal._early_release
-    ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find the accepted offer and the MLS listing attached so you can open the file.`
-    : `${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
-
+    ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find the accepted offer and the MLS listing attached so you can open the file.`
+    : `${buyersOffer} was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
+${partner ? `
+Please note this is a joint purchase: ${buyers} are buying together as a couple, and both are named as purchasers on the agreement.
+` : ''}
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
 ${deal._released_after_financing ? 'Financing: Approved' : 'Financing Deadline: ' + fmtDate(deal.financing_date) + (deal._early_release ? ' (in progress)' : '')}
 
-BUYER CONTACT
+${partner ? 'BUYER CONTACTS (JOINT PURCHASERS)' : 'BUYER CONTACT'}
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
-
+${partner ? `
+   Name: ${partner.name}
+   Email: ${partner.email || '—'}
+   Phone: ${partner.phone || '—'}
+` : ''}
 Attached:
 • Accepted Offer
 • MLS Listing
 
-I've cc'd ${clientFirst} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
+I've cc'd ${ccFirsts} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
 
 I've also set up a private portal where you can mark title search, funds-in-trust, and ready-to-close as each step completes:
    ${portalUrl}` : ''}

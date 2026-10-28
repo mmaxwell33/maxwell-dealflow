@@ -30,10 +30,12 @@ const ApsDrop = {
   SCHEMA: {
     type: 'object',
     properties: {
-      buyer_names:      { type: 'string', description: 'Full name(s) of the buyer(s) / purchaser(s) exactly as written. Several buyers joined with " and ".' },
-      buyer_email:      { type: 'string', description: 'Email of the first buyer. Empty if not stated.' },
-      buyer_phone:      { type: 'string', description: 'Phone of the first buyer. Empty if not stated.' },
-      co_buyer_email:   { type: 'string', description: 'Email(s) of any other buyer(s), comma separated. Empty if not stated.' },
+      buyer_name:       { type: 'string', description: 'Full name of the FIRST purchaser exactly as written.' },
+      buyer_email:      { type: 'string', description: 'Email of the first purchaser. Empty if not stated.' },
+      buyer_phone:      { type: 'string', description: 'Phone of the first purchaser. Empty if not stated.' },
+      co_buyer_name:    { type: 'string', description: 'Full name of the SECOND purchaser (spouse / partner / co-buyer), from the purchaser names or a second purchaser signature line. Empty if only one purchaser signs.' },
+      co_buyer_email:   { type: 'string', description: 'Email of the second purchaser. Empty if not stated.' },
+      co_buyer_phone:   { type: 'string', description: 'Phone of the second purchaser. Empty if not stated.' },
       builder_name:     { type: 'string', description: 'The vendor / seller / builder company name.' },
       builder_contact:  { type: 'string', description: "Name of the builder's representative or signing officer. Empty if not stated." },
       builder_email:    { type: 'string', description: "Builder's email address. Empty if not stated." },
@@ -48,7 +50,7 @@ const ApsDrop = {
       flooring:         { type: 'string', description: 'Flooring selection if stated, e.g. "Hardwood / Tile". Empty otherwise.' },
       notes:            { type: 'string', description: 'Short summary of upgrades, inclusions, and conditions with their deadlines (e.g. "Financing by 2026-11-15"). One or two lines. Empty if none.' },
     },
-    required: ['buyer_names','buyer_email','buyer_phone','co_buyer_email','builder_name','builder_contact',
+    required: ['buyer_name','buyer_email','buyer_phone','co_buyer_name','co_buyer_email','co_buyer_phone','builder_name','builder_contact',
                'builder_email','lot_address','mls_number','purchase_price','deposit_amount','deposit_date',
                'offer_date','accepted_date','completion_date','flooring','notes'],
     additionalProperties: false,
@@ -109,7 +111,9 @@ const ApsDrop = {
         'You read signed Agreements of Purchase and Sale for newly built homes in Newfoundland and Labrador ' +
         'and return the key terms as JSON. Read only what the document actually says. If a field is not stated, ' +
         'return an empty string. Never guess and never carry a number from one field to another. The buyer is the ' +
-        'purchaser; the builder is the vendor. Amounts are digits only with no currency symbol, commas or decimals. ' +
+        'purchaser; the builder is the vendor. Check the purchaser names AND the signature blocks: when two people ' +
+        'sign as purchasers (often a couple), the first is the buyer and the second is the co-buyer. ' +
+        'Amounts are digits only with no currency symbol, commas or decimals. ' +
         'Dates are YYYY-MM-DD.';
 
       const { data, error } = await db.functions.invoke('claude-chat', {
@@ -168,36 +172,54 @@ const ApsDrop = {
     set('nb-builder-contact', x.builder_contact);
     set('nb-builder-email',   x.builder_email);
     set('nb-notes',           x.notes);
-    set('nb-cc-email',        x.co_buyer_email);
     set('nb-deposit-amount',  digits(x.deposit_amount));
     set('nb-deposit-date',    date(x.deposit_date));
     set('nb-pa-submitted',    date(x.offer_date));
     set('nb-pa-accepted',     date(x.accepted_date));
 
-    const match = ApsDrop.matchClient(x.buyer_names);
+    // Either purchaser may already be the client; the other one is the partner
+    let primary = { name: x.buyer_name || '', email: x.buyer_email || '', phone: x.buyer_phone || '' };
+    let partner = { name: x.co_buyer_name || '', email: x.co_buyer_email || '', phone: x.co_buyer_phone || '' };
+    let match = ApsDrop.matchClient(primary.name);
+    if (!match && partner.name) {
+      match = ApsDrop.matchClient(partner.name);
+      if (match) [primary, partner] = [partner, primary];
+    }
+    set('nb-cc-email', partner.email);   // partner gets the build updates too
+
     const box = document.getElementById('aps-result');
     let clientHtml;
     if (match) {
       ApsDrop._newClient = null;
       clientHtml = `Client matched: <strong>${ApsDrop.esc(match.text)}</strong> (already in DealFlow).`;
-    } else if (x.buyer_names) {
-      ApsDrop.addNewClientOption(x.buyer_names);
-      ApsDrop._newClient = { name: x.buyer_names, email: x.buyer_email || '', phone: x.buyer_phone || '' };
+    } else if (primary.name) {
+      ApsDrop.addNewClientOption(primary.name);
+      ApsDrop._newClient = primary;
       clientHtml = `
-        <strong>${ApsDrop.esc(x.buyer_names)}</strong> is not in DealFlow yet. They will be added as a client when you create the build:
+        <strong>${ApsDrop.esc(primary.name)}</strong> is not in DealFlow yet. They will be added as a client when you create the build:
         <div class="form-row" style="margin-top:8px;">
-          <div class="form-group"><label class="form-label">CLIENT NAME</label><input class="form-input" id="aps-new-name" value="${ApsDrop.esc(x.buyer_names)}" oninput="ApsDrop.syncNewName()"></div>
-          <div class="form-group"><label class="form-label">EMAIL</label><input class="form-input" id="aps-new-email" type="email" value="${ApsDrop.esc(x.buyer_email)}" placeholder="buyer@email.com"></div>
-          <div class="form-group"><label class="form-label">PHONE</label><input class="form-input" id="aps-new-phone" value="${ApsDrop.esc(x.buyer_phone)}" placeholder="709-555-0123"></div>
+          <div class="form-group"><label class="form-label">CLIENT NAME</label><input class="form-input" id="aps-new-name" value="${ApsDrop.esc(primary.name)}" oninput="ApsDrop.syncNewName()"></div>
+          <div class="form-group"><label class="form-label">EMAIL</label><input class="form-input" id="aps-new-email" type="email" value="${ApsDrop.esc(primary.email)}" placeholder="buyer@email.com"></div>
+          <div class="form-group"><label class="form-label">PHONE</label><input class="form-input" id="aps-new-phone" value="${ApsDrop.esc(primary.phone)}" placeholder="709-555-0123"></div>
         </div>`;
     } else {
       clientHtml = 'No buyer name found. Pick the client from the list.';
     }
 
+    // Two purchasers signed: the second is saved as the client's partner
+    const partnerHtml = (partner.name || partner.email) ? `
+      <div style="margin-top:10px;">💑 <strong>Two purchasers signed.</strong> ${ApsDrop.esc(partner.name || 'The second purchaser')} is saved as the partner, so the lawyer email names them as a couple and copies both:
+        <div class="form-row" style="margin-top:8px;">
+          <div class="form-group"><label class="form-label">PARTNER NAME</label><input class="form-input" id="aps-partner-name" value="${ApsDrop.esc(partner.name)}"></div>
+          <div class="form-group"><label class="form-label">PARTNER EMAIL</label><input class="form-input" id="aps-partner-email" type="email" value="${ApsDrop.esc(partner.email)}" placeholder="partner@email.com"></div>
+          <div class="form-group"><label class="form-label">PARTNER PHONE</label><input class="form-input" id="aps-partner-phone" value="${ApsDrop.esc(partner.phone)}" placeholder="709-555-0123"></div>
+        </div>
+      </div>` : '';
+
     if (box) box.innerHTML = ApsDrop.banner('green',
       `✅ Read from <strong>${ApsDrop.esc(ApsDrop._file?.name || 'the agreement')}</strong>. ` +
       `<span style="color:var(--text2);">Check every figure against the document before you create the build. Nothing is saved until you do.</span>` +
-      `<div style="margin-top:8px;">${clientHtml}</div>`);
+      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}`);
   },
 
   // Loose name match: "John Smith and Jane Smith" finds the client "John Smith"
@@ -257,6 +279,12 @@ const ApsDrop = {
   async afterSave(clientId, lotAddress) {
     const file = ApsDrop._file;
     ApsDrop._file = null;
+    // Partner read off the signatures (and checked on screen) goes on the client
+    const pv = k => document.getElementById('aps-partner-' + k)?.value.trim() || '';
+    if (clientId && typeof CoBuyer !== 'undefined' && (pv('name') || pv('email'))) {
+      if (await CoBuyer.save(clientId, { name: pv('name'), email: pv('email'), phone: pv('phone') }))
+        App.toast('💑 Partner saved on the client', 'var(--green)');
+    }
     const box = document.getElementById('aps-result');
     if (box) box.innerHTML = '';
     if (!file || !clientId) return;

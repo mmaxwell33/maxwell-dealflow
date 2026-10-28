@@ -1479,7 +1479,10 @@ const Pipeline = {
       walkthrough_skipped: !!walkSkip,
       closing_date: close,
     };
-    const clientForT = client || { full_name: offer.client_name, email: offer.client_email };
+    // Partner (co-buyer) rides along so the lawyer email names both purchasers
+    const clientForT = typeof CoBuyer !== 'undefined'
+      ? await CoBuyer.attach(client || { full_name: offer.client_name, email: offer.client_email }, client?.id)
+      : (client || { full_name: offer.client_name, email: offer.client_email });
     const agent = currentAgent;
 
     // Per-stakeholder dispatch — email and portal are NOW INDEPENDENT toggles.
@@ -1585,11 +1588,12 @@ const Pipeline = {
             `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
             client?.id, name, clientEmail,
             clientCopy.subject, clientCopy.body, pipelineId,
-            null, null, null, attachments
+            null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, clientForT) : null, attachments
           );
           queuedDispatch += 2;
         } else {
-          const ccEmail = (ccClient && clientEmail) ? clientEmail : null;
+          let ccEmail = (ccClient && clientEmail) ? clientEmail : null;
+          if (ccEmail && typeof CoBuyer !== 'undefined') ccEmail = CoBuyer.cc(ccEmail, clientForT);
           await Notify.queue(
             `Offer accepted → ${role.replace('_',' ')} 📨`,
             client?.id, name, email,
@@ -5702,7 +5706,9 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       inspection_date: insSkip ? null : insDate, inspection_skipped: insSkip,
       closing_date: closeDate
     };
-    const clientForTemplate = { full_name: d.client_name, email: d.client_email };
+    const clientForTemplate = typeof CoBuyer !== 'undefined'
+      ? await CoBuyer.attach({ full_name: d.client_name, email: d.client_email }, d.client_id)
+      : { full_name: d.client_name, email: d.client_email };
     const agent = currentAgent;
 
     let queued = 0;
@@ -5764,11 +5770,12 @@ REALTOR® · eXp Realty · (709) 325-0545`;
           `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
           d.client_id, contact.name, d.client_email,
           clientCopy.subject, clientCopy.body, dealId,
-          null, null, null, attachments
+          null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, clientForTemplate) : null, attachments
         );
         queued += 2;
       } else {
-        const ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+        let ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+        if (ccEmail && typeof CoBuyer !== 'undefined') ccEmail = CoBuyer.cc(ccEmail, clientForTemplate);
         await Notify.queue(
           `Offer accepted → ${role.replace('_',' ')} 📨`,
           d.client_id, contact.name, contact.email,
@@ -5985,10 +5992,12 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       client: {
         full_name: o.client?.full_name || o.clientName || '',
         email:     o.client?.email || o.clientEmail || '',
-        phone:     o.client?.phone || ''
+        phone:     o.client?.phone || '',
+        co_buyer:  o.client?.co_buyer || null   // kept in the hold, so the released email still names both
       },
       deal: o.deal || {}, held_at: new Date().toISOString()
     };
+    const ccList = (o.ccClient && o.clientEmail && typeof CoBuyer !== 'undefined') ? CoBuyer.cc(o.clientEmail, base.client) : o.clientEmail;
     const t = Notify.templates.offer_accepted_lawyer(o.name, base.client, base.deal, currentAgent, '');
     const type = 'Offer accepted → lawyer 📨';
     // The same split the live send uses: when the client is copied AND a portal
@@ -5996,10 +6005,10 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     const split = !!(o.ccClient && o.clientEmail && o.wantPortal);
     let n = 0;
     if (await Notify.queue(type, o.clientId, o.name, o.email, t.subject, t.body, o.dealId,
-        null, null, (!split && o.ccClient && o.clientEmail) ? o.clientEmail : null,
+        null, null, (!split && o.ccClient && o.clientEmail) ? ccList : null,
         o.attachments?.length ? o.attachments : null, null, { held: base })) n++;
     if (split && await Notify.queue(`${type} (client copy)`, o.clientId, o.name, o.clientEmail,
-        t.subject, t.body, o.dealId, null, null, null,
+        t.subject, t.body, o.dealId, null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, base.client) : null,
         o.attachments?.length ? o.attachments : null, null, { held: { ...base, is_client_copy: true } })) n++;
     await App.logActivity('LAWYER_HELD', base.client.full_name, base.client.email,
       `Lawyer email to ${o.name} held until financing is approved`, o.clientId || null);

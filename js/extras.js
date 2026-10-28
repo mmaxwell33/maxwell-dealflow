@@ -1234,6 +1234,7 @@ const FormResponses = {
             ${r.budget_max     ? `<div>💰 Max Budget: <strong style="color:var(--green);">$${Number(r.budget_max).toLocaleString()}</strong></div>` : ''}
             ${r.timeline       ? `<div>⏱ Timeline: ${r.timeline}</div>` : ''}
             ${r.preapproval    ? `<div>🏦 Pre-Approved: ${r.preapproval}</div>` : ''}
+            ${(r.partner_name || r.partner_email) ? `<div>💑 Buying with: <strong>${App.esc(r.partner_name || '')}</strong>${r.partner_email ? ' · ' + App.esc(r.partner_email) : ''}</div>` : ''}
             ${r.bedrooms       ? `<div>🛏 Bedrooms: ${r.bedrooms}+</div>` : ''}
             ${r.preferred_areas? `<div>📍 Areas: ${r.preferred_areas}</div>` : ''}
             ${r.property_types ? `<div>🏠 Type: ${r.property_types}</div>` : ''}
@@ -1534,6 +1535,8 @@ const FormResponses = {
 
     // The seller setup the new-client path has always done. Non-fatal.
     const listed = await FormResponses._ensureSellerListing(r, clientId);
+    // Partner from "buying with a partner?" (migration 115). Non-fatal.
+    if (typeof CoBuyer !== 'undefined') await CoBuyer.save(clientId, { name: r?.partner_name, email: r?.partner_email, phone: r?.partner_phone });
 
     await App.logActivity('INTAKE_ATTACHED', c?.full_name, c?.email,
       `Returning client enquiry attached (${wants})` + (listed === 'created' ? ', listing record created' : ''),
@@ -1643,6 +1646,10 @@ const FormResponses = {
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
+
+    // Partner from "buying with a partner?" (migration 115). Non-fatal.
+    if (newClient?.id && typeof CoBuyer !== 'undefined')
+      await CoBuyer.save(newClient.id, { name: r.partner_name, email: r.partner_email, phone: r.partner_phone });
 
     // Mark intake as processed
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
