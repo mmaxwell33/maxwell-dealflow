@@ -503,6 +503,30 @@
   </div>
 
   <div class="field">
+    <span class="field-label">Are you buying with a partner or spouse?</span>
+    <div class="pills" id="pills-partner">
+      <div class="pill" data-val="Yes" onclick="togglePill(this,'pills-partner',true);showPartner()"> Yes, together</div>
+      <div class="pill" data-val="No" onclick="togglePill(this,'pills-partner',true);showPartner()"> No, just me</div>
+    </div>
+  </div>
+  <div id="partner-fields" style="display:none;">
+    <div class="row">
+      <div class="field">
+        <label class="field-label" for="f-partner-name">Partner's Full Name</label>
+        <input type="text" id="f-partner-name" placeholder="Jane Smith" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label" for="f-partner-email">Partner's Email</label>
+        <input type="email" id="f-partner-email" placeholder="jane@email.com" autocomplete="off">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="f-partner-phone">Partner's Phone</label>
+      <input type="tel" id="f-partner-phone" placeholder="(709) 555-0101" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="field">
     <span class="field-label">Are you also looking to sell a current property?</span>
     <div class="pills" id="pills-sell">
       <div class="pill" data-val="Yes — need to sell first" onclick="togglePill(this,'pills-sell',true)"> Yes, sell first</div>
@@ -747,6 +771,12 @@ function togglePill(el, groupId, single = false) {
 function getPills(groupId) {
   return [...document.querySelectorAll(`#${groupId} .pill.selected`)]
     .map(p => p.dataset.val).join(', ');
+}
+
+// Partner fields only show once they say they are buying together
+function showPartner() {
+  const on = getPills('pills-partner') === 'Yes';
+  document.getElementById('partner-fields').style.display = on ? 'block' : 'none';
 }
 
 // ── BUDGET PILLS ──────────────────────────────────────────────────────────────
@@ -1141,6 +1171,7 @@ async function submitIntake() {
   const areasPills = getPills('pills-areas');
   const areasTyped = document.getElementById('f-areas').value.trim();
   const areasVal = [areasPills, areasTyped].filter(Boolean).join(', ') || null;
+  const partnerOn = getPills('pills-partner') === 'Yes';
 
   const payload = {
     full_name:       `${firstName} ${lastName}`,
@@ -1160,6 +1191,10 @@ async function submitIntake() {
     selling_status:  getPills('pills-sell') || null,
     referral_source: getPills('pills-referral') || null,
     notes:           document.getElementById('f-notes').value.trim() || null,
+    // Buying with a partner (migration 115). Only sent when they said yes.
+    partner_name:    partnerOn ? (document.getElementById('f-partner-name').value.trim() || null) : null,
+    partner_email:   partnerOn ? (document.getElementById('f-partner-email').value.trim() || null) : null,
+    partner_phone:   partnerOn ? (document.getElementById('f-partner-phone').value.trim() || null) : null,
     status:          'New',
     submitted_at:    new Date().toISOString(),
     // Which agent this submission belongs to — set by applyAgentBranding()

@@ -1479,7 +1479,10 @@ const Pipeline = {
       walkthrough_skipped: !!walkSkip,
       closing_date: close,
     };
-    const clientForT = client || { full_name: offer.client_name, email: offer.client_email };
+    // Partner (co-buyer) rides along so the lawyer email names both purchasers
+    const clientForT = typeof CoBuyer !== 'undefined'
+      ? await CoBuyer.attach(client || { full_name: offer.client_name, email: offer.client_email }, client?.id)
+      : (client || { full_name: offer.client_name, email: offer.client_email });
     const agent = currentAgent;
 
     // Per-stakeholder dispatch — email and portal are NOW INDEPENDENT toggles.
@@ -1585,11 +1588,12 @@ const Pipeline = {
             `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
             client?.id, name, clientEmail,
             clientCopy.subject, clientCopy.body, pipelineId,
-            null, null, null, attachments
+            null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, clientForT) : null, attachments
           );
           queuedDispatch += 2;
         } else {
-          const ccEmail = (ccClient && clientEmail) ? clientEmail : null;
+          let ccEmail = (ccClient && clientEmail) ? clientEmail : null;
+          if (ccEmail && typeof CoBuyer !== 'undefined') ccEmail = CoBuyer.cc(ccEmail, clientForT);
           await Notify.queue(
             `Offer accepted → ${role.replace('_',' ')} 📨`,
             client?.id, name, email,
@@ -5518,22 +5522,29 @@ REALTOR® · eXp Realty · (709) 325-0545`;
 
     const stakeRow = (role, label, icon, hint) => {
       const c = contacts[role];
-      if (!c) return `
-        <div style="padding:10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:8px;opacity:.55;">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);">${icon} ${label.toUpperCase()}</div>
-          <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px;">No ${label.toLowerCase()} on file — skip · save in Edit Client to auto-include next deal</div>
-        </div>`;
+      // Nothing on file (a brand-new client, e.g. from a signed APS): type them
+      // in here. Used for this deal and saved on the client for the next one.
+      // Left empty, the role is skipped as before.
+      const who = c
+        ? `<div style="font-size:12px;color:var(--text);font-weight:600;">${App.esc(c.name||'')} · ${App.esc(c.email||'')}</div>`
+        : `<div style="font-size:10.5px;color:var(--text3);font-style:italic;">None on file. Type them in, or leave empty to skip.</div>`;
       return `
-        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
+        <div style="padding:10px;border:1px ${c ? 'solid' : 'dashed'} var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div>
               <div style="font-size:11px;font-weight:700;color:var(--accent);">${icon} ${label.toUpperCase()}</div>
-              <div style="font-size:12px;color:var(--text);font-weight:600;">${App.esc(c.name||'')} · ${App.esc(c.email||'')}</div>
+              ${who}
             </div>
             <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);">
               <input type="checkbox" id="oa-${role}-on" checked> Send
             </label>
           </div>
+          ${c ? '' : `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <input class="form-input" id="oa-${role}-new-name"  placeholder="Name"  style="font-size:12px;padding:7px;">
+            <input class="form-input" id="oa-${role}-new-email" placeholder="Email" type="email" style="font-size:12px;padding:7px;">
+          </div>
+          <input class="form-input" id="oa-${role}-new-phone" placeholder="Phone (optional)" style="font-size:12px;padding:7px;margin-bottom:6px;width:100%;">`}
           <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">
             <label style="display:flex;align-items:center;gap:4px;">
               <input type="radio" name="oa-${role}-mode" value="email"  checked> 📧 Email only
@@ -5719,15 +5730,30 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       inspection_date: insSkip ? null : insDate, inspection_skipped: insSkip,
       closing_date: closeDate
     };
-    const clientForTemplate = { full_name: d.client_name, email: d.client_email };
+    const clientForTemplate = typeof CoBuyer !== 'undefined'
+      ? await CoBuyer.attach({ full_name: d.client_name, email: d.client_email }, d.client_id)
+      : { full_name: d.client_name, email: d.client_email };
     const agent = currentAgent;
 
     let queued = 0;
 
     // 8. Per-stakeholder dispatch
     for (const role of ['mortgage_broker','inspector','lawyer']) {
-      const contact = byRole[role];
-      if (!contact) continue;
+      let contact = byRole[role];
+      if (!contact) {
+        // Typed into the window because none was on file: use it, and save it on the client
+        const nv = k => document.getElementById(`oa-${role}-new-${k}`)?.value.trim() || '';
+        if (!nv('name') || !nv('email')) continue;
+        contact = { role, name: nv('name'), email: nv('email'), phone: nv('phone') || null };
+        if (d.client_id) {
+          const { error: cErr } = await db.from('client_contacts').upsert({
+            client_id: d.client_id, agent_id: currentAgent.id, role,
+            name: contact.name, email: contact.email, phone: contact.phone,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'client_id,role' });
+          if (cErr) console.warn('[submitAcceptedFlow] contact not saved:', cErr.message);
+        }
+      }
       const enabledEl = document.getElementById(`oa-${role}-on`);
       if (enabledEl && !enabledEl.checked) continue;
       if (role === 'lawyer' && document.getElementById('oa-lawyer-hold')?.checked) {
@@ -5781,11 +5807,12 @@ REALTOR® · eXp Realty · (709) 325-0545`;
           `Offer accepted → ${role.replace('_',' ')} (client copy) 📨`,
           d.client_id, contact.name, d.client_email,
           clientCopy.subject, clientCopy.body, dealId,
-          null, null, null, attachments
+          null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, clientForTemplate) : null, attachments
         );
         queued += 2;
       } else {
-        const ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+        let ccEmail = (ccClient && d.client_email) ? d.client_email : null;
+        if (ccEmail && typeof CoBuyer !== 'undefined') ccEmail = CoBuyer.cc(ccEmail, clientForTemplate);
         await Notify.queue(
           `Offer accepted → ${role.replace('_',' ')} 📨`,
           d.client_id, contact.name, contact.email,
@@ -5806,7 +5833,9 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       });
       if (data?.ok) clientPortalUrl = data.portal_url;
     }
-    if (d.client_email) {
+    // New builds: the buyers' congratulations (with their selections) already
+    // came from New Builds (selections.js), so no second one from here.
+    if (d.client_email && d.deal_type !== 'new_build') {
       const t = Notify.templates.offer_accepted_client(clientForTemplate, dealForTemplate, agent, clientPortalUrl || '');
       await Notify.queue(
         'Offer accepted → client 🎉',
@@ -6002,10 +6031,12 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       client: {
         full_name: o.client?.full_name || o.clientName || '',
         email:     o.client?.email || o.clientEmail || '',
-        phone:     o.client?.phone || ''
+        phone:     o.client?.phone || '',
+        co_buyer:  o.client?.co_buyer || null   // kept in the hold, so the released email still names both
       },
       deal: o.deal || {}, held_at: new Date().toISOString()
     };
+    const ccList = (o.ccClient && o.clientEmail && typeof CoBuyer !== 'undefined') ? CoBuyer.cc(o.clientEmail, base.client) : o.clientEmail;
     const t = Notify.templates.offer_accepted_lawyer(o.name, base.client, base.deal, currentAgent, '');
     const type = 'Offer accepted → lawyer 📨';
     // The same split the live send uses: when the client is copied AND a portal
@@ -6013,10 +6044,10 @@ REALTOR® · eXp Realty · (709) 325-0545`;
     const split = !!(o.ccClient && o.clientEmail && o.wantPortal);
     let n = 0;
     if (await Notify.queue(type, o.clientId, o.name, o.email, t.subject, t.body, o.dealId,
-        null, null, (!split && o.ccClient && o.clientEmail) ? o.clientEmail : null,
+        null, null, (!split && o.ccClient && o.clientEmail) ? ccList : null,
         o.attachments?.length ? o.attachments : null, null, { held: base })) n++;
     if (split && await Notify.queue(`${type} (client copy)`, o.clientId, o.name, o.clientEmail,
-        t.subject, t.body, o.dealId, null, null, null,
+        t.subject, t.body, o.dealId, null, null, typeof CoBuyer !== 'undefined' ? CoBuyer.cc(null, base.client) : null,
         o.attachments?.length ? o.attachments : null, null, { held: { ...base, is_client_copy: true } })) n++;
     await App.logActivity('LAWYER_HELD', base.client.full_name, base.client.email,
       `Lawyer email to ${o.name} held until financing is approved`, o.clientId || null);

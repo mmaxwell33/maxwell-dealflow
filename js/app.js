@@ -261,6 +261,7 @@ const App = {
       () => App.loadNotifications(),
       () => typeof ProductUpdates !== 'undefined' && ProductUpdates.checkForNew(),
       () => typeof Notify !== 'undefined' && Notify.checkConditionDeadlines(),
+      () => typeof BuildSelections !== 'undefined' && BuildSelections.checkReminders(),
       () => typeof Notify !== 'undefined' && Notify.checkCompletedViewings(),
       () => typeof PendingOffers !== 'undefined' && PendingOffers.load(),
       () => App.initPushQuietly(),

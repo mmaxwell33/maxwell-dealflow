@@ -1309,6 +1309,17 @@ const Clients = {
         <textarea class="form-input" id="ce-notes" rows="3">${c.notes||''}</textarea>
       </div>
 
+      <!-- Partner buying with them (role co_buyer, see cobuyer.js) -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+          💑 Buying With a Partner
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px;font-style:italic;">
+          Leave empty if buying alone. The lawyer email names both of them as joint purchasers and copies both.
+        </div>
+        ${stakeRow('co_buyer', 'Partner / Co-Buyer', '💑')}
+      </div>
+
       <!-- Their Stakeholders — saved once, reused on every deal -->
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
@@ -1467,13 +1478,18 @@ const Clients = {
     if (paErr) console.warn('Pre-approval not saved — run migration 049_client_preapproval.sql:', paErr.message);
 
     // Upsert any stakeholder contacts entered. Skip empty rows.
-    const roles = ['mortgage_broker','lawyer','inspector','builder','assisting_agent'];
+    const roles = ['co_buyer','mortgage_broker','lawyer','inspector','builder','assisting_agent'];
     // An emptied assisting agent is a removal, not a skip: otherwise the old
     // agent would keep being offered copies after Maxwell cleared them.
     const assistEmpty = ['name','email','phone'].every(f => !(document.getElementById(`ce-assisting_agent-${f}`)?.value.trim()));
     if (assistEmpty) {
       const { error: dErr } = await db.from('client_contacts').delete().eq('client_id', id).eq('role', 'assisting_agent');
       if (dErr) console.warn('assisting agent remove:', dErr);
+    }
+    // Same for the partner: emptied means they are no longer buying together
+    if (['name','email','phone'].every(f => !(document.getElementById(`ce-co_buyer-${f}`)?.value.trim()))) {
+      const { error: pErr } = await db.from('client_contacts').delete().eq('client_id', id).eq('role', 'co_buyer');
+      if (pErr) console.warn('co-buyer remove:', pErr);
     }
     const contactRows = roles.map(role => {
       const name  = document.getElementById(`ce-${role}-name`)?.value.trim()  || '';

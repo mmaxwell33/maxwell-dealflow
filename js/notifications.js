@@ -1051,11 +1051,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const first = brokerName?.split(' ')[0] || 'there';
       const clientFirst = client.full_name?.split(' ')[0] || 'the client';
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
       return {
         subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
         body: `Hi ${first},
 
-${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached for your file.
+${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. ${nb ? 'Please find the signed Agreement of Purchase and Sale with the builder attached for your file.' : 'Please find the accepted offer and the MLS listing attached for your file.'}
 
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
@@ -1068,8 +1069,7 @@ BUYER CONTACT
    Phone: ${client.phone || '—'}
 
 Attached:
-• Accepted Offer
-• MLS Listing
+${nb ? '• Signed Agreement of Purchase and Sale' : '• Accepted Offer\n• MLS Listing'}
 
 Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
 
@@ -1119,31 +1119,43 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const first = lawyerName?.split(' ')[0] || 'Counsel';
       const clientFirst = client.full_name?.split(' ')[0] || 'the buyer';
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      // A couple buying together (client_contacts role 'co_buyer', see cobuyer.js)
+      const partner = client.co_buyer?.name ? client.co_buyer : null;
+      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
+      const docs = nb ? 'the signed Agreement of Purchase and Sale with the builder' : 'the accepted offer and the MLS listing';
+      const buyers = partner ? `${client.full_name || 'My buyer'} and ${partner.name}` : (client.full_name || 'My buyer');
+      const buyersOffer = partner ? `${buyers}' offer` : `${buyers}'s offer`;
+      const ccFirsts = partner ? `${clientFirst} and ${partner.name.split(' ')[0]}` : clientFirst;
       return {
-        subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
+        subject: `New file for your client — ${partner ? buyers : (client.full_name || 'Buyer')} · ${deal.property_address}`,
         body: `Hi ${first},
 
 ${deal._released_after_financing
-  ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
+  ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find ${docs} attached.`
   : deal._early_release
-    ? `${client.full_name || 'My buyer'}'s offer on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find the accepted offer and the MLS listing attached so you can open the file.`
-    : `${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
-
+    ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find ${docs} attached so you can open the file.`
+    : `${buyersOffer} was accepted today on ${deal.property_address}. Please find ${docs} attached.`}
+${partner ? `
+Please note this is a joint purchase: ${buyers} are buying together as a couple, and both are named as purchasers on the agreement.
+` : ''}
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
 Closing Date: ${fmtDate(deal.closing_date)}
 ${deal._released_after_financing ? 'Financing: Approved' : 'Financing Deadline: ' + fmtDate(deal.financing_date) + (deal._early_release ? ' (in progress)' : '')}
 
-BUYER CONTACT
+${partner ? 'BUYER CONTACTS (JOINT PURCHASERS)' : 'BUYER CONTACT'}
    Name: ${client.full_name || '—'}
    Email: ${client.email || '—'}
    Phone: ${client.phone || '—'}
-
+${partner ? `
+   Name: ${partner.name}
+   Email: ${partner.email || '—'}
+   Phone: ${partner.phone || '—'}
+` : ''}
 Attached:
-• Accepted Offer
-• MLS Listing
+${nb ? '• Signed Agreement of Purchase and Sale' : '• Accepted Offer\n• MLS Listing'}
 
-I've cc'd ${clientFirst} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
+I've cc'd ${ccFirsts} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
 
 I've also set up a private portal where you can mark title search, funds-in-trust, and ready-to-close as each step completes:
    ${portalUrl}` : ''}
@@ -1152,6 +1164,61 @@ ${EmailFormat.signaturePlain(agent)}
 
 ──────────────────────────────────────────
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+      };
+    },
+
+    // ── NEW BUILD — congratulations + the selections they must make ─────
+    // selections: build_selections rows (js/selections.js), any order.
+    new_build_welcome: (client, build, selections, agent) => {
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '';
+      const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
+      const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
+      const todo = (selections || []).filter(s => s.status !== 'done')
+        .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+      const list = todo.map((s, i) => `${i + 1}. ${s.item}${s.vendor_name ? ' with ' + s.vendor_name : ''}${s.due_date ? ', by ' + fmtDate(s.due_date) : ''}
+${s.details ? '   What to choose: ' + s.details + '\n' : ''}${s.vendor_contact ? '   Contact: ' + s.vendor_contact + '\n' : ''}`).join('\n');
+      return {
+        subject: `Congratulations on your new home${build.lot_address ? ' at ' + build.lot_address : ''}!`,
+        body: `Hi ${hi},
+
+Congratulations! Your agreement with ${build.builder_name || 'the builder'} is signed, and your new home is officially under way. This is a big milestone, and I am delighted for you.
+
+Property: ${build.lot_address || ''}
+Builder: ${build.builder_name || ''}${build.purchase_price ? '\nPurchase Price: $' + Number(build.purchase_price).toLocaleString() : ''}${build.est_completion_date ? '\nEstimated Completion: ' + fmtDate(build.est_completion_date) : ''}
+${todo.length ? `
+WHAT YOU NEED TO DO
+The builder's appendix asks you to make the following selections yourselves. Please book each appointment with the vendor directly and have it done by the date shown, so construction stays on schedule:
+
+${list}
+I will send you a reminder as each date gets close. Once you have finished an appointment, just reply and let me know, and I will mark it complete on your file.
+` : ''}
+I will keep you updated as each stage of construction is completed. If you have any questions along the way, I am always a call or an email away.
+
+${EmailFormat.signaturePlain(agent)}`
+      };
+    },
+
+    // when: '7d' | '2d' | 'appt' | 'overdue'
+    selection_reminder: (client, build, s, when, agent) => {
+      const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '';
+      const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
+      const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
+      const withV = s.vendor_name ? ` with ${s.vendor_name}` : '';
+      const line = when === 'appt'
+        ? `A quick reminder that your ${s.item} appointment${withV} is tomorrow, ${fmtDate(s.appointment_date)}.`
+        : when === 'overdue'
+          ? `Your ${s.item} selection${withV} was due on ${fmtDate(s.due_date)}. Have you been able to complete it? If you have, just reply and let me know and I will update your file. If not, please book it as soon as you can so the builder can keep construction on schedule.`
+          : `A friendly reminder that your ${s.item} selection${withV} needs to be done by ${fmtDate(s.due_date)}, ${when === '7d' ? 'one week from today' : 'in two days'}. Have you booked your appointment yet?`;
+      return {
+        subject: `Reminder: ${s.item} selection${s.due_date && when !== 'appt' ? ' due ' + fmtDate(s.due_date) : ''}`,
+        body: `Hi ${hi},
+
+${line}
+${s.details ? `\nWhat to choose: ${s.details}` : ''}${s.vendor_contact ? `\nVendor contact: ${s.vendor_contact}` : ''}${build.lot_address ? `\nYour home: ${build.lot_address}` : ''}
+
+Once it is done, reply to this email and I will mark it complete.
+
+${EmailFormat.signaturePlain(agent)}`
       };
     },
 

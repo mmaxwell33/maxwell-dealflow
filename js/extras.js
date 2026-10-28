@@ -1234,6 +1234,7 @@ const FormResponses = {
             ${r.budget_max     ? `<div>💰 Max Budget: <strong style="color:var(--green);">$${Number(r.budget_max).toLocaleString()}</strong></div>` : ''}
             ${r.timeline       ? `<div>⏱ Timeline: ${r.timeline}</div>` : ''}
             ${r.preapproval    ? `<div>🏦 Pre-Approved: ${r.preapproval}</div>` : ''}
+            ${(r.partner_name || r.partner_email) ? `<div>💑 Buying with: <strong>${App.esc(r.partner_name || '')}</strong>${r.partner_email ? ' · ' + App.esc(r.partner_email) : ''}</div>` : ''}
             ${r.bedrooms       ? `<div>🛏 Bedrooms: ${r.bedrooms}+</div>` : ''}
             ${r.preferred_areas? `<div>📍 Areas: ${r.preferred_areas}</div>` : ''}
             ${r.property_types ? `<div>🏠 Type: ${r.property_types}</div>` : ''}
@@ -1534,6 +1535,8 @@ const FormResponses = {
 
     // The seller setup the new-client path has always done. Non-fatal.
     const listed = await FormResponses._ensureSellerListing(r, clientId);
+    // Partner from "buying with a partner?" (migration 115). Non-fatal.
+    if (typeof CoBuyer !== 'undefined') await CoBuyer.save(clientId, { name: r?.partner_name, email: r?.partner_email, phone: r?.partner_phone });
 
     await App.logActivity('INTAKE_ATTACHED', c?.full_name, c?.email,
       `Returning client enquiry attached (${wants})` + (listed === 'created' ? ', listing record created' : ''),
@@ -1643,6 +1646,10 @@ const FormResponses = {
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
+
+    // Partner from "buying with a partner?" (migration 115). Non-fatal.
+    if (newClient?.id && typeof CoBuyer !== 'undefined')
+      await CoBuyer.save(newClient.id, { name: r.partner_name, email: r.partner_email, phone: r.partner_phone });
 
     // Mark intake as processed
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
@@ -4001,6 +4008,7 @@ const NewBuilds = {
     wrap.style.display = showing ? 'none' : 'block';
     if (!showing) {
       NewBuilds.populateClients();
+      if (typeof ApsDrop !== 'undefined') ApsDrop.mount(); // signed APS upload → prefill
       // Restore any previously typed (but unsaved) draft
       setTimeout(() => NewBuilds.restoreDraft(), 100);
       wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4143,6 +4151,8 @@ const NewBuilds = {
         </div>
         <!-- Builder visit-request banner (if pending) -->
         <div id="nb-visit-banner-${b.id}"></div>
+        <!-- Buyer selections from the builder's appendix (js/selections.js) -->
+        <div id="nb-sel-${b.id}"></div>
         <!-- Grouped Stage Sections -->
         <div style="margin-bottom:10px;">${stageSections}</div>
         <div id="nb-card-msg-${b.id}" style="margin-top:4px;font-size:12px;"></div>
@@ -4161,6 +4171,7 @@ const NewBuilds = {
     }).join('');
     // After render: fetch pending visit requests and paint banners
     NewBuilds._renderVisitBanners(list);
+    if (typeof BuildSelections !== 'undefined') BuildSelections.paint(list);
   },
 
   // ── EDIT EXISTING NEW BUILD: pre-fill form with row values ─────────────
@@ -4570,6 +4581,8 @@ const NewBuilds = {
     // Update local cache + re-render immediately
     b.pipeline_milestones = pm;
     NewBuilds.render(NewBuilds.all);
+    // "Flooring picked up" ticked by hand closes the flooring selection too
+    if (typeof BuildSelections !== 'undefined') await BuildSelections.onStepChecked(buildId, stepKey, checked);
 
     // Ticking a step NEVER emails the client automatically. It only saves
     // progress and keeps the internal deal pipeline in sync. The agent decides
@@ -5175,10 +5188,19 @@ const NewBuilds = {
     const st = document.getElementById('nb-status');
     if (!st) return;
     const clientSel = document.getElementById('nb-client-sel');
-    const clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || '';
-    const clientId = clientSel.value;
+    let clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || '';
+    let clientId = clientSel.value;
     if (!clientName) { st.style.color='var(--red)'; st.textContent='⚠️ Please select a client'; return; }
     st.textContent = 'Saving...'; st.style.color = 'var(--text2)';
+    // Buyer read off a signed APS who is not a client yet: add them first
+    if (clientId === '__new__' && typeof ApsDrop !== 'undefined') {
+      try {
+        const c = await ApsDrop.createClient();
+        clientId = c.id; clientName = c.full_name;
+        const opt = clientSel.querySelector('option[value="__new__"]');
+        if (opt) { opt.value = c.id; opt.textContent = c.full_name; } // a retry won't add them twice
+      } catch (e) { st.style.color='var(--red)'; st.textContent='⚠️ Could not add the client: ' + (e.message || e); return; }
+    }
     NewBuilds.saveDraft(); // save to localStorage before attempting DB write
     // Initialize empty 4-stage milestone structure
     const milestones = {};
@@ -5214,6 +5236,9 @@ const NewBuilds = {
       pa_accepted_date: document.getElementById('nb-pa-accepted')?.value || null,
       status: 'Active'
     };
+    // Was the vendor acceptance already on file? (edit only; drives the handoff below)
+    const prevAccepted = NewBuilds._editingId
+      ? ((NewBuilds.all || []).find(x => x.id === NewBuilds._editingId)?.pa_accepted_date || null) : null;
     // EDIT MODE: update existing row, preserve pipeline_milestones
     let saved, error;
     if (NewBuilds._editingId) {
@@ -5241,6 +5266,15 @@ const NewBuilds = {
     // Auto-create / update pipeline entry
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
+    const apsFile = typeof ApsDrop !== 'undefined' ? ApsDrop._file : null;          // afterSave clears it
+    const apsConditions = typeof ApsDrop !== 'undefined' ? ApsDrop._conditions : null;
+    if (typeof ApsDrop !== 'undefined') { await ApsDrop.afterSave(clientId, lotAddress, saved?.id); ApsDrop._conditions = null; } // file the signed APS + its selections
+    // New build only: congratulations email with the buyer's selections, into Approvals
+    if (!NewBuilds._editingId && saved?.id && typeof BuildSelections !== 'undefined') await BuildSelections.queueWelcome(saved.id);
+    // Link the Pipeline deal (client, dates, signed APS); once the vendor has accepted,
+    // open Mark Offer Accepted. On an edit, only when the acceptance date is new.
+    if (saved && typeof BuildHandoff !== 'undefined' && (!NewBuilds._editingId || (saved.pa_accepted_date && !prevAccepted)))
+      await BuildHandoff.run(saved, { file: apsFile, conditions: apsConditions });
 
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
