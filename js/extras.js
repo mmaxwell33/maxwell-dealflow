@@ -5269,8 +5269,13 @@ const NewBuilds = {
     const apsFile = typeof ApsDrop !== 'undefined' ? ApsDrop._file : null;          // afterSave clears it
     const apsConditions = typeof ApsDrop !== 'undefined' ? ApsDrop._conditions : null;
     if (typeof ApsDrop !== 'undefined') { await ApsDrop.afterSave(clientId, lotAddress, saved?.id); ApsDrop._conditions = null; } // file the signed APS + its selections
-    // New build only: congratulations email with the buyer's selections, into Approvals
-    if (!NewBuilds._editingId && saved?.id && typeof BuildSelections !== 'undefined') await BuildSelections.queueWelcome(saved.id);
+    // Same order as Submit Offer: "Offer Submitted" while the builder has not
+    // accepted; the congratulations (with the buyer's selections) once they have,
+    // either at creation or when the acceptance date is added later.
+    if (saved?.id && typeof BuildSelections !== 'undefined') {
+      if (!NewBuilds._editingId && !saved.pa_accepted_date) await BuildSelections.queueSubmitted(saved.id);
+      else if (saved.pa_accepted_date && (!NewBuilds._editingId || !prevAccepted)) await BuildSelections.queueWelcome(saved.id);
+    }
     // Link the Pipeline deal (client, dates, signed APS); once the vendor has accepted,
     // open Mark Offer Accepted. On an edit, only when the acceptance date is new.
     if (saved && typeof BuildHandoff !== 'undefined' && (!NewBuilds._editingId || (saved.pa_accepted_date && !prevAccepted)))

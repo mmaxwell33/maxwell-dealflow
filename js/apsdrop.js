@@ -243,7 +243,7 @@ const ApsDrop = {
     const condHtml = `<div style="margin-top:10px;">📅 ${c.financing || c.inspection
       ? `Conditions: ${[c.financing ? 'financing by ' + fmt(c.financing) : '', c.inspection ? 'inspection by ' + fmt(c.inspection) : ''].filter(Boolean).join(', ')}. These go on the Pipeline deal so the condition reminders run.`
       : 'No financing or inspection deadline found.'}
-      ${x.accepted_date ? ` <strong>Accepted by the vendor on ${fmt(date(x.accepted_date))}</strong>, so the Mark Offer Accepted window (lender, lawyer, inspector) opens after you create the build.` : ' <span style="color:var(--text2);">No vendor acceptance date yet. When you add it in Edit Details, the Mark Offer Accepted window opens.</span>'}</div>`;
+      ${x.accepted_date ? ` <strong>Accepted by the vendor on ${fmt(date(x.accepted_date))}</strong>, so the Mark Offer Accepted window (lender, lawyer, inspector) opens after you create the build.` : ' <span style="color:var(--text2);">Not accepted by the builder yet, so the buyers get the Offer Submitted email now. When you add the acceptance date in Edit Details, they get the congratulations with their selections and the Mark Offer Accepted window opens.</span>'}</div>`;
 
     // Selections from the builder's appendix: checked here, saved with the build
     ApsDrop._selCount = (x.selections || []).length;

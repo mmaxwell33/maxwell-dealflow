@@ -241,6 +241,27 @@ const BuildSelections = {
     return true;
   },
 
+  // APS signed by the buyers but not yet accepted by the builder: the same
+  // "Offer Submitted" email as the Submit Offer flow. The congratulations
+  // (queueWelcome) waits until the builder accepts.
+  async queueSubmitted(buildId) {
+    const { data: b } = await db.from('new_builds').select('*').eq('id', buildId).maybeSingle();
+    if (!b) return false;
+    const { client, cc } = await BuildSelections._recipient(b);
+    if (!client.email) return false;
+    const offer = {
+      property_address: b.lot_address || 'your new build', offer_amount: b.purchase_price,
+      offer_date: b.pa_submitted_date || new Date().toISOString().slice(0, 10),
+      property_type: 'new_build', builder_name: b.builder_name,
+    };
+    const t = Notify.templates.offer_submitted(client, offer, currentAgent);
+    await Notify.queue('Offer Submitted', client.id || null, client.full_name, client.email,
+      t.subject, t.body, buildId, null, null, cc);
+    App.toast('📬 Offer Submitted email is in Approvals. The congratulations waits for the builder to accept.', 'var(--green)');
+    Notify.updateBadge?.();
+    return true;
+  },
+
   // Daily check (app startup). One reminder per selection per milestone:
   // 7 days before, 2 days before, the day before a booked appointment, and
   // once a week while overdue. Stops the moment the selection is done.
@@ -264,6 +285,13 @@ const BuildSelections = {
                  || !s.last_reminded_at || (Date.now() - new Date(s.last_reminded_at)) >= 7 * 86400000)) when = 'overdue';
       }
       if (!when) continue;
+      if (!(s.build_id in builds)) {
+        const { data: b } = await db.from('new_builds').select('*').eq('id', s.build_id).maybeSingle();
+        builds[s.build_id] = b || null;
+      }
+      const b = builds[s.build_id];
+      // No reminders until the builder has accepted (offer only submitted), or once the build is done
+      if (!b || b.status === 'Complete' || !b.pa_accepted_date) continue;
       // Claim it first, so a second device opening the app today does not queue it again
       const { data: claimed } = await db.from('build_selections')
         .update({ last_reminder: when, last_reminded_at: new Date().toISOString() })
@@ -271,12 +299,6 @@ const BuildSelections = {
         .or(`last_reminder.is.null,last_reminder.neq.${when}${when === 'overdue' ? `,last_reminded_at.lt."${new Date(Date.now() - 7 * 86400000).toISOString()}"` : ''}`)
         .select('id');
       if (!claimed?.length) continue;
-      if (!(s.build_id in builds)) {
-        const { data: b } = await db.from('new_builds').select('*').eq('id', s.build_id).maybeSingle();
-        builds[s.build_id] = b || null;
-      }
-      const b = builds[s.build_id];
-      if (!b || b.status === 'Complete') continue;
       const { client, cc } = await BuildSelections._recipient(b);
       if (!client.email) continue;
       const t = Notify.templates.selection_reminder(client, b, s, when, currentAgent);

@@ -646,7 +646,7 @@ Great news! Your offer has been officially submitted. Here's a summary:
 💰 Offer Amount: ${App.fmtMoney(offer.offer_amount)}${offer.list_price ? `\n🏷️ List Price: ${App.fmtMoney(offer.list_price)}` : ''}
 📅 Offer Date: ${App.fmtDate(offer.offer_date)}${offer.conditions ? `\nConditions: ${offer.conditions}` : ''}
 
-I will be in touch with you the moment I receive a response from the seller's agent.
+I will be in touch with you the moment I receive a response from ${offer.property_type === 'new_build' ? (offer.builder_name || 'the builder') : "the seller's agent"}.
 
 Stay tuned — I'll be in touch!
 
