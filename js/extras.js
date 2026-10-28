@@ -4001,6 +4001,7 @@ const NewBuilds = {
     wrap.style.display = showing ? 'none' : 'block';
     if (!showing) {
       NewBuilds.populateClients();
+      if (typeof ApsDrop !== 'undefined') ApsDrop.mount(); // signed APS upload → prefill
       // Restore any previously typed (but unsaved) draft
       setTimeout(() => NewBuilds.restoreDraft(), 100);
       wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5169,10 +5170,19 @@ const NewBuilds = {
     const st = document.getElementById('nb-status');
     if (!st) return;
     const clientSel = document.getElementById('nb-client-sel');
-    const clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || '';
-    const clientId = clientSel.value;
+    let clientName = clientSel.options[clientSel.selectedIndex]?.dataset?.name || '';
+    let clientId = clientSel.value;
     if (!clientName) { st.style.color='var(--red)'; st.textContent='⚠️ Please select a client'; return; }
     st.textContent = 'Saving...'; st.style.color = 'var(--text2)';
+    // Buyer read off a signed APS who is not a client yet: add them first
+    if (clientId === '__new__' && typeof ApsDrop !== 'undefined') {
+      try {
+        const c = await ApsDrop.createClient();
+        clientId = c.id; clientName = c.full_name;
+        const opt = clientSel.querySelector('option[value="__new__"]');
+        if (opt) { opt.value = c.id; opt.textContent = c.full_name; } // a retry won't add them twice
+      } catch (e) { st.style.color='var(--red)'; st.textContent='⚠️ Could not add the client: ' + (e.message || e); return; }
+    }
     NewBuilds.saveDraft(); // save to localStorage before attempting DB write
     // Initialize empty 4-stage milestone structure
     const milestones = {};
@@ -5235,6 +5245,7 @@ const NewBuilds = {
     // Auto-create / update pipeline entry
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
+    if (typeof ApsDrop !== 'undefined') await ApsDrop.afterSave(clientId, lotAddress); // file the signed APS
 
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
