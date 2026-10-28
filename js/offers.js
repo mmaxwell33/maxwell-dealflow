@@ -5505,22 +5505,29 @@ REALTOR® · eXp Realty · (709) 325-0545`;
 
     const stakeRow = (role, label, icon, hint) => {
       const c = contacts[role];
-      if (!c) return `
-        <div style="padding:10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:8px;opacity:.55;">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);">${icon} ${label.toUpperCase()}</div>
-          <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px;">No ${label.toLowerCase()} on file — skip · save in Edit Client to auto-include next deal</div>
-        </div>`;
+      // Nothing on file (a brand-new client, e.g. from a signed APS): type them
+      // in here. Used for this deal and saved on the client for the next one.
+      // Left empty, the role is skipped as before.
+      const who = c
+        ? `<div style="font-size:12px;color:var(--text);font-weight:600;">${App.esc(c.name||'')} · ${App.esc(c.email||'')}</div>`
+        : `<div style="font-size:10.5px;color:var(--text3);font-style:italic;">None on file. Type them in, or leave empty to skip.</div>`;
       return `
-        <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
+        <div style="padding:10px;border:1px ${c ? 'solid' : 'dashed'} var(--border);border-radius:8px;margin-bottom:8px;background:rgba(15,23,42,0.04);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div>
               <div style="font-size:11px;font-weight:700;color:var(--accent);">${icon} ${label.toUpperCase()}</div>
-              <div style="font-size:12px;color:var(--text);font-weight:600;">${App.esc(c.name||'')} · ${App.esc(c.email||'')}</div>
+              ${who}
             </div>
             <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);">
               <input type="checkbox" id="oa-${role}-on" checked> Send
             </label>
           </div>
+          ${c ? '' : `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <input class="form-input" id="oa-${role}-new-name"  placeholder="Name"  style="font-size:12px;padding:7px;">
+            <input class="form-input" id="oa-${role}-new-email" placeholder="Email" type="email" style="font-size:12px;padding:7px;">
+          </div>
+          <input class="form-input" id="oa-${role}-new-phone" placeholder="Phone (optional)" style="font-size:12px;padding:7px;margin-bottom:6px;width:100%;">`}
           <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">
             <label style="display:flex;align-items:center;gap:4px;">
               <input type="radio" name="oa-${role}-mode" value="email"  checked> 📧 Email only
@@ -5715,8 +5722,21 @@ REALTOR® · eXp Realty · (709) 325-0545`;
 
     // 8. Per-stakeholder dispatch
     for (const role of ['mortgage_broker','inspector','lawyer']) {
-      const contact = byRole[role];
-      if (!contact) continue;
+      let contact = byRole[role];
+      if (!contact) {
+        // Typed into the window because none was on file: use it, and save it on the client
+        const nv = k => document.getElementById(`oa-${role}-new-${k}`)?.value.trim() || '';
+        if (!nv('name') || !nv('email')) continue;
+        contact = { role, name: nv('name'), email: nv('email'), phone: nv('phone') || null };
+        if (d.client_id) {
+          const { error: cErr } = await db.from('client_contacts').upsert({
+            client_id: d.client_id, agent_id: currentAgent.id, role,
+            name: contact.name, email: contact.email, phone: contact.phone,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'client_id,role' });
+          if (cErr) console.warn('[submitAcceptedFlow] contact not saved:', cErr.message);
+        }
+      }
       const enabledEl = document.getElementById(`oa-${role}-on`);
       if (enabledEl && !enabledEl.checked) continue;
       if (role === 'lawyer' && document.getElementById('oa-lawyer-hold')?.checked) {
