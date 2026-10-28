@@ -1051,11 +1051,12 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const first = brokerName?.split(' ')[0] || 'there';
       const clientFirst = client.full_name?.split(' ')[0] || 'the client';
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
+      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
       return {
         subject: `New file for your client — ${client.full_name || 'Buyer'} · ${deal.property_address}`,
         body: `Hi ${first},
 
-${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached for your file.
+${client.full_name || 'My buyer'}'s offer was accepted today on ${deal.property_address}. ${nb ? 'Please find the signed Agreement of Purchase and Sale with the builder attached for your file.' : 'Please find the accepted offer and the MLS listing attached for your file.'}
 
 Property: ${deal.property_address}
 ${deal.list_price ? 'List Price: $' + Number(deal.list_price).toLocaleString() + '\n' : ''}Purchase Price: ${deal.offer_amount ? '$' + Number(deal.offer_amount).toLocaleString() : '—'}
@@ -1068,8 +1069,7 @@ BUYER CONTACT
    Phone: ${client.phone || '—'}
 
 Attached:
-• Accepted Offer
-• MLS Listing
+${nb ? '• Signed Agreement of Purchase and Sale' : '• Accepted Offer\n• MLS Listing'}
 
 Please let me know once financing is locked in or if you need anything further from my end.${portalUrl ? `
 
@@ -1121,6 +1121,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '—';
       // A couple buying together (client_contacts role 'co_buyer', see cobuyer.js)
       const partner = client.co_buyer?.name ? client.co_buyer : null;
+      const nb = deal.deal_type === 'new_build';   // new build: signed APS, no MLS listing
+      const docs = nb ? 'the signed Agreement of Purchase and Sale with the builder' : 'the accepted offer and the MLS listing';
       const buyers = partner ? `${client.full_name || 'My buyer'} and ${partner.name}` : (client.full_name || 'My buyer');
       const buyersOffer = partner ? `${buyers}' offer` : `${buyers}'s offer`;
       const ccFirsts = partner ? `${clientFirst} and ${partner.name.split(' ')[0]}` : clientFirst;
@@ -1129,10 +1131,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         body: `Hi ${first},
 
 ${deal._released_after_financing
-  ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find the accepted offer and the MLS listing attached.`
+  ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}, and the financing condition has now been satisfied, so the file is ready for you. Please find ${docs} attached.`
   : deal._early_release
-    ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find the accepted offer and the MLS listing attached so you can open the file.`
-    : `${buyersOffer} was accepted today on ${deal.property_address}. Please find the accepted offer and the MLS listing attached.`}
+    ? `${buyersOffer} on ${deal.property_address} was accepted on ${fmtDate(deal.acceptance_date)}. Financing is still in progress, and I will let you know as soon as it is approved. In the meantime, please find ${docs} attached so you can open the file.`
+    : `${buyersOffer} was accepted today on ${deal.property_address}. Please find ${docs} attached.`}
 ${partner ? `
 Please note this is a joint purchase: ${buyers} are buying together as a couple, and both are named as purchasers on the agreement.
 ` : ''}
@@ -1151,8 +1153,7 @@ ${partner ? `
    Phone: ${partner.phone || '—'}
 ` : ''}
 Attached:
-• Accepted Offer
-• MLS Listing
+${nb ? '• Signed Agreement of Purchase and Sale' : '• Accepted Offer\n• MLS Listing'}
 
 I've cc'd ${ccFirsts} on this email so you have an open line of communication for any documentation requests on your end. Please let me know if you need anything additional from me to move forward.${portalUrl ? `
 

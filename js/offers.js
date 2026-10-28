@@ -5796,7 +5796,9 @@ REALTOR® · eXp Realty · (709) 325-0545`;
       });
       if (data?.ok) clientPortalUrl = data.portal_url;
     }
-    if (d.client_email) {
+    // New builds: the buyers' congratulations (with their selections) already
+    // came from New Builds (selections.js), so no second one from here.
+    if (d.client_email && d.deal_type !== 'new_build') {
       const t = Notify.templates.offer_accepted_client(clientForTemplate, dealForTemplate, agent, clientPortalUrl || '');
       await Notify.queue(
         'Offer accepted → client 🎉',

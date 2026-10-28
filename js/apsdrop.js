@@ -47,7 +47,9 @@ const ApsDrop = {
       offer_date:       { type: 'string', description: 'Date the buyer signed / made the offer, YYYY-MM-DD. Empty if not stated.' },
       accepted_date:    { type: 'string', description: 'Date the vendor accepted / the agreement was fully signed, YYYY-MM-DD. Empty if not stated.' },
       completion_date:  { type: 'string', description: 'Completion / closing / possession date, YYYY-MM-DD. Empty if not stated.' },
-      flooring:         { type: 'string', description: 'Flooring selection if stated, e.g. "Hardwood / Tile". Empty otherwise.' },
+      financing_deadline:  { type: 'string', description: 'Financing condition deadline, YYYY-MM-DD. If given as days after acceptance, work it out from the acceptance date. Empty if no financing condition.' },
+      inspection_deadline: { type: 'string', description: 'Inspection condition deadline, YYYY-MM-DD. Empty if no inspection condition.' },
+      flooring:        { type: 'string', description: 'Flooring selection if stated, e.g. "Hardwood / Tile". Empty otherwise.' },
       notes:            { type: 'string', description: 'Short summary of upgrades, inclusions, and conditions with their deadlines (e.g. "Financing by 2026-11-15"). One or two lines. Empty if none.' },
       selections: {
         type: 'array',
@@ -68,7 +70,7 @@ const ApsDrop = {
     },
     required: ['buyer_name','buyer_email','buyer_phone','co_buyer_name','co_buyer_email','co_buyer_phone','builder_name','builder_contact',
                'builder_email','lot_address','mls_number','purchase_price','deposit_amount','deposit_date',
-               'offer_date','accepted_date','completion_date','flooring','notes','selections'],
+               'offer_date','accepted_date','completion_date','financing_deadline','inspection_deadline','flooring','notes','selections'],
     additionalProperties: false,
   },
 
@@ -194,6 +196,8 @@ const ApsDrop = {
     set('nb-deposit-date',    date(x.deposit_date));
     set('nb-pa-submitted',    date(x.offer_date));
     set('nb-pa-accepted',     date(x.accepted_date));
+    // Condition deadlines have no field on this form: they go on the Pipeline deal (buildhandoff.js)
+    ApsDrop._conditions = { financing: date(x.financing_deadline), inspection: date(x.inspection_deadline) };
 
     // Either purchaser may already be the client; the other one is the partner
     let primary = { name: x.buyer_name || '', email: x.buyer_email || '', phone: x.buyer_phone || '' };
@@ -234,6 +238,13 @@ const ApsDrop = {
         </div>
       </div>` : '';
 
+    const fmt = d => (d && App.fmtDate) ? App.fmtDate(d) : d;
+    const c = ApsDrop._conditions;
+    const condHtml = `<div style="margin-top:10px;">📅 ${c.financing || c.inspection
+      ? `Conditions: ${[c.financing ? 'financing by ' + fmt(c.financing) : '', c.inspection ? 'inspection by ' + fmt(c.inspection) : ''].filter(Boolean).join(', ')}. These go on the Pipeline deal so the condition reminders run.`
+      : 'No financing or inspection deadline found.'}
+      ${x.accepted_date ? ` <strong>Accepted by the vendor on ${fmt(date(x.accepted_date))}</strong>, so the Mark Offer Accepted window (lender, lawyer, inspector) opens after you create the build.` : ' <span style="color:var(--text2);">No vendor acceptance date yet. When you add it in Edit Details, the Mark Offer Accepted window opens.</span>'}</div>`;
+
     // Selections from the builder's appendix: checked here, saved with the build
     ApsDrop._selCount = (x.selections || []).length;
     const selHtml = ApsDrop._selCount ? `
@@ -253,7 +264,7 @@ const ApsDrop = {
     if (box) box.innerHTML = ApsDrop.banner('green',
       `✅ Read from <strong>${ApsDrop.esc(ApsDrop._file?.name || 'the agreement')}</strong>. ` +
       `<span style="color:var(--text2);">Check every figure against the document before you create the build. Nothing is saved until you do.</span>` +
-      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}${selHtml}`);
+      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}${condHtml}${selHtml}`);
   },
 
   // Loose name match: "John Smith and Jane Smith" finds the client "John Smith"

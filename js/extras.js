@@ -5230,6 +5230,9 @@ const NewBuilds = {
       pa_accepted_date: document.getElementById('nb-pa-accepted')?.value || null,
       status: 'Active'
     };
+    // Was the vendor acceptance already on file? (edit only; drives the handoff below)
+    const prevAccepted = NewBuilds._editingId
+      ? ((NewBuilds.all || []).find(x => x.id === NewBuilds._editingId)?.pa_accepted_date || null) : null;
     // EDIT MODE: update existing row, preserve pipeline_milestones
     let saved, error;
     if (NewBuilds._editingId) {
@@ -5257,9 +5260,15 @@ const NewBuilds = {
     // Auto-create / update pipeline entry
     const buildObj = saved || { client_name: clientName, lot_address: lotAddress, purchase_price: price, est_completion_date: completion };
     await NewBuilds.syncPipeline(buildObj, pipelineStage);
-    if (typeof ApsDrop !== 'undefined') await ApsDrop.afterSave(clientId, lotAddress, saved?.id); // file the signed APS + its selections
+    const apsFile = typeof ApsDrop !== 'undefined' ? ApsDrop._file : null;          // afterSave clears it
+    const apsConditions = typeof ApsDrop !== 'undefined' ? ApsDrop._conditions : null;
+    if (typeof ApsDrop !== 'undefined') { await ApsDrop.afterSave(clientId, lotAddress, saved?.id); ApsDrop._conditions = null; } // file the signed APS + its selections
     // New build only: congratulations email with the buyer's selections, into Approvals
     if (!NewBuilds._editingId && saved?.id && typeof BuildSelections !== 'undefined') await BuildSelections.queueWelcome(saved.id);
+    // Link the Pipeline deal (client, dates, signed APS); once the vendor has accepted,
+    // open Mark Offer Accepted. On an edit, only when the acceptance date is new.
+    if (saved && typeof BuildHandoff !== 'undefined' && (!NewBuilds._editingId || (saved.pa_accepted_date && !prevAccepted)))
+      await BuildHandoff.run(saved, { file: apsFile, conditions: apsConditions });
 
     NewBuilds.clearDraft(); // clear saved draft on success
     const wasEdit = !!NewBuilds._editingId;
