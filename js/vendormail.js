@@ -447,7 +447,45 @@ const VendorMail = {
     return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} took longer than ${secs} seconds. Try again in a minute.`)), secs * 1000))]);
   },
 
-  async rereadAps(buildId) {
+  // Choose which document to read: any PDF in the client folder or on the
+  // deal (the APS and the builder's appendix are often separate files), or
+  // upload one now.
+  async pickAps(buildId) {
+    const b = (NewBuilds.all || []).find(x => x.id === buildId);
+    if (!b) return;
+    if (!b.client_id && b.client_name) {
+      const { data: cs } = await db.from('clients').select('id').eq('agent_id', currentAgent.id).ilike('full_name', b.client_name.trim());
+      if (cs?.length === 1) {
+        await db.from('new_builds').update({ client_id: cs[0].id, updated_at: new Date().toISOString() }).eq('id', buildId);
+        b.client_id = cs[0].id;
+      }
+    }
+    const docs = [];
+    if (b.client_id) {
+      const { data } = await db.from('client_documents').select('file_path, file_name, category, created_at')
+        .eq('client_id', b.client_id).order('created_at', { ascending: false }).limit(25);
+      (data || []).filter(d => /\.pdf$/i.test(d.file_name || d.file_path || '')).forEach(d => docs.push({ bucket: 'client-docs', ...d }));
+      const deal = await VendorMail.dealFor(b);
+      if (deal) {
+        const { data: dd } = await db.from('deal_documents').select('file_path, file_name, doc_type, created_at')
+          .eq('pipeline_id', deal.id).order('created_at', { ascending: false }).limit(25);
+        (dd || []).filter(d => /\.pdf$/i.test(d.file_name || d.file_path || '') && !docs.some(x => x.file_name === d.file_name))
+          .forEach(d => docs.push({ bucket: 'deal-docs', category: d.doc_type, ...d }));
+      }
+    }
+    VendorMail._pickDocs = docs;
+    App.openModal(`
+      <div class="modal-title">📄 Read the builder's appendix</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5;">Pick the document that lists the buyers' selections (flooring, cabinets...). It is often a separate PDF from the agreement.</div>
+      ${docs.length ? docs.map((d, i) => `<button class="btn btn-outline btn-block" style="text-align:left;margin-bottom:6px;font-size:12.5px;" onclick="App.closeModal();VendorMail.rereadAps('${buildId}',VendorMail._pickDocs[${i}])">
+          📄 ${VendorMail.esc(d.file_name || 'Document')} <span style="color:var(--text2);font-size:11px;">· ${App.fmtDate(String(d.created_at).slice(0, 10))}</span></button>`).join('')
+        : `<div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;">No PDFs on file for this client yet.</div>`}
+      <div style="margin-top:12px;font-size:12.5px;font-weight:700;">Or upload it now</div>
+      <input type="file" accept="application/pdf" style="margin-top:6px;font-size:12px;" onchange="App.closeModal();VendorMail.rereadAps('${buildId}',{ file: this.files[0] })">
+    `);
+  },
+
+  async rereadAps(buildId, pick = null) {
     if (VendorMail._rereading) { App.toast('📄 Still reading the APS, one moment…', 'var(--accent2)'); return; }
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
     if (!b) { App.toast('⚠️ Build not found. Reload the page and try again.', 'var(--yellow)'); return; }
@@ -466,11 +504,24 @@ const VendorMail = {
         }
       }
       if (!b.client_id) return VendorMail._note(buildId, false, `No client named ${b.client_name || 'on this build'} found. Pick the client in Edit Details, then tap Re-read again.`);
-      // The APS in the client folder, else the accepted offer on the Pipeline deal
-      let bucket = 'client-docs';
-      let { data: doc } = await db.from('client_documents').select('file_path, file_name')
-        .eq('client_id', b.client_id).eq('category', 'aps').order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (!doc?.file_path) {
+      // A picked or uploaded document; otherwise the APS in the client folder,
+      // else the accepted offer on the Pipeline deal
+      let file = null, doc = null, bucket = 'client-docs';
+      if (pick?.file) {
+        file = pick.file;
+        doc = { file_name: file.name };
+        // Keep the uploaded appendix on the client's record
+        const user = await App.getAuthUser();
+        const uid = user?.id || currentAgent.id;
+        const path = `${uid}/${b.client_id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const { error: upErr } = await db.storage.from('client-docs').upload(path, file, { contentType: 'application/pdf' });
+        if (!upErr) await db.from('client_documents').insert({ agent_id: uid, client_id: b.client_id, category: 'appendix', source: 'new_build',
+          property_address: b.lot_address || null, file_path: path, file_name: file.name, file_size_bytes: file.size });
+      } else if (pick?.file_path) {
+        doc = pick; bucket = pick.bucket || 'client-docs';
+      } else ({ data: doc } = await db.from('client_documents').select('file_path, file_name')
+        .eq('client_id', b.client_id).eq('category', 'aps').order('created_at', { ascending: false }).limit(1).maybeSingle());
+      if (!file && !doc?.file_path) {
         const deal = await VendorMail.dealFor(b);
         if (deal) {
           ({ data: doc } = await db.from('deal_documents').select('file_path, file_name')
@@ -478,12 +529,14 @@ const VendorMail = {
           bucket = 'deal-docs';
         }
       }
-      if (!doc?.file_path) return VendorMail._note(buildId, false, 'No signed APS on file for this client. Add the selections with "+ Add selection", or upload the APS to the client folder.');
+      if (!file && !doc?.file_path) return VendorMail._note(buildId, false, 'No signed APS on file for this client. Tap "Re-read the APS" and upload the appendix, or add the selections with "+ Add selection".');
       VendorMail._lastRead[buildId] = { ok: true, text: `Reading ${doc.file_name || 'the APS'}… this takes about 20 seconds.` };
       BuildSelections.paintOne(buildId);
-      const { data: blob, error: dlErr } = await VendorMail._timeout(db.storage.from(bucket).download(doc.file_path), 45, 'Opening the APS');
-      if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
-      const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
+      if (!file) {
+        const { data: blob, error: dlErr } = await VendorMail._timeout(db.storage.from(bucket).download(doc.file_path), 45, 'Opening the APS');
+        if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
+        file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
+      }
       const x = await VendorMail._timeout(ApsDrop.extract(file, {
         schema: ApsDrop.APPENDIX_SCHEMA, effort: 'low', max_tokens: 8000,
         prompt: "List every selection the buyers must make themselves from the builder's appendix / schedules (flooring, cabinets, countertops, tile, lighting, colours...), with the vendor's name, email, phone, address, allowance, what to choose and the deadline, and the page numbers of any floor plan. Ignore everything else.",
