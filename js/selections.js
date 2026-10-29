@@ -27,6 +27,20 @@ const BuildSelections = {
     return null;
   },
 
+  // "13595" → "$13,595"; anything already written as text stays as written
+  money(a) {
+    const t = String(a || '').trim();
+    return /^\$?[\d,]+(\.\d+)?$/.test(t) ? '$' + Number(t.replace(/[$,]/g, '')).toLocaleString() : t;
+  },
+  // The reader sometimes returns a description, not a name ("Vendor's supplier (e.g. Award Flooring)")
+  // "$13,595 (HST included)" / "$2,500 plus HST"
+  allowanceText(r) {
+    if (!r.allowance) return '';
+    const m = BuildSelections.money(r.allowance);
+    return r.allowance_hst === 'included' ? `${m} (HST included)` : r.allowance_hst === 'plus' ? `${m} plus HST` : `${m} (HST not stated)`;
+  },
+  genericVendor(n) { return /vendor'?s? (own )?supplier|^vendor$|builder'?s supplier/i.test(String(n || '')); },
+
   STATUS: {
     to_book: { label: 'To book', color: 'var(--yellow)' },
     booked:  { label: 'Booked',  color: 'var(--accent2)' },
@@ -67,10 +81,16 @@ const BuildSelections = {
       const overdue = r.status !== 'done' && r.due_date && new Date(r.due_date + 'T00:00:00') < today;
       return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;${isQuote ? 'padding-left:26px;background:var(--bg);' : ''}border-top:1px solid var(--border);font-size:12px;">
         <div style="flex:1;min-width:0;${r.status === 'done' ? 'opacity:0.65;' : ''}">
-          <div style="font-weight:700;color:var(--text1);${r.status === 'done' ? 'text-decoration:line-through;' : ''}">${isQuote ? '🔁 Quote · ' : ''}${BuildSelections.esc(r.item)}${r.vendor_name ? ` <span style="font-weight:400;color:var(--text2);">· ${BuildSelections.esc(r.vendor_name)}</span>` : ''}${r.kind === 'other' ? ' <span style="font-weight:400;font-size:10.5px;color:var(--text2);">(other appointment)</span>' : ''}</div>
+          <div style="font-weight:700;color:var(--text1);${r.status === 'done' ? 'text-decoration:line-through;' : ''}">${isQuote ? '🔁 Quote · ' : ''}${BuildSelections.esc(r.item)}${r.kind === 'other' ? ' <span style="font-weight:400;font-size:10.5px;color:var(--text2);">(other appointment)</span>' : ''}</div>
+          ${r.picked_by === 'builder' ? '' : `<div style="color:var(--text1);">🏪 ${r.vendor_name && !BuildSelections.genericVendor(r.vendor_name)
+            ? BuildSelections.esc(r.vendor_name)
+            : `<span style="color:var(--yellow);">${r.vendor_name ? BuildSelections.esc(r.vendor_name) + ' · ' : ''}vendor not named yet</span> <button style="${linkBtn}" onclick="BuildSelections.openEdit('${buildId}','${r.id}')">add the vendor</button>`}</div>
+          ${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).length
+            ? `<div style="color:var(--text2);">${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).join(' · ')}</div>` : ''}`}
           ${r.details ? `<div style="color:var(--text2);">${BuildSelections.esc(r.details)}</div>` : ''}
+          ${r.upgrade_note ? `<div style="color:var(--accent2);font-weight:600;">⬆️ Upgrade: ${BuildSelections.esc(r.upgrade_note)}</div>` : ''}
           <div style="color:${overdue ? 'var(--red)' : 'var(--text2)'};">
-            ${r.due_date ? `${overdue ? '⚠️ Overdue · ' : ''}Due ${App.fmtDate(r.due_date)}` : 'No due date'}${r.appointment_date && r.status === 'booked' ? ` · Appointment ${App.fmtDate(r.appointment_date)}` : ''}${r.allowance ? ` · Allowance ${BuildSelections.esc(r.allowance)}` : ''}
+            ${r.due_date ? `${overdue ? '⚠️ Overdue · ' : ''}Due ${App.fmtDate(r.due_date)}` : 'No due date'}${r.appointment_date && r.status === 'booked' ? ` · Appointment ${App.fmtDate(r.appointment_date)}` : ''}${r.allowance ? ` · Allowance ${BuildSelections.esc(BuildSelections.allowanceText(r))}` : ''}
           </div>
           ${vm ? VendorMail.trailHtml(r) : ''}
           ${vm && r.status !== 'done' ? `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;">
@@ -78,10 +98,13 @@ const BuildSelections = {
             <button style="${linkBtn}" onclick="VendorMail.openCompose('${buildId}','${r.id}','quote')">🔁 Different vendor</button>` : ''}
           </div>` : ''}
         </div>
-        <span style="font-size:10.5px;font-weight:700;color:${st.color};white-space:nowrap;">${st.label}</span>
+        <span style="font-size:10.5px;font-weight:700;color:${st.color};white-space:nowrap;">${r.status === 'done' && r.picked_by === 'builder' ? '🏗️ Builder picked' : st.label}</span>
         ${r.status === 'done'
           ? `<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:2px 8px;" onclick="BuildSelections.setDone('${r.id}',false)">Undo</button>`
-          : `<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:2px 8px;color:var(--green);border-color:var(--green);" onclick="BuildSelections.setDone('${r.id}',true)">✓ Mark done</button>`}
+          : `<div style="display:flex;flex-direction:column;gap:4px;align-items:stretch;">
+              <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:2px 8px;color:var(--green);border-color:var(--green);" onclick="BuildSelections.setDone('${r.id}',true)">✓ Mark done</button>
+              ${isQuote ? '' : `<button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:2px 8px;" onclick="BuildSelections.setDone('${r.id}',true,'builder')" title="The builder chose this one, nothing for the buyers to book">🏗️ Builder picked</button>`}
+            </div>`}
         <button class="btn btn-outline btn-sm" style="font-size:10.5px;padding:2px 8px;" onclick="BuildSelections.openEdit('${buildId}','${r.id}')">✏️</button>
       </div>`;
     };
@@ -122,17 +145,34 @@ const BuildSelections = {
       <div class="form-row">
         <div class="form-group"><label class="form-label">VENDOR EMAIL</label>
           <input class="form-input" id="bs-email" type="email" value="${v('vendor_email')}" placeholder="For the vendor email"></div>
-        <div class="form-group"><label class="form-label">VENDOR CONTACT</label>
-          <input class="form-input" id="bs-contact" value="${v('vendor_contact')}" placeholder="Phone or address"></div>
+        <div class="form-group"><label class="form-label">VENDOR PHONE</label>
+          <input class="form-input" id="bs-phone" value="${v('vendor_phone')}" placeholder="709-555-0100"></div>
       </div>
+      <div class="form-group"><label class="form-label">SHOWROOM / LOCATION</label>
+        <input class="form-input" id="bs-address" value="${v('vendor_address')}" placeholder="e.g. 12 Kenmount Rd, St. John's"></div>
       <div class="form-group"><label class="form-label">WHAT TO CHOOSE THERE</label>
         <input class="form-input" id="bs-details" value="${v('details')}" placeholder="e.g. Hardwood colour for main floor, tile for bathrooms"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">ALLOWANCE</label>
+          <input class="form-input" id="bs-allow" value="${BuildSelections.esc(BuildSelections.money(r?.allowance))}" placeholder="e.g. $4,500"></div>
+        <div class="form-group"><label class="form-label">HST</label>
+          <select class="form-input form-select" id="bs-hst">
+            <option value="" ${!r?.allowance_hst ? 'selected' : ''}>Not stated</option>
+            <option value="included" ${r?.allowance_hst === 'included' ? 'selected' : ''}>HST included</option>
+            <option value="plus" ${r?.allowance_hst === 'plus' ? 'selected' : ''}>Plus HST</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">UPGRADE (IF ANY)</label>
+          <input class="form-input" id="bs-upgrade" value="${v('upgrade_note')}" placeholder="e.g. Hardwood on main floor, +$3,200"></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">MUST BE DONE BY</label>
           <input class="form-input" type="date" id="bs-due" value="${v('due_date')}"></div>
         <div class="form-group"><label class="form-label">STATUS</label>
           <select class="form-input form-select" id="bs-status">
-            ${Object.entries(BuildSelections.STATUS).map(([k, s]) => `<option value="${k}" ${(r?.status || 'to_book') === k ? 'selected' : ''}>${s.label}</option>`).join('')}
+            ${Object.entries(BuildSelections.STATUS).map(([k, s]) => `<option value="${k}" ${(r?.status || 'to_book') === k && !(k === 'done' && r?.picked_by === 'builder') ? 'selected' : ''}>${s.label}</option>`).join('')}
+            <option value="builder" ${r?.picked_by === 'builder' && r?.status === 'done' ? 'selected' : ''}>Builder picked</option>
           </select></div>
         <div class="form-group"><label class="form-label">APPOINTMENT DATE</label>
           <input class="form-input" type="date" id="bs-appt" value="${v('appointment_date')}"></div>
@@ -150,9 +190,10 @@ const BuildSelections = {
     const item = val('bs-item');
     if (!item) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ Say what they pick'; } return; }
     const old = selId ? (BuildSelections._byBuild[buildId] || []).find(x => x.id === selId) : null;
-    const status = val('bs-status') || 'to_book';
+    const picked = val('bs-status') || 'to_book';
+    const status = picked === 'builder' ? 'done' : picked;
     const row = {
-      item, vendor_name: val('bs-vendor'), vendor_contact: val('bs-contact'), details: val('bs-details'),
+      item, vendor_name: val('bs-vendor'), details: val('bs-details'),
       due_date: val('bs-due'), appointment_date: val('bs-appt'), status,
       updated_at: new Date().toISOString(),
     };
@@ -160,7 +201,11 @@ const BuildSelections = {
     if (old && (old.due_date !== row.due_date || old.appointment_date !== row.appointment_date)) row.last_reminder = null;
     // Migration 117 columns, only sent when used, so this still saves before it runs
     const email = val('bs-email');
-    const extra = { ...(email || old?.vendor_email ? { vendor_email: email } : {}),
+    const used = (k, x) => (x || old?.[k]) ? { [k]: x } : {};
+    const extra = { ...used('vendor_email', email), ...used('vendor_phone', val('bs-phone')), ...used('vendor_address', val('bs-address')),
+                    ...used('allowance', val('bs-allow')), ...used('allowance_hst', val('bs-hst')), ...used('upgrade_note', val('bs-upgrade')),
+                    ...((picked === 'builder') !== (old?.picked_by === 'builder') ? { picked_by: picked === 'builder' ? 'builder' : null } : {}),
+                    ...(status === 'done' && old?.status !== 'done' ? { done_at: new Date().toISOString() } : {}),
                     ...(!selId && BuildSelections._editKind !== 'appendix' ? { kind: BuildSelections._editKind } : {}) };
     let error;
     if (selId) ({ error } = await db.from('build_selections').update({ ...row, ...extra }).eq('id', selId));
@@ -169,7 +214,7 @@ const BuildSelections = {
       const user = await App.getAuthUser();
       ({ error } = await db.from('build_selections').insert({ ...row, ...extra, agent_id: user?.id || currentAgent.id, build_id: buildId, client_id: b?.client_id || null, source: 'manual' }));
     }
-    if (!error && email && typeof VendorMail !== 'undefined') VendorMail.remember({ name: row.vendor_name, email });
+    if (!error && email && typeof VendorMail !== 'undefined') VendorMail.remember({ name: row.vendor_name, email, phone: val('bs-phone'), address: val('bs-address') });
     if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
     App.closeModal();
     // Status chosen here follows the same done rule as the button
@@ -187,17 +232,20 @@ const BuildSelections = {
   },
 
   // ── Done ⇄ checklist ──────────────────────────────────────────────────────
-  async setDone(selId, done) {
+  // by = 'builder': the builder chose it, so it counts as done (no reminders, no vendor email)
+  async setDone(selId, done, by = null) {
     const r = Object.values(BuildSelections._byBuild).flat().find(x => x.id === selId);
     if (!r) return;
-    const { error } = await db.from('build_selections').update({
+    const upd = {
       status: done ? 'done' : (r.appointment_date ? 'booked' : 'to_book'),
       done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString(),
-    }).eq('id', selId);
-    if (error) { App.toast('⚠️ ' + error.message, 'var(--red)'); return; }
+    };
+    if (by || r.picked_by) upd.picked_by = done ? by : null;   // migration 118, only sent when used
+    const { error } = await db.from('build_selections').update(upd).eq('id', selId);
+    if (error) { App.toast('⚠️ ' + error.message + (/column/.test(error.message) ? ' (run migration 118)' : ''), 'var(--red)'); return; }
     await BuildSelections._syncStep(r.build_id, r.item, done);
     await BuildSelections.paint(NewBuilds.all || []);
-    App.toast(done ? `✅ ${r.item} marked done` : `${r.item} reopened`, done ? 'var(--green)' : 'var(--text2)');
+    App.toast(done ? (by === 'builder' ? `🏗️ ${r.item}: builder picked` : `✅ ${r.item} marked done`) : `${r.item} reopened`, done ? 'var(--green)' : 'var(--text2)');
   },
 
   // Tick (or untick) the matching checklist step, through the normal checkStep

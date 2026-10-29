@@ -64,11 +64,12 @@ const ApsDrop = {
             vendor_email:   { type: 'string', description: 'Vendor email address only. Empty if not stated.' },
             vendor_phone:   { type: 'string', description: 'Vendor phone number only. Empty if not stated.' },
             vendor_address: { type: 'string', description: 'Vendor / showroom street address where the buyers go. Empty if not stated.' },
-            allowance:      { type: 'string', description: 'The allowance for this item if stated, e.g. "$4,500". Empty if none.' },
+            allowance:      { type: 'string', description: 'The allowance amount for this item if stated, digits only, e.g. "4500". Empty if none.' },
+            allowance_hst:  { type: 'string', enum: ['included', 'plus', ''], description: 'Whether that allowance includes HST ("included") or is before HST ("plus"), as the document states. Empty if not stated or no allowance.' },
             details:        { type: 'string', description: 'What exactly they choose there, one short line. Empty if not stated.' },
             due_date:       { type: 'string', description: 'Date it must be done by, YYYY-MM-DD. If the document gives a number of days after acceptance, work it out from the acceptance date. Empty if no date.' },
           },
-          required: ['item','vendor_name','vendor_contact','vendor_email','vendor_phone','vendor_address','allowance','details','due_date'],
+          required: ['item','vendor_name','vendor_contact','vendor_email','vendor_phone','vendor_address','allowance','allowance_hst','details','due_date'],
           additionalProperties: false,
         },
       },
@@ -289,7 +290,7 @@ const ApsDrop = {
             <input class="form-input" id="aps-sel-${i}-vendor_name" value="${ApsDrop.esc(s.vendor_name)}" placeholder="Vendor" style="font-size:12px;padding:7px;flex:1 1 110px;">
             <input class="form-input" id="aps-sel-${i}-details" value="${ApsDrop.esc(s.details)}" placeholder="What to choose" style="font-size:12px;padding:7px;flex:2 1 160px;">
             <input class="form-input" type="date" id="aps-sel-${i}-due_date" value="${/^\d{4}-\d{2}-\d{2}$/.test(s.due_date || '') ? s.due_date : ''}" style="font-size:12px;padding:7px;flex:0 1 140px;">
-            ${['vendor_contact','vendor_email','vendor_phone','vendor_address','allowance'].map(k => `<input type="hidden" id="aps-sel-${i}-${k}" value="${ApsDrop.esc(s[k])}">`).join('')}
+            ${['vendor_contact','vendor_email','vendor_phone','vendor_address','allowance','allowance_hst'].map(k => `<input type="hidden" id="aps-sel-${i}-${k}" value="${ApsDrop.esc(s[k])}">`).join('')}
           </div>`).join('')}
       </div>` : `<div style="margin-top:10px;color:var(--text2);">🎨 No buyer selections found in the appendix. You can add them on the build card after it is created.</div>`;
 
@@ -365,7 +366,7 @@ const ApsDrop = {
       if (!document.getElementById(`aps-sel-${i}-on`)?.checked) continue;
       const f = k => document.getElementById(`aps-sel-${i}-${k}`)?.value.trim() || '';
       sels.push({ item: f('item'), vendor_name: f('vendor_name'), vendor_contact: f('vendor_contact'), details: f('details'), due_date: f('due_date'),
-                  vendor_email: f('vendor_email'), vendor_phone: f('vendor_phone'), vendor_address: f('vendor_address'), allowance: f('allowance') });
+                  vendor_email: f('vendor_email'), vendor_phone: f('vendor_phone'), vendor_address: f('vendor_address'), allowance: f('allowance'), allowance_hst: f('allowance_hst') });
     }
     ApsDrop._selCount = 0;
     const floorPages = ApsDrop._floorPages; ApsDrop._floorPages = null;

@@ -36,6 +36,7 @@ const VendorMail = {
     if (r.vendor_phone) out.vendor_phone = r.vendor_phone;
     if (r.vendor_address) out.vendor_address = r.vendor_address;
     if (r.allowance) out.allowance = r.allowance;
+    if (r.allowance && ['included', 'plus'].includes(r.allowance_hst)) out.allowance_hst = r.allowance_hst;   // migration 118
     return out;
   },
 
@@ -246,7 +247,7 @@ const VendorMail = {
     const s = (BuildSelections._byBuild[buildId] || []).find(x => x.id === selId);
     if (!b || !s) return;
     const quote = mode === 'quote';
-    const v = k => VendorMail.esc(quote ? '' : (s[k] || ''));
+    const v = k => VendorMail.esc(quote || (k === 'vendor_name' && BuildSelections.genericVendor(s[k])) ? '' : (s[k] || ''));
     const g = VendorMail.gate(b, VendorMail._builds[buildId]?.deal);
     VendorMail._pending = [];
     App.openModal(`
@@ -551,7 +552,7 @@ const VendorMail = {
         const match = rows.find(r => VendorMail._same(r.item, sel.item));
         if (!match) { toAdd.push(sel); continue; }
         const upd = {};
-        for (const k of ['vendor_email', 'vendor_phone', 'vendor_address', 'allowance']) if (f[k] && !match[k]) upd[k] = f[k];
+        for (const k of ['vendor_email', 'vendor_phone', 'vendor_address', 'allowance', 'allowance_hst']) if (f[k] && !match[k]) upd[k] = f[k];
         if (sel.vendor_name && !match.vendor_name) upd.vendor_name = sel.vendor_name;
         if (sel.vendor_contact && !match.vendor_contact) upd.vendor_contact = sel.vendor_contact;
         if (sel.details && !match.details) upd.details = sel.details;

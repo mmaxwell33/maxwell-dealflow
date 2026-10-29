@@ -1214,7 +1214,7 @@ ${EmailFormat.signaturePlain(agent)}`
       const lot = build.lot_address || 'their new home';
       const att = files.length ? (files.length === 1 ? `I have attached the ${files[0]}.` : `I have attached the ${files.slice(0, -1).join(', ')} and the ${files[files.length - 1]}.`) : '';
       const ask = quote
-        ? `They are comparing options and would like a quote for ${item}${s.allowance ? ` (their allowance is ${s.allowance})` : ''}. ${att} Could you send pricing, and a few dates and times if they would like to come in?`
+        ? `They are comparing options and would like a quote for ${item}${s.allowance ? ` (their allowance is ${typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '') : s.allowance})` : ''}. ${att} Could you send pricing, and a few dates and times if they would like to come in?`
         : `They are ready to book their ${item} selection appointment${s.due_date ? `, which needs to be done by ${(typeof App !== 'undefined' && App.fmtDate) ? App.fmtDate(s.due_date) : s.due_date}` : ''}. ${att} Could you share a few dates and times that work for you?`;
       return {
         subject: `${quote ? 'Quote request' : s.item + ' selection'}: ${buyers}, ${lot}${build.builder_name ? ' with ' + build.builder_name : ''}`,
