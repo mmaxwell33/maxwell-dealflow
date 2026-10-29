@@ -438,14 +438,34 @@ const VendorMail = {
   async rereadAps(buildId) {
     if (VendorMail._rereading) return;
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
-    if (!b?.client_id) { App.toast('⚠️ This build has no client linked, so there is no APS on file', 'var(--yellow)'); return; }
+    if (!b) return;
     VendorMail._rereading = true;
     try {
-      const { data: doc } = await db.from('client_documents').select('file_path, file_name')
+      // A build saved without its client link: find the client by name and link it,
+      // so the APS can be found and the vendor emails can copy the buyers
+      if (!b.client_id && b.client_name) {
+        const { data: cs } = await db.from('clients').select('id, full_name').eq('agent_id', currentAgent.id).ilike('full_name', b.client_name.trim());
+        if (cs?.length === 1) {
+          await db.from('new_builds').update({ client_id: cs[0].id, updated_at: new Date().toISOString() }).eq('id', buildId);
+          b.client_id = cs[0].id;
+        }
+      }
+      if (!b.client_id) { App.toast(`⚠️ No client named ${b.client_name || 'on this build'} found. Pick the client in Edit Details first.`, 'var(--yellow)'); return; }
+      // The APS in the client folder, else the accepted offer on the Pipeline deal
+      let bucket = 'client-docs';
+      let { data: doc } = await db.from('client_documents').select('file_path, file_name')
         .eq('client_id', b.client_id).eq('category', 'aps').order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (!doc?.file_path) { App.toast('⚠️ No signed APS in this client\'s folder. Upload it from the client folder first.', 'var(--yellow)'); return; }
+      if (!doc?.file_path) {
+        const deal = await VendorMail.dealFor(b);
+        if (deal) {
+          ({ data: doc } = await db.from('deal_documents').select('file_path, file_name')
+            .eq('pipeline_id', deal.id).eq('doc_type', 'accepted_offer').order('created_at', { ascending: false }).limit(1).maybeSingle());
+          bucket = 'deal-docs';
+        }
+      }
+      if (!doc?.file_path) { App.toast('⚠️ No signed APS on file for this client. Upload it to the client folder first.', 'var(--yellow)'); return; }
       App.toast(`📄 Reading ${doc.file_name || 'the APS'} again…`, 'var(--accent2)');
-      const { data: blob, error: dlErr } = await db.storage.from('client-docs').download(doc.file_path);
+      const { data: blob, error: dlErr } = await db.storage.from(bucket).download(doc.file_path);
       if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
       const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
       const x = await ApsDrop.extract(file);

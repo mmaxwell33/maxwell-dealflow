@@ -96,7 +96,7 @@ const BuildSelections = {
         <div style="display:flex;gap:12px;flex-wrap:wrap;padding:7px 10px;border-top:1px solid var(--border);">
           <button onclick="BuildSelections.openEdit('${buildId}')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">+ Add selection</button>
           <button onclick="BuildSelections.openEdit('${buildId}',null,'other')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">+ Other appointment</button>
-          ${vm && b?.client_id && (!b.floor_plan_path || rows.some(r => r.vendor_name && !r.vendor_email && r.status !== 'done')) ? `<button onclick="VendorMail.rereadAps('${buildId}')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">📄 Re-read the APS</button>` : ''}
+          ${vm && b && (!b.floor_plan_path || !rows.length || rows.some(r => r.vendor_name && !r.vendor_email && r.status !== 'done')) ? `<button onclick="VendorMail.rereadAps('${buildId}')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">📄 Re-read the APS</button>` : ''}
           ${rows.some(r => r.status !== 'done') ? `<button onclick="BuildSelections.queueWelcome('${buildId}',true)" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">📧 Email buyers their to-do list</button>` : ''}
         </div>
       </div>`;
