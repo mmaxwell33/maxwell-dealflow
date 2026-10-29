@@ -79,6 +79,13 @@ const ApsDrop = {
     additionalProperties: false,
   },
 
+  // Re-read: just the appendix and the floor plan, a much smaller job
+  get APPENDIX_SCHEMA() {
+    const p = ApsDrop.SCHEMA.properties;
+    return { type: 'object', properties: { selections: p.selections, floor_plan_pages: p.floor_plan_pages },
+             required: ['selections', 'floor_plan_pages'], additionalProperties: false };
+  },
+
   // ── Drop zone, rendered into #nb-aps-zone at the top of the form ──────────
   zone() {
     return `
@@ -123,7 +130,10 @@ const ApsDrop = {
 
   // ── Read the document ─────────────────────────────────────────────────────
   // The reading itself, no screen: used by read() and by VendorMail.rereadAps
-  async extract(file) {
+  // opts.schema / opts.prompt narrow the job (Re-read only needs the appendix),
+  // opts.effort lowers thinking so a long agreement finishes inside the
+  // edge function's time limit.
+  async extract(file, opts = {}) {
     const b64 = await OfferDrop.toBase64(file);
     const system =
       'You read signed Agreements of Purchase and Sale for newly built homes in Newfoundland and Labrador ' +
@@ -140,13 +150,13 @@ const ApsDrop = {
       body: {
         system,
         model: ApsDrop.MODEL,
-        max_tokens: 4000,
-        output_config: { format: { type: 'json_schema', schema: ApsDrop.SCHEMA } },
+        max_tokens: opts.max_tokens || 4000,
+        output_config: { format: { type: 'json_schema', schema: opts.schema || ApsDrop.SCHEMA }, ...(opts.effort ? { effort: opts.effort } : {}) },
         messages: [{
           role: 'user',
           content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
-            { type: 'text', text: 'Extract the agreement terms from this document.' },
+            { type: 'text', text: opts.prompt || 'Extract the agreement terms from this document.' },
           ],
         }],
       },
@@ -155,8 +165,11 @@ const ApsDrop = {
     if (error) {
       // supabase-js hides the function's own message behind "non-2xx": read it
       let why = '';
-      try { const r = error.context; why = r ? `${r.status} ${(await r.clone().json())?.error || ''}`.trim() : ''; } catch (_) {
-        try { why = String(error.context?.status || ''); } catch (__) {}
+      const r = error.context || error.response;
+      if (r && typeof r.status === 'number') {
+        why = String(r.status);
+        try { const t = await r.clone().text(); try { why += ' ' + (JSON.parse(t)?.error || ''); } catch (_) { why += ' ' + t.slice(0, 160); } } catch (_) {}
+        if (r.status === 546 || r.status === 504) why += ' (the server timed out reading the agreement)';
       }
       throw new Error(why ? `reader error ${why}` : (error.message || 'Reader unavailable'));
     }

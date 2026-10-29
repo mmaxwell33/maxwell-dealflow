@@ -484,7 +484,10 @@ const VendorMail = {
       const { data: blob, error: dlErr } = await VendorMail._timeout(db.storage.from(bucket).download(doc.file_path), 45, 'Opening the APS');
       if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
       const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
-      const x = await VendorMail._timeout(ApsDrop.extract(file), 120, 'Reading the APS');
+      const x = await VendorMail._timeout(ApsDrop.extract(file, {
+        schema: ApsDrop.APPENDIX_SCHEMA, effort: 'low', max_tokens: 8000,
+        prompt: "List every selection the buyers must make themselves from the builder's appendix / schedules (flooring, cabinets, countertops, tile, lighting, colours...), with the vendor's name, email, phone, address, allowance, what to choose and the deadline, and the page numbers of any floor plan. Ignore everything else.",
+      }), 150, 'Reading the APS');
 
       const { data: have } = await db.from('build_selections').select('*').eq('build_id', buildId);
       const rows = (have || []).filter(r => r.kind !== 'price_match');
