@@ -168,7 +168,9 @@ const App = {
 
     const btn = document.querySelector('.lock-btn') || document.querySelector('.auth-btn');
     if (btn) { btn.textContent = 'Unlocking...'; btn.disabled = true; }
-    const { error } = await db.auth.signInWithPassword({ email, password });
+    // If Supabase Auth itself stops answering, say so instead of spinning forever
+    const timeout = new Promise(r => setTimeout(() => r({ error: { message: 'The sign-in server is not responding. Please try again in a few minutes.' } }), 20000));
+    const { error } = await Promise.race([db.auth.signInWithPassword({ email, password }), timeout]);
     if (btn) { btn.textContent = 'Unlock'; btn.disabled = false; }
 
     if (error) {
