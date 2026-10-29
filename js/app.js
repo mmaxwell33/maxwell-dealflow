@@ -81,8 +81,14 @@ const App = {
       await App.onSignedIn(session.user);
     }
     // Listen for auth changes
-    db.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) await App.onSignedIn(session.user);
+    // Never await Supabase calls inside this callback: signInWithPassword waits
+    // for it, and onSignedIn's queries wait on the same auth lock, so the
+    // Unlock button hung on "Unlocking..." forever. Run it on the next tick.
+    db.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        if (App._authUser?.id === session.user.id && document.getElementById('app')?.style.display === 'flex') return;
+        setTimeout(() => App.onSignedIn(session.user), 0);
+      }
       if (event === 'SIGNED_OUT') { App._authUser = null; App.showAuth(); }
     });
   },
