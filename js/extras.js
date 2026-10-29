@@ -3926,6 +3926,8 @@ const NewBuilds = {
     await NewBuilds.populateClients();
     NewBuilds.render(live);
     NewBuilds.renderWaiting((data || []).filter(b => b.status === 'Offer Submitted'));
+    // Vendor emails whose gate opened while this screen was closed
+    if (typeof VendorMail !== 'undefined') VendorMail.checkAll(live).catch(e => console.warn('[VendorMail] checkAll:', e?.message || e));
   },
 
   renderWaiting(list) {

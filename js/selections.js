@@ -45,25 +45,38 @@ const BuildSelections = {
     if (error) { console.warn('[BuildSelections] load skipped (run migration 116):', error.message); return; }
     BuildSelections._byBuild = {};
     (data || []).forEach(r => (BuildSelections._byBuild[r.build_id] ||= []).push(r));
+    if (typeof VendorMail !== 'undefined') {
+      try { await VendorMail.prime(list); await VendorMail.track(data); } catch (e) { console.warn('[VendorMail] track skipped:', e?.message || e); }
+    }
     ids.forEach(id => BuildSelections.paintOne(id));
   },
 
   paintOne(buildId) {
     const el = document.getElementById('nb-sel-' + buildId);
     if (!el) return;
-    const rows = BuildSelections._byBuild[buildId] || [];
+    const all = BuildSelections._byBuild[buildId] || [];
+    const rows = all.filter(r => r.kind !== 'price_match');
+    const quotes = id => all.filter(r => r.kind === 'price_match' && r.parent_id === id);
+    const b = (NewBuilds.all || []).find(x => x.id === buildId);
+    const vm = typeof VendorMail !== 'undefined';
     const done = rows.filter(r => r.status === 'done').length;
+    const linkBtn = 'background:none;border:none;color:var(--accent2);cursor:pointer;font-size:11px;font-weight:600;padding:0;';
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const row = r => {
+    const row = (r, isQuote = false) => {
       const st = BuildSelections.STATUS[r.status] || BuildSelections.STATUS.to_book;
       const overdue = r.status !== 'done' && r.due_date && new Date(r.due_date + 'T00:00:00') < today;
-      return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-top:1px solid var(--border);font-size:12px;">
+      return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;${isQuote ? 'padding-left:26px;background:var(--bg);' : ''}border-top:1px solid var(--border);font-size:12px;">
         <div style="flex:1;min-width:0;${r.status === 'done' ? 'opacity:0.65;' : ''}">
-          <div style="font-weight:700;color:var(--text1);${r.status === 'done' ? 'text-decoration:line-through;' : ''}">${BuildSelections.esc(r.item)}${r.vendor_name ? ` <span style="font-weight:400;color:var(--text2);">· ${BuildSelections.esc(r.vendor_name)}</span>` : ''}</div>
+          <div style="font-weight:700;color:var(--text1);${r.status === 'done' ? 'text-decoration:line-through;' : ''}">${isQuote ? '🔁 Quote · ' : ''}${BuildSelections.esc(r.item)}${r.vendor_name ? ` <span style="font-weight:400;color:var(--text2);">· ${BuildSelections.esc(r.vendor_name)}</span>` : ''}${r.kind === 'other' ? ' <span style="font-weight:400;font-size:10.5px;color:var(--text2);">(other appointment)</span>' : ''}</div>
           ${r.details ? `<div style="color:var(--text2);">${BuildSelections.esc(r.details)}</div>` : ''}
           <div style="color:${overdue ? 'var(--red)' : 'var(--text2)'};">
-            ${r.due_date ? `${overdue ? '⚠️ Overdue · ' : ''}Due ${App.fmtDate(r.due_date)}` : 'No due date'}${r.appointment_date && r.status === 'booked' ? ` · Appointment ${App.fmtDate(r.appointment_date)}` : ''}
+            ${r.due_date ? `${overdue ? '⚠️ Overdue · ' : ''}Due ${App.fmtDate(r.due_date)}` : 'No due date'}${r.appointment_date && r.status === 'booked' ? ` · Appointment ${App.fmtDate(r.appointment_date)}` : ''}${r.allowance ? ` · Allowance ${BuildSelections.esc(r.allowance)}` : ''}
           </div>
+          ${vm ? VendorMail.trailHtml(r) : ''}
+          ${vm && r.status !== 'done' ? `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;">
+            ${!isQuote ? `<button style="${linkBtn}" onclick="VendorMail.openCompose('${buildId}','${r.id}','send')">✉️ ${r.vendor_queued_at ? 'Email vendor again' : VendorMail.emailOk(r.vendor_email) ? 'Email vendor' : 'Add vendor email'}</button>
+            <button style="${linkBtn}" onclick="VendorMail.openCompose('${buildId}','${r.id}','quote')">🔁 Different vendor</button>` : ''}
+          </div>` : ''}
         </div>
         <span style="font-size:10.5px;font-weight:700;color:${st.color};white-space:nowrap;">${st.label}</span>
         ${r.status === 'done'
@@ -78,29 +91,37 @@ const BuildSelections = {
           <span style="font-size:13px;font-weight:700;color:${rows.length && done === rows.length ? 'var(--green)' : 'var(--text1)'};">🎨 Buyer Selections</span>
           <span style="font-size:11px;font-weight:600;color:var(--text2);">${rows.length ? `${done}/${rows.length} done` : 'None yet'}</span>
         </div>
-        ${rows.map(row).join('')}
+        ${rows.map(r => row(r) + quotes(r.id).map(q => row(q, true)).join('')).join('')}
+        ${vm && b ? VendorMail.gateHtml(b) : ''}
         <div style="display:flex;gap:12px;flex-wrap:wrap;padding:7px 10px;border-top:1px solid var(--border);">
           <button onclick="BuildSelections.openEdit('${buildId}')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">+ Add selection</button>
+          <button onclick="BuildSelections.openEdit('${buildId}',null,'other')" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">+ Other appointment</button>
           ${rows.some(r => r.status !== 'done') ? `<button onclick="BuildSelections.queueWelcome('${buildId}',true)" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;font-weight:600;padding:0;">📧 Email buyers their to-do list</button>` : ''}
         </div>
       </div>`;
   },
 
   // ── Add / edit ────────────────────────────────────────────────────────────
-  openEdit(buildId, selId = null) {
+  openEdit(buildId, selId = null, kind = null) {
     const r = selId ? (BuildSelections._byBuild[buildId] || []).find(x => x.id === selId) : null;
+    const other = (r?.kind || kind) === 'other';
+    BuildSelections._editKind = r?.kind || kind || 'appendix';
     const v = k => BuildSelections.esc(r?.[k] || '');
     App.openModal(`
-      <div class="modal-title">🎨 ${r ? 'Edit selection' : 'Add a buyer selection'}</div>
+      <div class="modal-title">${other ? '📅' : '🎨'} ${r ? (other ? 'Edit appointment' : 'Edit selection') : (other ? 'Add another appointment' : 'Add a buyer selection')}</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">WHAT THEY PICK *</label>
-          <input class="form-input" id="bs-item" value="${v('item')}" placeholder="e.g. Flooring" list="bs-items">
+          <input class="form-input" id="bs-item" value="${v('item')}" placeholder="${other ? 'e.g. Electrical walkthrough' : 'e.g. Flooring'}" list="bs-items">
           <datalist id="bs-items">${['Flooring','Kitchen cabinets','Countertops','Tile','Lighting fixtures','Plumbing fixtures','Paint colours','Exterior colours','Appliances','Hardware','Stairs and railings'].map(o => `<option value="${o}">`).join('')}</datalist></div>
         <div class="form-group"><label class="form-label">VENDOR</label>
           <input class="form-input" id="bs-vendor" value="${v('vendor_name')}" placeholder="e.g. Kent Flooring Centre"></div>
       </div>
-      <div class="form-group"><label class="form-label">VENDOR CONTACT</label>
-        <input class="form-input" id="bs-contact" value="${v('vendor_contact')}" placeholder="Phone, email or address"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">VENDOR EMAIL</label>
+          <input class="form-input" id="bs-email" type="email" value="${v('vendor_email')}" placeholder="For the vendor email"></div>
+        <div class="form-group"><label class="form-label">VENDOR CONTACT</label>
+          <input class="form-input" id="bs-contact" value="${v('vendor_contact')}" placeholder="Phone or address"></div>
+      </div>
       <div class="form-group"><label class="form-label">WHAT TO CHOOSE THERE</label>
         <input class="form-input" id="bs-details" value="${v('details')}" placeholder="e.g. Hardwood colour for main floor, tile for bathrooms"></div>
       <div class="form-row">
@@ -134,13 +155,18 @@ const BuildSelections = {
     };
     // A new date is a new countdown, so earlier reminders no longer count
     if (old && (old.due_date !== row.due_date || old.appointment_date !== row.appointment_date)) row.last_reminder = null;
+    // Migration 117 columns, only sent when used, so this still saves before it runs
+    const email = val('bs-email');
+    const extra = { ...(email || old?.vendor_email ? { vendor_email: email } : {}),
+                    ...(!selId && BuildSelections._editKind !== 'appendix' ? { kind: BuildSelections._editKind } : {}) };
     let error;
-    if (selId) ({ error } = await db.from('build_selections').update(row).eq('id', selId));
+    if (selId) ({ error } = await db.from('build_selections').update({ ...row, ...extra }).eq('id', selId));
     else {
       const b = (NewBuilds.all || []).find(x => x.id === buildId);
       const user = await App.getAuthUser();
-      ({ error } = await db.from('build_selections').insert({ ...row, agent_id: user?.id || currentAgent.id, build_id: buildId, client_id: b?.client_id || null, source: 'manual' }));
+      ({ error } = await db.from('build_selections').insert({ ...row, ...extra, agent_id: user?.id || currentAgent.id, build_id: buildId, client_id: b?.client_id || null, source: 'manual' }));
     }
+    if (!error && email && typeof VendorMail !== 'undefined') VendorMail.remember({ name: row.vendor_name, email });
     if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
     App.closeModal();
     // Status chosen here follows the same done rule as the button
@@ -203,13 +229,18 @@ const BuildSelections = {
     const clean = (rows || []).filter(r => r.item);
     if (!buildId || !clean.length) return 0;
     const user = await App.getAuthUser();
-    const { error } = await db.from('build_selections').insert(clean.map(r => ({
+    const base = r => ({
       agent_id: user?.id || currentAgent.id, build_id: buildId, client_id: clientId || null,
       item: r.item, vendor_name: r.vendor_name || null, vendor_contact: r.vendor_contact || null,
       details: r.details || null, due_date: /^\d{4}-\d{2}-\d{2}$/.test(r.due_date || '') ? r.due_date : null,
       status: 'to_book', source: 'aps',
-    })));
+    });
+    const full = r => ({ ...base(r), ...(typeof VendorMail !== 'undefined' ? VendorMail.vendorFields(r) : {}) });
+    let { error } = await db.from('build_selections').insert(clean.map(full));
+    // Before migration 117 the vendor columns do not exist: save the selections without them
+    if (error && /column|schema cache/i.test(error.message || '')) ({ error } = await db.from('build_selections').insert(clean.map(base)));
     if (error) { console.warn('[BuildSelections] save from APS failed (run migration 116):', error.message); App.toast('⚠️ Selections not saved: ' + error.message, 'var(--yellow)'); return 0; }
+    if (typeof VendorMail !== 'undefined') await VendorMail.fillFromBook(buildId).catch(() => 0);
     return clean.length;
   },
 
@@ -233,7 +264,7 @@ const BuildSelections = {
     const { client, cc } = await BuildSelections._recipient(b);
     if (!client.email) { if (manual) App.toast('⚠️ This client has no email address', 'var(--yellow)'); return false; }
     const { data: sels } = await db.from('build_selections').select('*').eq('build_id', buildId);
-    const t = Notify.templates.new_build_welcome(client, b, sels || [], currentAgent);
+    const t = Notify.templates.new_build_welcome(client, b, (sels || []).filter(s => s.kind !== 'price_match'), currentAgent);
     const ok = await Notify.queue('New Build Welcome 🎉', client.id || null, client.full_name, client.email,
       t.subject, t.body, buildId, null, null, cc);
     if (ok !== false) App.toast(manual ? '📬 To-do list email is in Approvals' : '📬 Congratulations email is in Approvals', 'var(--green)');
@@ -274,6 +305,7 @@ const BuildSelections = {
     const builds = {};
     let n = 0;
     for (const s of rows) {
+      if (s.kind === 'price_match') continue;   // a quote request, not a buyer to-do
       let when = null;
       if (s.status === 'booked' && s.appointment_date) {
         if (dayDiff(s.appointment_date) === 1 && s.last_reminder !== 'appt') when = 'appt';

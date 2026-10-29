@@ -50,6 +50,7 @@ const ApsDrop = {
       financing_deadline:  { type: 'string', description: 'Financing condition deadline, YYYY-MM-DD. If given as days after acceptance, work it out from the acceptance date. Empty if no financing condition.' },
       inspection_deadline: { type: 'string', description: 'Inspection condition deadline, YYYY-MM-DD. Empty if no inspection condition.' },
       flooring:        { type: 'string', description: 'Flooring selection if stated, e.g. "Hardwood / Tile". Empty otherwise.' },
+      floor_plan_pages: { type: 'array', items: { type: 'integer' }, description: 'Page numbers (1 = first page of the PDF) that show the floor plan / house plan / layout drawings of the home. Empty array if there is no floor plan in the document.' },
       notes:            { type: 'string', description: 'Short summary of upgrades, inclusions, and conditions with their deadlines (e.g. "Financing by 2026-11-15"). One or two lines. Empty if none.' },
       selections: {
         type: 'array',
@@ -60,17 +61,21 @@ const ApsDrop = {
             item:           { type: 'string', description: 'What they pick, short, e.g. "Flooring", "Kitchen cabinets".' },
             vendor_name:    { type: 'string', description: 'Vendor / supplier / showroom name. Empty if not stated.' },
             vendor_contact: { type: 'string', description: 'Vendor phone, email or address as written. Empty if not stated.' },
+            vendor_email:   { type: 'string', description: 'Vendor email address only. Empty if not stated.' },
+            vendor_phone:   { type: 'string', description: 'Vendor phone number only. Empty if not stated.' },
+            vendor_address: { type: 'string', description: 'Vendor / showroom street address where the buyers go. Empty if not stated.' },
+            allowance:      { type: 'string', description: 'The allowance for this item if stated, e.g. "$4,500". Empty if none.' },
             details:        { type: 'string', description: 'What exactly they choose there, one short line. Empty if not stated.' },
             due_date:       { type: 'string', description: 'Date it must be done by, YYYY-MM-DD. If the document gives a number of days after acceptance, work it out from the acceptance date. Empty if no date.' },
           },
-          required: ['item','vendor_name','vendor_contact','details','due_date'],
+          required: ['item','vendor_name','vendor_contact','vendor_email','vendor_phone','vendor_address','allowance','details','due_date'],
           additionalProperties: false,
         },
       },
     },
     required: ['buyer_name','buyer_email','buyer_phone','co_buyer_name','co_buyer_email','co_buyer_phone','builder_name','builder_contact',
                'builder_email','lot_address','mls_number','purchase_price','deposit_amount','deposit_date',
-               'offer_date','accepted_date','completion_date','financing_deadline','inspection_deadline','flooring','notes','selections'],
+               'offer_date','accepted_date','completion_date','financing_deadline','inspection_deadline','flooring','floor_plan_pages','notes','selections'],
     additionalProperties: false,
   },
 
@@ -197,6 +202,7 @@ const ApsDrop = {
     set('nb-pa-submitted',    date(x.offer_date));
     set('nb-pa-accepted',     date(x.accepted_date));
     // Condition deadlines have no field on this form: they go on the Pipeline deal (buildhandoff.js)
+    ApsDrop._floorPages = (x.floor_plan_pages || []).filter(n => Number.isInteger(n) && n > 0);
     ApsDrop._conditions = { financing: date(x.financing_deadline), inspection: date(x.inspection_deadline) };
 
     // Either purchaser may already be the client; the other one is the partner
@@ -257,14 +263,15 @@ const ApsDrop = {
             <input class="form-input" id="aps-sel-${i}-vendor_name" value="${ApsDrop.esc(s.vendor_name)}" placeholder="Vendor" style="font-size:12px;padding:7px;flex:1 1 110px;">
             <input class="form-input" id="aps-sel-${i}-details" value="${ApsDrop.esc(s.details)}" placeholder="What to choose" style="font-size:12px;padding:7px;flex:2 1 160px;">
             <input class="form-input" type="date" id="aps-sel-${i}-due_date" value="${/^\d{4}-\d{2}-\d{2}$/.test(s.due_date || '') ? s.due_date : ''}" style="font-size:12px;padding:7px;flex:0 1 140px;">
-            <input type="hidden" id="aps-sel-${i}-vendor_contact" value="${ApsDrop.esc(s.vendor_contact)}">
+            ${['vendor_contact','vendor_email','vendor_phone','vendor_address','allowance'].map(k => `<input type="hidden" id="aps-sel-${i}-${k}" value="${ApsDrop.esc(s[k])}">`).join('')}
           </div>`).join('')}
       </div>` : `<div style="margin-top:10px;color:var(--text2);">🎨 No buyer selections found in the appendix. You can add them on the build card after it is created.</div>`;
 
     if (box) box.innerHTML = ApsDrop.banner('green',
       `✅ Read from <strong>${ApsDrop.esc(ApsDrop._file?.name || 'the agreement')}</strong>. ` +
       `<span style="color:var(--text2);">Check every figure against the document before you create the build. Nothing is saved until you do.</span>` +
-      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}${condHtml}${selHtml}`);
+      `<div style="margin-top:8px;">${clientHtml}</div>${partnerHtml}${condHtml}${selHtml}` +
+      (ApsDrop._floorPages.length ? `<div style="margin-top:10px;">📐 Floor plan found on page${ApsDrop._floorPages.length > 1 ? 's' : ''} ${ApsDrop._floorPages.join(', ')}. Only those pages go to the vendors, never the full agreement.</div>` : ''));
   },
 
   // Loose name match: "John Smith and Jane Smith" finds the client "John Smith"
@@ -331,9 +338,11 @@ const ApsDrop = {
     for (let i = 0; i < (ApsDrop._selCount || 0); i++) {
       if (!document.getElementById(`aps-sel-${i}-on`)?.checked) continue;
       const f = k => document.getElementById(`aps-sel-${i}-${k}`)?.value.trim() || '';
-      sels.push({ item: f('item'), vendor_name: f('vendor_name'), vendor_contact: f('vendor_contact'), details: f('details'), due_date: f('due_date') });
+      sels.push({ item: f('item'), vendor_name: f('vendor_name'), vendor_contact: f('vendor_contact'), details: f('details'), due_date: f('due_date'),
+                  vendor_email: f('vendor_email'), vendor_phone: f('vendor_phone'), vendor_address: f('vendor_address'), allowance: f('allowance') });
     }
     ApsDrop._selCount = 0;
+    const floorPages = ApsDrop._floorPages; ApsDrop._floorPages = null;
     if (buildId && sels.length && typeof BuildSelections !== 'undefined') {
       const n = await BuildSelections.saveFromAps(buildId, clientId, sels);
       if (n) App.toast(`🎨 ${n} buyer selection${n === 1 ? '' : 's'} added to the build`, 'var(--green)');
@@ -361,6 +370,9 @@ const ApsDrop = {
       });
       if (insErr) throw insErr;
       App.toast('📁 Signed agreement filed to the client folder', 'var(--green)');
+      // Floor plan pages only, so vendors never see the price or the buyers' details
+      if (buildId && floorPages?.length && typeof VendorMail !== 'undefined')
+        await VendorMail.saveFloorPlan(buildId, clientId, file, floorPages);
     } catch (e) {
       console.warn('[ApsDrop] filing the PDF failed (build still saved):', e?.message || e);
       App.toast('⚠️ Build saved, but the PDF could not be filed. Add it from the client folder.', 'var(--yellow)');

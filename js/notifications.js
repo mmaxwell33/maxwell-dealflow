@@ -1198,6 +1198,58 @@ ${EmailFormat.signaturePlain(agent)}`
       };
     },
 
+    // To the vendor (flooring, cabinets, lighting...): the clients are copied.
+    // Brief and plain. quote = a price-match request to a different vendor.
+    vendor_selection_request: (client, build, s, agent, { quote = false, files = [] } = {}) => {
+      const first = n => String(n || '').trim().split(/\s+/)[0] || '';
+      const last  = n => String(n || '').trim().split(/\s+/).slice(1).join(' ');
+      const p = client.co_buyer?.name || '';
+      const buyers = p
+        ? (last(client.full_name) && last(client.full_name) === last(p)
+            ? `${first(client.full_name)} and ${first(p)} ${last(p)}`
+            : `${client.full_name} and ${p}`)
+        : (client.full_name || 'my client');
+      const plural = !!p;
+      const item = String(s.item || 'selection').toLowerCase();
+      const lot = build.lot_address || 'their new home';
+      const att = files.length ? (files.length === 1 ? `I have attached the ${files[0]}.` : `I have attached the ${files.slice(0, -1).join(', ')} and the ${files[files.length - 1]}.`) : '';
+      const ask = quote
+        ? `They are comparing options and would like a quote for ${item}${s.allowance ? ` (their allowance is ${s.allowance})` : ''}. ${att} Could you send pricing, and a few dates and times if they would like to come in?`
+        : `They are ready to book their ${item} selection appointment${s.due_date ? `, which needs to be done by ${(typeof App !== 'undefined' && App.fmtDate) ? App.fmtDate(s.due_date) : s.due_date}` : ''}. ${att} Could you share a few dates and times that work for you?`;
+      return {
+        subject: `${quote ? 'Quote request' : s.item + ' selection'}: ${buyers}, ${lot}${build.builder_name ? ' with ' + build.builder_name : ''}`,
+        body: `Hello,
+
+My ${plural ? 'clients' : 'client'}, ${buyers}, ${plural ? 'are' : 'is'} building with ${build.builder_name || 'their builder'} at ${lot}.
+
+${ask}
+${s.vendor_note ? `\nWhat they are looking for: ${s.vendor_note}\n` : ''}
+They are copied here, so please reply to all of us.
+
+Thank you,
+
+${EmailFormat.signaturePlain(agent)}`
+      };
+    },
+
+    // To the buyers once vendors are contacted: guiding, short, no jargon.
+    vendor_contacted_client: (client, build, sels, agent) => {
+      const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
+      const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
+      const names = sels.map(s => `${s.item}${s.vendor_name ? ' with ' + s.vendor_name : ''}`);
+      const one = sels.length === 1;
+      return {
+        subject: one ? `Your ${String(sels[0].item).toLowerCase()} appointment` : 'Your selection appointments',
+        body: `Hi ${hi},
+
+${one ? `I have reached out to ${sels[0].vendor_name || 'the vendor'} for your ${String(sels[0].item).toLowerCase()} appointment.` : `I have reached out to the vendors for your selection appointments:\n\n${names.map(n => '• ' + n).join('\n')}`}
+
+You are copied on ${one ? 'the email' : 'each email'}, and they will reply to all of us with dates. Just pick a time that suits you, and bring any ideas or photos you like.
+
+${EmailFormat.signaturePlain(agent)}`
+      };
+    },
+
     // when: '7d' | '2d' | 'appt' | 'overdue'
     selection_reminder: (client, build, s, when, agent) => {
       const fmtDate = (d) => d ? (typeof App !== 'undefined' && App.fmtDate ? App.fmtDate(d) : d) : '';

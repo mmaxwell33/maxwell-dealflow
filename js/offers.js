@@ -2259,6 +2259,8 @@ const Pipeline = {
       date_from: rec[meta.dateCol] ? String(rec[meta.dateCol]).slice(0,10) : null
     });
     App.toast(`✅ ${meta.label}: ${meta.clearedWord.toLowerCase()}`);
+    // New build: financing was one of the two things the vendor emails wait for
+    if (key === 'financing' && typeof VendorMail !== 'undefined') VendorMail.onFinancingCleared(id).catch(() => 0);
     if (opts.lawyerUpdate && await Pipeline.queueLawyerFinancingUpdate(id)) {
       App.toast('📬 Update for the lawyer is in Approvals');
     }
@@ -2424,6 +2426,7 @@ const Pipeline = {
     if (action === 'waive' && key === 'financing') {
       const n = await Pipeline.releaseHeld(id, 'review');
       if (n) App.toast('✅ Financing waived. The held lawyer email is now in Approvals.');
+      if (typeof VendorMail !== 'undefined') VendorMail.onFinancingCleared(id).catch(() => 0);
     }
     if (action === 'fell_through') Pipeline.markFellThrough(id);
   },
