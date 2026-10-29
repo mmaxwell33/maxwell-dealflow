@@ -122,6 +122,43 @@ const ApsDrop = {
   },
 
   // ── Read the document ─────────────────────────────────────────────────────
+  // The reading itself, no screen: used by read() and by VendorMail.rereadAps
+  async extract(file) {
+    const b64 = await OfferDrop.toBase64(file);
+    const system =
+      'You read signed Agreements of Purchase and Sale for newly built homes in Newfoundland and Labrador ' +
+      'and return the key terms as JSON. Read only what the document actually says. If a field is not stated, ' +
+      'return an empty string. Never guess and never carry a number from one field to another. The buyer is the ' +
+      'purchaser; the builder is the vendor. Check the purchaser names AND the signature blocks: when two people ' +
+      'sign as purchasers (often a couple), the first is the buyer and the second is the co-buyer. ' +
+      "Read every appendix and schedule too, especially the builder's appendix: list each selection the buyers " +
+      'must make themselves (flooring, cabinets, countertops, colours and so on) with its vendor and deadline. ' +
+      'Amounts are digits only with no currency symbol, commas or decimals. ' +
+      'Dates are YYYY-MM-DD.';
+
+    const { data, error } = await db.functions.invoke('claude-chat', {
+      body: {
+        system,
+        model: ApsDrop.MODEL,
+        max_tokens: 4000,
+        output_config: { format: { type: 'json_schema', schema: ApsDrop.SCHEMA } },
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+            { type: 'text', text: 'Extract the agreement terms from this document.' },
+          ],
+        }],
+      },
+    });
+
+    if (error) throw new Error(error.message || 'Reader unavailable');
+    if (data?.error) throw new Error(data.error);
+    const x = OfferDrop.parse(data?.text);
+    if (!x) throw new Error('The reader did not return readable fields.');
+    return x;
+  },
+
   async read(file) {
     if (ApsDrop._busy) return;
     ApsDrop._busy = true;
@@ -129,38 +166,7 @@ const ApsDrop = {
     if (box) box.innerHTML = `<div class="loading" style="margin:-6px 0 14px;"><div class="spinner"></div> Reading ${ApsDrop.esc(file.name)}…</div>`;
 
     try {
-      const b64 = await OfferDrop.toBase64(file);
-      const system =
-        'You read signed Agreements of Purchase and Sale for newly built homes in Newfoundland and Labrador ' +
-        'and return the key terms as JSON. Read only what the document actually says. If a field is not stated, ' +
-        'return an empty string. Never guess and never carry a number from one field to another. The buyer is the ' +
-        'purchaser; the builder is the vendor. Check the purchaser names AND the signature blocks: when two people ' +
-        'sign as purchasers (often a couple), the first is the buyer and the second is the co-buyer. ' +
-        "Read every appendix and schedule too, especially the builder's appendix: list each selection the buyers " +
-        'must make themselves (flooring, cabinets, countertops, colours and so on) with its vendor and deadline. ' +
-        'Amounts are digits only with no currency symbol, commas or decimals. ' +
-        'Dates are YYYY-MM-DD.';
-
-      const { data, error } = await db.functions.invoke('claude-chat', {
-        body: {
-          system,
-          model: ApsDrop.MODEL,
-          max_tokens: 4000,
-          output_config: { format: { type: 'json_schema', schema: ApsDrop.SCHEMA } },
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
-              { type: 'text', text: 'Extract the agreement terms from this document.' },
-            ],
-          }],
-        },
-      });
-
-      if (error) throw new Error(error.message || 'Reader unavailable');
-      if (data?.error) throw new Error(data.error);
-      const x = OfferDrop.parse(data?.text);
-      if (!x) throw new Error('The reader did not return readable fields.');
+      const x = await ApsDrop.extract(file);
 
       ApsDrop._file = file;
       ApsDrop.fill(x);

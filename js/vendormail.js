@@ -424,6 +424,74 @@ const VendorMail = {
     </div>`;
   },
 
+  // ── Re-read the APS already on file ───────────────────────────────────────
+  // For a build uploaded before vendor emails existed: reads the filed APS
+  // again, fills in vendor emails / phones / addresses / allowances that are
+  // missing (never overwrites what Maxwell typed), adds any selection that is
+  // not on the card yet (never a duplicate), and cuts the floor plan pages.
+  _same(a, b) {
+    const w = x => String(x || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !['the','and','selection','selections','pickup','pick'].includes(t));
+    const A = w(a), B = w(b);
+    return A.some(t => B.some(u => u.startsWith(t.slice(0, 5)) || t.startsWith(u.slice(0, 5))));
+  },
+
+  async rereadAps(buildId) {
+    if (VendorMail._rereading) return;
+    const b = (NewBuilds.all || []).find(x => x.id === buildId);
+    if (!b?.client_id) { App.toast('⚠️ This build has no client linked, so there is no APS on file', 'var(--yellow)'); return; }
+    VendorMail._rereading = true;
+    try {
+      const { data: doc } = await db.from('client_documents').select('file_path, file_name')
+        .eq('client_id', b.client_id).eq('category', 'aps').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!doc?.file_path) { App.toast('⚠️ No signed APS in this client\'s folder. Upload it from the client folder first.', 'var(--yellow)'); return; }
+      App.toast(`📄 Reading ${doc.file_name || 'the APS'} again…`, 'var(--accent2)');
+      const { data: blob, error: dlErr } = await db.storage.from('client-docs').download(doc.file_path);
+      if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
+      const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
+      const x = await ApsDrop.extract(file);
+
+      const { data: have } = await db.from('build_selections').select('*').eq('build_id', buildId);
+      const rows = (have || []).filter(r => r.kind !== 'price_match');
+      let filled = 0, added = 0;
+      const toAdd = [];
+      for (const sel of (x.selections || []).filter(r => r.item)) {
+        const f = VendorMail.vendorFields(sel);
+        const match = rows.find(r => VendorMail._same(r.item, sel.item));
+        if (!match) { toAdd.push(sel); continue; }
+        const upd = {};
+        for (const k of ['vendor_email', 'vendor_phone', 'vendor_address', 'allowance']) if (f[k] && !match[k]) upd[k] = f[k];
+        if (sel.vendor_name && !match.vendor_name) upd.vendor_name = sel.vendor_name;
+        if (sel.vendor_contact && !match.vendor_contact) upd.vendor_contact = sel.vendor_contact;
+        if (sel.details && !match.details) upd.details = sel.details;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sel.due_date || '') && !match.due_date) upd.due_date = sel.due_date;
+        if (!Object.keys(upd).length) continue;
+        const { error } = await db.from('build_selections').update({ ...upd, updated_at: new Date().toISOString() }).eq('id', match.id);
+        if (error) throw new Error(error.message + (/column/.test(error.message) ? ' (run migration 117)' : ''));
+        filled++;
+      }
+      if (toAdd.length) added = await BuildSelections.saveFromAps(buildId, b.client_id, toAdd);
+      const pages = (x.floor_plan_pages || []).filter(n => Number.isInteger(n) && n > 0);
+      let plan = false;
+      if (!b.floor_plan_path && pages.length) {
+        plan = await VendorMail.saveFloorPlan(buildId, b.client_id, file, pages);
+        if (plan) { const { data: nb } = await db.from('new_builds').select('floor_plan_path, floor_plan_name').eq('id', buildId).maybeSingle(); if (nb) Object.assign(b, nb); }
+      }
+      await VendorMail.fillFromBook(buildId);
+      const parts = [];
+      if (filled) parts.push(`vendor details added to ${filled} selection${filled === 1 ? '' : 's'}`);
+      if (added) parts.push(`${added} new selection${added === 1 ? '' : 's'} added`);
+      if (plan) parts.push('floor plan saved');
+      else if (!b.floor_plan_path && !pages.length) parts.push('no floor plan found in the APS, attach one when you email a vendor');
+      App.toast(parts.length ? `✅ APS re-read: ${parts.join(', ')}.` : '✅ APS re-read. Nothing new to add.', 'var(--green)');
+      await BuildSelections.paint(NewBuilds.all || []);
+    } catch (e) {
+      console.warn('[VendorMail] re-read failed:', e?.message || e);
+      App.toast('⚠️ Could not re-read the APS: ' + (e?.message || 'unknown error'), 'var(--red)');
+    } finally {
+      VendorMail._rereading = false;
+    }
+  },
+
   // Called from BuildSelections.paint with the builds on screen
   async prime(list) {
     for (const b of list || []) {
