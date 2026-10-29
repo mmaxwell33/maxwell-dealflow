@@ -443,11 +443,18 @@ const VendorMail = {
     if (typeof BuildSelections !== 'undefined') BuildSelections.paintOne(buildId);
   },
 
+  _timeout(p, secs, what) {
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} took longer than ${secs} seconds. Try again in a minute.`)), secs * 1000))]);
+  },
+
   async rereadAps(buildId) {
-    if (VendorMail._rereading) return;
+    if (VendorMail._rereading) { App.toast('📄 Still reading the APS, one moment…', 'var(--accent2)'); return; }
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
-    if (!b) return;
+    if (!b) { App.toast('⚠️ Build not found. Reload the page and try again.', 'var(--yellow)'); return; }
     VendorMail._rereading = true;
+    // Show it is working straight away, before anything is fetched
+    VendorMail._lastRead[buildId] = { ok: true, text: 'Looking for the signed APS…' };
+    BuildSelections.paintOne(buildId);
     try {
       // A build saved without its client link: find the client by name and link it,
       // so the APS can be found and the vendor emails can copy the buyers
@@ -474,10 +481,10 @@ const VendorMail = {
       if (!doc?.file_path) return VendorMail._note(buildId, false, 'No signed APS on file for this client. Add the selections with "+ Add selection", or upload the APS to the client folder.');
       VendorMail._lastRead[buildId] = { ok: true, text: `Reading ${doc.file_name || 'the APS'}… this takes about 20 seconds.` };
       BuildSelections.paintOne(buildId);
-      const { data: blob, error: dlErr } = await db.storage.from(bucket).download(doc.file_path);
+      const { data: blob, error: dlErr } = await VendorMail._timeout(db.storage.from(bucket).download(doc.file_path), 45, 'Opening the APS');
       if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
       const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
-      const x = await ApsDrop.extract(file);
+      const x = await VendorMail._timeout(ApsDrop.extract(file), 120, 'Reading the APS');
 
       const { data: have } = await db.from('build_selections').select('*').eq('build_id', buildId);
       const rows = (have || []).filter(r => r.kind !== 'price_match');
