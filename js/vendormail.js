@@ -435,6 +435,14 @@ const VendorMail = {
     return A.some(t => B.some(u => u.startsWith(t.slice(0, 5)) || t.startsWith(u.slice(0, 5))));
   },
 
+  _lastRead: {},   // build id -> { ok, html } shown on the card after a re-read
+
+  _note(buildId, ok, text) {
+    VendorMail._lastRead[buildId] = { ok, text };
+    App.toast((ok ? '✅ ' : '⚠️ ') + text, ok ? 'var(--green)' : 'var(--yellow)');
+    if (typeof BuildSelections !== 'undefined') BuildSelections.paintOne(buildId);
+  },
+
   async rereadAps(buildId) {
     if (VendorMail._rereading) return;
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
@@ -450,7 +458,7 @@ const VendorMail = {
           b.client_id = cs[0].id;
         }
       }
-      if (!b.client_id) { App.toast(`⚠️ No client named ${b.client_name || 'on this build'} found. Pick the client in Edit Details first.`, 'var(--yellow)'); return; }
+      if (!b.client_id) return VendorMail._note(buildId, false, `No client named ${b.client_name || 'on this build'} found. Pick the client in Edit Details, then tap Re-read again.`);
       // The APS in the client folder, else the accepted offer on the Pipeline deal
       let bucket = 'client-docs';
       let { data: doc } = await db.from('client_documents').select('file_path, file_name')
@@ -463,8 +471,9 @@ const VendorMail = {
           bucket = 'deal-docs';
         }
       }
-      if (!doc?.file_path) { App.toast('⚠️ No signed APS on file for this client. Upload it to the client folder first.', 'var(--yellow)'); return; }
-      App.toast(`📄 Reading ${doc.file_name || 'the APS'} again…`, 'var(--accent2)');
+      if (!doc?.file_path) return VendorMail._note(buildId, false, 'No signed APS on file for this client. Add the selections with "+ Add selection", or upload the APS to the client folder.');
+      VendorMail._lastRead[buildId] = { ok: true, text: `Reading ${doc.file_name || 'the APS'}… this takes about 20 seconds.` };
+      BuildSelections.paintOne(buildId);
       const { data: blob, error: dlErr } = await db.storage.from(bucket).download(doc.file_path);
       if (dlErr || !blob) throw new Error(dlErr?.message || 'could not open the file');
       const file = new File([blob], doc.file_name || 'APS.pdf', { type: 'application/pdf' });
@@ -497,16 +506,19 @@ const VendorMail = {
         if (plan) { const { data: nb } = await db.from('new_builds').select('floor_plan_path, floor_plan_name').eq('id', buildId).maybeSingle(); if (nb) Object.assign(b, nb); }
       }
       await VendorMail.fillFromBook(buildId);
-      const parts = [];
+      const found = (x.selections || []).filter(r => r.item).length;
+      const parts = [`Read ${doc.file_name || 'the APS'}: ${found ? `${found} selection${found === 1 ? '' : 's'} in the appendix` : 'no buyer selections found in it'}`];
       if (filled) parts.push(`vendor details added to ${filled} selection${filled === 1 ? '' : 's'}`);
       if (added) parts.push(`${added} new selection${added === 1 ? '' : 's'} added`);
       if (plan) parts.push('floor plan saved');
       else if (!b.floor_plan_path && !pages.length) parts.push('no floor plan found in the APS, attach one when you email a vendor');
-      App.toast(parts.length ? `✅ APS re-read: ${parts.join(', ')}.` : '✅ APS re-read. Nothing new to add.', 'var(--green)');
+      if (!found) parts.push('add them with "+ Add selection"');
+      if (toAdd.length && !added) parts.push('the new selections could not be saved');
       await BuildSelections.paint(NewBuilds.all || []);
+      VendorMail._note(buildId, !!found && !(toAdd.length && !added), parts.join(', ') + '.');
     } catch (e) {
       console.warn('[VendorMail] re-read failed:', e?.message || e);
-      App.toast('⚠️ Could not re-read the APS: ' + (e?.message || 'unknown error'), 'var(--red)');
+      VendorMail._note(buildId, false, 'Could not re-read the APS: ' + (e?.message || 'unknown error'));
     } finally {
       VendorMail._rereading = false;
     }
