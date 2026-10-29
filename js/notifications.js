@@ -1213,11 +1213,15 @@ ${EmailFormat.signaturePlain(agent)}`
       const item = String(s.item || 'selection').toLowerCase();
       const lot = build.lot_address || 'their new home';
       const att = files.length ? (files.length === 1 ? `I have attached the ${files[0]}.` : `I have attached the ${files.slice(0, -1).join(', ')} and the ${files[files.length - 1]}.`) : '';
-      const ask = quote
+      const allow = s.allowance ? (typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '') : s.allowance) : '';
+      const upgrade = !!s.wants_upgrade;
+      const ask = upgrade
+        ? `They would like to upgrade their ${item}${allow ? `. Their allowance is ${allow}` : ''}. ${att} Could you book an upgrade appointment and let us know the price difference over the allowance?`
+        : quote
         ? `They are comparing options and would like a quote for ${item}${s.allowance ? ` (their allowance is ${typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '') : s.allowance})` : ''}. ${att} Could you send pricing, and a few dates and times if they would like to come in?`
         : `They are ready to book their ${item} selection appointment${s.due_date ? `, which needs to be done by ${(typeof App !== 'undefined' && App.fmtDate) ? App.fmtDate(s.due_date) : s.due_date}` : ''}. ${att} Could you share a few dates and times that work for you?`;
       return {
-        subject: `${quote ? 'Quote request' : s.item + ' selection'}: ${buyers}, ${lot}${build.builder_name ? ' with ' + build.builder_name : ''}`,
+        subject: `${upgrade ? s.item + ' upgrade' : quote ? 'Quote request' : s.item + ' selection'}: ${buyers}, ${lot}${build.builder_name ? ' with ' + build.builder_name : ''}`,
         body: `Hello,
 
 My ${plural ? 'clients' : 'client'}, ${buyers}, ${plural ? 'are' : 'is'} building with ${build.builder_name || 'their builder'} at ${lot}.
@@ -1236,13 +1240,13 @@ ${EmailFormat.signaturePlain(agent)}`
     vendor_contacted_client: (client, build, sels, agent) => {
       const partner = client.co_buyer?.name ? client.co_buyer.name.split(' ')[0] : '';
       const hi = [client.full_name?.split(' ')[0], partner].filter(Boolean).join(' and ') || 'there';
-      const names = sels.map(s => `${s.item}${s.vendor_name ? ' with ' + s.vendor_name : ''}`);
+      const names = sels.map(s => `${s.item}${s.wants_upgrade ? ' upgrade' : ''}${s.vendor_name ? ' with ' + s.vendor_name : ''}`);
       const one = sels.length === 1;
       return {
-        subject: one ? `Your ${String(sels[0].item).toLowerCase()} appointment` : 'Your selection appointments',
+        subject: one ? `Your ${String(sels[0].item).toLowerCase()} ${sels[0].wants_upgrade ? 'upgrade' : 'appointment'}` : 'Your selection appointments',
         body: `Hi ${hi},
 
-${one ? `I have reached out to ${sels[0].vendor_name || 'the vendor'} for your ${String(sels[0].item).toLowerCase()} appointment.` : `I have reached out to the vendors for your selection appointments:\n\n${names.map(n => '• ' + n).join('\n')}`}
+${one ? `I have reached out to ${sels[0].vendor_name || 'the vendor'} for your ${String(sels[0].item).toLowerCase()} ${sels[0].wants_upgrade ? 'upgrade. They will let us know the price difference over your allowance' : 'appointment'}.` : `I have reached out to the vendors for your selection appointments:\n\n${names.map(n => '• ' + n).join('\n')}`}
 
 You are copied on ${one ? 'the email' : 'each email'}, and they will reply to all of us with dates. Just pick a time that suits you, and bring any ideas or photos you like.
 

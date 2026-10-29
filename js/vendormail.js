@@ -275,6 +275,7 @@ const VendorMail = {
         <input type="file" id="vm-file" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.xlsx" style="font-size:12px;" onchange="VendorMail.addFiles(event)">
         ${!b.floor_plan_path ? `<label style="display:flex;gap:8px;align-items:center;margin-top:6px;"><input type="checkbox" id="vm-fp-save" style="width:16px;height:16px;"> Use the first file as the floor plan for every vendor on this build</label>` : ''}
       </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:8px;"><input type="checkbox" id="vm-upgrade" ${s.wants_upgrade ? 'checked' : ''} style="width:16px;height:16px;"> ⬆️ Clients want an upgrade (ask for an upgrade appointment and the price difference over the allowance)</label>
       <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:12px;"><input type="checkbox" id="vm-heads" ${quote ? '' : 'checked'} style="width:16px;height:16px;"> Also send the buyers a short heads-up</label>
       <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px;line-height:1.5;">The buyers are copied so the vendor replies to everyone. It goes to Approvals first, nothing is sent until you approve it.</div>
       <button class="btn btn-primary btn-block" onclick="VendorMail.sendCompose('${buildId}','${selId}','${mode}')">📬 Put in Approvals</button>
@@ -335,6 +336,8 @@ const VendorMail = {
     const files = [...kept, ...uploaded];
     const fields = { vendor_name: name, vendor_email: email, vendor_phone: val('vm-phone') || null,
                      vendor_address: val('vm-address') || null, vendor_note: val('vm-note') || null, vendor_files: files.length ? files : null };
+    const wants = !!document.getElementById('vm-upgrade')?.checked;
+    if (wants || s.wants_upgrade) fields.wants_upgrade = wants;   // migration 119, only sent when used
 
     let row;
     if (quote) {

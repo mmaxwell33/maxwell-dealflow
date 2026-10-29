@@ -88,7 +88,7 @@ const BuildSelections = {
           ${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).length
             ? `<div style="color:var(--text2);">${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).join(' · ')}</div>` : ''}`}
           ${r.details ? `<div style="color:var(--text2);">${BuildSelections.esc(r.details)}</div>` : ''}
-          ${r.upgrade_note ? `<div style="color:var(--accent2);font-weight:600;">⬆️ Upgrade: ${BuildSelections.esc(r.upgrade_note)}</div>` : ''}
+          ${r.wants_upgrade || r.upgrade_note ? `<div style="color:var(--accent2);font-weight:600;">⬆️ ${r.upgrade_note ? 'Upgrade · ' + BuildSelections.esc(r.upgrade_note) : 'Upgrade requested, waiting on the price'}</div>` : ''}
           <div style="color:${overdue ? 'var(--red)' : 'var(--text2)'};">
             ${r.due_date ? `${overdue ? '⚠️ Overdue · ' : ''}Due ${App.fmtDate(r.due_date)}` : 'No due date'}${r.appointment_date && r.status === 'booked' ? ` · Appointment ${App.fmtDate(r.appointment_date)}` : ''}${r.allowance ? ` · Allowance ${BuildSelections.esc(BuildSelections.allowanceText(r))}` : ''}
           </div>
@@ -163,9 +163,10 @@ const BuildSelections = {
           </select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">UPGRADE (IF ANY)</label>
-          <input class="form-input" id="bs-upgrade" value="${v('upgrade_note')}" placeholder="e.g. Hardwood on main floor, +$3,200"></div>
+        <div class="form-group"><label class="form-label">UPGRADE PRICE (ONCE QUOTED)</label>
+          <input class="form-input" id="bs-upgrade" value="${v('upgrade_note')}" placeholder="e.g. +$1,200 over allowance"></div>
       </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:12px;"><input type="checkbox" id="bs-wants" ${r?.wants_upgrade ? 'checked' : ''} style="width:16px;height:16px;"> ⬆️ Clients want an upgrade (the vendor email asks for an upgrade appointment and the price difference)</label>
       <div class="form-row">
         <div class="form-group"><label class="form-label">MUST BE DONE BY</label>
           <input class="form-input" type="date" id="bs-due" value="${v('due_date')}"></div>
@@ -204,6 +205,7 @@ const BuildSelections = {
     const used = (k, x) => (x || old?.[k]) ? { [k]: x } : {};
     const extra = { ...used('vendor_email', email), ...used('vendor_phone', val('bs-phone')), ...used('vendor_address', val('bs-address')),
                     ...used('allowance', val('bs-allow')), ...used('allowance_hst', val('bs-hst')), ...used('upgrade_note', val('bs-upgrade')),
+                    ...(!!document.getElementById('bs-wants')?.checked !== !!old?.wants_upgrade ? { wants_upgrade: !!document.getElementById('bs-wants')?.checked } : {}),
                     ...((picked === 'builder') !== (old?.picked_by === 'builder') ? { picked_by: picked === 'builder' ? 'builder' : null } : {}),
                     ...(status === 'done' && old?.status !== 'done' ? { done_at: new Date().toISOString() } : {}),
                     ...(!selId && BuildSelections._editKind !== 'appendix' ? { kind: BuildSelections._editKind } : {}) };
