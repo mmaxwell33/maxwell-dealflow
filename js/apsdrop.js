@@ -152,10 +152,17 @@ const ApsDrop = {
       },
     });
 
-    if (error) throw new Error(error.message || 'Reader unavailable');
+    if (error) {
+      // supabase-js hides the function's own message behind "non-2xx": read it
+      let why = '';
+      try { const r = error.context; why = r ? `${r.status} ${(await r.clone().json())?.error || ''}`.trim() : ''; } catch (_) {
+        try { why = String(error.context?.status || ''); } catch (__) {}
+      }
+      throw new Error(why ? `reader error ${why}` : (error.message || 'Reader unavailable'));
+    }
     if (data?.error) throw new Error(data.error);
     const x = OfferDrop.parse(data?.text);
-    if (!x) throw new Error('The reader did not return readable fields.');
+    if (!x) throw new Error(data?.stop_reason === 'max_tokens' ? 'The agreement is long and the reader ran out of room. Try again.' : 'The reader did not return readable fields.');
     return x;
   },
 
