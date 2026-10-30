@@ -21,6 +21,7 @@
     /* Page title (matches stakeholder/builder portals) */
     .page-title{margin:0 0 18px;font-size:22px;font-weight:700;color:#1A1F2E;}
     .page-title span{display:block;font-size:13px;font-weight:500;color:#5C6577;margin-top:4px;}
+    .page-title #build-address-title{font-size:22px;font-weight:700;color:#1A1F2E;margin-top:0;}
     /* Status banner */
     .status-banner{display:flex;align-items:center;gap:14px;padding:18px 20px;
       background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));
@@ -55,14 +56,14 @@
     .build-meta span{margin-right:16px;}
     /* Countdown to possession */
     .countdown{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center;
-      padding:20px;background:#F5EFE6;border:1px solid rgba(0,0,0,.08);border-radius:12px;
-      margin-bottom:24px;}
+      padding:22px;background:#FFFFFF;border:1px solid rgba(0,0,0,.08);border-radius:16px;
+      box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:14px;}
     .countdown-num{text-align:center;min-width:64px;}
-    .countdown-num strong{display:block;font-size:30px;font-weight:800;color:#CC785C;
+    .countdown-num strong{display:block;font-size:32px;font-weight:800;color:#CC785C;
       line-height:1;font-variant-numeric:tabular-nums;}
-    .countdown-num span{font-size:10px;color:#5C6577;text-transform:uppercase;
-      letter-spacing:.08em;font-weight:700;margin-top:4px;display:block;}
-    .countdown-label{font-size:13px;color:#5C6577;padding-left:14px;
+    .countdown-num span{font-size:10px;color:#8C95A8;text-transform:uppercase;
+      letter-spacing:.08em;font-weight:600;margin-top:4px;display:block;}
+    .countdown-label{display:flex;align-items:center;font-size:13px;color:#5C6577;padding-left:14px;
       border-left:1px solid rgba(0,0,0,.08);margin-left:8px;min-width:140px;line-height:1.4;}
     /* Progress bar */
     .progress-wrap{margin-bottom:28px;}
@@ -112,6 +113,18 @@
     @keyframes spin{to{transform:rotate(360deg);}}
     .last-updated{font-size:11px;color:#8C95A8;margin-top:20px;text-align:center;}
     footer{margin-top:20px;font-size:11px;color:#8C95A8;text-align:center;}
+    /* Status marquee, revoke button and toast: same as the transaction portal */
+    @keyframes deal-ticker-scroll{0%{transform:translateX(100%);}100%{transform:translateX(-100%);}}
+    .deal-ticker{overflow:hidden;background:rgba(204,120,92,0.08);border:1px solid rgba(204,120,92,0.25);
+      border-radius:8px;padding:8px 0;margin:14px 0;font-size:13px;font-weight:600;color:#CC785C;white-space:nowrap;}
+    .deal-ticker > span{display:inline-block;padding-left:100%;animation:deal-ticker-scroll 30s linear infinite;}
+    .deal-ticker:hover > span{animation-play-state:paused;}
+    .link-note{font-size:12px;color:#8C95A8;margin-top:8px;line-height:1.5;}
+    .panic{margin-top:14px;background:transparent;border:1px solid #B91C1C;color:#B91C1C;padding:10px 16px;
+      border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;width:100%;font-family:inherit;}
+    .panic:hover{background:#B91C1C;color:#fff;}
+    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1A1F2E;color:#fff;
+      padding:10px 18px;border-radius:10px;font-size:13px;z-index:99;}
   </style>
 </head>
 <body>
@@ -156,6 +169,8 @@
 
     <div id="build-status-banner"></div>
 
+    <div id="build-ticker"></div>
+
     <div id="build-countdown"></div>
 
     <div id="build-next-up"></div>
@@ -190,8 +205,15 @@
       </div>
     </div>
 
+    <div class="panel">
+      <h3>This link</h3>
+      <div class="row"><span class="label">Expires</span><span class="val" id="link-expires">90 days after your last visit</span></div>
+      <div class="link-note">Auto-extends 90 days each time you visit. If you didn’t request this link, revoke it now and Maxwell will be notified.</div>
+      <button class="panic" onclick="revokeLink()">🚫 Revoke this link now</button>
+    </div>
+
     <div class="footer-line">
-       Secure link · auto-extends with each visit<br>
+      🔒 Secure link<span id="footer-expires"></span> · auto-extends with each visit<br>
       Maxwell Delali Midodzi · REALTOR® · eXp Realty · (709) 325-0545
     </div>
   </div>
@@ -265,7 +287,9 @@ const SECTIONS = [
 
 function fmtDate(iso) {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Read the day at local noon: new Date('2027-04-29') is UTC midnight, which
+  // in Newfoundland is still the 28th, so possession showed a day early.
+  return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // Countdown — D/H/M to possession
@@ -300,6 +324,26 @@ async function init() {
     }).then(r => r.json());
 
     if (!tokenRows?.length || !tokenRows[0].active) { show('error'); return; }
+    // Expiry (migration 121). Before it is run there is no expires_at and the
+    // link keeps working as it always has.
+    let expiresAt = tokenRows[0].expires_at || null;
+    if (expiresAt && new Date(expiresAt) < new Date()) { show('error'); return; }
+    if (!linkTouched) {
+      linkTouched = true;
+      try {
+        const t = await fetch(SB_URL + '/rest/v1/rpc/build_portal_touch', {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_token: token })
+        }).then(r => r.ok ? r.json() : null);
+        if (t && t.ok && t.expires_at) touchedExpiry = t.expires_at;
+      } catch (e) {}
+    }
+    if (touchedExpiry) expiresAt = touchedExpiry;
+    if (expiresAt) {
+      document.getElementById('link-expires').textContent = fmtDate(expiresAt);
+      document.getElementById('footer-expires').textContent = ' · expires ' + fmtDate(expiresAt);
+    }
 
     const build = tokenRows[0].new_builds;
     if (!build) { show('error'); return; }
@@ -377,12 +421,26 @@ async function init() {
       : SECTIONS[currentSectionIdx].label.replace(/^\S+\s*/, ''); // strip leading emoji
     const statusTitle = allComplete ? 'Build complete ' : 'Build is on track';
     const statusSub   = allComplete
-      ? 'All stages finished — congratulations on your new home!'
-      : 'Currently working through ' + currentLabel + ' — ' + pct + '% of all steps complete.';
+      ? 'All stages finished. Congratulations on your new home!'
+      : 'Currently working through ' + currentLabel + '. ' + pct + '% of all steps complete.';
     document.getElementById('build-status-banner').innerHTML =
       '<div class="status-banner">' +
+        '<div class="status-banner-icon">' + (allComplete ? '🎉' : '✅') + '</div>' +
         '<div class="status-banner-text"><strong>' + statusTitle + '</strong><span>' + statusSub + '</span></div>' +
       '</div>';
+
+    // === Status marquee, worded for the stage the build is in ===
+    const phaseKey = allComplete ? 'possession' : SECTIONS[currentSectionIdx].key;
+    const TICKER = {
+      pre_construction: '📋 Pre-construction is underway. Plans, permits and design selections are being finalized.',
+      financing:        '🏦 Financing is in progress. Approvals are being finalized.',
+      construction:     '🏗️ Construction is underway. Your home is taking shape step by step.',
+      conditions:       '📑 Closing preparation is underway. Conditions and final paperwork are being handled.',
+      possession:       allComplete ? '🎉 Your build is complete. Congratulations and welcome home!'
+                                    : '🔑 Possession is near. Final walkthrough and keys are next.'
+    };
+    document.getElementById('build-ticker').innerHTML =
+      '<div class="deal-ticker"><span>' + (TICKER[phaseKey] || TICKER.pre_construction) + '</span></div>';
 
     // === Countdown to possession ===
     const closeDate = build.est_completion_date || build.est_close_date || build.closing_date;
@@ -394,7 +452,7 @@ async function init() {
             '<div class="countdown-num"><strong>' + cd.days + '</strong><span>Days</span></div>' +
             '<div class="countdown-num"><strong>' + String(cd.hours).padStart(2,'0') + '</strong><span>Hours</span></div>' +
             '<div class="countdown-num"><strong>' + String(cd.mins).padStart(2,'0') + '</strong><span>Min</span></div>' +
-            '<div class="countdown-label">Until possession </div>' +
+            '<div class="countdown-label">Until you get your keys 🔑</div>' +
           '</div>';
       } else {
         document.getElementById('build-countdown').innerHTML = '';
@@ -406,11 +464,11 @@ async function init() {
     // === What's next ===
     let nextSentence;
     if (allComplete) {
-      nextSentence = 'All stages complete — Maxwell will reach out about possession.';
+      nextSentence = 'All stages complete. Maxwell will reach out about possession.';
     } else if (nextStepLabel) {
       nextSentence = 'Next up in ' + currentLabel + ': ' + nextStepLabel + '.';
     } else {
-      nextSentence = 'Wrapping up ' + currentLabel + ' — Maxwell will move to the next stage shortly.';
+      nextSentence = 'Wrapping up ' + currentLabel + '. Maxwell will move to the next stage shortly.';
     }
     document.getElementById('build-next-up').innerHTML =
       '<div class="next-up">' +
@@ -458,7 +516,30 @@ async function init() {
   }
 }
 
-let viewLogged = false;
+let viewLogged = false, linkTouched = false, touchedExpiry = null;
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// The buyer revokes their own link (migration 121); Maxwell sees it in his activity log
+async function revokeLink() {
+  if (!confirm('Revoke this link now?\n\nYou will lose access immediately. Contact Maxwell for a new link.')) return;
+  const token = new URLSearchParams(location.search).get('t');
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/rpc/build_self_revoke', {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_token: token })
+    }).then(r => r.ok ? r.json() : null);
+    if (r && r.ok) { toast('🚫 Link revoked'); setTimeout(() => show('error'), 1200); return; }
+  } catch (e) {}
+  toast('⚠️ Could not revoke. Please call Maxwell at (709) 325-0545');
+}
+
 init();
 // Silent auto-refresh every 30 seconds so updates from the agent or
 // builder appear without the buyer needing to manually reload.
