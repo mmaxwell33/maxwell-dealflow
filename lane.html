@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Financing Lane — Referrals from Maxwell</title>
 <style>
-  :root{--bg:#0A0E14;--bg2:#0d1420;--side:#0c121c;--card:#161D28;--s2:#1E2636;--a:#6E8CC0;--a2:#88A2CE;--a-soft:rgba(110,140,192,0.16);
-        --t1:#F8FAFC;--t2:#94A3B8;--t3:#64748B;--bd:#232c38;--bd2:#2c3646;--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
-        --am:#88A2CE;--am-soft:rgba(110,140,192,0.16);--rd:#B91C1C;
+  :root{--bg:#FAF7F2;--bg2:#F5EFE6;--side:#FFFFFF;--card:#FFFFFF;--s2:#F5EFE6;--a:#CC785C;--a2:#D98B6F;--a-soft:rgba(204,120,92,0.12);
+        --t1:#1A1F2E;--t2:#5C6577;--t3:#8C95A8;--bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.14);--g:#16A34A;--g-soft:rgba(22,163,74,0.15);
+        --am:#B3654A;--am-soft:rgba(204,120,92,0.12);--rd:#B91C1C;
         --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{background:var(--bg);min-height:100%;}
@@ -18,14 +18,14 @@
   .side{width:260px;flex:none;background:var(--side);border-right:1px solid var(--bd);
         display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:22px 16px;}
   .brand{display:flex;align-items:center;gap:12px;padding:0 6px 20px;border-bottom:1px solid var(--bd);margin-bottom:16px;}
-  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:19px;flex:none;box-shadow:0 4px 14px rgba(110,140,192,.35);}
+  .mk{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:19px;flex:none;box-shadow:0 4px 14px rgba(204,120,92,.35);}
   .brand b{font-size:16px;display:block;line-height:1.15;letter-spacing:-.2px;}
   .brand small{font-size:11px;color:var(--t3);font-family:var(--mono);}
   nav{display:flex;flex-direction:column;gap:6px;}
   .navitem{display:flex;align-items:center;gap:11px;font:inherit;font-size:14px;font-weight:600;color:var(--t2);
            background:transparent;border:0;border-radius:11px;padding:12px 13px;cursor:pointer;text-align:left;transition:.14s;width:100%;}
   .navitem:hover{background:var(--card);color:var(--t1);}
-  .navitem.on{background:var(--a);color:#fff;box-shadow:0 3px 12px rgba(110,140,192,.35);}
+  .navitem.on{background:var(--a);color:#fff;box-shadow:0 3px 12px rgba(204,120,92,.35);}
   .navitem .ic{font-size:17px;width:20px;text-align:center;}
   .navitem .ct{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--s2);color:var(--t3);padding:2px 9px;border-radius:11px;}
   .navitem.on .ct{background:rgba(255,255,255,.2);color:#fff;}
@@ -61,12 +61,12 @@
   .field label{font-size:10.5px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
   .field input,.field select{font:inherit;font-size:14px;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);width:100%;}
   .field input:focus,.field select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--a-soft);}
-  .maxsee{background:var(--a-soft);border:1px solid #33445f;border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;}
+  .maxsee{background:var(--a-soft);border:1px solid rgba(204,120,92,.25);border-radius:11px;padding:11px 13px;margin-top:14px;font-size:12px;color:var(--t2);line-height:1.5;}
   .maxsee b{color:var(--t1);}
   .note{font-size:11.5px;color:var(--t3);margin-top:11px;line-height:1.5;}
   .empty{grid-column:1 / -1;text-align:center;color:var(--t3);font-size:14px;padding:60px 20px;background:var(--card);border:1px dashed var(--bd2);border-radius:16px;}
   .empty .ei{font-size:34px;display:block;margin-bottom:12px;opacity:.5;}
-  .msg{font-size:12.5px;min-height:16px;margin-top:10px;} .msg.err{color:#f0a0af;} .msg.ok{color:#8ee6ad;}
+  .msg{font-size:12.5px;min-height:16px;margin-top:10px;} .msg.err{color:#B91C1C;} .msg.ok{color:#0F9F6E;}
 
   /* ── full-screen states ─────────────────────────────── */
   .state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px;}
