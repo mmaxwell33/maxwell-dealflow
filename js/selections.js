@@ -83,7 +83,7 @@ const BuildSelections = {
         <div style="flex:1;min-width:0;${r.status === 'done' ? 'opacity:0.65;' : ''}">
           <div style="font-weight:700;color:var(--text1);${r.status === 'done' ? 'text-decoration:line-through;' : ''}">${isQuote ? '🔁 Quote · ' : ''}${BuildSelections.esc(r.item)}${r.kind === 'other' ? ' <span style="font-weight:400;font-size:10.5px;color:var(--text2);">(other appointment)</span>' : ''}</div>
           ${r.picked_by === 'builder' ? '' : `<div style="color:var(--text1);">🏪 ${r.vendor_name && !BuildSelections.genericVendor(r.vendor_name)
-            ? BuildSelections.esc(r.vendor_name)
+            ? BuildSelections.esc(r.vendor_name) + (r.vendor_rep ? ` · ${BuildSelections.esc(r.vendor_rep)}` : '')
             : `<span style="color:var(--yellow);">${r.vendor_name ? BuildSelections.esc(r.vendor_name) + ' · ' : ''}vendor not named yet</span> <button style="${linkBtn}" onclick="BuildSelections.openEdit('${buildId}','${r.id}')">add the vendor</button>`}</div>
           ${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).length
             ? `<div style="color:var(--text2);">${[r.vendor_address && '📍 ' + BuildSelections.esc(r.vendor_address), r.vendor_phone && '📞 ' + BuildSelections.esc(r.vendor_phone), r.vendor_email && '✉️ ' + BuildSelections.esc(r.vendor_email)].filter(Boolean).join(' · ')}</div>` : ''}`}
@@ -145,6 +145,10 @@ const BuildSelections = {
       <div class="form-row">
         <div class="form-group"><label class="form-label">VENDOR EMAIL</label>
           <input class="form-input" id="bs-email" type="email" value="${v('vendor_email')}" placeholder="For the vendor email"></div>
+        <div class="form-group"><label class="form-label">SALESPERSON</label>
+          <input class="form-input" id="bs-rep" value="${v('vendor_rep')}" placeholder="e.g. Sandra Mitchell"></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label class="form-label">VENDOR PHONE</label>
           <input class="form-input" id="bs-phone" value="${v('vendor_phone')}" placeholder="709-555-0100"></div>
       </div>
@@ -203,7 +207,7 @@ const BuildSelections = {
     // Migration 117 columns, only sent when used, so this still saves before it runs
     const email = val('bs-email');
     const used = (k, x) => (x || old?.[k]) ? { [k]: x } : {};
-    const extra = { ...used('vendor_email', email), ...used('vendor_phone', val('bs-phone')), ...used('vendor_address', val('bs-address')),
+    const extra = { ...used('vendor_email', email), ...used('vendor_rep', val('bs-rep')), ...used('vendor_phone', val('bs-phone')), ...used('vendor_address', val('bs-address')),
                     ...used('allowance', val('bs-allow')), ...used('allowance_hst', val('bs-hst')), ...used('upgrade_note', val('bs-upgrade')),
                     ...(!!document.getElementById('bs-wants')?.checked !== !!old?.wants_upgrade ? { wants_upgrade: !!document.getElementById('bs-wants')?.checked } : {}),
                     ...((picked === 'builder') !== (old?.picked_by === 'builder') ? { picked_by: picked === 'builder' ? 'builder' : null } : {}),
@@ -216,7 +220,7 @@ const BuildSelections = {
       const user = await App.getAuthUser();
       ({ error } = await db.from('build_selections').insert({ ...row, ...extra, agent_id: user?.id || currentAgent.id, build_id: buildId, client_id: b?.client_id || null, source: 'manual' }));
     }
-    if (!error && email && typeof VendorMail !== 'undefined') VendorMail.remember({ name: row.vendor_name, email, phone: val('bs-phone'), address: val('bs-address') });
+    if (!error && email && typeof VendorMail !== 'undefined') VendorMail.remember({ name: row.vendor_name, email, phone: val('bs-phone'), address: val('bs-address'), rep: val('bs-rep') });
     if (error) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + error.message; } return; }
     App.closeModal();
     // Status chosen here follows the same done rule as the button

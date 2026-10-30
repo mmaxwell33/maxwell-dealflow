@@ -1199,40 +1199,50 @@ ${EmailFormat.signaturePlain(agent)}`
     },
 
     // To the vendor (flooring, cabinets, lighting...): the clients are copied.
-    // Brief and plain. quote = a price-match request to a different vendor.
-    vendor_selection_request: (client, build, s, agent, { quote = false, files = [] } = {}) => {
+    // Written the way Maxwell writes to vendors he knows. type:
+    //   intro   introducing new clients, asking for availability
+    //   met     after meeting the vendor, sending the clients' picks
+    //   upgrade builder chose the standard, clients want an upgrade quote
+    //   quote   price-match quote from a different vendor
+    // files: labels of the attachments, listed under "Please find attached".
+    vendor_selection_request: (client, build, s, agent, { quote = false, type = null, files = [] } = {}) => {
+      const kind = type || (quote ? 'quote' : s.wants_upgrade ? 'upgrade' : 'intro');
       const first = n => String(n || '').trim().split(/\s+/)[0] || '';
-      const last  = n => String(n || '').trim().split(/\s+/).slice(1).join(' ');
       const p = client.co_buyer?.name || '';
-      const buyers = p
-        ? (last(client.full_name) && last(client.full_name) === last(p)
-            ? `${first(client.full_name)} and ${first(p)} ${last(p)}`
-            : `${client.full_name} and ${p}`)
-        : (client.full_name || 'my client');
       const plural = !!p;
+      const names = `${client.full_name || 'my client'}${p ? ' and ' + p : ''}`;
+      const clients = `my ${plural ? 'clients' : 'client'}, ${names},`;
       const item = String(s.item || 'selection').toLowerCase();
+      const builder = build.builder_name || 'their builder';
       const lot = build.lot_address || 'their new home';
-      const att = files.length ? (files.length === 1 ? `I have attached the ${files[0]}.` : `I have attached the ${files.slice(0, -1).join(', ')} and the ${files[files.length - 1]}.`) : '';
-      const allow = s.allowance ? (typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '') : s.allowance) : '';
-      const upgrade = !!s.wants_upgrade;
-      const ask = upgrade
-        ? `They would like to upgrade their ${item}${allow ? `. Their allowance is ${allow}` : ''}. ${att} Could you book an upgrade appointment and let us know the price difference over the allowance?`
-        : quote
-        ? `They are comparing options and would like a quote for ${item}${s.allowance ? ` (their allowance is ${typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '') : s.allowance})` : ''}. ${att} Could you send pricing, and a few dates and times if they would like to come in?`
-        : `They are ready to book their ${item} selection appointment${s.due_date ? `, which needs to be done by ${(typeof App !== 'undefined' && App.fmtDate) ? App.fmtDate(s.due_date) : s.due_date}` : ''}. ${att} Could you share a few dates and times that work for you?`;
+      const allow = s.allowance ? (typeof BuildSelections !== 'undefined' ? BuildSelections.allowanceText(s).replace(' (HST not stated)', '').replace(' (HST included)', ', HST included') : s.allowance) : '';
+      const allowLine = allow ? `As per the builder's appendix, their ${item} allowance is ${allow}.` : '';
+      const attach = files.length ? `Please find attached:\n${files.map(f => '• ' + f).join('\n')}` : '';
+      const note = s.vendor_note ? `A few notes from the clients: ${s.vendor_note}` : '';
+      const copied = `They are copied on this email so we can confirm a time together.`;
+      const are = plural ? 'are' : 'is';
+      const opening = {
+        intro:   `I would like to introduce ${clients} who ${are} building a new home with ${builder} at ${lot}. ${builder} has referred them to you for their ${item} selection.`,
+        met:     `It was great meeting you. As discussed, here are the ${item} details for ${clients} who ${are} building with ${builder} at ${lot}.`,
+        upgrade: `I would like to introduce ${clients} who ${are} building with ${builder} at ${lot}. The builder has chosen the standard ${item}, and the clients would like an upgrade, so ${builder} has referred us to you.`,
+        quote:   `${clients.charAt(0).toUpperCase() + clients.slice(1)} ${are} building with ${builder} at ${lot} and ${are} comparing options for their ${item}.`,
+      }[kind];
+      const ask = {
+        intro:   `Could you let us know what days and times work for you? ${copied}`,
+        met:     `You know the products best, so please feel free to suggest a better brand or something similar at a good price. A quote with model numbers would be very helpful.\n\nThe clients would love to come in and see the options in person. What days and times work for you? ${copied}`,
+        upgrade: `Could you put together a quote with model numbers and the price difference over the allowance? We would also like to book a time to come in and go through it, so please let us know what days work for you. ${copied}`,
+        quote:   `Could you send a quote with model numbers, and let us know what days work if they would like to come in? ${copied}`,
+      }[kind];
+      const subject = {
+        intro:   `${lot}: ${item} selection for ${names}`,
+        met:     `${lot}: ${item} selections`,
+        upgrade: `${lot}: ${item} upgrade quote`,
+        quote:   `${lot}: ${item} quote request`,
+      }[kind];
       return {
-        subject: `${upgrade ? s.item + ' upgrade' : quote ? 'Quote request' : s.item + ' selection'}: ${buyers}, ${lot}${build.builder_name ? ' with ' + build.builder_name : ''}`,
-        body: `Hello,
-
-My ${plural ? 'clients' : 'client'}, ${buyers}, ${plural ? 'are' : 'is'} building with ${build.builder_name || 'their builder'} at ${lot}.
-
-${ask}
-${s.vendor_note ? `\nWhat they are looking for: ${s.vendor_note}\n` : ''}
-They are copied here, so please reply to all of us.
-
-Thank you,
-
-${EmailFormat.signaturePlain(agent)}`
+        subject,
+        body: [s.vendor_rep ? `Hi ${first(s.vendor_rep)},` : 'Hello,', opening, allowLine, attach, note, ask,
+               'Thank you, and I look forward to working with you.', EmailFormat.signaturePlain(agent)].filter(Boolean).join('\n\n'),
       };
     },
 

@@ -43,14 +43,15 @@ const VendorMail = {
   // ── Vendor book ───────────────────────────────────────────────────────────
   key(name) { return String(name || '').trim().toLowerCase().replace(/\s+/g, ' '); },
 
-  async remember({ name, email, phone, address }) {
+  async remember({ name, email, phone, address, rep }) {
     if (!name || !VendorMail.emailOk(email)) return;
     const user = await App.getAuthUser();
     const row = { agent_id: user?.id || currentAgent.id, name: name.trim(), name_key: VendorMail.key(name),
                   email: email.trim(), updated_at: new Date().toISOString() };
     if (phone) row.phone = phone;
     if (address) row.address = address;
-    const { error } = await db.from('build_vendors').upsert(row, { onConflict: 'agent_id,name_key' });
+    let { error } = await db.from('build_vendors').upsert(rep ? { ...row, rep } : row, { onConflict: 'agent_id,name_key' });
+    if (error && rep && /column/.test(error.message || '')) ({ error } = await db.from('build_vendors').upsert(row, { onConflict: 'agent_id,name_key' }));   // before migration 120
     if (error) console.warn('[VendorMail] vendor book skipped (run migration 117):', error.message);
   },
 
@@ -197,39 +198,50 @@ const VendorMail = {
     return btoa(bin);
   },
 
-  async _file(path, name) {
-    const { data: blob, error } = await db.storage.from('client-docs').download(path);
+  async _file(path, name, bucket = 'client-docs') {
+    const { data: blob, error } = await db.storage.from(bucket).download(path);
     if (error || !blob) { console.warn('[VendorMail] attachment skipped:', name, error?.message); return null; }
     return { filename: name, mime_type: blob.type || 'application/pdf', data: VendorMail._b64(await blob.arrayBuffer()) };
   },
 
-  // Draft one vendor email into Approvals. opts.floorPlan (default true when
-  // the build has one), opts.files (extra [{path,name}] already uploaded).
-  async draft(b, s, { quiet = false, floorPlan = true, quote = false } = {}) {
+  // A file name as it reads in the email: "16_Knightsbridge_-_Lighting.pdf" → "16 Knightsbridge - Lighting"
+  label(name) { return String(name || 'file').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/^\d{10,}-/, '').replace(/_/g, ' ').trim(); },
+
+  TYPES: {
+    intro:   'Introduce my clients and ask for availability',
+    met:     'Follow up after meeting the vendor (send the picks)',
+    upgrade: 'Upgrade quote (builder picked the standard)',
+    quote:   'Price-match quote (a different vendor)',
+  },
+
+  // Draft one vendor email into Approvals. opts.files: [{path, name, bucket, label}]
+  // chosen in the email window; without it (the automatic release) the floor
+  // plan and the files already saved on the selection are attached.
+  async draft(b, s, { quiet = false, quote = false, type = null, files = null } = {}) {
     if (!VendorMail.emailOk(s.vendor_email)) { if (!quiet) App.toast('⚠️ Add the vendor email first', 'var(--yellow)'); return false; }
     const { client, cc } = await BuildSelections._recipient(b);
     const ccList = [client.email, ...String(cc || '').split(',')].map(x => String(x || '').trim()).filter(VendorMail.emailOk);
-    const files = [];
-    const labels = [];
-    if (floorPlan && b.floor_plan_path) {
-      const f = await VendorMail._file(b.floor_plan_path, b.floor_plan_name || 'Floor plan.pdf');
-      if (f) { files.push(f); labels.push('floor plan'); }
+    const pick = files || [
+      ...(b.floor_plan_path ? [{ path: b.floor_plan_path, name: b.floor_plan_name || 'Floor plan.pdf', label: 'Floor plan' }] : []),
+      ...(s.vendor_files || []),
+    ];
+    const out = [], labels = [];
+    for (const x of pick) {
+      const f = await VendorMail._file(x.path, x.name, x.bucket || 'client-docs');
+      if (f) { out.push(f); labels.push(x.label || VendorMail.label(x.name)); }
     }
-    for (const x of (s.vendor_files || [])) {
-      const f = await VendorMail._file(x.path, x.name);
-      if (f) { files.push(f); labels.push(String(x.name || 'file').replace(/\.[a-z0-9]+$/i, '')); }
-    }
-    const t = Notify.templates.vendor_selection_request(client, b, s, currentAgent, { quote, files: labels });
+    const kind = type || (quote ? 'quote' : s.wants_upgrade ? 'upgrade' : 'intro');
+    const t = Notify.templates.vendor_selection_request(client, b, s, currentAgent, { type: kind, files: labels });
     const ok = await Notify.queue(VendorMail.TYPE, b.client_id || null, `${s.vendor_name || 'Vendor'} (${client.full_name || b.client_name})`,
       s.vendor_email.trim(), t.subject, t.body, b.id, null, null, [...new Set(ccList)].join(', ') || null,
-      files.length ? files : null, null, { selection_id: s.id, vendor: true });
+      out.length ? out : null, null, { selection_id: s.id, vendor: true });
     if (ok === false) return false;
     const now = new Date().toISOString();
     const { data: q } = await db.from('approval_queue').select('id').eq('related_id', b.id).eq('approval_type', VendorMail.TYPE)
       .eq('context_data->>selection_id', s.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
     await db.from('build_selections').update({ vendor_queued_at: now, vendor_approval_id: q?.id || null, updated_at: now }).eq('id', s.id);
     await App.logActivity('VENDOR_EMAIL_DRAFTED', b.client_name, s.vendor_email,
-      `${quote ? 'Quote request' : s.item + ' email'} to ${s.vendor_name || s.vendor_email} drafted for approval`, b.client_id || null);
+      `${VendorMail.TYPES[kind] || 'Vendor email'}: ${s.item} to ${s.vendor_name || s.vendor_email}, drafted for approval`, b.client_id || null);
     return true;
   },
 
@@ -240,9 +252,12 @@ const VendorMail = {
     return Notify.queue(VendorMail.CLIENT_TYPE, client.id || null, client.full_name, client.email, t.subject, t.body, b.id, null, null, cc);
   },
 
-  // ── Compose window: Email vendor / Different vendor ──────────────────────
+  // ── Email window: Email vendor / Different vendor ─────────────────────────
   // mode: 'send' (this selection's vendor) | 'quote' (a different vendor)
-  openCompose(buildId, selId, mode = 'send') {
+  MAX_FILES: 10,
+  MAX_MB: 18,   // Gmail allows 25 MB per email, and attachments grow by a third when sent
+
+  async openCompose(buildId, selId, mode = 'send') {
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
     const s = (BuildSelections._byBuild[buildId] || []).find(x => x.id === selId);
     if (!b || !s) return;
@@ -250,34 +265,64 @@ const VendorMail = {
     const v = k => VendorMail.esc(quote || (k === 'vendor_name' && BuildSelections.genericVendor(s[k])) ? '' : (s[k] || ''));
     const g = VendorMail.gate(b, VendorMail._builds[buildId]?.deal);
     VendorMail._pending = [];
+
+    // Files to choose from, ticked when they normally go
+    const att = [];
+    if (b.floor_plan_path) att.push({ path: b.floor_plan_path, name: b.floor_plan_name || 'Floor plan.pdf', label: 'Floor plan', on: true, note: 'floor plan pages only' });
+    (quote ? [] : (s.vendor_files || [])).forEach(f => att.push({ ...f, on: true }));
+    // Same builder, same model: a floor plan saved on another build
+    if (b.builder_name) {
+      const { data: others } = await db.from('new_builds').select('lot_address, floor_plan_path, floor_plan_name')
+        .eq('agent_id', currentAgent.id).eq('builder_name', b.builder_name).neq('id', buildId).not('floor_plan_path', 'is', null).limit(10);
+      (others || []).filter(o => o.floor_plan_path && o.floor_plan_path !== b.floor_plan_path)
+        .forEach(o => att.push({ path: o.floor_plan_path, name: o.floor_plan_name || 'Floor plan.pdf', label: 'Floor plan', on: false, note: `from ${o.lot_address || 'another build'}` }));
+    }
+    // Anything else on the client's record (never the agreement, it has the price)
+    if (b.client_id) {
+      const { data: docs } = await db.from('client_documents').select('file_path, file_name, category')
+        .eq('client_id', b.client_id).order('created_at', { ascending: false }).limit(30);
+      (docs || []).filter(d => !['aps', 'appendix', 'floor_plan', 'offer', 'id'].includes(d.category) && !att.some(a => a.path === d.file_path))
+        .forEach(d => att.push({ path: d.file_path, name: d.file_name, on: false, note: 'client folder' }));
+    }
+    VendorMail._att = att;
+    const kind = quote ? 'quote' : (s.vendor_email_type && s.vendor_email_type !== 'quote' ? s.vendor_email_type : s.wants_upgrade ? 'upgrade' : 'intro');
+
     App.openModal(`
       <div class="modal-title">${quote ? `🔁 Ask a different vendor: ${VendorMail.esc(s.item)}` : `✉️ Email the ${VendorMail.esc(String(s.item).toLowerCase())} vendor`}</div>
       ${!quote && !g.open ? `<div style="font-size:12px;color:var(--yellow);margin-bottom:12px;line-height:1.5;">${!g.financing && !g.deposit ? 'Financing is not approved and the deposit is not submitted yet.' : !g.financing ? 'Financing is not approved yet.' : 'The deposit is not submitted yet.'} You can still send this one now.</div>` : ''}
+      <div class="form-group"><label class="form-label">KIND OF EMAIL</label>
+        <select class="form-input form-select" id="vm-type">
+          ${Object.entries(VendorMail.TYPES).map(([k, t]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${t}</option>`).join('')}
+        </select></div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">VENDOR *</label>
-          <input class="form-input" id="vm-name" value="${v('vendor_name')}" placeholder="e.g. Kent Flooring Centre" onchange="VendorMail.lookup()"></div>
-        <div class="form-group"><label class="form-label">VENDOR EMAIL *</label>
-          <input class="form-input" id="vm-email" type="email" value="${v('vendor_email')}" placeholder="vendor@example.com"></div>
+        <div class="form-group"><label class="form-label">VENDOR COMPANY *</label>
+          <input class="form-input" id="vm-name" value="${v('vendor_name')}" placeholder="e.g. Lighting World" onchange="VendorMail.lookup()"></div>
+        <div class="form-group"><label class="form-label">SALESPERSON</label>
+          <input class="form-input" id="vm-rep" value="${v('vendor_rep')}" placeholder="e.g. Sandra Mitchell"></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="form-label">EMAIL *</label>
+          <input class="form-input" id="vm-email" type="email" value="${v('vendor_email')}" placeholder="name@vendor.ca"></div>
         <div class="form-group"><label class="form-label">PHONE</label><input class="form-input" id="vm-phone" value="${v('vendor_phone')}"></div>
-        <div class="form-group"><label class="form-label">SHOWROOM ADDRESS</label><input class="form-input" id="vm-address" value="${v('vendor_address')}"></div>
       </div>
-      <div class="form-group"><label class="form-label">WHAT THE CLIENTS WANT (OPTIONAL, GOES IN THE EMAIL)</label>
-        <textarea class="form-input" id="vm-note" rows="2" placeholder="e.g. Light oak hardwood on the main floor, grey tile in both bathrooms">${VendorMail.esc(s.vendor_note || '')}</textarea></div>
+      <div class="form-group"><label class="form-label">LOCATION</label><input class="form-input" id="vm-address" value="${v('vendor_address')}" placeholder="e.g. 22-24 Blackmarsh Road, St. John's"></div>
+      <div class="form-group"><label class="form-label">NOTES FROM THE CLIENTS (OPTIONAL, GOES IN THE EMAIL)</label>
+        <textarea class="form-input" id="vm-note" rows="2" placeholder="e.g. Matte black with gold or brass, warm white 3000K throughout">${VendorMail.esc(s.vendor_note || '')}</textarea></div>
       <div style="font-size:12.5px;margin-bottom:10px;">
-        <div style="font-weight:700;margin-bottom:6px;">📎 Attachments</div>
-        ${b.floor_plan_path
-          ? `<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><input type="checkbox" id="vm-fp" checked style="width:16px;height:16px;"> 📐 ${VendorMail.esc(b.floor_plan_name || 'Floor plan.pdf')} <span style="color:var(--text2);">(floor plan pages only)</span></label>`
-          : `<div style="color:var(--text2);margin-bottom:6px;">No floor plan on file. Attach one below and tick "use for every vendor".</div>`}
-        ${(quote ? [] : (s.vendor_files || [])).map((f, i) => `<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><input type="checkbox" id="vm-old-${i}" checked style="width:16px;height:16px;"> ${VendorMail.esc(f.name)}</label>`).join('')}
+        <div style="font-weight:700;margin-bottom:6px;">📎 Attach (the email lists what you tick)</div>
+        ${att.map((a, i) => `<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><input type="checkbox" id="vm-att-${i}" ${a.on ? 'checked' : ''} style="width:16px;height:16px;"> ${a.label === 'Floor plan' ? '📐 ' : '📄 '}${VendorMail.esc(a.label || VendorMail.label(a.name))}${a.note ? ` <span style="color:var(--text2);">(${VendorMail.esc(a.note)})</span>` : ''}</label>`).join('')}
         <div id="vm-new-files"></div>
-        <input type="file" id="vm-file" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.xlsx" style="font-size:12px;" onchange="VendorMail.addFiles(event)">
-        ${!b.floor_plan_path ? `<label style="display:flex;gap:8px;align-items:center;margin-top:6px;"><input type="checkbox" id="vm-fp-save" style="width:16px;height:16px;"> Use the first file as the floor plan for every vendor on this build</label>` : ''}
+        <div id="vm-drop" onclick="document.getElementById('vm-file').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--accent2)';" ondragleave="this.style.borderColor='var(--border)';"
+             ondrop="event.preventDefault();this.style.borderColor='var(--border)';VendorMail.addFiles(event.dataTransfer.files)"
+             style="border:1.5px dashed var(--border);border-radius:8px;padding:12px;text-align:center;cursor:pointer;color:var(--text2);margin-top:6px;">
+          Drop files here or tap to choose. Up to ${VendorMail.MAX_FILES} files, ${VendorMail.MAX_MB} MB in all.
+        </div>
+        <input type="file" id="vm-file" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.xlsx" style="display:none;" onchange="VendorMail.addFiles(this.files);this.value=''">
+        ${!b.floor_plan_path ? `<label style="display:flex;gap:8px;align-items:center;margin-top:6px;"><input type="checkbox" id="vm-fp-save" style="width:16px;height:16px;"> Save the first new file as this build's floor plan</label>` : ''}
       </div>
-      <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:8px;"><input type="checkbox" id="vm-upgrade" ${s.wants_upgrade ? 'checked' : ''} style="width:16px;height:16px;"> ⬆️ Clients want an upgrade (ask for an upgrade appointment and the price difference over the allowance)</label>
-      <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;margin-bottom:12px;"><input type="checkbox" id="vm-heads" ${quote ? '' : 'checked'} style="width:16px;height:16px;"> Also send the buyers a short heads-up</label>
-      <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px;line-height:1.5;">The buyers are copied so the vendor replies to everyone. It goes to Approvals first, nothing is sent until you approve it.</div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin-bottom:12px;line-height:1.4;"><input type="checkbox" id="vm-heads" style="width:16px;height:16px;margin-top:1px;"> Also email the buyers a separate note about this step. Optional: they are already copied on the vendor email.</label>
+      <div style="font-size:11.5px;color:var(--text2);margin-bottom:12px;line-height:1.5;">The buyers are copied so the vendor replies to everyone. It goes to Approvals first, where you can read and edit it before it is sent.</div>
       <button class="btn btn-primary btn-block" onclick="VendorMail.sendCompose('${buildId}','${selId}','${mode}')">📬 Put in Approvals</button>
       <div id="vm-msg" style="text-align:center;margin-top:8px;font-size:13px;"></div>
     `);
@@ -285,21 +330,30 @@ const VendorMail = {
 
   async lookup() {
     const name = document.getElementById('vm-name')?.value;
-    const em = document.getElementById('vm-email');
-    if (!name || !em || em.value) return;
+    if (!name) return;
     const { data } = await db.from('build_vendors').select('*').eq('name_key', VendorMail.key(name)).maybeSingle();
     if (!data) return;
-    em.value = data.email || '';
-    const ph = document.getElementById('vm-phone'); if (ph && !ph.value) ph.value = data.phone || '';
-    const ad = document.getElementById('vm-address'); if (ad && !ad.value) ad.value = data.address || '';
+    const fill = (id, x) => { const el = document.getElementById(id); if (el && !el.value && x) el.value = x; };
+    fill('vm-email', data.email); fill('vm-phone', data.phone); fill('vm-address', data.address); fill('vm-rep', data.rep);
   },
 
-  addFiles(ev) {
-    const list = Array.from(ev.target?.files || []).filter(f => f.size <= 15 * 1024 * 1024);
-    VendorMail._pending = [...(VendorMail._pending || []), ...list];
+  addFiles(list) {
+    const msg = document.getElementById('vm-msg');
+    const all = [...(VendorMail._pending || []), ...Array.from(list || [])];
+    const mb = all.reduce((t, f) => t + f.size, 0) / 1048576;
+    if (all.length > VendorMail.MAX_FILES || mb > VendorMail.MAX_MB) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = `⚠️ Up to ${VendorMail.MAX_FILES} files and ${VendorMail.MAX_MB} MB in one email`; }
+      return;
+    }
+    VendorMail._pending = all;
+    VendorMail._paintNew();
+  },
+
+  removeFile(i) { VendorMail._pending.splice(i, 1); VendorMail._paintNew(); },
+
+  _paintNew() {
     const box = document.getElementById('vm-new-files');
-    if (box) box.innerHTML = VendorMail._pending.map(f => `<div style="margin-bottom:6px;">✅ ${VendorMail.esc(f.name)}</div>`).join('');
-    ev.target.value = '';
+    if (box) box.innerHTML = (VendorMail._pending || []).map((f, i) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">✅ ${VendorMail.esc(f.name)} <span style="color:var(--text2);">${(f.size / 1048576).toFixed(1)} MB</span> <button onclick="VendorMail.removeFile(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">✕</button></div>`).join('');
   },
 
   async sendCompose(buildId, selId, mode) {
@@ -307,17 +361,18 @@ const VendorMail = {
     const say = (t, c = 'var(--red)') => { if (msg) { msg.style.color = c; msg.textContent = t; } };
     const val = id => document.getElementById(id)?.value.trim() || '';
     const name = val('vm-name'), email = val('vm-email');
-    if (!name) return say('⚠️ Add the vendor name');
+    if (!name) return say('⚠️ Add the vendor company');
     if (!VendorMail.emailOk(email)) return say('⚠️ Add a valid vendor email');
     const b = (NewBuilds.all || []).find(x => x.id === buildId);
     const s = (BuildSelections._byBuild[buildId] || []).find(x => x.id === selId);
     if (!b || !s) return;
     say('⏳ Preparing…', 'var(--text2)');
+    const type = val('vm-type') || 'intro';
     const quote = mode === 'quote';
     const user = await App.getAuthUser();
     const uid = user?.id || currentAgent.id;
 
-    // Upload new files to the client folder so they stay on the record
+    // New files go to the client folder so they stay on the record
     const uploaded = [];
     for (const f of VendorMail._pending || []) {
       const path = `${uid}/${b.client_id || buildId}/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -330,37 +385,40 @@ const VendorMail = {
     if (uploaded.length && document.getElementById('vm-fp-save')?.checked) {
       await db.from('new_builds').update({ floor_plan_path: uploaded[0].path, floor_plan_name: uploaded[0].name }).eq('id', buildId);
       Object.assign(b, { floor_plan_path: uploaded[0].path, floor_plan_name: uploaded[0].name });
-      uploaded.shift();
+      uploaded[0].label = 'Floor plan';
     }
-    const kept = (quote ? [] : (s.vendor_files || [])).filter((_, i) => document.getElementById('vm-old-' + i)?.checked !== false);
-    const files = [...kept, ...uploaded];
+    const ticked = (VendorMail._att || []).filter((_, i) => document.getElementById('vm-att-' + i)?.checked);
+    const files = [...ticked.map(({ path, name, label, bucket }) => ({ path, name, label, bucket })), ...uploaded];
+    // Files kept on the selection for the next email (the floor plan is on the build)
+    const keep = files.filter(f => f.path !== b.floor_plan_path).map(({ path, name }) => ({ path, name }));
     const fields = { vendor_name: name, vendor_email: email, vendor_phone: val('vm-phone') || null,
-                     vendor_address: val('vm-address') || null, vendor_note: val('vm-note') || null, vendor_files: files.length ? files : null };
-    const wants = !!document.getElementById('vm-upgrade')?.checked;
-    if (wants || s.wants_upgrade) fields.wants_upgrade = wants;   // migration 119, only sent when used
+                     vendor_address: val('vm-address') || null, vendor_note: val('vm-note') || null, vendor_files: keep.length ? keep : null };
+    // Newer columns only when used, so this still saves before their migrations run
+    if (val('vm-rep') || s.vendor_rep) fields.vendor_rep = val('vm-rep') || null;                 // 120
+    if (type === 'upgrade' || s.wants_upgrade) fields.wants_upgrade = type === 'upgrade';           // 119
+    let saved = await VendorMail._saveSel(b, s, quote, uid, { ...fields, vendor_email_type: type });
+    if (saved.error && /column/.test(saved.error.message || '')) saved = await VendorMail._saveSel(b, s, quote, uid, fields);
+    if (saved.error) return say('⚠️ ' + saved.error.message + (/column/.test(saved.error.message) ? ' (run migrations 117 to 120)' : ''));
+    const row = saved.row;
+    await VendorMail.remember({ name, email, phone: fields.vendor_phone, address: fields.vendor_address, rep: val('vm-rep') });
+    if (!await VendorMail.draft(b, row, { type, files })) return say('⚠️ Could not queue the email');
+    if (document.getElementById('vm-heads')?.checked) await VendorMail.headsUp(b, [row]);
+    App.closeModal();
+    App.toast(`📬 ${VendorMail.TYPES[type] ? 'Email to ' + name : 'Vendor email'} is in Approvals`, 'var(--green)');
+    BuildSelections.paint(NewBuilds.all || []);
+  },
 
-    let row;
+  async _saveSel(b, s, quote, uid, fields) {
     if (quote) {
       const { data, error } = await db.from('build_selections').insert({
-        agent_id: uid, build_id: buildId, client_id: b.client_id || null, item: s.item, details: s.details,
+        agent_id: uid, build_id: b.id, client_id: b.client_id || null, item: s.item, details: s.details,
         due_date: s.due_date, allowance: s.allowance || null, status: 'to_book', source: 'manual',
-        kind: 'price_match', parent_id: s.id, ...fields,
+        kind: 'price_match', parent_id: s.id, ...(s.allowance_hst ? { allowance_hst: s.allowance_hst } : {}), ...fields,
       }).select().single();
-      if (error) return say('⚠️ ' + error.message + (/column/.test(error.message) ? ' (run migration 117)' : ''));
-      row = data;
-    } else {
-      const { error } = await db.from('build_selections').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', selId);
-      if (error) return say('⚠️ ' + error.message + (/column/.test(error.message) ? ' (run migration 117)' : ''));
-      row = { ...s, ...fields };
+      return { error, row: data };
     }
-    await VendorMail.remember({ name, email, phone: fields.vendor_phone, address: fields.vendor_address });
-    const useFp = !!b.floor_plan_path && document.getElementById('vm-fp')?.checked !== false;
-    const heads = document.getElementById('vm-heads')?.checked;
-    if (!await VendorMail.draft(b, row, { floorPlan: useFp, quote })) return say('⚠️ Could not queue the email');
-    if (heads) await VendorMail.headsUp(b, [row]);
-    App.closeModal();
-    App.toast(`📬 ${quote ? 'Quote request' : 'Vendor email'} is in Approvals`, 'var(--green)');
-    BuildSelections.paint(NewBuilds.all || []);
+    const { error } = await db.from('build_selections').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', s.id);
+    return { error, row: { ...s, ...fields } };
   },
 
   // ── Track record ──────────────────────────────────────────────────────────
