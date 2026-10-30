@@ -1157,13 +1157,19 @@ const Pipeline = {
     // must never make it say "financing locked in". Walkthrough stays date-driven.
     const today = new Date(new Date().toDateString());
     const finPast = Pipeline.conditionState(d, 'financing')  === 'cleared';
-    const insPast = ['cleared','skipped'].includes(Pipeline.conditionState(d, 'inspection'));
-    const walkPast = d.walkthrough_date && new Date(d.walkthrough_date+'T00:00:00') <= today;
+    // A skipped inspection is never "complete": the line follows what was
+    // entered on the deal, so a no-inspection deal never mentions one.
+    const insState = Pipeline.conditionState(d, 'inspection');
+    const insDone  = insState === 'cleared';
+    const noIns    = insState === 'skipped' || !!d.inspection_skipped;
+    const walkPast = !d.walkthrough_skipped && d.walkthrough_date && new Date(d.walkthrough_date+'T00:00:00') <= today;
 
-    if (walkPast) return `🔑 Final walkthrough complete — closing day is almost here. We're nearly home, ${firstName}.`;
-    if (insPast)  return `📑 Inspection complete — handling conditions and approvals. Closing prep underway.`;
-    if (finPast)  return `🏦 Financing locked in — under contract and on track to closing. I'll keep you posted.`;
-    return `📋 Offer accepted — initial paperwork in motion. I'll let you know as each milestone clears.`;
+    if (walkPast) return `🔑 Final walkthrough complete. Closing day is almost here. We're nearly home, ${firstName}.`;
+    if (insDone && finPast) return `📑 Inspection and financing are both done. Closing prep underway.`;
+    if (insDone)  return `📑 Inspection complete. Waiting on financing approval, then closing prep.`;
+    if (finPast)  return `🏦 Financing locked in. Under contract and on track to closing. I'll keep you posted.`;
+    if (noIns)    return `📋 Offer accepted, no inspection on this deal. Waiting on financing approval. I'll keep you posted.`;
+    return `📋 Offer accepted. Initial paperwork in motion. I'll let you know as each milestone clears.`;
   },
 
   // Single source of truth for the progress-bar color.
@@ -3396,6 +3402,12 @@ const Pipeline = {
 
     // Build the locally-updated record for the progress calculation
     const rec = Pipeline.all?.find(x => x.id === id);
+    // Emails still waiting about this deal get the new dates written in
+    if (rec && typeof Notify !== 'undefined' && Notify.syncDealDates) {
+      const pick = o => ({ acceptance_date: o.acceptance_date, financing_date: o.financing_date, inspection_date: o.inspection_date,
+                           walkthrough_date: o.walkthrough_date, closing_date: o.closing_date });
+      await Notify.syncDealDates(id, pick(rec), pick({ acceptance_date: acc, financing_date: fin, inspection_date: ins, walkthrough_date: walk, closing_date: close }));
+    }
     const merged = Object.assign({}, rec, error ? {} : saleCol, {
       acceptance_date:      acc,
       financing_date:       fin,
@@ -3571,8 +3583,11 @@ const Pipeline = {
       App.toast(`⚠️ ${pipeErr.message}`);
       return;
     }
+    const beforeDates = { closing_date: rec.closing_date, walkthrough_date: rec.walkthrough_date };
     Object.assign(rec, updates);
     if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([id]);   // old-date reminders withdrawn
+    if (typeof Notify !== 'undefined' && Notify.syncDealDates)   // waiting emails get the new date
+      await Notify.syncDealDates(id, beforeDates, { closing_date: rec.closing_date, walkthrough_date: rec.walkthrough_date });
 
     // 3) Shift the 3 closing-relative checklist task due dates by the delta.
     // Matches the auto-generated 22-task closing checklist (see this file,
@@ -3739,8 +3754,12 @@ const Pipeline = {
       App.toast(`⚠️ ${pErr.message}`);
       return;
     }
+    const prevClose = rec.closing_date || prevDateTo;
     rec.closing_date = newDate;
     if (typeof Notify !== 'undefined' && Notify.reconcileDealReminders) Notify.reconcileDealReminders([pipelineId]);   // old-date reminders withdrawn
+    if (typeof Notify !== 'undefined' && Notify.syncDealDates)   // waiting emails get the corrected date
+      await Notify.syncDealDates(pipelineId, { closing_date: prevClose, walkthrough_date: rec.walkthrough_date },
+                                             { closing_date: newDate,   walkthrough_date: rec.walkthrough_date });
 
     // 3) Shift checklist tasks by (newDate - prevDateTo) so they line up with
     //    the corrected closing rather than the typo'd one.

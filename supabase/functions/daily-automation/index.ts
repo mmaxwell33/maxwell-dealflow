@@ -34,7 +34,9 @@ interface PipelineDeal {
   financing_deadline: string | null;
   financing_status?: string | null;
   inspection_deadline: string | null;
+  inspection_skipped?: boolean | null;
   walkthrough_date: string | null;
+  walkthrough_skipped?: boolean | null;
   closing_date: string | null;
   updated_at: string | null;
 }
@@ -275,7 +277,7 @@ serve(async (req) => {
   // ── 1. Load all active pipeline deals ──────────────────────────────────────
   const { data: deals, error: dealsErr } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, financing_status, inspection_deadline, walkthrough_date, closing_date, updated_at')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, financing_status, inspection_deadline, inspection_skipped, walkthrough_date, walkthrough_skipped, closing_date, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")');
 
   if (dealsErr || !deals) {
@@ -354,7 +356,8 @@ serve(async (req) => {
     }
 
     // ── 3b. Inspection deadline reminders ───────────────────────────────────
-    if (deal.inspection_deadline) {
+    // A step marked "skip" on the deal never reminds the client
+    if (deal.inspection_deadline && !deal.inspection_skipped) {
       const days = daysUntil(deal.inspection_deadline);
       if (days === 3) {
         const t = templates.inspection_reminder_3d(deal, agent);
@@ -369,7 +372,7 @@ serve(async (req) => {
     }
 
     // ── 3c. Walkthrough reminder ─────────────────────────────────────────────
-    if (deal.walkthrough_date && daysUntil(deal.walkthrough_date) === 1) {
+    if (deal.walkthrough_date && !deal.walkthrough_skipped && daysUntil(deal.walkthrough_date) === 1) {
       const t = templates.walkthrough_reminder(deal, agent);
       const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Walkthrough Reminder', t.subject, t.body);
       r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);

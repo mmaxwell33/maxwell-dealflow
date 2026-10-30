@@ -3117,7 +3117,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       if (!rows?.length) return 0;
       const ids = [...new Set(rows.map(r => r.related_id).filter(Boolean))];
       const { data: deals } = await db.from('pipeline')
-        .select('id, stage, financing_date, inspection_date, walkthrough_date, closing_date').in('id', ids);
+        .select('id, stage, financing_date, inspection_date, walkthrough_date, closing_date, inspection_skipped, walkthrough_skipped').in('id', ids);
       const byId = Object.fromEntries((deals || []).map(d => [d.id, d]));
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const daysTo = v => v ? Math.round((Notify._localDay(v) - today) / 86400000) : null;
@@ -3126,6 +3126,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         if (!d) return false;   // not a deal we can read: leave it alone
         if (new Date(r.created_at) < today) return true;   // written on an earlier day
         const t = r.approval_type;
+        // A step marked "skip" on the deal never reminds anyone
+        if (/^Inspection/.test(t) && d.inspection_skipped) return true;
+        if (/^Walkthrough/.test(t) && d.walkthrough_skipped) return true;
         const n = Number((t.match(/\((\d+)/) || [])[1]);
         const col = /^Financing/.test(t) ? 'financing_date' : /^Inspection/.test(t) ? 'inspection_date'
                   : /^Walkthrough/.test(t) ? 'walkthrough_date' : 'closing_date';
@@ -3140,6 +3143,119 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       return stale.length;
     } catch (e) {
       console.warn('[reconcileDealReminders] skipped:', e?.message || e);
+      return 0;
+    }
+  },
+
+  // A date changed on a deal must change everywhere it is written. Any email
+  // about the deal that is still waiting (Pending in Approvals, Held for
+  // financing, or Scheduled) has the old date rewritten to the new one in its
+  // subject, text and html, in every way the app writes a date ("Nov 30",
+  // "November 30, 2026", "Monday, November 30", "2026-11-30"). Countdown
+  // reminders are left to reconcileDealReminders, which withdraws them, since
+  // their "in 3 days" would be wrong with any date swapped in. If an old date
+  // is still the value of another date on the deal (closing moved off the
+  // walkthrough day), the text cannot tell them apart, so that date is left
+  // alone and Maxwell is asked to check the email. before/after are
+  // { closing_date, financing_date, ... } as YYYY-MM-DD or null.
+  _dateVariants(ymd) {
+    const dt = new Date(String(ymd).slice(0, 10) + 'T12:00:00');
+    if (isNaN(dt)) return [];
+    const f = o => dt.toLocaleDateString('en-CA', o);
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+    const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+    return [
+      f({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+      f({ weekday: 'long', month: 'long', day: 'numeric' }),
+      f({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      f({ weekday: 'short', month: 'short', day: 'numeric' }),
+      f({ month: 'long', day: 'numeric', year: 'numeric' }),
+      f({ month: 'long', day: 'numeric' }),
+      f({ month: 'short', day: 'numeric', year: 'numeric' }),
+      f({ month: 'short', day: 'numeric' }),
+      `${WD}, ${MON} ${dt.getDate()}, ${dt.getFullYear()}`, `${WD}, ${MON} ${dt.getDate()}`,
+      `${MON} ${dt.getDate()}, ${dt.getFullYear()}`, `${MON} ${dt.getDate()}`,
+      String(ymd).slice(0, 10)
+    ];
+  },
+
+  async syncDealDates(dealId, before = {}, after = {}) {
+    if (!currentAgent?.id || !dealId) return 0;
+    try {
+      const day = v => v ? String(v).slice(0, 10) : null;
+      const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+      const moved = keys.filter(k => day(before[k]) && day(after[k]) && day(before[k]) !== day(after[k]));
+      if (!moved.length) return 0;
+      const stillUsed = new Set(keys.filter(k => !moved.includes(k)).map(k => day(after[k])).filter(Boolean));
+      const clash = moved.filter(k => stillUsed.has(day(before[k])));
+      // Longest wording first, so "November 30, 2026" is swapped whole before "November 30"
+      const pairs = [];
+      for (const k of moved.filter(k => !clash.includes(k))) {
+        const from = Notify._dateVariants(before[k]), to = Notify._dateVariants(after[k]);
+        from.forEach((v, i) => { if (v && to[i] && v !== to[i]) pairs.push([v, to[i]]); });
+      }
+      pairs.sort((a, b) => b[0].length - a[0].length);
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const swap = txt => {
+        if (!txt || !pairs.length) return txt;
+        // One pass over all wordings, so a new date is never swapped a second time
+        const re = new RegExp(`(?<![\\w])(${pairs.map(p => esc(p[0])).join('|')})(?![\\d])`, 'g');
+        const map = Object.fromEntries(pairs);
+        return String(txt).replace(re, m => map[m] ?? m);
+      };
+
+      const { data: deal } = await db.from('pipeline').select('client_id').eq('id', dealId).maybeSingle();
+      let q = db.from('approval_queue')
+        .select('id, approval_type, status, email_subject, email_body, context_data, scheduled_payload')
+        .eq('agent_id', currentAgent.id).in('status', ['Pending', 'Held', 'Scheduled']);
+      q = deal?.client_id ? q.or(`related_id.eq.${dealId},context_data->>client_id.eq.${deal.client_id}`) : q.eq('related_id', dealId);
+      const { data: rows } = await q;
+      const isCountdown = t => /^(Financing Reminder|Inspection Reminder|Walkthrough Reminder|Closing Countdown|Happy Closing Day)/.test(t || '');
+      const oldText = [...new Set(clash.flatMap(k => Notify._dateVariants(before[k])))];
+      let changed = 0, check = 0;
+      for (const r of rows || []) {
+        if (isCountdown(r.approval_type)) continue;
+        // These describe the change itself ("moved from Nov 30 to Dec 5") and are rebuilt by their own code
+        if (['Deal Update', 'Closing Rescheduled'].includes(r.approval_type)) continue;
+        const upd = {};
+        const subj = swap(r.email_subject), body = swap(r.email_body);
+        if (subj !== r.email_subject) upd.email_subject = subj;
+        if (body !== r.email_body) upd.email_body = body;
+        let ctx = r.context_data;
+        if (typeof ctx === 'string') { try { ctx = JSON.parse(ctx); } catch { ctx = null; } }
+        let html = null;
+        if (ctx?.html) {
+          const encoded = !String(ctx.html).startsWith('<');
+          try { html = encoded ? decodeURIComponent(escape(atob(ctx.html))) : ctx.html; } catch { html = null; }
+          const nh = html ? swap(html) : html;
+          if (html && nh !== html) {
+            upd.context_data = { ...ctx, html: encoded ? btoa(unescape(encodeURIComponent(nh))) : nh };
+            html = nh;
+          }
+        }
+        if (r.status === 'Scheduled' && r.scheduled_payload) {
+          const p = r.scheduled_payload;
+          const np = { ...p, subject: swap(p.subject), body: swap(p.body), html: swap(p.html) };
+          if (np.subject !== p.subject || np.body !== p.body || np.html !== p.html) upd.scheduled_payload = np;
+        }
+        const all = [upd.email_subject ?? r.email_subject, upd.email_body ?? r.email_body, html].join(' ');
+        if (oldText.some(v => all.includes(v))) check++;
+        if (!Object.keys(upd).length) continue;
+        upd.updated_at = new Date().toISOString();
+        const { error } = await db.from('approval_queue').update(upd).eq('id', r.id);
+        if (error) { console.warn('[syncDealDates]', r.id, error.message); continue; }
+        changed++;
+      }
+      if (changed) {
+        App.logActivity?.('DEAL_DATES_SYNCED', null, null,
+          `${changed} waiting email${changed === 1 ? '' : 's'} updated to the new ${moved.map(k => k.replace(/_date$/, '')).join(', ')} date`, deal?.client_id || null);
+        App.toast(`📅 ${changed} waiting email${changed === 1 ? '' : 's'} updated to the new date`);
+      }
+      if (check) App.toast(`⚠️ ${check} waiting email${check === 1 ? '' : 's'} still mention${check === 1 ? 's' : ''} the old date, which is also another date on this deal. Please check ${check === 1 ? 'it' : 'them'} in Approvals.`, 'var(--yellow)');
+      Notify.updateBadge?.();
+      return changed;
+    } catch (e) {
+      console.warn('[syncDealDates] skipped:', e?.message || e);
       return 0;
     }
   },
@@ -3273,7 +3389,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       }
 
       // Check walkthrough reminder (1 day before)
-      if (deal.walkthrough_date) {
+      if (deal.walkthrough_date && !deal.walkthrough_skipped) {
         const walkDate = Notify._localDay(deal.walkthrough_date);
         const daysLeft = Math.round((walkDate - today) / (1000 * 60 * 60 * 24));
         if (daysLeft === 1) {
