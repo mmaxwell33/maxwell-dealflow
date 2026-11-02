@@ -3108,6 +3108,8 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
   // is saved, so a changed closing date never leaves the old one reminding.
   async reconcileDealReminders(dealIds = null) {
     if (!currentAgent?.id) return 0;
+    // The commission's closing date, and a new build's possession date, move with the deal too
+    if (typeof Pipeline !== 'undefined' && Pipeline.syncDealDateCopies) Pipeline.syncDealDateCopies(dealIds);
     try {
       let q = db.from('approval_queue').select('id, related_id, approval_type, created_at')
         .eq('agent_id', currentAgent.id).eq('status', 'Pending')

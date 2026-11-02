@@ -2001,7 +2001,59 @@ const Pipeline = {
     if (fixed.length) {
       App.toast(`🔧 Found ${fixed.length} deal${fixed.length > 1 ? 's' : ''} with no commission (${fixed.map(d => d.client_name || d.property_address).join(', ')}). Recorded at 2.5%: check the rate.`, 'var(--yellow)');
     }
+    await Pipeline.syncDealDateCopies();
     return fixed;
+  },
+
+  // The deal's closing date is copied in two other places: the commission
+  // (written once when the deal was accepted) and, on a new build, the build's
+  // possession date. When the deal's date moves (reschedule, edit), both move
+  // with it, or "Coming into your account" and the cap order show the old day
+  // (Zinabu, 2026-11-01), and the next build-step tick writes the old
+  // possession date back onto the deal (NewBuilds.syncPipeline).
+  // Commissions match by address + side; one already Paid or Archived is
+  // history and keeps its date. Runs on the Commissions screen load and after
+  // every date save (via Notify.reconcileDealReminders).
+  async syncDealDateCopies(dealIds = null) {
+    if (!currentAgent?.id) return 0;
+    try {
+      let q = db.from('pipeline').select('id, client_name, property_address, deal_side, deal_type, closing_date, status')
+        .eq('agent_id', currentAgent.id).in('stage', ['Accepted', 'Conditions', 'Closing']).not('closing_date', 'is', null);
+      if (dealIds?.length) q = q.in('id', dealIds);
+      const [{ data: deals }, { data: comms }] = await Promise.all([
+        q,
+        db.from('commissions').select('id, property_address, deal_side, close_date, status')
+          .eq('agent_id', currentAgent.id)
+      ]);
+      if (!deals?.length) return 0;
+      const norm = s => String(s || '').trim().toLowerCase();
+      const key = (addr, side) => norm(addr) + '|' + (side === 'sell' ? 'sell' : 'buy');
+      const want = {};
+      for (const d of deals) if (d.property_address && d.status !== 'Archived') want[key(d.property_address, d.deal_side)] = String(d.closing_date).slice(0, 10);
+      let n = 0;
+      for (const c of comms || []) {
+        if (c.status === 'Paid' || c.status === 'Archived') continue;
+        const day = want[key(c.property_address, c.deal_side)];
+        if (!day || String(c.close_date || '').slice(0, 10) === day) continue;
+        const { error } = await db.from('commissions').update({ close_date: day }).eq('id', c.id);
+        if (!error) {
+          n++;
+          const local = (typeof Commission !== 'undefined' && Commission.all || []).find(x => x.id === c.id);
+          if (local) local.close_date = day;
+        } else console.warn('[syncDealDateCopies] update failed', c.id, error.message);
+      }
+      // New build: the build's possession date follows the deal (same match as syncPipeline)
+      for (const d of deals.filter(x => x.deal_type === 'new_build' && x.client_name && x.status !== 'Archived')) {
+        const day = String(d.closing_date).slice(0, 10);
+        const { data: up } = await db.from('new_builds').update({ est_completion_date: day })
+          .eq('agent_id', currentAgent.id).eq('client_name', d.client_name).neq('est_completion_date', day).select('id');
+        n += up?.length || 0;
+      }
+      return n;
+    } catch (e) {
+      console.warn('[syncDealDateCopies] skipped', e);
+      return 0;
+    }
   },
 
   // ── The sell-side list ────────────────────────────────────────────────────
