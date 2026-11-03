@@ -3012,7 +3012,7 @@ const Pipeline = {
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
         ${depositBlock}
         ${Pipeline.conditionStripHtml(d)}
-        ${!isClosed && !isFell && (d.deal_side || 'buy') !== 'sell' ? Pipeline._signingBtn(d) : ''}
+        ${!isClosed && !isFell && (d.deal_side || 'buy') !== 'sell' ? Pipeline._mortgageBlock(d) : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
@@ -3287,14 +3287,213 @@ const Pipeline = {
         <input class="form-input" type="date" id="nb-fin-${d.id}" value="${d.financing_date||''}" style="font-size:12px;padding:5px 8px;flex:1;min-width:130px;">
         <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 12px;" onclick="Pipeline.saveNewBuildFinancing('${d.id}')">Save</button>
       </div>
-      <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;">${docBtn}${Pipeline._signingBtn(d, true)}</div>
+      <div style="margin-top:7px;">${docBtn}</div>
       ${(() => { const s = Pipeline.conditionStripHtml(d, ['financing']); return s ? `<div style="margin-top:8px;">${s}</div>` : ''; })()}
+      <div style="margin-top:8px;">${Pipeline._mortgageBlock(d)}</div>
     </div>`;
   },
 
-  _signingBtn(d, inline = false) {
-    const btn = `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px;" onclick="Pipeline.bookSigning('${d.id}')">📅 Book mortgage signing</button>`;
-    return inline ? btn : `<div style="margin:-2px 0 10px;">${btn}</div>`;
+  // ── The mortgage on a buyer deal (migration 122) ──────────────────────────
+  // Who the lender and broker are, and where the commitment signing stands:
+  // booked in person, sent for e-signing, or signed. If the first lender cannot
+  // do it, "Change lender" keeps the earlier one in mortgage_lender_history.
+  _mortgageBlock(d) {
+    const esc = App.esc;
+    const sm = 'class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px;"';
+    const who = [
+      d.mortgage_lender ? `Lender: <strong style="color:var(--text1);">${esc(d.mortgage_lender)}</strong>` : '',
+      d.mortgage_broker_name ? `Broker: <strong style="color:var(--text1);">${esc(d.mortgage_broker_name)}</strong>${d.mortgage_broker_company ? ` (${esc(d.mortgage_broker_company)})` : ''}` : ''
+    ].filter(Boolean).join(' · ');
+    const past = Array.isArray(d.mortgage_lender_history) ? d.mortgage_lender_history.length : 0;
+    const lenderLine = `<div style="font-size:11.5px;color:var(--text2);margin-bottom:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span>🏦 ${who || 'No lender recorded yet'}${past ? ` · <span title="Earlier lenders are kept in Change lender">${past} earlier lender${past > 1 ? 's' : ''}</span>` : ''}</span>
+        <button ${sm} onclick="Pipeline.editLender('${d.id}')">${who ? '🔁 Change lender' : '＋ Add lender'}</button>
+      </div>`;
+    const how = d.mortgage_sign_method === 'electronic' ? 'electronically' : 'in person';
+    let sign;
+    if (d.mortgage_sign_status === 'signed') {
+      sign = `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:11.5px;color:var(--green);font-weight:600;">✍️ Commitment signed ${how}${d.mortgage_sign_date ? ' ' + App.fmtDate(d.mortgage_sign_date) : ''}</span>
+          <button ${sm} onclick="Pipeline.undoSigning('${d.id}')">Undo</button></div>`;
+    } else if (d.mortgage_sign_status === 'sent_esign') {
+      sign = `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:11.5px;color:var(--yellow);">📧 Sent for e-signing${d.mortgage_sent_date ? ' ' + App.fmtDate(d.mortgage_sent_date) : ''}. Waiting for signature.</span>
+          <button class="btn btn-green btn-sm" style="font-size:11px;padding:4px 9px;" onclick="Pipeline.markSigned('${d.id}','electronic')">✍️ Mark signed</button>
+          <button ${sm} onclick="Pipeline.undoSigning('${d.id}')">Undo</button></div>`;
+    } else {
+      sign = `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button ${sm} onclick="Pipeline.bookSigning('${d.id}')">📅 Book signing</button>
+          <button ${sm} onclick="Pipeline.markSentEsign('${d.id}')">📧 Sent for e-signing</button>
+          <button ${sm} onclick="Pipeline.markSigned('${d.id}')">✍️ Mark signed</button></div>`;
+    }
+    return `<div style="margin:0 0 10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Mortgage commitment</div>
+      ${lenderLine}${sign}</div>`;
+  },
+
+  // Save mortgage fields on the deal; the card re-renders from the local copy.
+  async _saveMortgage(id, patch, logType, logText) {
+    const rec = (Pipeline.all || []).find(x => x.id === id);
+    if (!rec) { App.toast('⚠️ Deal not found'); return false; }
+    const { error } = await db.from('pipeline').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) {
+      App.toast(/mortgage_|column/i.test(error.message || '') ? '⚠️ Run migration 122 in the Supabase SQL Editor first' : '⚠️ ' + error.message, 'var(--red)');
+      return false;
+    }
+    Object.assign(rec, patch);
+    if (logType) await App.logActivity(logType, rec.client_name, null, `${logText} (${rec.property_address || 'deal'})`, rec.client_id || null);
+    Pipeline.render(Pipeline.all);
+    return true;
+  },
+
+  _today() { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; },
+
+  markSentEsign(id) {
+    App.openModal(`
+      <div class="modal-title">📧 Sent for e-signing</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;">The commitment went to the client to sign electronically. This records it on the deal; no email is sent.</div>
+      <div class="form-group"><label class="form-label">Date sent</label>
+        <input class="form-input" type="date" id="mg-sent" value="${Pipeline._today()}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Pipeline._saveSentEsign('${id}')">Save</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>`);
+  },
+
+  async _saveSentEsign(id) {
+    const day = document.getElementById('mg-sent')?.value || Pipeline._today();
+    const ok = await Pipeline._saveMortgage(id,
+      { mortgage_sign_status: 'sent_esign', mortgage_sign_method: 'electronic', mortgage_sent_date: day, mortgage_sign_date: null },
+      'MORTGAGE_ESIGN_SENT', `Mortgage commitment sent for e-signing on ${day}`);
+    if (ok) { App.closeModal(); App.toast('📧 Recorded: sent for e-signing', 'var(--green)'); }
+  },
+
+  markSigned(id, method = null) {
+    const rec = (Pipeline.all || []).find(x => x.id === id) || {};
+    const m = method || rec.mortgage_sign_method || 'in_person';
+    App.openModal(`
+      <div class="modal-title">✍️ Commitment signed</div>
+      <div class="form-group"><label class="form-label">How was it signed?</label>
+        <select class="form-input form-select" id="mg-method">
+          <option value="in_person" ${m === 'in_person' ? 'selected' : ''}>In person</option>
+          <option value="electronic" ${m === 'electronic' ? 'selected' : ''}>Electronically</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">Date signed</label>
+        <input class="form-input" type="date" id="mg-signed" value="${Pipeline._today()}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Pipeline._saveSigned('${id}')">Save</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>`);
+  },
+
+  async _saveSigned(id) {
+    const method = document.getElementById('mg-method')?.value === 'electronic' ? 'electronic' : 'in_person';
+    const day = document.getElementById('mg-signed')?.value || Pipeline._today();
+    const ok = await Pipeline._saveMortgage(id,
+      { mortgage_sign_status: 'signed', mortgage_sign_method: method, mortgage_sign_date: day },
+      'MORTGAGE_SIGNED', `Mortgage commitment signed ${method === 'electronic' ? 'electronically' : 'in person'} on ${day}`);
+    if (ok) { App.closeModal(); App.toast('✍️ Recorded: commitment signed', 'var(--green)'); }
+  },
+
+  async undoSigning(id) {
+    if (!confirm('Clear the signing record on this deal?')) return;
+    const ok = await Pipeline._saveMortgage(id,
+      { mortgage_sign_status: null, mortgage_sign_method: null, mortgage_sign_date: null, mortgage_sent_date: null },
+      'MORTGAGE_SIGNING_CLEARED', 'Mortgage signing record cleared');
+    if (ok) App.toast('Signing record cleared');
+  },
+
+  // Add or change the lender and broker. A change keeps the earlier one in the
+  // history (with whether it got as far as signing), resets the signing for the
+  // new lender, updates the client's saved broker contact, and can close the
+  // previous broker's access to the deal (their Financing Lane link).
+  editLender(id) {
+    const rec = (Pipeline.all || []).find(x => x.id === id);
+    if (!rec) { App.toast('⚠️ Deal not found'); return; }
+    const esc = App.escAttr;
+    const hasOld = !!(rec.mortgage_lender || rec.mortgage_broker_name || rec.mortgage_broker_email);
+    const hist = Array.isArray(rec.mortgage_lender_history) ? rec.mortgage_lender_history : [];
+    const histHtml = hist.length ? `<div style="font-size:11.5px;color:var(--text2);margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+        <div style="font-weight:700;margin-bottom:4px;">Earlier lenders</div>
+        ${hist.map(h => `<div>${App.esc(h.lender || 'Lender not named')}${h.broker ? ', ' + App.esc(h.broker) : ''}${h.company ? ' (' + App.esc(h.company) + ')' : ''}${h.until ? ', until ' + App.fmtDate(h.until) : ''}${h.reason ? ': ' + App.esc(h.reason) : ''}</div>`).join('')}
+      </div>` : '';
+    const f = (label, idA, val, ph, type = 'text') => `<div class="form-group"><label class="form-label">${label}</label>
+      <input class="form-input" id="${idA}" type="${type}" value="${hasOld ? '' : esc(val || '')}" placeholder="${esc(ph)}"></div>`;
+    App.openModal(`
+      <div class="modal-title">${hasOld ? '🔁 Change lender' : '🏦 Lender and broker'}</div>
+      ${hasOld ? `<div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;">Currently: <strong>${App.esc(rec.mortgage_lender || 'lender not named')}</strong>${rec.mortgage_broker_name ? ', ' + App.esc(rec.mortgage_broker_name) : ''}${rec.mortgage_broker_company ? ' (' + App.esc(rec.mortgage_broker_company) + ')' : ''}. Enter the new lender below; the current one is kept in the history.</div>` : ''}
+      ${histHtml}
+      ${f('Lender', 'mg-lender', rec.mortgage_lender, 'e.g. RBC, Scotiabank, MCAP')}
+      ${f('Mortgage brokerage / company', 'mg-company', rec.mortgage_broker_company, 'e.g. Pathway Mortgages (leave blank if a bank specialist)')}
+      ${f('Broker or specialist name', 'mg-broker', rec.mortgage_broker_name, 'e.g. Pat Sample')}
+      ${f('Broker email', 'mg-email', rec.mortgage_broker_email, 'broker@example.com', 'email')}
+      ${f('Broker phone', 'mg-phone', rec.mortgage_broker_phone, '709-555-0100', 'tel')}
+      ${hasOld ? `<div class="form-group"><label class="form-label">Why the change? (optional)</label>
+        <input class="form-input" id="mg-reason" placeholder="e.g. First lender declined, better rate elsewhere"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;cursor:pointer;">
+        <input type="checkbox" id="mg-revoke" checked> Close the previous broker's access to this deal
+      </label>` : ''}
+      <div id="mg-msg" style="font-size:13px;margin-bottom:8px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-primary" onclick="Pipeline._saveLender('${id}')">Save</button>
+        <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
+      </div>`);
+  },
+
+  async _saveLender(id) {
+    const rec = (Pipeline.all || []).find(x => x.id === id);
+    if (!rec) return;
+    const v = k => document.getElementById(k)?.value.trim() || null;
+    const next = { mortgage_lender: v('mg-lender'), mortgage_broker_company: v('mg-company'),
+      mortgage_broker_name: v('mg-broker'), mortgage_broker_email: v('mg-email'), mortgage_broker_phone: v('mg-phone') };
+    if (!next.mortgage_lender && !next.mortgage_broker_name) {
+      const m = document.getElementById('mg-msg'); if (m) { m.style.color = 'var(--red)'; m.textContent = '⚠️ Enter the lender or the broker name'; }
+      return;
+    }
+    const hasOld = !!(rec.mortgage_lender || rec.mortgage_broker_name || rec.mortgage_broker_email);
+    const patch = { ...next };
+    if (hasOld) {
+      const hist = Array.isArray(rec.mortgage_lender_history) ? rec.mortgage_lender_history.slice() : [];
+      hist.push({ lender: rec.mortgage_lender || null, company: rec.mortgage_broker_company || null,
+        broker: rec.mortgage_broker_name || null, email: rec.mortgage_broker_email || null, phone: rec.mortgage_broker_phone || null,
+        sign_status: rec.mortgage_sign_status || null, until: Pipeline._today(), reason: v('mg-reason') });
+      Object.assign(patch, { mortgage_lender_history: hist,
+        mortgage_sign_status: null, mortgage_sign_method: null, mortgage_sign_date: null, mortgage_sent_date: null });
+    }
+    const label = [next.mortgage_lender, next.mortgage_broker_name].filter(Boolean).join(', ');
+    const ok = await Pipeline._saveMortgage(id, patch,
+      hasOld ? 'LENDER_CHANGED' : 'LENDER_RECORDED',
+      hasOld ? `Lender changed from ${[rec.mortgage_lender, rec.mortgage_broker_name].filter(Boolean).join(', ') || 'unnamed'} to ${label}${v('mg-reason') ? '. Reason: ' + v('mg-reason') : ''}` : `Lender recorded: ${label}`);
+    if (!ok) return;
+
+    // The client's saved broker contact follows, so later emails and invites use the new one
+    if (rec.client_id && (next.mortgage_broker_name || next.mortgage_broker_email)) {
+      const { error } = await db.from('client_contacts').upsert({
+        client_id: rec.client_id, agent_id: currentAgent.id, role: 'mortgage_broker',
+        name: next.mortgage_broker_name, email: next.mortgage_broker_email, phone: next.mortgage_broker_phone,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'client_id,role' });
+      if (error) console.warn('[saveLender] contact not updated:', error.message);
+    }
+    // The previous broker stops seeing the deal
+    let closed = 0;
+    if (hasOld && document.getElementById('mg-revoke')?.checked) {
+      const keep = (next.mortgage_broker_email || '').toLowerCase();
+      const old = ((Pipeline._stakeholdersByPipelineId || {})[id] || [])
+        .filter(s => s.role === 'mortgage_broker' && (!keep || (s.email || '').toLowerCase() !== keep));
+      if (old.length) {
+        const { error } = await db.from('deal_stakeholders').update({ revoked_at: new Date().toISOString() }).in('id', old.map(s => s.id));
+        if (!error) {
+          closed = old.length;
+          Pipeline._stakeholdersByPipelineId[id] = (Pipeline._stakeholdersByPipelineId[id] || []).filter(s => !old.includes(s));
+          Pipeline.render(Pipeline.all);
+        }
+      }
+    }
+    App.closeModal();
+    App.toast(hasOld
+      ? `🔁 Lender changed${closed ? '. The previous broker no longer has access; invite the new one from More, Add Stakeholder' : ''}`
+      : '🏦 Lender saved', 'var(--green)');
   },
 
   // Signing the mortgage commitment at the broker's office, booked from the deal
@@ -3306,7 +3505,9 @@ const Pipeline = {
     const d = (Pipeline.all || []).find(x => x.id === id);
     if (!d) { App.toast('⚠️ Deal not found'); return; }
     const role = kind === 'lawyer' ? 'lawyer' : 'mortgage_broker';
-    let pro = ((Pipeline._stakeholdersByPipelineId || {})[id] || []).find(s => s.role === role && (s.email || s.name));
+    let pro = (kind !== 'lawyer' && (d.mortgage_broker_email || d.mortgage_broker_name))
+      ? { name: d.mortgage_broker_name, email: d.mortgage_broker_email }
+      : ((Pipeline._stakeholdersByPipelineId || {})[id] || []).find(s => s.role === role && (s.email || s.name));
     if (!pro && d.client_id) {
       const { data } = await db.from('client_contacts').select('name, email')
         .eq('client_id', d.client_id).eq('role', role).maybeSingle();
