@@ -3506,7 +3506,7 @@ const Pipeline = {
     if (!d) { App.toast('⚠️ Deal not found'); return; }
     const role = kind === 'lawyer' ? 'lawyer' : 'mortgage_broker';
     let pro = (kind !== 'lawyer' && (d.mortgage_broker_email || d.mortgage_broker_name))
-      ? { name: d.mortgage_broker_name, email: d.mortgage_broker_email }
+      ? { name: d.mortgage_broker_name, email: d.mortgage_broker_email, company: d.mortgage_broker_company }
       : ((Pipeline._stakeholdersByPipelineId || {})[id] || []).find(s => s.role === role && (s.email || s.name));
     if (!pro && d.client_id) {
       const { data } = await db.from('client_contacts').select('name, email')
@@ -3516,11 +3516,11 @@ const Pipeline = {
     const partner = (d.client_id && typeof CoBuyer !== 'undefined') ? await CoBuyer.get(d.client_id) : null;
     const cc = [pro?.email, partner?.email].filter(Boolean).join(', ');
     const label = kind === 'lawyer' ? 'Lawyer signing' : 'Mortgage signing';
-    const who = kind === 'lawyer' ? 'your lawyer' : 'your mortgage broker';
     Appointments.openForm(d.client_id || '', {
       type: label,
       cc,
-      notes: pro?.name ? `With ${pro.name}, ${who}.` : '',
+      pro: { kind, dealId: id, name: pro?.name || '', email: pro?.email || '',
+             company: pro?.company || (kind !== 'lawyer' ? d.mortgage_lender || '' : '') },
       intro: kind === 'lawyer'
         ? `Book the signing at the lawyer's office for ${d.client_name || 'your client'}. Add the office address and time; they get an Add-to-Calendar invite with a map, just like a viewing.`
         : `Book the mortgage commitment signing for ${d.client_name || 'your client'}. Add the broker's office address and time; they get an Add-to-Calendar invite with a map, just like a viewing.${pro?.email ? ' The broker is copied.' : ' No broker email is on file for this deal, so add it under CC.'}`

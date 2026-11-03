@@ -1212,6 +1212,7 @@ const Appointments = {
   // own property so it is never retyped; "Use another address" frees it.
   openForm(prefillClientId, prefill = null) {
     Appointments._n = 0;
+    Appointments._pro = prefill?.pro || null;   // a signing: who it is with, and the deal it belongs to
     const today = new Date().toISOString().slice(0,10);
     const clientOpts = (typeof Clients !== 'undefined' ? Clients.all : []).map(c =>
       `<option value="${c.id}" ${c.id === prefillClientId ? 'selected' : ''}>${App.esc(c.full_name)}</option>`).join('');
@@ -1235,6 +1236,7 @@ const Appointments = {
       <label class="form-label">Locations *</label>
       <div id="appt-stops">${Appointments._stopRow(0)}</div>
       <button type="button" class="btn btn-outline btn-sm" onclick="Appointments.addStop()" style="margin-bottom:12px;">＋ Add another location</button>
+      ${prefill?.pro ? Appointments._proFields(prefill.pro) : ''}
       <div class="form-group">
         <label class="form-label">Notes (optional)</label>
         <textarea class="form-input" id="appt-notes" rows="2" placeholder="Anything the client should know…"></textarea>
@@ -1262,6 +1264,19 @@ const Appointments = {
     // who it is with is already in the notes, so only the place and time are typed.
     if (prefill?.cc) document.getElementById('appt-cc').value = prefill.cc;
     if (prefill?.notes) document.getElementById('appt-notes').value = prefill.notes;
+  },
+
+  // Who the signing is with (Pipeline.bookSigning). Filled from the deal when
+  // known; whatever is typed here goes in the invite and back onto the deal.
+  _proFields(pro) {
+    const law = pro.kind === 'lawyer';
+    const v = x => App.escAttr(x || '');
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group"><label class="form-label">${law ? 'Lawyer name' : 'Mortgage broker name'}</label>
+          <input class="form-input" id="appt-pro-name" value="${v(pro.name)}" placeholder="e.g. Pat Sample"></div>
+        <div class="form-group"><label class="form-label">${law ? 'Law firm' : 'Company'}</label>
+          <input class="form-input" id="appt-pro-company" value="${v(pro.company)}" placeholder="${law ? 'e.g. Sample Law' : 'e.g. Centum, RBC'}"></div>
+      </div>`;
   },
 
   // Stop 1 = the seller's own property, locked so it is not retyped. One tap
@@ -1365,7 +1380,15 @@ const Appointments = {
       location: stops[0].address,           // primary location (map link)
       meeting_date: date,
       meeting_time: stops[0].time || null,   // earliest stop drives calendar sort
-      notes: document.getElementById('appt-notes')?.value.trim() || null
+      notes: (() => {
+        const typed = document.getElementById('appt-notes')?.value.trim() || '';
+        const pro = Appointments._pro;
+        const name = document.getElementById('appt-pro-name')?.value.trim() || '';
+        const company = document.getElementById('appt-pro-company')?.value.trim() || '';
+        const withLine = pro && (name || company)
+          ? `With ${[name, company].filter(Boolean).join(' of ')}, your ${pro.kind === 'lawyer' ? 'lawyer' : 'mortgage broker'}.` : '';
+        return [withLine, typed].filter(Boolean).join(' ') || null;
+      })()
     };
     const { data: saved, error } = await db.from('meetings').insert(row).select('id').single();
     if (error) {
@@ -1382,6 +1405,23 @@ const Appointments = {
         emailed = true;
       } else {
         App.toast('⚠️ No email on file for this client — appointment saved, invite not sent', 'var(--yellow)');
+      }
+    }
+
+    // A mortgage signing: the broker typed here is saved on the deal too
+    const pro = Appointments._pro;
+    if (pro?.dealId && pro.kind !== 'lawyer' && typeof Pipeline !== 'undefined') {
+      const name = document.getElementById('appt-pro-name')?.value.trim() || null;
+      const company = document.getElementById('appt-pro-company')?.value.trim() || null;
+      const deal = (Pipeline.all || []).find(x => x.id === pro.dealId);
+      const patch = {};
+      if (name && name !== deal?.mortgage_broker_name) patch.mortgage_broker_name = name;
+      if (company && company !== deal?.mortgage_broker_company) patch.mortgage_broker_company = company;
+      if (pro.email && !deal?.mortgage_broker_email) patch.mortgage_broker_email = pro.email;
+      if (Object.keys(patch).length) {
+        const { error: pErr } = await db.from('pipeline').update(patch).eq('id', pro.dealId);
+        if (!pErr && deal) { Object.assign(deal, patch); if (currentTab === 'pipeline') Pipeline.render(Pipeline.all); }
+        else if (pErr) console.warn('[Appointments] broker not saved on deal:', pErr.message);
       }
     }
 
