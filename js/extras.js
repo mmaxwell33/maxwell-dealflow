@@ -890,7 +890,30 @@ const Approvals = {
     // never reaches the recipient (the stale ctx.html wins) — regeneration is
     // still required, but only when the text genuinely diverged from what's stored.
     const bodyChanged = typedInBody && (existing?.email_body || '').trim() !== (body || '').trim();
-    if (bodyChanged) {
+    // A greeting-only edit ("Hi Ms.," to "Hi Ms. Karen,") must not cost a
+    // designed email its layout (a guest's viewing confirmation went out as
+    // plain text this way). If the first line is the only change and the
+    // stored HTML carries that exact greeting once, swap it in place and keep
+    // the table, Add to Calendar button and map as they were.
+    let greetingSwapped = false;
+    if (bodyChanged && ctx.html) {
+      try {
+        const tidy = (s) => ((typeof Notify !== 'undefined' && Notify.tidyBody) ? Notify.tidyBody(s) : s).trim();
+        const oldLines = tidy(existing?.email_body || '').split('\n');
+        const newLines = tidy(body || '').split('\n');
+        const greet = /^(hi|hello|dear)\b[^\n]{0,80},$/i;
+        if (oldLines.length === newLines.length && greet.test(oldLines[0]) && greet.test(newLines[0])
+            && oldLines.slice(1).join('\n') === newLines.slice(1).join('\n')) {
+          const html = decodeURIComponent(escape(atob(ctx.html)));
+          const oldP = `<p>${oldLines[0]}</p>`;
+          if (html.split(oldP).length === 2) {
+            ctx.html = btoa(unescape(encodeURIComponent(html.replace(oldP, () => `<p>${App.esc(newLines[0])}</p>`))));
+            greetingSwapped = true;
+          }
+        }
+      } catch (e) { console.warn('[saveEdit] greeting swap skipped:', e?.message || e); }
+    }
+    if (bodyChanged && !greetingSwapped) {
       // IMPORTANT: the edited body ALREADY ends with the signature + confidentiality
       // notice (every template + the composer append signaturePlain/disclaimerPlain
       // into email_body). So we must NOT use htmlEmail() here — it would append the

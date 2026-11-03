@@ -266,7 +266,13 @@ const Notify = {
       const agentPhone = agent.phone || '(709) 325-0545';
       const agentEmail = agent.email || 'Maxwell.Midodzi@exprealty.com';
       const agentWebsite = agent.website_url || 'maxwellmidodzi.com';
-      const firstName = client.full_name?.split(' ')[0] || 'there';
+      // A guest is often typed in as said on the phone ("Ms. Karen Lawlor").
+      // The first word alone greets them "Hi Ms.,", and fixing that by hand in
+      // Approvals used to flatten this designed email to plain text, so a
+      // title stays with the name it belongs to.
+      const nameParts = (client.full_name || '').trim().split(/\s+/);
+      const firstName = (/^(mr|mrs|ms|miss|dr)\.?$/i.test(nameParts[0] || '') && nameParts[1])
+        ? `${nameParts[0]} ${nameParts[1]}` : (nameParts[0] || 'there');
       const dateStr = new Date(viewing.viewing_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
       const timeStr = viewing.viewing_time ? viewing.viewing_time.slice(0,5) : null;
 
