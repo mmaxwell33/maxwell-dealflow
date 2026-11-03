@@ -1187,7 +1187,7 @@ const Meetings = {
 // 'appointment' and a `stops` array, shows on the Calendar, and emails the
 // client one Add-to-Calendar invite covering every stop — the viewing-email flow.
 const Appointments = {
-  TYPES: ['Flooring','Kitchen cabinets','Countertops','Lighting','Appliances','Tile','Paint & finishes','Plumbing fixtures','Listing consultation','Other'],
+  TYPES: ['Flooring','Kitchen cabinets','Countertops','Lighting','Appliances','Tile','Paint & finishes','Plumbing fixtures','Listing consultation','Mortgage signing','Lawyer signing','Other'],
   _n: 0,
 
   _typeOpts() { return Appointments.TYPES.map(t => `<option value="${t}">${t}</option>`).join(''); },
@@ -1254,6 +1254,14 @@ const Appointments = {
     `);
     Appointments._wireOtherToggles();
     if (prefill?.address) Appointments._prefillHome(prefill);
+    else if (prefill?.type) {
+      const sel = document.querySelector('#appt-stops .appt-type');
+      if (sel) sel.value = prefill.type;
+    }
+    // A signing booked from a deal: the broker/lawyer and partner are copied, and
+    // who it is with is already in the notes, so only the place and time are typed.
+    if (prefill?.cc) document.getElementById('appt-cc').value = prefill.cc;
+    if (prefill?.notes) document.getElementById('appt-notes').value = prefill.notes;
   },
 
   // Stop 1 = the seller's own property, locked so it is not retyped. One tap

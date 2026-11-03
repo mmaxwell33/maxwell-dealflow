@@ -570,8 +570,14 @@ const Notify = {
       // A seller's visit is a listing consultation at their home, not a finishes
       // appointment, so it gets its own opening line.
       const isListingVisit = stops.length > 0 && stops.every(s => s.type === 'Listing consultation');
+      // Signings booked from a deal (Pipeline.bookSigning) say what is being signed.
+      const allType = t => stops.length > 0 && stops.every(s => s.type === t);
       const introLine = isListingVisit
         ? "I've booked our listing consultation at your home. We'll walk through the house together and talk about pricing and next steps. Here's the plan:"
+        : allType('Mortgage signing')
+        ? "Your financing is approved, and I've booked the appointment to sign your mortgage commitment. Here are the details:"
+        : allType('Lawyer signing')
+        ? "I've booked your appointment at the lawyer's office to sign your closing documents. Here are the details:"
         : "I've set up our appointment to pick out finishes. Here's the plan:";
 
       const body = `Hi ${firstName},\n\n${introLine}\n\nDate: ${dateStr}\n${stopLinesPlain.join('\n')}${appt.notes ? '\n\nNotes: ' + appt.notes : ''}\n\nA calendar invite is attached — open it to add every stop to your calendar.${mapsPlain}\n\nPlease don't hesitate to reach out if you have any questions or need to reschedule.\n\nLooking forward to it!\n\n${EmailFormat.signaturePlain(agent)}`;
@@ -623,7 +629,8 @@ const Notify = {
       const icsContent = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Maxwell DealFlow CRM//EN','CALSCALE:GREGORIAN','METHOD:REQUEST', ...vevents, 'END:VCALENDAR'].join('\r\n');
       const icsBase64 = btoa(unescape(encodeURIComponent(icsContent)));
 
-      return { subject: `Appointment ${dateStr} — ${appt.purpose || 'finishes'}`, body, html, ics: icsBase64 };
+      const signing = allType('Mortgage signing') ? 'Mortgage signing' : allType('Lawyer signing') ? 'Lawyer signing' : null;
+      return { subject: signing ? `${signing}: ${dateStr}` : `Appointment ${dateStr} — ${appt.purpose || 'finishes'}`, body, html, ics: icsBase64 };
     },
 
     viewing_followup: (client, viewing, feedback, agent) => ({

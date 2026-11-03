@@ -3012,6 +3012,7 @@ const Pipeline = {
         <div style="font-size:13px;margin-bottom:6px;">💰 Offer: <strong id="pl-price-${d.id}">${App.fmtMoney(d.offer_amount)}</strong> <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="Pipeline.editPrice('${d.id}', ${Number(d.offer_amount)||0})">✏️ Edit</button></div>
         ${depositBlock}
         ${Pipeline.conditionStripHtml(d)}
+        ${!isClosed && !isFell && (d.deal_side || 'buy') !== 'sell' ? Pipeline._signingBtn(d) : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           ${dateField('Acceptance','✅',`pl-acc-${d.id}`,d.acceptance_date)}
           ${dateField('Financing','🏦',`pl-fin-${d.id}`,d.financing_date)}
@@ -3286,9 +3287,43 @@ const Pipeline = {
         <input class="form-input" type="date" id="nb-fin-${d.id}" value="${d.financing_date||''}" style="font-size:12px;padding:5px 8px;flex:1;min-width:130px;">
         <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 12px;" onclick="Pipeline.saveNewBuildFinancing('${d.id}')">Save</button>
       </div>
-      <div style="margin-top:7px;">${docBtn}</div>
+      <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;">${docBtn}${Pipeline._signingBtn(d, true)}</div>
       ${(() => { const s = Pipeline.conditionStripHtml(d, ['financing']); return s ? `<div style="margin-top:8px;">${s}</div>` : ''; })()}
     </div>`;
+  },
+
+  _signingBtn(d, inline = false) {
+    const btn = `<button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 9px;" onclick="Pipeline.bookSigning('${d.id}')">📅 Book mortgage signing</button>`;
+    return inline ? btn : `<div style="margin:-2px 0 10px;">${btn}</div>`;
+  },
+
+  // Signing the mortgage commitment at the broker's office, booked from the deal
+  // in one tap: the same Appointment invite as a viewing (Add to Calendar, map),
+  // with the client chosen, the broker and partner copied and the broker named
+  // in the notes. Maxwell types only the office address and the time. The broker
+  // comes from the deal's stakeholders, else the client's saved contacts.
+  async bookSigning(id, kind = 'mortgage') {
+    const d = (Pipeline.all || []).find(x => x.id === id);
+    if (!d) { App.toast('⚠️ Deal not found'); return; }
+    const role = kind === 'lawyer' ? 'lawyer' : 'mortgage_broker';
+    let pro = ((Pipeline._stakeholdersByPipelineId || {})[id] || []).find(s => s.role === role && (s.email || s.name));
+    if (!pro && d.client_id) {
+      const { data } = await db.from('client_contacts').select('name, email')
+        .eq('client_id', d.client_id).eq('role', role).maybeSingle();
+      if (data && (data.email || data.name)) pro = data;
+    }
+    const partner = (d.client_id && typeof CoBuyer !== 'undefined') ? await CoBuyer.get(d.client_id) : null;
+    const cc = [pro?.email, partner?.email].filter(Boolean).join(', ');
+    const label = kind === 'lawyer' ? 'Lawyer signing' : 'Mortgage signing';
+    const who = kind === 'lawyer' ? 'your lawyer' : 'your mortgage broker';
+    Appointments.openForm(d.client_id || '', {
+      type: label,
+      cc,
+      notes: pro?.name ? `With ${pro.name}, ${who}.` : '',
+      intro: kind === 'lawyer'
+        ? `Book the signing at the lawyer's office for ${d.client_name || 'your client'}. Add the office address and time; they get an Add-to-Calendar invite with a map, just like a viewing.`
+        : `Book the mortgage commitment signing for ${d.client_name || 'your client'}. Add the broker's office address and time; they get an Add-to-Calendar invite with a map, just like a viewing.${pro?.email ? ' The broker is copied.' : ' No broker email is on file for this deal, so add it under CC.'}`
+    });
   },
 
   // Save the financing date on a new-build deal. Writes BOTH financing_date and
