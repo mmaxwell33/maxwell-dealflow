@@ -808,7 +808,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
-    conditions_reminder: (client, deal, daysLeft, conditionType, agent) => ({
+    // Sell-side deals get the seller's wording (Notify.templates.*_seller below).
+    conditions_reminder: (client, deal, daysLeft, conditionType, agent) => (deal?.deal_side === 'sell')
+      ? Notify.templates.conditions_reminder_seller(client, deal, daysLeft, conditionType, agent) : ({
       subject: `Reminder: ${conditionType} Condition Due in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -827,7 +829,8 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    closing_countdown: (client, deal, daysLeft, agent) => ({
+    closing_countdown: (client, deal, daysLeft, agent) => (deal?.deal_side === 'sell')
+      ? Notify.templates.closing_countdown_seller(client, deal, daysLeft, agent) : ({
       subject: `${daysLeft === 1 ? 'TOMORROW is Closing Day!' : `Closing Day in ${daysLeft} Days`} - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -858,7 +861,113 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    deal_closed: (client, deal, agent) => ({
+    // ── SELLER versions of the automatic deal emails ─────────────────────────
+    // The buyer versions talk about getting the keys, home insurance for the
+    // new home and bank drafts. A seller is handing the keys over, so the
+    // daily automation picks these when pipeline.deal_side is 'sell'.
+    conditions_reminder_seller: (client, deal, daysLeft, conditionType, agent) => ({
+      subject: `Update: Buyer's ${conditionType} Condition Due in ${daysLeft} Day${daysLeft !== 1 ? 's' : ''} - ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+A quick update on the sale of ${deal.property_address}: the buyer's ${conditionType.toLowerCase()} condition is due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.
+
+📍 Property: ${deal.property_address}
+⏰ ${conditionType} Deadline: ${conditionType === 'Financing' ? App.fmtDate(deal.financing_date) : App.fmtDate(deal.inspection_date)}
+
+${conditionType === 'Financing' ? 'The buyer\'s lender is finalizing their mortgage approval. Nothing is needed from you right now. I will let you know as soon as the condition is removed.' : 'The buyer may be booking their home inspection before then. Please keep the home accessible and tidy, and make sure the furnace, electrical panel, water heater and attic hatch are easy to reach.'}
+
+I will keep you posted every step of the way.
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    closing_countdown_seller: (client, deal, daysLeft, agent) => ({
+      subject: `${daysLeft === 1 ? 'TOMORROW Your Sale Closes!' : `Your Sale Closes in ${daysLeft} Days`} - ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+${daysLeft === 1 ? '🔑 Tomorrow your sale closes!' : `🏡 The sale of your home closes in ${daysLeft} days!`}
+
+📍 Property: ${deal.property_address}
+📅 Closing Date: ${App.fmtDate(deal.closing_date)}
+
+${daysLeft <= 3 ? `✅ Final Closing Checklist:
+• Sign your closing documents with your lawyer
+• Have the home moved out and left clean before closing
+• Book final meter readings for hydro, water and any other utilities
+• Gather all keys, garage remotes, alarm codes and manuals for the buyer
+• Leave all included fixtures and appliances with the home
+• Make sure any repairs agreed to in the contract are complete
+• Bring valid photo ID to your lawyer's office
+
+` : `📋 Things to start preparing:
+• Touch base with your lawyer about the closing documents and paying out your mortgage
+• Start planning your move and book a moving company soon
+• Arrange to cancel or transfer your utilities as of the closing date
+• Keep your home insurance in place until closing day, then cancel it
+• Remember that everything included in the agreement stays with the home
+
+`}I'm here for any questions. You are almost there!
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    walkthrough_reminder_seller: (client, deal, agent) => ({
+      subject: `Reminder: Buyer's Final Walkthrough Tomorrow - ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Just a reminder that the buyer's final walkthrough of ${deal.property_address} is scheduled for TOMORROW.
+
+📍 Property: ${deal.property_address}
+📅 Walkthrough Date: ${App.fmtDate(deal.walkthrough_date)}
+
+Before the walkthrough, please:
+• Make sure any repairs agreed to in the contract are complete
+• Leave all included fixtures and appliances in place
+• Keep the home clean and in the same condition as when it sold
+• Make sure the buyer can get into the home at the agreed time
+
+If anything comes up, call me right away so we can sort it out before closing.
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    deal_closed_seller: (client, deal, agent) => ({
+      subject: `Congratulations, Your Home Is Sold! - ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+CONGRATULATIONS! 🎉🏡
+
+The sale of ${deal.property_address} has officially closed. It has been a real pleasure to represent you through this process.
+
+A few important reminders:
+• Keep all your closing documents in a safe place for tax time
+• Cancel the home insurance and any utilities still in your name at the property
+• Update your address with Canada Post, CRA, your bank, etc.
+• Your lawyer will confirm when the sale proceeds have been released to you
+
+Thank you for trusting me with the sale of your home!
+
+If you have a moment, I would truly appreciate a Google review or a referral to anyone you know looking to buy or sell. It means the world to a Realtor® 🙏
+
+Thank you again,
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    deal_closed: (client, deal, agent) => (deal?.deal_side === 'sell')
+      ? Notify.templates.deal_closed_seller(client, deal, agent) : ({
       subject: `Congratulations on Your New Home! - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
@@ -1449,7 +1558,8 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
     }),
 
-    walkthrough_reminder: (client, deal, agent) => ({
+    walkthrough_reminder: (client, deal, agent) => (deal?.deal_side === 'sell')
+      ? Notify.templates.walkthrough_reminder_seller(client, deal, agent) : ({
       subject: `Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 
