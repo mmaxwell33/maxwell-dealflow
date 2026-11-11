@@ -1380,9 +1380,9 @@ const App = {
         const finPast  = (typeof Pipeline !== 'undefined' && Pipeline.conditionState)
           ? Pipeline.conditionState(d, 'financing') === 'cleared'
           : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString()));
-        // Same MLS-style status as the Pipeline card (UNDER CONTRACT → SOLD FIRM → SOLD).
+        // Same MLS-style status as the Pipeline card (UNDER CONTRACT → STFRM → SOLD).
         const mls = (typeof Pipeline !== 'undefined' && Pipeline.mlsStatus) ? Pipeline.mlsStatus(d) : null;
-        const badgeLabel = mls ? mls.label : isClosed ? 'SOLD' : isFell ? 'FELL THROUGH' : finPast ? 'SOLD FIRM' : 'UNDER CONTRACT';
+        const badgeLabel = mls ? mls.label : isClosed ? 'SOLD' : isFell ? 'FELL THROUGH' : finPast ? 'STFRM' : 'UNDER CONTRACT';
         const badgeCls   = mls ? mls.cls : (isClosed || isFell) ? 'badge-default' : 'badge-accepted';
         const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
         const fillPct  = isClosed ? 100 : isFell ? 0 : pct;

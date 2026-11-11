@@ -2227,7 +2227,7 @@ const Pipeline = {
   // MLS-style deal status, computed from the deal itself so every existing and
   // future deal follows the same rule (Matrix: UC → STFRM → Sold):
   //   UNDER CONTRACT  offer accepted, a condition is still open      (amber)
-  //   SOLD FIRM       financing approved AND inspection / sale of
+  //   STFRM           financing approved AND inspection / sale of
   //                   their home cleared, skipped or not a condition  (indigo)
   //   SOLD            deal closed                                     (green)
   // One source for both the badge's words AND its colour, so they can never
@@ -2243,7 +2243,7 @@ const Pipeline = {
       && ['cleared', 'skipped', 'none'].includes(ins)
       && ['cleared', 'none'].includes(sale);
     return firm
-      ? { key: 'firm', label: 'SOLD FIRM', cls: 'badge-viewings' }
+      ? { key: 'firm', label: 'STFRM', cls: 'badge-viewings' }
       : { key: 'uc',   label: 'UNDER CONTRACT', cls: 'badge-conditions' };
   },
 
