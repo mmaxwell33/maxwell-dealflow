@@ -1380,13 +1380,16 @@ const App = {
         const finPast  = (typeof Pipeline !== 'undefined' && Pipeline.conditionState)
           ? Pipeline.conditionState(d, 'financing') === 'cleared'
           : (d.financing_date && new Date(d.financing_date+'T00:00:00') <= new Date(new Date().toDateString()));
-        const badgeLabel = isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : finPast ? 'UNDER CONTRACT' : 'IN PROGRESS';
+        // Same MLS-style status as the Pipeline card (UNDER CONTRACT → SOLD FIRM → SOLD).
+        const mls = (typeof Pipeline !== 'undefined' && Pipeline.mlsStatus) ? Pipeline.mlsStatus(d) : null;
+        const badgeLabel = mls ? mls.label : isClosed ? 'SOLD' : isFell ? 'FELL THROUGH' : finPast ? 'SOLD FIRM' : 'UNDER CONTRACT';
+        const badgeCls   = mls ? mls.cls : (isClosed || isFell) ? 'badge-default' : 'badge-accepted';
         const barColor = isClosed ? 'var(--green)' : isFell ? 'var(--red)' : 'linear-gradient(90deg,var(--accent),var(--accent2))';
         const fillPct  = isClosed ? 100 : isFell ? 0 : pct;
         return `<div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div class="fw-700">${App.esc(d.client_name || 'Unknown')}</div>
-            <span class="stage-badge ${isClosed ? 'badge-default' : isFell ? 'badge-default' : 'badge-accepted'}">${badgeLabel}</span>
+            <span class="stage-badge ${badgeCls}">${badgeLabel}</span>
           </div>
           <div class="text-muted" style="font-size:12px;margin-bottom:8px;">📍 ${App.esc(d.property_address || '—')} · ${App.fmtMoney(d.offer_amount)}</div>
           <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:4px;">

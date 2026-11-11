@@ -2224,6 +2224,29 @@ const Pipeline = {
     return 'asking';
   },
 
+  // MLS-style deal status, computed from the deal itself so every existing and
+  // future deal follows the same rule (Matrix: UC → STFRM → Sold):
+  //   UNDER CONTRACT  offer accepted, a condition is still open      (amber)
+  //   SOLD FIRM       financing approved AND inspection / sale of
+  //                   their home cleared, skipped or not a condition  (indigo)
+  //   SOLD            deal closed                                     (green)
+  // One source for both the badge's words AND its colour, so they can never
+  // disagree again (before: colour came from stage, words from financing).
+  mlsStatus(d) {
+    if (!d) return { key: 'uc', label: 'UNDER CONTRACT', cls: 'badge-conditions' };
+    if (d.stage === 'Closed')       return { key: 'sold', label: 'SOLD', cls: 'badge-accepted' };
+    if (d.stage === 'Fell Through') return { key: 'fell', label: 'FELL THROUGH', cls: 'badge-rejected' };
+    const fin  = Pipeline.conditionState(d, 'financing');
+    const ins  = Pipeline.conditionState(d, 'inspection');
+    const sale = Pipeline.conditionState(d, 'sale');
+    const firm = fin === 'cleared'
+      && ['cleared', 'skipped', 'none'].includes(ins)
+      && ['cleared', 'none'].includes(sale);
+    return firm
+      ? { key: 'firm', label: 'SOLD FIRM', cls: 'badge-viewings' }
+      : { key: 'uc',   label: 'UNDER CONTRACT', cls: 'badge-conditions' };
+  },
+
   // One compact row per condition, sitting above the dates grid. Only renders
   // conditions that have something to say — a question, a block, an extension,
   // or a recorded ✓ — so a brand-new deal shows nothing at all.
@@ -2994,7 +3017,7 @@ const Pipeline = {
         <div class="pl-card-head" onclick="Pipeline.toggleDeal('${d.id}')">
           <span class="pl-chev ${isOpen?'open':''}" id="pl-chev-${d.id}" aria-hidden="true">▸</span>
           <div style="flex:1;min-width:0;"><div class="fw-800" style="font-size:15px;">${d.client_name||'—'}</div><div class="text-muted" style="font-size:12px;margin-top:2px;">📍 ${d.property_address||'—'}</div></div>
-          <span class="stage-badge ${badge}">${isClosed ? 'CLOSED' : isFell ? 'FELL THROUGH' : Pipeline.conditionState(d, 'financing') === 'cleared' ? 'UNDER CONTRACT' : 'IN PROGRESS'}</span>
+          <span class="stage-badge ${Pipeline.mlsStatus(d).cls}">${Pipeline.mlsStatus(d).label}</span>
         </div>
         <!-- Hidden legacy single-bar (kept for compatibility with code that updates pl-bar-* / pl-pct-lbl-* / pl-milestone-lbl-*) -->
         <span id="pl-bar-${d.id}" data-pct="${pct}" style="display:none;"></span>
@@ -3204,7 +3227,7 @@ const Pipeline = {
   newBuildCard(d) {
     const isClosed = d.stage === 'Closed';
     const isFell   = d.stage === 'Fell Through';
-    const statusLabel = isClosed ? 'CLOSED'
+    const statusLabel = isClosed ? 'SOLD'
                       : isFell   ? 'FELL THROUGH'
                       : '🏗️ NEW BUILD';
     const badgeColor = isClosed ? 'var(--green)'
