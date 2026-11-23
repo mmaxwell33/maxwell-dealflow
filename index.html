@@ -735,6 +735,7 @@
           <div class="form-group"><label class="form-label">BROKERAGE FEE (%)</label><input class="form-input" id="cm-broker" type="number" value="20" step="1" oninput="Commission.calcPreview()"></div>
           <div class="form-group"><label class="form-label">TAX RATE / HST (%)</label><input class="form-input" id="cm-tax" type="number" value="15" step="1" oninput="Commission.calcPreview()"></div>
         </div>
+        <div class="form-group"><label class="form-label" for="cm-basis">COMMISSION PAID ON</label><select class="form-input form-select" id="cm-basis" onchange="Commission.calcPreview()"><option value="gross" selected>Full purchase price (plus HST)</option><option value="net">Net of HST (price ÷ 1.15, e.g. new builds)</option></select></div>
         <div class="form-group"><label class="form-label">CLOSING DATE</label><input class="form-input" id="cm-close-date" type="date"></div>
         <div id="cm-preview" style="display:none;background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.8;border:1px solid var(--border);"></div>
         <button class="btn btn-primary" onclick="Commission.saveNew()">💰 Record Commission</button>

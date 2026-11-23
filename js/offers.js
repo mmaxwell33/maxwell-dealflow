@@ -1305,6 +1305,11 @@ const Pipeline = {
           <option value="custom">Custom...</option>
         </select>
         <input class="form-input" type="number" step="0.01" id="ad-comm-custom" placeholder="Enter custom % (e.g. 2.75)" style="display:none;margin-top:8px;">
+        <label class="form-label" for="ad-comm-basis" style="margin-top:10px;">Paid on</label>
+        <select class="form-input" id="ad-comm-basis">
+          <option value="gross" selected>Full purchase price (plus HST)</option>
+          <option value="net">Net of HST (price ÷ 1.15, e.g. new builds)</option>
+        </select>
       </div>
 
       <!-- Documents -->
@@ -1363,6 +1368,7 @@ const Pipeline = {
       else App.toast('⚠️ Enter a valid commission %', 'var(--red)');
       return;
     }
+    const basis = document.getElementById('ad-comm-basis')?.value === 'net' ? 'net' : 'gross';
 
     // Stash the dates + skip flags onto the offer for downstream use
     offer.inspection_date = insSkip ? null : ins;
@@ -1374,7 +1380,7 @@ const Pipeline = {
     offer.walkthrough_skipped = !!walkSkip;
 
     // Create the pipeline row + commission row + fire client congrats email (single source)
-    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, sale, rate, insSkip, walkSkip, newBuild });
+    await Pipeline.createFromOfferWithDates(offer, client, { ins: insSkip ? null : ins, fin, walk: walkSkip ? null : walk, close, sale, rate, basis, insSkip, walkSkip, newBuild });
 
     // Look up the just-created pipeline row so we can attach stakeholders + docs to it.
     // Use auth.uid() for the agent_id filter — same as the insert — so RLS-aware SELECT matches.
@@ -1776,7 +1782,7 @@ const Pipeline = {
       offer_amount: offer.offer_amount,
       closing_date: dates.close || null,
       deal_side: 'buy'
-    }, dates.rate);
+    }, dates.rate, dates.basis);
     if (!comm.ok) {
       App.toast(`⚠️ Deal created, but the commission did not save (${comm.error}). It will be retried when you open Commissions.`, 'var(--yellow)');
     }
@@ -1914,7 +1920,9 @@ const Pipeline = {
   // ensureCommission: looks first (same address + side = already recorded, so
   // never a duplicate), then inserts, retrying without the optional columns an
   // older schema or a bad client id can reject. Returns { ok, created, error }.
-  async ensureCommission(deal, rateIn) {
+  // basisIn 'net' = commission paid on the price net of HST (price ÷ 1.15),
+  // e.g. a new build sold HST-included: $630,000 → 2.5% of $547,826.
+  async ensureCommission(deal, rateIn, basisIn) {
     if (!currentAgent?.id || !deal?.property_address) return { ok: false, error: 'no deal' };
     const side = deal.deal_side === 'sell' ? 'sell' : 'buy';
     const { data: existing, error: qErr } = await db.from('commissions')
@@ -1927,7 +1935,9 @@ const Pipeline = {
     const sale = parseFloat(deal.offer_amount) || 0;
     const rate = parseFloat(rateIn) || 2.5;
     const brokerPct = 20, taxPct = 15;
-    const gross = sale * rate / 100;
+    // sale_price stays the full purchase price; only the commission base changes.
+    const base = basisIn === 'net' ? sale / (1 + taxPct / 100) : sale;
+    const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
     // Same maths as each side's own creator: buy = fee on (gross + HST) (PR #12),
     // sell = fee on gross (listings.js confirmWinner).
@@ -4127,7 +4137,7 @@ const Pipeline = {
     await Pipeline.notifyDealUpdate(id, { offer_amount: newAmt });
 
     const { data: comm } = await db.from('commissions')
-      .select('id, commission_rate, brokerage_fee_rate')
+      .select('id, commission_rate, brokerage_fee_rate, sale_price, gross_commission')
       .eq('agent_id', currentAgent.id)
       .eq('property_address', rec.property_address)
       // Same address, other side, on a dual agency: re-price only this side's.
@@ -4137,7 +4147,10 @@ const Pipeline = {
       const rate      = parseFloat(comm.commission_rate)    || 2.5;
       const brokerPct = parseFloat(comm.brokerage_fee_rate) || 20;
       const taxPct    = 15;
-      const gross     = newAmt * rate / 100;
+      // Keep a "net of HST" commission net when the price changes.
+      const isNet     = typeof Commission !== 'undefined' && Commission.basisOf
+        ? Commission.basisOf(comm) === 'net' : false;
+      const gross     = (isNet ? newAmt / (1 + taxPct / 100) : newAmt) * rate / 100;
       const hst       = gross * taxPct / 100;
       // Brokerage fee is taken on (gross + HST) — must match the manual form in extras.js (PR #12)
       const brokerFee = (gross + hst) * brokerPct / 100;

@@ -2618,6 +2618,22 @@ const Commission = {
       : '<span class="cm-side-chip buy">Buyer</span>';
   },
 
+  // "Net" commission = paid on the price net of HST (price ÷ 1.15), the way a
+  // new build sold HST-included is paid: $630,000 → 2.5% of $547,826. No
+  // column stores it: the stored gross already tells. Gross ≈ price ÷ 1.15 ×
+  // rate means net; anything else is on the full price.
+  basisOf(c) {
+    const sale = Number(c?.sale_price) || 0, rate = Number(c?.commission_rate) || 0;
+    const gross = Number(c?.gross_commission) || 0;
+    if (!sale || !rate || !gross) return 'gross';
+    const ratio = gross / (sale * rate / 100);
+    return Math.abs(ratio - 1 / 1.15) < 0.01 ? 'net' : 'gross';
+  },
+  // The amount the % is taken on.
+  commBase(sale, basis, taxPct) {
+    return basis === 'net' ? sale / (1 + (taxPct || 15) / 100) : sale;
+  },
+
   calcPreview() {
     const sale = parseFloat(document.getElementById('cm-sale')?.value) || 0;
     const rate = parseFloat(document.getElementById('cm-rate')?.value) || 0;
@@ -2630,7 +2646,9 @@ const Commission = {
     // alone. The brokerage bills you for their cut off the gross-with-tax invoice
     // amount, not the pre-tax commission. The old code undercharged the fee by
     // (brokerPct × HST), which inflated the net by the same amount.
-    const gross = sale * rate / 100;
+    const basis = document.getElementById('cm-basis')?.value === 'net' ? 'net' : 'gross';
+    const base = Commission.commBase(sale, basis, taxPct);
+    const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
     const rawFee = grossPlusTax * brokerPct / 100;
@@ -2647,7 +2665,8 @@ const Commission = {
     prev.style.display = 'block';
     prev.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
-        <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
+        ${basis === 'net' ? `<span style="color:var(--text2);">Price net of HST (÷ ${1 + taxPct / 100}):</span><span class="fw-700">${App.fmtMoney(base)}</span>` : ''}
+        <span style="color:var(--text2);">Gross Commission (${rate}%${basis === 'net' ? ' net' : ''}):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
         <span style="color:var(--text2);">Brokerage Fee${brokerFee < rawFee - 0.01 ? ' (capped)' : ` (${brokerPct}% on gross + HST)`}:</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
@@ -3018,6 +3037,7 @@ const Commission = {
     const closeDate = c.close_date || '';
     const status = c.status || 'Closed';
     const side = c.deal_side === 'sell' ? 'sell' : 'buy';
+    const basis = Commission.basisOf(c);
     App.openModal(`
       <h3 style="margin:0 0 14px;font-size:18px;">✏️ Edit Commission</h3>
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
@@ -3045,6 +3065,13 @@ const Commission = {
           <label class="form-label">Commission Rate (%)</label>
           <input class="form-input" id="cme-rate" type="number" step="0.01" value="${rate}" oninput="Commission.calcEditPreview()">
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cme-basis">Commission paid on</label>
+        <select class="form-input form-select" id="cme-basis" onchange="Commission.calcEditPreview()">
+          <option value="gross" ${basis === 'gross' ? 'selected' : ''}>Full purchase price (plus HST)</option>
+          <option value="net"   ${basis === 'net'   ? 'selected' : ''}>Net of HST (price ÷ 1.15, e.g. new builds)</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -3096,14 +3123,17 @@ const Commission = {
       prev.innerHTML = `<div style="color:var(--text3);font-size:12px;text-align:center;">Enter sale price + rate to see new totals.</div>`;
       return;
     }
-    const gross = sale * rate / 100;
+    const basis = document.getElementById('cme-basis')?.value === 'net' ? 'net' : 'gross';
+    const base = Commission.commBase(sale, basis, taxPct);
+    const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
     const brokerFee = grossPlusTax * brokerPct / 100;
     const net = grossPlusTax - brokerFee;
     prev.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
-        <span style="color:var(--text2);">Gross Commission (${rate}%):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
+        ${basis === 'net' ? `<span style="color:var(--text2);">Price net of HST (÷ ${1 + taxPct / 100}):</span><span class="fw-700">${App.fmtMoney(base)}</span>` : ''}
+        <span style="color:var(--text2);">Gross Commission (${rate}%${basis === 'net' ? ' net' : ''}):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
         <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross + HST):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
@@ -3127,7 +3157,8 @@ const Commission = {
     const status    = document.getElementById('cme-status')?.value || 'Closed';
     const side      = document.getElementById('cme-side')?.value === 'sell' ? 'sell' : 'buy';
     // Same gross+HST→brokerage math as saveNew() (PR #12 fix)
-    const gross = sale * rate / 100;
+    const basis = document.getElementById('cme-basis')?.value === 'net' ? 'net' : 'gross';
+    const gross = Commission.commBase(sale, basis, taxPct) * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
     const brokerFee = grossPlusTax * brokerPct / 100;
@@ -3174,7 +3205,8 @@ const Commission = {
     // code was undercharging the fee by (brokerPct × HST), which inflated the
     // net by the same amount. For Maxwell's typical 2.5% / 15% / 20% setup
     // that's roughly $356 too much per ~$475k deal.
-    const gross = salePrice * rate / 100;
+    const basis = document.getElementById('cm-basis')?.value === 'net' ? 'net' : 'gross';
+    const gross = Commission.commBase(salePrice, basis, taxPct) * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
     const rawFee = grossPlusTax * brokerPct / 100;
@@ -3208,6 +3240,7 @@ const Commission = {
     msg.style.color='var(--green)'; msg.textContent='✅ Saved!';
     document.getElementById('cm-sale').value=''; document.getElementById('cm-property').value='';
     document.getElementById('cm-preview').style.display='none';
+    const basisSel = document.getElementById('cm-basis'); if (basisSel) basisSel.value = 'gross';
     Commission._setSideRadio(null);
     const hint = document.getElementById('cm-client-hint'); if (hint) hint.innerHTML = '';
     Commission.load();
