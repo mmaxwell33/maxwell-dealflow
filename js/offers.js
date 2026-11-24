@@ -1939,9 +1939,9 @@ const Pipeline = {
     const base = basisIn === 'net' ? sale / (1 + taxPct / 100) : sale;
     const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
-    // Same maths as each side's own creator: buy = fee on (gross + HST) (PR #12),
-    // sell = fee on gross (listings.js confirmWinner).
-    const brokerFee = side === 'sell' ? gross * brokerPct / 100 : (gross + hst) * brokerPct / 100;
+    // eXp takes its split on the commission before HST, both sides
+    // (production report, Nov 2026).
+    const brokerFee = gross * brokerPct / 100;
     const row = {
       agent_id: currentAgent.id,
       client_name: deal.client_name || (side === 'sell' ? 'Seller' : 'Client'),
@@ -4152,8 +4152,8 @@ const Pipeline = {
         ? Commission.basisOf(comm) === 'net' : false;
       const gross     = (isNet ? newAmt / (1 + taxPct / 100) : newAmt) * rate / 100;
       const hst       = gross * taxPct / 100;
-      // Brokerage fee is taken on (gross + HST) — must match the manual form in extras.js (PR #12)
-      const brokerFee = (gross + hst) * brokerPct / 100;
+      // eXp takes its split on the commission before HST (same as extras.js)
+      const brokerFee = gross * brokerPct / 100;
       const net       = (gross + hst) - brokerFee;
       await db.from('commissions').update({
         sale_price:        newAmt,

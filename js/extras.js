@@ -2221,8 +2221,12 @@ const Commission = {
       // the cap later re-charges correctly on deals a lower cap had zeroed out.
       const rate = (c.brokerage_fee_rate != null) ? Number(c.brokerage_fee_rate) : null;
       c._grossPlusTax = grossPlusTax;
-      c._rawFee = (rate != null && grossPlusTax > 0)
-        ? grossPlusTax * rate / 100
+      // eXp takes its split on the commission BEFORE HST (production report,
+      // Nov 2026: Agent Net = commission - 20% of commission - $29). HST is
+      // not split, so it never counts toward the cap.
+      const grossOnly = Number(c.gross_commission) || 0;
+      c._rawFee = (rate != null && grossOnly > 0)
+        ? grossOnly * rate / 100
         : (Number(c.brokerage_fees) || 0);
       // Archived (fell-through) deals are already out of every total, so they
       // must not eat cap room either.
@@ -2642,16 +2646,15 @@ const Commission = {
     const prev = document.getElementById('cm-preview');
     if (!prev) return;
     if (!sale || !rate) { prev.style.display = 'none'; return; }
-    // PR #12 fix: brokerage fee is taken on (commission + HST), not on commission
-    // alone. The brokerage bills you for their cut off the gross-with-tax invoice
-    // amount, not the pre-tax commission. The old code undercharged the fee by
-    // (brokerPct × HST), which inflated the net by the same amount.
+    // Brokerage fee = % of the commission BEFORE HST. This reverses PR #12,
+    // which charged it on commission + HST: eXp's production report (Nov 2026)
+    // shows Agent Net = commission - 20% of commission - $29, HST not split.
     const basis = document.getElementById('cm-basis')?.value === 'net' ? 'net' : 'gross';
     const base = Commission.commBase(sale, basis, taxPct);
     const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const rawFee = grossPlusTax * brokerPct / 100;
+    const rawFee = gross * brokerPct / 100;   // eXp splits the commission before HST
     // Apply the eXp cap: the brokerage fee can never take more than what is left
     // to reach this year's cap. Once capped, the fee is $0 and the agent keeps 100%.
     const { remaining, capped } = Commission.capInfo();
@@ -2669,7 +2672,7 @@ const Commission = {
         <span style="color:var(--text2);">Gross Commission (${rate}%${basis === 'net' ? ' net' : ''}):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
-        <span style="color:var(--text2);">Brokerage Fee${brokerFee < rawFee - 0.01 ? ' (capped)' : ` (${brokerPct}% on gross + HST)`}:</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="color:var(--text2);">Brokerage Fee${brokerFee < rawFee - 0.01 ? ' (capped)' : ` (${brokerPct}% of commission)`}:</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
         ${capNote}
         <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
       </div>`;
@@ -3020,8 +3023,8 @@ const Commission = {
   // PR #27: Edit Commission modal. Pre-fills with current row values, lets
   // Maxwell adjust property address / sale price / rate / brokerage % / tax % /
   // close date / status, and rewrites all derived fields (gross, hst,
-  // brokerage_fees, agent_net) on save using the same gross+HST→brokerage
-  // math from PR #12. Client name + agent_id intentionally NOT editable —
+  // brokerage_fees, agent_net) on save using the same commission→brokerage
+  // math as saveNew(). Client name + agent_id intentionally NOT editable —
   // if a row was filed against the wrong client, delete and re-add.
   openEdit(id) {
     const c = Commission.all.find(x => x.id === id);
@@ -3128,7 +3131,7 @@ const Commission = {
     const gross = base * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = grossPlusTax * brokerPct / 100;
+    const brokerFee = gross * brokerPct / 100;   // eXp splits the commission before HST
     const net = grossPlusTax - brokerFee;
     prev.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr auto;gap:4px;font-size:13px;">
@@ -3136,7 +3139,7 @@ const Commission = {
         <span style="color:var(--text2);">Gross Commission (${rate}%${basis === 'net' ? ' net' : ''}):</span><span class="fw-700">${App.fmtMoney(gross)}</span>
         <span style="color:var(--text2);">HST / Tax (${taxPct}% on gross):</span><span style="color:var(--yellow);">+${App.fmtMoney(hst)}</span>
         <span style="color:var(--text2);">Gross + Tax:</span><span class="fw-700">${App.fmtMoney(grossPlusTax)}</span>
-        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% on gross + HST):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
+        <span style="color:var(--text2);">Brokerage Fee (${brokerPct}% of commission):</span><span style="color:var(--red);">-${App.fmtMoney(brokerFee)}</span>
         <span style="font-weight:800;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">Net Earnings:</span><span style="font-weight:900;color:var(--green);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">${App.fmtMoney(net)}</span>
       </div>`;
   },
@@ -3156,12 +3159,12 @@ const Commission = {
     const closeDate = document.getElementById('cme-close-date')?.value || null;
     const status    = document.getElementById('cme-status')?.value || 'Closed';
     const side      = document.getElementById('cme-side')?.value === 'sell' ? 'sell' : 'buy';
-    // Same gross+HST→brokerage math as saveNew() (PR #12 fix)
+    // Same commission→brokerage math as saveNew()
     const basis = document.getElementById('cme-basis')?.value === 'net' ? 'net' : 'gross';
     const gross = Commission.commBase(sale, basis, taxPct) * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const brokerFee = grossPlusTax * brokerPct / 100;
+    const brokerFee = gross * brokerPct / 100;   // eXp splits the commission before HST
     const net = grossPlusTax - brokerFee;
     msg.style.color = 'var(--text2)';
     msg.textContent = 'Saving...';
@@ -3200,16 +3203,13 @@ const Commission = {
     const rate = parseFloat(document.getElementById('cm-rate')?.value) || 2.5;
     const brokerPct = parseFloat(document.getElementById('cm-broker')?.value) || 20;
     const taxPct = parseFloat(document.getElementById('cm-tax')?.value) || 15;
-    // PR #12 fix: brokerage fee is taken on (commission + HST), not on commission
-    // alone — the brokerage bills off the gross-with-tax invoice amount. The old
-    // code was undercharging the fee by (brokerPct × HST), which inflated the
-    // net by the same amount. For Maxwell's typical 2.5% / 15% / 20% setup
-    // that's roughly $356 too much per ~$475k deal.
-    const basis = document.getElementById('cm-basis')?.value === 'net' ? 'net' : 'gross';
+    // Brokerage fee = % of the commission BEFORE HST (eXp production report,
+    // Nov 2026). PR #12 had charged it on commission + HST, which overstated
+    // every fee by 15% and made the cap look closer than it was.
     const gross = Commission.commBase(salePrice, basis, taxPct) * rate / 100;
     const hst = gross * taxPct / 100;
     const grossPlusTax = gross + hst;
-    const rawFee = grossPlusTax * brokerPct / 100;
+    const rawFee = gross * brokerPct / 100;   // eXp splits the commission before HST
     // Apply the eXp cap (same as the live preview): never charge more brokerage
     // than what is left to this year's cap. Once capped, fee is $0.
     const { remaining } = Commission.capInfo();
