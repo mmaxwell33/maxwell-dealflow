@@ -105,6 +105,13 @@ Deno.serve(async (req: Request) => {
     }).catch(() => {});
   } catch { /* fail open — never block a genuine lead */ }
 
+  // Intake forms (buyer and seller) get a button straight to Form Responses,
+  // where the submission is accepted. The app reads ?tab= on open
+  // (App.handleDeepLink), so one tap from the email lands on the right screen.
+  const isIntake = /intake/i.test(source);
+  const APP_URL  = (Deno.env.get('APP_URL') || 'https://maxwell-dealflow.vercel.app').replace(/\/+$/, '');
+  const openLink = `${APP_URL}/?tab=formresponses`;
+
   const html = `
     <p><strong>${source ? `New ${esc(source)}.` : 'New message from your website Contact form.'}</strong></p>
     <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">
@@ -113,9 +120,10 @@ Deno.serve(async (req: Request) => {
       ${phone ? `<tr><td style="padding:4px 12px 4px 0;color:#666">Phone</td><td style="padding:4px 0"><a href="tel:${esc(phone)}">${esc(phone)}</a></td></tr>` : ''}
     </table>
     <p style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap;border-left:3px solid #CC785C;padding-left:14px;color:#333">${esc(message)}</p>
+    ${isIntake ? `<p style="margin:18px 0"><a href="${openLink}" style="display:inline-block;background:#5b5bd6;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:10px 18px;border-radius:8px">Open Form Responses to accept</a></p>` : ''}
     <p style="font-family:Arial,sans-serif;font-size:12px;color:#999">Also saved to DealFlow as a new lead. Reply to this person at ${esc(email)}.</p>`;
 
-  const text = `${source ? 'New ' + source : 'New website Contact message'}\n\nName: ${name}\nEmail: ${email}\n${phone ? 'Phone: ' + phone + '\n' : ''}\nMessage:\n${message}\n\n(Also saved to DealFlow.)`;
+  const text = `${source ? 'New ' + source : 'New website Contact message'}\n\nName: ${name}\nEmail: ${email}\n${phone ? 'Phone: ' + phone + '\n' : ''}\nMessage:\n${message}\n\n${isIntake ? 'Accept it in DealFlow: ' + openLink + '\n\n' : ''}(Also saved to DealFlow.)`;
 
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
