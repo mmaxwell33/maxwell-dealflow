@@ -964,25 +964,76 @@ const Approvals = {
   },
 
   // ── Choose the broker for ONE intro ─────────────────────────────────────
-  // The go-to broker (Settings, Mortgage Broker Referral) is pre-filled. Typing
-  // a different name and email sends this client to that broker instead.
+  // A dropdown of the go-to broker (Settings, Mortgage Broker Referral) plus
+  // the saved "Other brokers", and "Someone else" to type one in. Picking one
+  // rewrites the greeting, introduction and subject in the editor right away.
   _brokerPickHtml(item) {
-    const goTo = currentAgent?.broker_email || '';
+    const goTo = currentAgent?.broker_email ? [{ name: currentAgent.broker_name || '', email: currentAgent.broker_email, goTo: true }] : [];
+    const others = (typeof Settings !== 'undefined' && Settings.otherBrokers) ? Settings.otherBrokers() : [];
+    const list = [...goTo, ...others];
+    const cur = (item.client_email || '').toLowerCase();
+    if (cur && !list.some(b => b.email.toLowerCase() === cur)) list.push({ name: item.client_name || '', email: item.client_email });
+    Approvals._brokerList = list;
+    const opts = list.map((b, i) => `<option value="${i}" ${b.email.toLowerCase() === cur ? 'selected' : ''}>${App.esc(b.name || b.email)}${b.goTo ? ' (go-to)' : ''}</option>`).join('');
     return `<div style="margin-bottom:16px;padding:12px;border:1px solid var(--accent);border-radius:8px;background:var(--bg);">
       <div class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">🏦 Send to broker</div>
+      <select class="form-input form-select" id="edit-broker-select" data-current="${App.esc(item.client_name || '')}" onchange="Approvals._pickBroker(this)" style="font-size:13px;margin-bottom:8px;">
+        ${opts}
+        <option value="other">Someone else (type below)</option>
+      </select>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <input class="form-input" id="edit-broker-name" value="${App.esc(item.client_name || '')}" placeholder="Broker name" style="font-size:13px;">
+        <input class="form-input" id="edit-broker-name" value="${App.esc(item.client_name || '')}" placeholder="Broker name" onchange="Approvals._pickBroker(null)" style="font-size:13px;">
         <input class="form-input" id="edit-broker-email" type="email" value="${App.esc(item.client_email || '')}" placeholder="broker@example.com" style="font-size:13px;">
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;">
-        Your go-to broker is ${App.esc(currentAgent?.broker_name || 'not set')} (Settings, Mortgage Broker Referral). To send this client to someone else, type their name and email here. The greeting, introduction and subject switch to the new broker, and the client and you stay copied.
-        ${goTo && (item.client_email || '').toLowerCase() !== goTo.toLowerCase() ? `<a href="#" style="color:var(--accent2);" onclick="event.preventDefault();document.getElementById('edit-broker-name').value=${App.esc(JSON.stringify(currentAgent?.broker_name || ''))};document.getElementById('edit-broker-email').value=${App.esc(JSON.stringify(goTo))};">Use ${App.esc(currentAgent?.broker_name || 'go-to broker')}</a>` : ''}
+        Add or change saved brokers in Settings, Mortgage Broker Referral. The client and you stay copied whichever broker you pick.
       </div>
     </div>`;
   },
 
+  // Fill the name/email from the dropdown and rewrite the editor's wording
+  // from the broker currently shown to the one just picked.
+  _pickBroker(sel) {
+    const nameEl = document.getElementById('edit-broker-name');
+    const emailEl = document.getElementById('edit-broker-email');
+    const selEl = document.getElementById('edit-broker-select');
+    if (!nameEl || !emailEl || !selEl) return;
+    if (sel) {
+      if (sel.value === 'other') { nameEl.value = ''; emailEl.value = ''; nameEl.focus(); return; }
+      const b = (Approvals._brokerList || [])[Number(sel.value)];
+      if (!b) return;
+      nameEl.value = b.name || ''; emailEl.value = b.email;
+    }
+    const from = selEl.dataset.current || '', to = nameEl.value.trim();
+    if (!to || to === from) return;
+    const isGoTo = emailEl.value.trim().toLowerCase() === (currentAgent?.broker_email || '').toLowerCase();
+    const bodyEl = document.getElementById('edit-appr-body');
+    const subjEl = document.getElementById('edit-appr-subject');
+    if (bodyEl) bodyEl.value = Approvals._brokerSwapText(bodyEl.value, from, to, isGoTo, false);
+    if (subjEl) subjEl.value = Approvals._brokerSwapSubject(subjEl.value, from, to);
+    selEl.dataset.current = to;
+  },
+
+  _brokerSwapText(s, oldName, newName, isGoTo, esc) {
+    if (!s) return s;
+    const e = esc ? App.esc : (x) => x;
+    const oldFirst = (oldName || '').split(' ')[0] || 'my broker', newFirst = (newName || '').split(' ')[0];
+    let out = s.replace(`Hi ${oldFirst},`, () => `Hi ${e(newFirst)},`);
+    if (oldName && oldName !== 'Mortgage Broker') out = out.split(oldName).join(e(newName));
+    else out = out.split('my mortgage broker').join(e(newName));
+    return isGoTo ? out.split('a mortgage broker I trust').join('my go-to mortgage broker')
+                  : out.split('my go-to mortgage broker').join('a mortgage broker I trust');
+  },
+
+  _brokerSwapSubject(subject, oldName, newName) {
+    const oldFirst = (oldName || '').split(' ')[0] || 'my broker', newFirst = (newName || '').split(' ')[0];
+    return (subject || '').replace(new RegExp(`(&\\s*)${oldFirst.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), (m, a) => a + newFirst);
+  },
+
   // Returns null (no change), false (invalid, toast shown) or the new
-  // { brokerTo, subject, body } with ctx.html rewritten in place.
+  // { brokerTo, subject, body } with ctx.html rewritten in place. The editor
+  // text may already show the new broker (live preview); the swap is safe to
+  // run on it again because the old name is no longer there.
   async _applyBrokerSwap(id, ctx, subject, body) {
     const { data: row } = await db.from('approval_queue').select('client_name, client_email').eq('id', id).single();
     const oldName  = (row?.client_name || '').trim();
@@ -995,26 +1046,14 @@ const Approvals = {
     }
     if (!newName) { App.toast('⚠️ Enter the broker\'s name.', 'var(--yellow)'); return false; }
 
-    const first = (n) => (n || '').split(' ')[0];
-    const oldFirst = first(oldName) || 'my broker', newFirst = first(newName);
     const isGoTo = newEmail.toLowerCase() === (currentAgent?.broker_email || '').toLowerCase();
-    const swap = (s, esc) => {
-      if (!s) return s;
-      const e = esc ? App.esc : (x) => x;
-      let out = s.replace(`Hi ${oldFirst},`, () => `Hi ${e(newFirst)},`);
-      if (oldName && oldName !== 'Mortgage Broker') out = out.split(oldName).join(e(newName));
-      else out = out.split('my mortgage broker').join(e(newName));
-      out = isGoTo ? out.split('a mortgage broker I trust').join('my go-to mortgage broker')
-                   : out.split('my go-to mortgage broker').join('a mortgage broker I trust');
-      return out;
-    };
     if (ctx.html) {
       try {
         const html = decodeURIComponent(escape(atob(ctx.html)));
-        ctx.html = btoa(unescape(encodeURIComponent(swap(html, true))));
+        ctx.html = btoa(unescape(encodeURIComponent(Approvals._brokerSwapText(html, oldName, newName, isGoTo, true))));
       } catch (e) { console.warn('[broker swap] html skipped:', e?.message || e); }
     }
-    const newSubject = (subject || '').replace(new RegExp(`(&\\s*)${oldFirst.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), (m, a) => a + newFirst);
+    const newSubject = Approvals._brokerSwapSubject(subject, oldName, newName);
 
     // If this client also sits in a broker's portal (website lender leads),
     // move the portal row with the email so the old broker no longer sees it.
@@ -1031,7 +1070,8 @@ const Approvals = {
 
     App.logActivity && App.logActivity('BROKER_CHANGED', newName, newEmail,
       `Broker intro sent to ${newName} instead of ${oldName || 'the go-to broker'}`);
-    return { brokerTo: { name: newName, email: newEmail }, subject: newSubject, body: swap(body, false) };
+    return { brokerTo: { name: newName, email: newEmail }, subject: newSubject,
+             body: Approvals._brokerSwapText(body, oldName, newName, isGoTo, false) };
   },
 
   // Rewrite every http(s) link in an outgoing email to run through the
@@ -7706,6 +7746,7 @@ const Settings = {
     set('set-broker-name', a.broker_name);
     set('set-broker-email', a.broker_email);
     set('set-broker-intake-url', a.broker_intake_url);
+    Settings.renderOtherBrokers();
     // ── Delete password — show whether one is set (never the value) ─────────
     const delStatus = document.getElementById('set-delpin-status');
     if (delStatus) {
@@ -7762,6 +7803,85 @@ const Settings = {
     if (error) { if (msg) { msg.style.color='var(--red)'; msg.textContent=error.message; } return; }
     if (msg) { msg.style.color='var(--green)'; msg.textContent = email ? '✅ Broker saved — referrals are on' : '✅ Saved — referrals off (no broker set)'; }
     App.toast('✅ Mortgage broker saved');
+  },
+
+  // ── Other saved brokers (migration 123: agents.other_brokers) ──────────
+  // The go-to broker stays in broker_name/broker_email. These are the extra
+  // names offered in the Approvals "Send to broker" dropdown.
+  otherBrokers() {
+    const list = currentAgent?.other_brokers;
+    return Array.isArray(list) ? list.filter(b => b && b.email) : [];
+  },
+
+  renderOtherBrokers() {
+    const box = document.getElementById('set-other-brokers');
+    if (!box) return;
+    const list = Settings.otherBrokers();
+    box.innerHTML = list.length ? list.map((b, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div class="fw-700" style="font-size:13px;">${App.esc(b.name || '')}</div>
+          <div style="font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;">${App.esc(b.email)}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Settings.makeGoToBroker(${i})">⭐ Make go-to</button>
+        <button class="btn btn-outline btn-sm" onclick="Settings.removeOtherBroker(${i})">🗑</button>
+      </div>`).join('')
+      : `<div style="font-size:12px;color:var(--text2);">No other brokers saved yet.</div>`;
+  },
+
+  async _saveOtherBrokers(list, extra = {}) {
+    const msg = document.getElementById('set-ob-msg');
+    const updates = { other_brokers: list, ...extra };
+    const { error } = await db.from('agents').update(updates).eq('id', currentAgent.id);
+    if (error) {
+      if (msg) { msg.style.color = 'var(--red)'; msg.textContent = /other_brokers/.test(error.message || '')
+        ? 'Saving the list needs migration 123 run first.' : error.message; }
+      return false;
+    }
+    Object.assign(currentAgent, updates);
+    if (msg) msg.textContent = '';
+    Settings.renderOtherBrokers();
+    return true;
+  },
+
+  async addOtherBroker() {
+    if (!currentAgent?.id) return;
+    const msg = document.getElementById('set-ob-msg');
+    const name  = document.getElementById('set-ob-name')?.value.trim() || '';
+    const email = document.getElementById('set-ob-email')?.value.trim() || '';
+    const bad = (t) => { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = t; } };
+    if (!name) return bad('Enter the broker\'s name.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('Please enter a valid broker email.');
+    const lc = email.toLowerCase();
+    if (lc === (currentAgent.broker_email || '').toLowerCase()) return bad('That is already your go-to broker.');
+    const list = Settings.otherBrokers();
+    if (list.some(b => b.email.toLowerCase() === lc)) return bad('That broker is already saved.');
+    if (await Settings._saveOtherBrokers([...list, { name, email }])) {
+      document.getElementById('set-ob-name').value = '';
+      document.getElementById('set-ob-email').value = '';
+      App.toast(`✅ ${name} saved`);
+    }
+  },
+
+  async removeOtherBroker(i) {
+    const list = Settings.otherBrokers();
+    const b = list[i]; if (!b) return;
+    if (!confirm(`Remove ${b.name || b.email} from your saved brokers?`)) return;
+    if (await Settings._saveOtherBrokers(list.filter((_, j) => j !== i))) App.toast('🗑 Broker removed');
+  },
+
+  // Swap: the chosen broker becomes the go-to, the old go-to joins the list.
+  // The intake link is the old go-to's own, so it is cleared with the swap.
+  async makeGoToBroker(i) {
+    const list = Settings.otherBrokers();
+    const b = list[i]; if (!b) return;
+    if (!confirm(`Make ${b.name || b.email} your go-to broker? New broker intros will go to them by default.`)) return;
+    const rest = list.filter((_, j) => j !== i);
+    if (currentAgent.broker_email) rest.unshift({ name: currentAgent.broker_name || '', email: currentAgent.broker_email });
+    if (await Settings._saveOtherBrokers(rest, { broker_name: b.name || null, broker_email: b.email, broker_intake_url: null })) {
+      Settings.fillProfile();
+      App.toast(`⭐ ${b.name || b.email} is now your go-to broker`);
+    }
   },
 
   // ── Broker LOGIN portal (migration 071): create Asare's login, mark him a

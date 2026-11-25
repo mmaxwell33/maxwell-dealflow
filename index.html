@@ -1722,6 +1722,19 @@
           <button class="btn btn-primary" style="margin-top:16px;min-width:140px;" onclick="Settings.saveBroker()">Save Broker</button>
           <div id="set-broker-msg" style="font-size:13px;margin-top:8px;"></div>
 
+          <!-- ── Other saved brokers (migration 123) ── -->
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+            <div class="settings-card-title" style="font-size:14px;">📇 Other brokers</div>
+            <div class="settings-card-sub" style="margin-bottom:10px;">The broker above is your go-to. Brokers saved here show in the "Send to broker" dropdown when you Preview &amp; Edit a broker intro in Approvals, so one client can go to someone else.</div>
+            <div id="set-other-brokers"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:10px;align-items:end;">
+              <input class="form-input" id="set-ob-name" placeholder="Broker name">
+              <input class="form-input" id="set-ob-email" type="email" placeholder="broker@example.com">
+              <button class="btn btn-outline" onclick="Settings.addOtherBroker()">➕ Add</button>
+            </div>
+            <div id="set-ob-msg" style="font-size:13px;margin-top:8px;"></div>
+          </div>
+
           <!-- ── Broker Login Portal ── -->
           <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
             <div class="settings-card-title" style="font-size:14px;">🔗 Broker Login Portal</div>
