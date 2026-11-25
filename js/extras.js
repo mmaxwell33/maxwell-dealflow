@@ -827,8 +827,9 @@ const Approvals = {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--bg);border-radius:8px;">
           <div style="font-size:28px;">👤</div>
           <div>
-            <div class="fw-700" style="font-size:14px;">${App.esc(item.client_name||'Unknown')}</div>
-            <div style="font-size:12px;color:var(--text2);">✉️ ${App.esc(item.client_email||'No email on file')}</div>
+            ${item.approval_type === 'Mortgage Broker Intro' ? `<div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Sending to</div>` : ''}
+            <div class="fw-700" style="font-size:14px;" id="edit-appr-to-name">${App.esc(item.client_name||'Unknown')}</div>
+            <div style="font-size:12px;color:var(--text2);" id="edit-appr-to-email">✉️ ${App.esc(item.client_email||'No email on file')}</div>
             <div style="font-size:11px;color:var(--text2);margin-top:2px;">${App.esc(item.approval_type||'Email')} · ${App.timeAgo(item.created_at)}</div>
           </div>
         </div>
@@ -983,12 +984,21 @@ const Approvals = {
       </select>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <input class="form-input" id="edit-broker-name" value="${App.esc(item.client_name || '')}" placeholder="Broker name" onchange="Approvals._pickBroker(null)" style="font-size:13px;">
-        <input class="form-input" id="edit-broker-email" type="email" value="${App.esc(item.client_email || '')}" placeholder="broker@example.com" style="font-size:13px;">
+        <input class="form-input" id="edit-broker-email" type="email" value="${App.esc(item.client_email || '')}" placeholder="broker@example.com" oninput="Approvals._showBrokerTo()" style="font-size:13px;">
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;">
         Add or change saved brokers in Settings, Mortgage Broker Referral. The client and you stay copied whichever broker you pick.
       </div>
     </div>`;
+  },
+
+  // The header card says who Approve & Send will actually go to.
+  _showBrokerTo() {
+    const n = document.getElementById('edit-appr-to-name'), e = document.getElementById('edit-appr-to-email');
+    const name = document.getElementById('edit-broker-name')?.value.trim();
+    const email = document.getElementById('edit-broker-email')?.value.trim();
+    if (n) n.textContent = name || 'Type the broker\'s name';
+    if (e) e.textContent = '✉️ ' + (email || 'Type the broker\'s email');
   },
 
   // Fill the name/email from the dropdown and rewrite the editor's wording
@@ -999,11 +1009,12 @@ const Approvals = {
     const selEl = document.getElementById('edit-broker-select');
     if (!nameEl || !emailEl || !selEl) return;
     if (sel) {
-      if (sel.value === 'other') { nameEl.value = ''; emailEl.value = ''; nameEl.focus(); return; }
+      if (sel.value === 'other') { nameEl.value = ''; emailEl.value = ''; Approvals._showBrokerTo(); nameEl.focus(); return; }
       const b = (Approvals._brokerList || [])[Number(sel.value)];
       if (!b) return;
       nameEl.value = b.name || ''; emailEl.value = b.email;
     }
+    Approvals._showBrokerTo();
     const from = selEl.dataset.current || '', to = nameEl.value.trim();
     if (!to || to === from) return;
     const isGoTo = emailEl.value.trim().toLowerCase() === (currentAgent?.broker_email || '').toLowerCase();
