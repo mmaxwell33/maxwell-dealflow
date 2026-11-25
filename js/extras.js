@@ -833,6 +833,8 @@ const Approvals = {
           </div>
         </div>
 
+        ${item.approval_type === 'Mortgage Broker Intro' ? Approvals._brokerPickHtml(item) : ''}
+
         ${Approvals._assistTickHtml(item, true)}
 
         ${Approvals._styleBarHtml(item)}
@@ -865,8 +867,8 @@ const Approvals = {
 
   async saveEdit(id) {
     const bodyEl = document.getElementById('edit-appr-body');
-    const subject = document.getElementById('edit-appr-subject')?.value.trim();
-    const body = bodyEl?.value.trim();
+    let subject = document.getElementById('edit-appr-subject')?.value.trim();
+    let body = bodyEl?.value.trim();
     const cc = document.getElementById('edit-appr-cc')?.value.trim() || null;
     // Did the agent actually type in the message box? The textarea is seeded with
     // a tidied copy of the stored body, so a pure string comparison can report a
@@ -881,6 +883,16 @@ const Approvals = {
       try { ctx = typeof existing.context_data === 'string' ? JSON.parse(existing.context_data) : existing.context_data; } catch (_) { ctx = {}; }
     }
     ctx.cc = cc;
+
+    // A different broker for this one client (Mortgage Broker Intro only).
+    // Rewrites the To, the greeting, the introduction and the subject, so the
+    // email reads as written to the new broker. Settings keeps the go-to broker.
+    let brokerTo = null;
+    if (document.getElementById('edit-broker-email')) {
+      const sw = await Approvals._applyBrokerSwap(id, ctx, subject, body);
+      if (sw === false) return;              // invalid email, modal stays open
+      if (sw) ({ brokerTo, subject, body } = sw);
+    }
 
     // Only flatten the HTML when the agent actually changed the wording. Opening
     // "Preview & Edit" just to look, tweak the CC, or fix the subject must NOT
@@ -944,10 +956,82 @@ const Approvals = {
       email_subject: subject,
       email_body: body,
       context_data: ctx,
+      ...(brokerTo ? { client_name: brokerTo.name, client_email: brokerTo.email } : {}),
       updated_at: new Date().toISOString()
     }).eq('id', id);
     App.closeModal();
     await Approvals.approve(id);
+  },
+
+  // ── Choose the broker for ONE intro ─────────────────────────────────────
+  // The go-to broker (Settings, Mortgage Broker Referral) is pre-filled. Typing
+  // a different name and email sends this client to that broker instead.
+  _brokerPickHtml(item) {
+    const goTo = currentAgent?.broker_email || '';
+    return `<div style="margin-bottom:16px;padding:12px;border:1px solid var(--accent);border-radius:8px;background:var(--bg);">
+      <div class="form-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">🏦 Send to broker</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <input class="form-input" id="edit-broker-name" value="${App.esc(item.client_name || '')}" placeholder="Broker name" style="font-size:13px;">
+        <input class="form-input" id="edit-broker-email" type="email" value="${App.esc(item.client_email || '')}" placeholder="broker@example.com" style="font-size:13px;">
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;">
+        Your go-to broker is ${App.esc(currentAgent?.broker_name || 'not set')} (Settings, Mortgage Broker Referral). To send this client to someone else, type their name and email here. The greeting, introduction and subject switch to the new broker, and the client and you stay copied.
+        ${goTo && (item.client_email || '').toLowerCase() !== goTo.toLowerCase() ? `<a href="#" style="color:var(--accent2);" onclick="event.preventDefault();document.getElementById('edit-broker-name').value=${App.esc(JSON.stringify(currentAgent?.broker_name || ''))};document.getElementById('edit-broker-email').value=${App.esc(JSON.stringify(goTo))};">Use ${App.esc(currentAgent?.broker_name || 'go-to broker')}</a>` : ''}
+      </div>
+    </div>`;
+  },
+
+  // Returns null (no change), false (invalid, toast shown) or the new
+  // { brokerTo, subject, body } with ctx.html rewritten in place.
+  async _applyBrokerSwap(id, ctx, subject, body) {
+    const { data: row } = await db.from('approval_queue').select('client_name, client_email').eq('id', id).single();
+    const oldName  = (row?.client_name || '').trim();
+    const oldEmail = (row?.client_email || '').trim();
+    const newName  = (document.getElementById('edit-broker-name')?.value || '').trim();
+    const newEmail = (document.getElementById('edit-broker-email')?.value || '').trim();
+    if (newEmail.toLowerCase() === oldEmail.toLowerCase() && newName === oldName) return null;
+    if (!/^[^\s@<>",;]+@[^\s@<>",;]+\.[A-Za-z]{2,}$/.test(newEmail)) {
+      App.toast('⚠️ Enter a valid email for the broker.', 'var(--yellow)'); return false;
+    }
+    if (!newName) { App.toast('⚠️ Enter the broker\'s name.', 'var(--yellow)'); return false; }
+
+    const first = (n) => (n || '').split(' ')[0];
+    const oldFirst = first(oldName) || 'my broker', newFirst = first(newName);
+    const isGoTo = newEmail.toLowerCase() === (currentAgent?.broker_email || '').toLowerCase();
+    const swap = (s, esc) => {
+      if (!s) return s;
+      const e = esc ? App.esc : (x) => x;
+      let out = s.replace(`Hi ${oldFirst},`, () => `Hi ${e(newFirst)},`);
+      if (oldName && oldName !== 'Mortgage Broker') out = out.split(oldName).join(e(newName));
+      else out = out.split('my mortgage broker').join(e(newName));
+      out = isGoTo ? out.split('a mortgage broker I trust').join('my go-to mortgage broker')
+                   : out.split('my go-to mortgage broker').join('a mortgage broker I trust');
+      return out;
+    };
+    if (ctx.html) {
+      try {
+        const html = decodeURIComponent(escape(atob(ctx.html)));
+        ctx.html = btoa(unescape(encodeURIComponent(swap(html, true))));
+      } catch (e) { console.warn('[broker swap] html skipped:', e?.message || e); }
+    }
+    const newSubject = (subject || '').replace(new RegExp(`(&\\s*)${oldFirst.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), (m, a) => a + newFirst);
+
+    // If this client also sits in a broker's portal (website lender leads),
+    // move the portal row with the email so the old broker no longer sees it.
+    try {
+      const me = (currentAgent?.email || '').toLowerCase();
+      const clientEmail = (ctx.cc || '').split(',').map(x => x.trim()).find(x => x && x.toLowerCase() !== me);
+      if (clientEmail) {
+        const { data: bk } = await db.from('agents').select('id').eq('role', 'broker').ilike('email', newEmail).limit(1);
+        await db.from('broker_referral_requests').update({ broker_id: (bk && bk[0] && bk[0].id) || null })
+          .eq('agent_id', currentAgent.id).ilike('client_email', clientEmail)
+          .in('status', ['pending', 'approved', 'sent']);
+      }
+    } catch (e) { console.warn('[broker swap] portal row skipped:', e?.message || e); }
+
+    App.logActivity && App.logActivity('BROKER_CHANGED', newName, newEmail,
+      `Broker intro sent to ${newName} instead of ${oldName || 'the go-to broker'}`);
+    return { brokerTo: { name: newName, email: newEmail }, subject: newSubject, body: swap(body, false) };
   },
 
   // Rewrite every http(s) link in an outgoing email to run through the

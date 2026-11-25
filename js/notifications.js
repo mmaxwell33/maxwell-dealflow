@@ -2120,24 +2120,24 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       else if (/rent|family|friends/.test(_status))         _situation = 'first_time';
       const _variants = {
         first_time: {
-          subject: `Welcome, ${firstName} — let's find your first home`,
-          html: `🎉 <strong>Welcome!</strong> Buying your first home is a big (and exciting) step — and I've got you. I'll walk you through every stage, explain the jargon in plain English, and make sure you never feel rushed or in the dark.`,
-          text: `Welcome! Buying your first home is a big, exciting step — and I've got you. I'll walk you through every stage and make sure you never feel rushed or in the dark.`
+          subject: `Welcome, ${firstName}! Let's find your first home`,
+          html: `🎉 <strong>Welcome!</strong> Buying your first home is a big (and exciting) step, and I've got you. I'll walk you through every stage, explain the jargon in plain English, and make sure you never feel rushed or in the dark.`,
+          text: `Welcome! Buying your first home is a big, exciting step, and I've got you. I'll walk you through every stage and make sure you never feel rushed or in the dark.`
         },
         move_up: {
-          subject: `Welcome, ${firstName} — on to your next home`,
-          html: `🎉 <strong>Welcome!</strong> Since you already own, the secret to a smooth move is timing — lining up the sale of your current place with the purchase of the next so you're never caught in between. I'll help you map that out, and we'll factor your equity into the plan.`,
-          text: `Welcome! Since you already own, the secret to a smooth move is timing — lining up the sale of your current place with buying the next. I'll help you map that out and factor your equity into the plan.`
+          subject: `Welcome, ${firstName}! On to your next home`,
+          html: `🎉 <strong>Welcome!</strong> Since you already own, the secret to a smooth move is timing: lining up the sale of your current place with the purchase of the next so you're never caught in between. I'll help you map that out, and we'll factor your equity into the plan.`,
+          text: `Welcome! Since you already own, the secret to a smooth move is timing: lining up the sale of your current place with buying the next. I'll help you map that out and factor your equity into the plan.`
         },
         relocating: {
           subject: `Welcome to the area, ${firstName}!`,
-          html: `🎉 <strong>Welcome!</strong> Relocating is a big move, so my job is to make the Newfoundland side seamless. I'll get you up to speed on the neighbourhoods that fit your life, and we can handle most of the search remotely — video tours, virtual updates, the works.`,
+          html: `🎉 <strong>Welcome!</strong> Relocating is a big move, so my job is to make the Newfoundland side seamless. I'll get you up to speed on the neighbourhoods that fit your life, and we can handle most of the search remotely: video tours, virtual updates, the works.`,
           text: `Welcome! Relocating is a big move, so my job is to make the Newfoundland side seamless. I'll get you up to speed on the right neighbourhoods, and we can handle most of the search remotely.`
         },
         investor: {
-          subject: `Welcome, ${firstName} — let's grow the portfolio`,
-          html: `🎉 <strong>Welcome!</strong> For an investment purchase it's all about the numbers — rental demand, cash flow, and the right pockets of the market. I'll bring you opportunities that make sense on paper, not just ones that show well.`,
-          text: `Welcome! For an investment purchase it's all about the numbers — rental demand, cash flow, and the right areas. I'll bring you opportunities that make sense on paper.`
+          subject: `Welcome, ${firstName}! Let's grow the portfolio`,
+          html: `🎉 <strong>Welcome!</strong> For an investment purchase it's all about the numbers: rental demand, cash flow, and the right pockets of the market. I'll bring you opportunities that make sense on paper, not just ones that show well.`,
+          text: `Welcome! For an investment purchase it's all about the numbers: rental demand, cash flow, and the right areas. I'll bring you opportunities that make sense on paper.`
         },
         default: {
           subject: `Welcome to eXp Realty, ${firstName}!`,
@@ -2160,12 +2160,20 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         ? criteriaLines.map(l => `<p style="margin:6px 0;font-size:14px;color:#333;">${l}</p>`).join('')
         : `<p style="margin:6px 0;font-size:14px;color:#333;">Your preferences have been noted.</p>`;
 
+      // A buyer who said "Not yet, need guidance" on pre-approval gets a broker
+      // intro queued alongside this letter (FormResponses.addAsClient, same test,
+      // only when a broker is set). The letter names that step so the two emails
+      // agree. The broker is not named here: Maxwell can send one client to a
+      // different broker from Approvals.
+      const needsFinancing = !!intake.preapproval && /need guidance|not yet/i.test(intake.preapproval)
+                             && !!agent.broker_email;
       const steps = [
-        { n:1, color:'#4f46e5', title:'Discovery Call', desc:"We'll discuss your needs, budget, and timeline" },
-        { n:2, color:'#059669', title:'Property Search', desc:"I'll share listings that match your criteria" },
-        { n:3, color:'#d97706', title:'Viewings', desc:"We'll tour properties together" },
-        { n:4, color:'#7c3aed', title:'Offer & Closing', desc:"I'll negotiate the best deal for you" }
-      ];
+        { title:'Discovery Call', desc:"We'll discuss your needs, budget, and timeline" },
+        ...(needsFinancing ? [{ title:'Mortgage Pre-Approval', desc:"I'm introducing you to a trusted mortgage broker in a separate email, so you know exactly what you can spend before we start viewing" }] : []),
+        { title:'Property Search', desc:"I'll send you a list of homes that match your criteria" },
+        { title:'Viewings', desc:"We'll tour the homes you like together" },
+        { title:'Offer & Closing', desc:"I'll negotiate the best deal for you and guide you through to closing day" }
+      ].map((s, i) => ({ ...s, n: i + 1, color: ['#4f46e5','#059669','#d97706','#7c3aed','#0891b2'][i] }));
 
       const stepsHTML = steps.map((s, i) => `
         <tr>
@@ -2176,7 +2184,7 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
               </td>
               <td style="padding-left:12px;vertical-align:middle;">
                 <span style="font-weight:bold;color:#111;">${s.title}</span>
-                <span style="color:#555;"> — ${s.desc}</span>
+                <span style="color:#555;">: ${s.desc}</span>
               </td>
             </tr></table>
           </td>
@@ -2187,15 +2195,15 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
         <p>${_v.html}</p>
         <p><strong>Here's what happens next:</strong></p>
         <div>
-          ${steps.map(s => `<div class="step-row"><strong>${s.n}. ${s.title}</strong> — ${s.desc}</div>`).join('')}
+          ${steps.map(s => `<div class="step-row"><strong>${s.n}. ${s.title}:</strong> ${s.desc}</div>`).join('')}
         </div>
         ${criteriaLines.length ? `
         <p style="margin-top:20px;"><strong>Your Search Criteria on File</strong></p>
         <div>${criteriaHTML}</div>` : ''}
-        <p style="margin-top:20px;">Feel free to reach out anytime — I'm here to help!</p>
+        <p style="margin-top:20px;">Feel free to reach out anytime. I'm here to help!</p>
         ${opts.referralToken ? `
         <div style="margin-top:18px;padding:14px 16px;background:#FAFAF9;border-left:3px solid #0F172A;border-radius:8px;">
-          <p style="margin:0 0 10px;font-size:13px;font-style:italic;color:#555;">One more thing — I work with a great mortgage broker here in Newfoundland day to day. If you'd ever like a second opinion or a smoother financing process, I'm happy to introduce you — no pressure at all.</p>
+          <p style="margin:0 0 10px;font-size:13px;font-style:italic;color:#555;">One more thing: I work with a great mortgage broker here in Newfoundland day to day. If you'd ever like a second opinion or a smoother financing process, I'm happy to introduce you, with no commitment.</p>
           <a href="https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}" style="display:inline-block;background:#0F172A;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:9px 18px;border-radius:6px;">Yes, introduce me →</a>
         </div>` : ''}
         <p>Best regards,</p>
@@ -2208,13 +2216,10 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
 ${_v.text}
 
 Here's what happens next:
-1. Discovery Call — We'll discuss your needs, budget, and timeline
-2. Property Search — I'll share listings that match your criteria
-3. Viewings — We'll tour properties together
-4. Offer & Closing — I'll negotiate the best deal for you
+${steps.map(s => `${s.n}. ${s.title}: ${s.desc}`).join('\n')}
 
-Feel free to reach out anytime — I'm here to help!
-${opts.referralToken ? `\nP.S. — I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}\n` : ''}
+Feel free to reach out anytime. I'm here to help!
+${opts.referralToken ? `\nP.S. I also work with a great mortgage broker here in Newfoundland day to day. If you'd ever like an introduction, just let me know: https://maxwellmidodzi.com/refer.html?t=${opts.referralToken}\n` : ''}
 Best regards,
 ${EmailFormat.signaturePlain(agent)}
 
@@ -2222,7 +2227,7 @@ ${EmailFormat.signaturePlain(agent)}
 CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`;
 
       return {
-        subject: `${_v.subject} — ${agentName}`,
+        subject: `${_v.subject} | ${agentName}`,
         body: plainText,
         html
       };
@@ -2244,9 +2249,9 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       const plainText =
 `Hi ${brokerFirst},
 
-Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point — just to understand the process and know where things stand.
+Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point, just to understand the process and know where things stand.
 
-${clientFirst}, meet ${brokerName} — my go-to mortgage broker, who'll walk you through everything you need to know.
+${clientFirst}, meet ${brokerName}, my go-to mortgage broker, who'll walk you through everything you need to know.
 
 I'll let you two take it from here!
 
@@ -2254,15 +2259,15 @@ ${EmailFormat.signaturePlain(agent)}${EmailFormat.disclaimerPlain()}`;
 
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${EmailFormat.styles()}</style></head><body>
         <p>Hi ${brokerFirst},</p>
-        <p>Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point — just to understand the process and know where things stand.</p>
-        <p>${clientFirst}, meet <strong>${brokerName}</strong> — my go-to mortgage broker, who'll walk you through everything you need to know.</p>
+        <p>Wanted to connect you with ${clientFirst}! ${clientFirst} is looking at getting into homeownership soon, and I thought a quick conversation with you would be a great starting point, just to understand the process and know where things stand.</p>
+        <p>${clientFirst}, meet <strong>${brokerName}</strong>, my go-to mortgage broker, who'll walk you through everything you need to know.</p>
         <p>I'll let you two take it from here!</p>
         ${EmailFormat.signatureHTML(agent)}
         ${EmailFormat.disclaimerHTML()}
       </body></html>`;
 
       return {
-        subject: `Introduction – ${clientFirst} & ${brokerFirst}`,
+        subject: `Introduction: ${clientFirst} & ${brokerFirst}`,
         body: plainText,
         html
       };
