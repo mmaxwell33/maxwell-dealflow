@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
       <tr><td style="padding:4px 12px 4px 0;color:#666">Email</td><td style="padding:4px 0"><a href="mailto:${esc(email)}">${esc(email)}</a></td></tr>
       ${phone ? `<tr><td style="padding:4px 12px 4px 0;color:#666">Phone</td><td style="padding:4px 0"><a href="tel:${esc(phone)}">${esc(phone)}</a></td></tr>` : ''}
     </table>
-    <p style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap;border-left:3px solid #CC785C;padding-left:14px;color:#333">${esc(message)}</p>
+    <p style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap;border-left:3px solid #CC785C;padding-left:14px;color:#333">${esc(message).replace(/\r?\n/g, '<br>')}</p>
     ${isIntake ? `<p style="margin:18px 0"><a href="${openLink}" style="display:inline-block;background:#5b5bd6;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:10px 18px;border-radius:8px">Open Form Responses to accept</a></p>` : ''}
     <p style="font-family:Arial,sans-serif;font-size:12px;color:#999">Also saved to DealFlow as a new lead. Reply to this person at ${esc(email)}.</p>`;
 
