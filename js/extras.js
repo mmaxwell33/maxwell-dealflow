@@ -54,7 +54,7 @@ const Approvals = {
             ? `<span style="color:var(--accent2);">👁 Click to preview formatted email</span>`
             : App.esc(Array.from(a.email_body).slice(0,200).join('')) + (a.email_body.length>200?'…':'')}
         </div>` : ''}
-        ${a.status !== 'Approved' ? Approvals._assistTickHtml(a) : ''}
+        ${a.status !== 'Approved' ? Approvals._assistTickHtml(a) + Approvals._alsoCopyTickHtml(a) : ''}
         ${a.status === 'Pending' ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
             <button class="btn btn-green btn-sm" onclick="Approvals.approve('${a.id}')">✅ Approve & Send</button>
@@ -237,6 +237,72 @@ const Approvals = {
       }
     } catch (e) { console.warn('[assist] load skipped:', e?.message || e); }
     Approvals._assist = { byClient, byEmail };
+    await Approvals._loadAlsoCopy(agentId);
+  },
+
+  // ── "Also copy on every email" (client_contacts role 'family_copy') ──────
+  // Unlike the assisting agent, this person is copied BY DEFAULT on every
+  // email whose To is the client. Each email shows a ticked box so Maxwell
+  // can leave them off that one. _finalize re-reads it fresh at send time,
+  // so auto-approved and scheduled emails copy them too.
+  _alsoCopy: {},      // client email (lower) -> { name, email }
+  _alsoCopyOff: {},   // approval id -> true when unticked
+
+  async _loadAlsoCopy(agentId) {
+    const map = {};
+    try {
+      const { data: rows } = await db.from('client_contacts')
+        .select('client_id, name, email').eq('agent_id', agentId).eq('role', 'family_copy');
+      const withEmail = (rows || []).filter(r => r.email);
+      if (withEmail.length) {
+        const { data: cl } = await db.from('clients').select('id, email').in('id', withEmail.map(r => r.client_id));
+        (cl || []).forEach(c => {
+          const r = withEmail.find(x => x.client_id === c.id);
+          if (c.email && r) map[c.email.trim().toLowerCase()] = { name: r.name, email: r.email };
+        });
+      }
+    } catch (e) { console.warn('[also copy] load skipped:', e?.message || e); }
+    Approvals._alsoCopy = map;
+  },
+
+  _alsoCopyFor(item) {
+    if (!item || ['Agent Update', 'Agent Delete', 'Agent Welcome'].includes(item.approval_type)) return null;
+    const p = Approvals._alsoCopy[(item.client_email || '').trim().toLowerCase()];
+    return p && p.email.toLowerCase() !== (item.client_email || '').trim().toLowerCase() ? p : null;
+  },
+
+  // Fresh lookup at send time, by the client's own address.
+  async _alsoCopyFresh(item) {
+    if (!item || ['Agent Update', 'Agent Delete', 'Agent Welcome'].includes(item.approval_type)) return null;
+    const to = (item.client_email || '').trim().toLowerCase();
+    if (!to || !currentAgent?.id) return null;
+    try {
+      const { data: cl } = await db.from('clients').select('id, email').eq('agent_id', currentAgent.id).ilike('email', to).limit(5);
+      const ids = (cl || []).filter(c => (c.email || '').trim().toLowerCase() === to).map(c => c.id);
+      if (!ids.length) return null;
+      const { data: rows } = await db.from('client_contacts').select('name, email')
+        .in('client_id', ids).eq('role', 'family_copy').limit(1);
+      const p = rows && rows[0];
+      return p?.email && p.email.trim().toLowerCase() !== to ? p : null;
+    } catch (e) { console.warn('[also copy] lookup skipped:', e?.message || e); return null; }
+  },
+
+  _setAlsoCopy(id, on) {
+    if (on) delete Approvals._alsoCopyOff[id]; else Approvals._alsoCopyOff[id] = true;
+    document.querySelectorAll(`[data-also-copy="${id}"]`).forEach(el => { el.checked = !!on; });
+  },
+
+  _alsoCopyTickHtml(item, inModal = false) {
+    const p = Approvals._alsoCopyFor(item);
+    if (!p) return '';
+    const on = !Approvals._alsoCopyOff[item.id];
+    return `
+      <div onclick="event.stopPropagation()" style="padding:8px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:${inModal ? 14 : 10}px;font-size:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text1);font-weight:600;">
+          <input type="checkbox" data-also-copy="${item.id}" ${on ? 'checked' : ''} onchange="Approvals._setAlsoCopy('${item.id}', this.checked)">
+          📨 Also copy ${App.esc(p.name || p.email)} (${App.esc(p.email)})
+        </label>
+      </div>`;
   },
 
   _assistFor(item) {
@@ -405,7 +471,17 @@ const Approvals = {
   async _finalize(item, htmlBody, ccEmail) {
     // Resolve the primary recipient: client email, or fall back to CC if client has no email
     const toEmail = item.client_email || ccEmail;
-    const actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
+    let actualCc = item.client_email ? ccEmail : null; // don't CC if we used cc as primary
+
+    // "Also copy on every email" for this client, unless unticked on this one.
+    if (item.client_email && !Approvals._alsoCopyOff[item.id]) {
+      const fam = await Approvals._alsoCopyFresh(item);
+      if (fam) {
+        const list = String(actualCc || '').split(',').map(x => x.trim()).filter(Boolean);
+        if (!list.some(x => x.toLowerCase() === fam.email.trim().toLowerCase())) list.push(fam.email.trim());
+        actualCc = list.join(', ');
+      }
+    }
 
     // Human tone: strip em/en dashes from the outgoing email no matter how it was
     // queued (templates, manual composer, or AI all send through here).
@@ -837,6 +913,7 @@ const Approvals = {
         ${item.approval_type === 'Mortgage Broker Intro' ? Approvals._brokerPickHtml(item) : ''}
 
         ${Approvals._assistTickHtml(item, true)}
+        ${Approvals._alsoCopyTickHtml(item, true)}
 
         ${Approvals._styleBarHtml(item)}
 
@@ -1695,6 +1772,7 @@ const FormResponses = {
     const listed = await FormResponses._ensureSellerListing(r, clientId);
     // Partner from "buying with a partner?" (migration 115). Non-fatal.
     if (typeof CoBuyer !== 'undefined') await CoBuyer.save(clientId, { name: r?.partner_name, email: r?.partner_email, phone: r?.partner_phone });
+    await FormResponses._saveAlsoCopy(clientId, r);
 
     await App.logActivity('INTAKE_ATTACHED', c?.full_name, c?.email,
       `Returning client enquiry attached (${wants})` + (listed === 'created' ? ', listing record created' : ''),
@@ -1808,6 +1886,8 @@ const FormResponses = {
     // Partner from "buying with a partner?" (migration 115). Non-fatal.
     if (newClient?.id && typeof CoBuyer !== 'undefined')
       await CoBuyer.save(newClient.id, { name: r.partner_name, email: r.partner_email, phone: r.partner_phone });
+    // "Also copy on every email" set on the intake (migration 124). Non-fatal.
+    if (newClient?.id) await FormResponses._saveAlsoCopy(newClient.id, r);
 
     // Mark intake as processed
     await db.from('client_intake').update({ status: 'Added' }).eq('id', id);
@@ -1956,11 +2036,27 @@ const FormResponses = {
       ${isSeller ? sellerFields : buyerFields}
       <div class="form-group"><label class="form-label">Notes</label>
         <textarea class="form-input" id="fe-notes" rows="3">${esc(r.notes)}</textarea></div>
+      <div class="form-group"><label class="form-label">📨 Also copy on every email (optional)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <input class="form-input" id="fe-copy-name" placeholder="Name (e.g. their sister)" value="${esc(r.copy_name)}">
+          <input class="form-input" id="fe-copy-email" type="email" placeholder="Email" value="${esc(r.copy_email)}">
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Copied on every email you send this client once you Add as Client, starting with the welcome letter.</div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <button class="btn btn-primary" onclick="FormResponses.saveEdit('${r.id}')">💾 Save Changes</button>
         <button class="btn btn-outline" onclick="App.closeModal()">Cancel</button>
       </div>
     `);
+  },
+
+  async _saveAlsoCopy(clientId, r) {
+    const email = (r?.copy_email || '').trim();
+    if (!clientId || !email) return;
+    const { error } = await db.from('client_contacts').upsert({
+      client_id: clientId, agent_id: currentAgent.id, role: 'family_copy',
+      name: (r.copy_name || '').trim() || null, email, updated_at: new Date().toISOString()
+    }, { onConflict: 'client_id,role' });
+    if (error) console.warn('[also copy] save failed:', error.message);
   },
 
   async saveEdit(id) {
@@ -1976,6 +2072,13 @@ const FormResponses = {
       phone:     val('fe-phone') || null,
       notes:     val('fe-notes') || null
     };
+    // "Also copy" (migration 124). Only sent when the fields are on screen.
+    if (document.getElementById('fe-copy-email')) {
+      const ce = val('fe-copy-email');
+      if (ce && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ce)) { App.toast('⚠️ The "also copy" email does not look right', 'var(--yellow)'); return; }
+      updates.copy_name  = val('fe-copy-name') || null;
+      updates.copy_email = ce || null;
+    }
     if (isSeller) {
       updates.property_address = val('fe-saddr') || null;
       updates.asking_price     = val('fe-asking') || null;

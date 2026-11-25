@@ -1320,6 +1320,17 @@ const Clients = {
         ${stakeRow('co_buyer', 'Partner / Co-Buyer', '💑')}
       </div>
 
+      <!-- Someone copied on every email to this client (role family_copy) -->
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+          📨 Also Copy On Every Email
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px;font-style:italic;">
+          A sister, parent or anyone else who should get every email you send this client. They are copied (CC) automatically, and you can untick them on any single email in Approvals. Leave empty for no one.
+        </div>
+        ${stakeRow('family_copy', 'Also copy (e.g. sister)', '📨')}
+      </div>
+
       <!-- Their Stakeholders — saved once, reused on every deal -->
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
@@ -1478,7 +1489,7 @@ const Clients = {
     if (paErr) console.warn('Pre-approval not saved — run migration 049_client_preapproval.sql:', paErr.message);
 
     // Upsert any stakeholder contacts entered. Skip empty rows.
-    const roles = ['co_buyer','mortgage_broker','lawyer','inspector','builder','assisting_agent'];
+    const roles = ['co_buyer','family_copy','mortgage_broker','lawyer','inspector','builder','assisting_agent'];
     // An emptied assisting agent is a removal, not a skip: otherwise the old
     // agent would keep being offered copies after Maxwell cleared them.
     const assistEmpty = ['name','email','phone'].every(f => !(document.getElementById(`ce-assisting_agent-${f}`)?.value.trim()));
@@ -1490,6 +1501,11 @@ const Clients = {
     if (['name','email','phone'].every(f => !(document.getElementById(`ce-co_buyer-${f}`)?.value.trim()))) {
       const { error: pErr } = await db.from('client_contacts').delete().eq('client_id', id).eq('role', 'co_buyer');
       if (pErr) console.warn('co-buyer remove:', pErr);
+    }
+    // And the "also copy" person: emptied means stop copying them
+    if (['name','email','phone'].every(f => !(document.getElementById(`ce-family_copy-${f}`)?.value.trim()))) {
+      const { error: fErr } = await db.from('client_contacts').delete().eq('client_id', id).eq('role', 'family_copy');
+      if (fErr) console.warn('also-copy remove:', fErr);
     }
     const contactRows = roles.map(role => {
       const name  = document.getElementById(`ce-${role}-name`)?.value.trim()  || '';
