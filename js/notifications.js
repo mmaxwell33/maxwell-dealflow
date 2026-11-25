@@ -1700,7 +1700,33 @@ CONFIDENTIALITY NOTICE: This email is confidential and intended only for the nam
       };
     },
 
-    post_closing_referral: (client, deal, agent) => ({
+    post_closing_referral_seller: (client, deal, agent) => ({
+      subject: `Thank You, and a Small Favour - ${deal.property_address}`,
+      body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
+
+Now that the sale of ${deal.property_address} has closed, I hope the move went smoothly and you're settling in well wherever this next chapter has taken you. It has been an absolute pleasure representing you in the sale of your home.
+
+I wanted to reach out with a small request.
+
+If you had a great experience working with me, I'd be truly grateful if you could:
+
+⭐ Leave me a Google Review. It takes just 2 minutes and means the world to a Realtor®
+👥 Refer me to any friends, family, or colleagues who are thinking about buying or selling
+
+Word-of-mouth referrals are the highest compliment I can receive, and I promise to take great care of anyone you send my way.
+
+Thank you again for trusting me with the sale of your home. I hope to work with you again, or with the people you know, very soon!
+
+Warmly,
+
+${EmailFormat.signaturePlain(agent)}
+
+──────────────────────────────────────────
+CONFIDENTIALITY NOTICE: This email is confidential and intended only for the named recipient(s). Unauthorized access, use, or distribution is prohibited. If received in error, please notify the sender and delete immediately.`
+    }),
+
+    post_closing_referral: (client, deal, agent) => (deal?.deal_side === 'sell')
+      ? Notify.templates.post_closing_referral_seller(client, deal, agent) : ({
       subject: `Congratulations Again - and a Small Favour - ${deal.property_address}`,
       body: `Hi ${client.full_name?.split(' ')[0] || 'there'},
 

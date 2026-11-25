@@ -38,6 +38,7 @@ interface PipelineDeal {
   walkthrough_date: string | null;
   walkthrough_skipped?: boolean | null;
   closing_date: string | null;
+  deal_side?: string | null;
   updated_at: string | null;
 }
 
@@ -182,7 +183,122 @@ Wishing you all the best in your new home,
 ${sig(agent)}`,
   }),
 
+  // ── SELLER versions ─────────────────────────────────────────────────────────
+  // The templates above are written to a buyer (mortgage approval, booking an
+  // inspection, getting the keys, the new home). On a sale, the financing and
+  // inspection conditions are the BUYER's, and the client is handing the keys
+  // over. pick() below chooses these when pipeline.deal_side is 'sell'.
+  // Wording matches the in-app seller templates in js/notifications.js.
+
+  financing_reminder_3d_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `Update: Buyer's Financing Condition Due in 3 Days - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+A quick update on the sale of ${deal.property_address}: the buyer's financing condition is due in 3 days (${fmtDate(deal.financing_deadline!)}).
+
+The buyer's lender is finalizing their mortgage approval. Nothing is needed from you right now. I will let you know as soon as the condition is removed.
+
+${sig(agent)}`,
+  }),
+
+  financing_reminder_1d_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `Update: Buyer's Financing Condition Due Tomorrow - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+The buyer's financing condition on the sale of ${deal.property_address} is due TOMORROW (${fmtDate(deal.financing_deadline!)}).
+
+Nothing is needed from you. I am following up with the buyer's agent and will let you know the moment the condition is removed, or if the buyer asks for more time.
+
+${sig(agent)}`,
+  }),
+
+  inspection_reminder_3d_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `Update: Buyer's Inspection Condition Due in 3 Days - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+A quick update on the sale of ${deal.property_address}: the buyer's home inspection condition is due in 3 days (${fmtDate(deal.inspection_deadline!)}).
+
+The buyer may be booking their inspection before then. Please keep the home accessible and tidy, and make sure the furnace, electrical panel, water heater and attic hatch are easy to reach.
+
+I will keep you posted every step of the way.
+
+${sig(agent)}`,
+  }),
+
+  inspection_reminder_1d_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `Update: Buyer's Inspection Condition Due Tomorrow - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+The buyer's home inspection condition on the sale of ${deal.property_address} is due TOMORROW (${fmtDate(deal.inspection_deadline!)}).
+
+If the buyer raises anything from their inspection, I will bring it to you right away and we will decide together how to respond. Otherwise, I will let you know as soon as the condition is removed.
+
+${sig(agent)}`,
+  }),
+
+  walkthrough_reminder_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `Reminder: Buyer's Final Walkthrough Tomorrow - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+Just a reminder that the buyer's final walkthrough of ${deal.property_address} is scheduled for TOMORROW.
+
+Before the walkthrough, please:
+✅ Make sure any repairs agreed to in the contract are complete
+✅ Leave all included fixtures and appliances in place
+✅ Keep the home clean and in the same condition as when it sold
+✅ Make sure the buyer can get into the home at the agreed time
+
+If anything comes up, call me right away so we can sort it out before closing.
+
+${sig(agent)}`,
+  }),
+
+  closing_day_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `🔑 Closing Day: Your Sale Closes Today - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+Today is the big day: the sale of ${deal.property_address} closes! 🎉
+
+Here's your closing day checklist:
+✅ Bring valid government-issued photo ID to your lawyer's office
+✅ Sign any final documents with your lawyer
+✅ Leave all keys, garage remotes, alarm codes and manuals for the buyer
+✅ Book final meter readings for hydro, water and any other utilities
+✅ Keep your home insurance in place until the sale has closed
+
+Your lawyer will confirm once the sale has closed and when your proceeds are released to you.
+
+It has been my absolute honour to represent you in the sale of your home. Please stay in touch, I'm always here for any real estate needs.
+
+${sig(agent)}`,
+  }),
+
+  post_closing_referral_seller: (deal: PipelineDeal, agent: Agent) => ({
+    subject: `🏡 Thank You - ${deal.property_address}`,
+    body: `Hi ${firstName(deal.client_name)},
+
+It's been about a week since the sale of ${deal.property_address} closed, and I hope the move went smoothly and you're settling in well wherever this next chapter has taken you.
+
+I just wanted to say it was truly a pleasure representing you in the sale of your home.
+
+If you're happy with the experience, I'd be so grateful if you could take 2 minutes to leave me a Google Review. It helps other sellers find me and means the world to me:
+
+👉 https://g.page/r/ [your-google-review-link]
+
+Also, if any of your friends, family, or colleagues are thinking about buying or selling, I'd love to help them too. Referrals are the highest compliment you can give me!
+
+Wishing you all the best,
+
+${sig(agent)}`,
+  }),
+
 };
+
+// Seller wording when the deal is a sale, the buyer wording otherwise.
+type TemplateKey = 'financing_reminder_3d' | 'financing_reminder_1d' | 'inspection_reminder_3d'
+  | 'inspection_reminder_1d' | 'walkthrough_reminder' | 'closing_day' | 'post_closing_referral';
+const pick = (key: TemplateKey, deal: PipelineDeal, agent: Agent) =>
+  (deal.deal_side === 'sell' ? templates[`${key}_seller` as const] : templates[key])(deal, agent);
 
 // ─── Idempotency check ────────────────────────────────────────────────────────
 
@@ -277,7 +393,7 @@ serve(async (req) => {
   // ── 1. Load all active pipeline deals ──────────────────────────────────────
   const { data: deals, error: dealsErr } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, financing_status, inspection_deadline, inspection_skipped, walkthrough_date, walkthrough_skipped, closing_date, updated_at')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, financing_status, inspection_deadline, inspection_skipped, walkthrough_date, walkthrough_skipped, closing_date, deal_side, updated_at')
     .not('stage', 'in', '("Closed","Fell Through","Withdrawn")');
 
   if (dealsErr || !deals) {
@@ -312,12 +428,12 @@ serve(async (req) => {
     if (deal.financing_deadline) {
       const days = daysUntil(deal.financing_deadline);
       if (days === 3) {
-        const t = templates.financing_reminder_3d(deal, agent);
+        const t = pick('financing_reminder_3d', deal, agent);
         const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Financing Reminder (3 days)', t.subject, t.body);
         r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
       if (days === 1) {
-        const t = templates.financing_reminder_1d(deal, agent);
+        const t = pick('financing_reminder_1d', deal, agent);
         const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Financing Reminder (1 day)', t.subject, t.body);
         r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
@@ -360,12 +476,12 @@ serve(async (req) => {
     if (deal.inspection_deadline && !deal.inspection_skipped) {
       const days = daysUntil(deal.inspection_deadline);
       if (days === 3) {
-        const t = templates.inspection_reminder_3d(deal, agent);
+        const t = pick('inspection_reminder_3d', deal, agent);
         const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Inspection Reminder (3 days)', t.subject, t.body);
         r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
       if (days === 1) {
-        const t = templates.inspection_reminder_1d(deal, agent);
+        const t = pick('inspection_reminder_1d', deal, agent);
         const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Inspection Reminder (1 day)', t.subject, t.body);
         r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
       }
@@ -373,14 +489,14 @@ serve(async (req) => {
 
     // ── 3c. Walkthrough reminder ─────────────────────────────────────────────
     if (deal.walkthrough_date && !deal.walkthrough_skipped && daysUntil(deal.walkthrough_date) === 1) {
-      const t = templates.walkthrough_reminder(deal, agent);
+      const t = pick('walkthrough_reminder', deal, agent);
       const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Walkthrough Reminder', t.subject, t.body);
       r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
     }
 
     // ── 3d. Closing day ──────────────────────────────────────────────────────
     if (deal.closing_date && daysUntil(deal.closing_date) === 0) {
-      const t = templates.closing_day(deal, agent);
+      const t = pick('closing_day', deal, agent);
       const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Closing Day', t.subject, t.body);
       r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
     }
@@ -392,7 +508,7 @@ serve(async (req) => {
 
   const { data: closedDeals } = await supabase
     .from('pipeline')
-    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, inspection_deadline, walkthrough_date, closing_date, updated_at')
+    .select('id, agent_id, client_id, client_name, client_email, property_address, stage, financing_deadline, inspection_deadline, walkthrough_date, closing_date, deal_side, updated_at')
     .eq('stage', 'Closed')
     .gte('closing_date', eightDaysAgo)
     .lte('closing_date', sevenDaysAgo);
@@ -404,7 +520,7 @@ serve(async (req) => {
     const daysSince = Math.round((today.getTime() - closeDate.getTime()) / 86_400_000);
     if (daysSince !== 7) continue;
     const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
-    const t = templates.post_closing_referral(deal, agent);
+    const t = pick('post_closing_referral', deal, agent);
     const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Post-Closing Referral', t.subject, t.body);
     r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
   }
