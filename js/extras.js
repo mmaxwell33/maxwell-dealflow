@@ -1745,7 +1745,7 @@ const FormResponses = {
 
     // Append what they just told us onto the client's notes, so the new enquiry
     // is actually readable on their record rather than only in the intake row.
-    const { data: c } = await db.from('clients').select('notes, full_name, email').eq('id', clientId).single();
+    const { data: c } = await db.from('clients').select('notes, full_name, email, stage').eq('id', clientId).single();
     const stamp = new Date().toLocaleDateString('en-CA');
     const wants = r?.intake_type === 'seller' ? 'selling' : 'buying';
     const detail = [
@@ -1760,6 +1760,9 @@ const FormResponses = {
     const { error: cErr } = await db.from('clients').update({
       notes: (c?.notes ? c.notes + '\n' : '') + line,
       client_type: newType,
+      // A finished client starting a new move is active again. Without this a
+      // closed client stayed 'Closed' and never counted as active.
+      ...(['Closed','Fell Through'].includes(c?.stage) ? { stage: 'Searching' } : {}),
       updated_at: new Date().toISOString()
     }).eq('id', clientId);
     if (cErr) { if (msg) { msg.style.color = 'var(--red)'; msg.textContent = cErr.message; } return; }

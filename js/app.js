@@ -1150,10 +1150,14 @@ const App = {
       { data: touchEmails },
       { data: touchPipeline }
     ] = await Promise.all([
-      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived'),
+      // Active = still working with Maxwell. A client whose deal has closed stays
+      // on file (Total) but is not active; they come back to Searching when a
+      // new intake is attached to them (FormResponses.doAttach).
+      db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).neq('status','Archived').or('stage.is.null,stage.neq.Closed'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId),
       db.from('viewings').select('*',{count:'exact',head:true}).eq('viewing_status','Scheduled'),
-      db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active'),
+      // pipeline.status stays 'Active' after closing, so judge by stage.
+      db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('status','Active').not('stage','in','("Closed","Fell Through")'),
       db.from('pipeline').select('*',{count:'exact',head:true}).eq('agent_id',agentId).eq('stage','Closed'),
       db.from('clients').select('*',{count:'exact',head:true}).eq('agent_id',agentId).gte('created_at',weekAgo),
       db.from('clients').select('id,full_name,stage,email,updated_at').eq('agent_id',agentId).neq('status','Archived'),
