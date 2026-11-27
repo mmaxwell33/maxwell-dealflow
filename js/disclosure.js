@@ -87,6 +87,15 @@ const Disclosure = {
   // ── CONFIRM A DISCLOSURE (signed externally) ──────────────────────────────
   // Maxwell flips a disclosure to 'confirmed' once the client has signed in the
   // external system. Optional `signedFile` archives the PDF in Supabase Storage.
+  // The disclosures bucket is private (migration 127). Open a signed PDF with a
+  // short-lived link: signedUrl(row.signed_pdf_path). Returns null on failure.
+  async signedUrl(path, seconds = 300) {
+    if (!path) return null;
+    const { data, error } = await db.storage.from('disclosures').createSignedUrl(path, seconds);
+    if (error) { console.error('[Disclosure.signedUrl]', error); return null; }
+    return data?.signedUrl || null;
+  },
+
   async confirm(disclosureId, signedFile = null, notes = null) {
     if (!disclosureId || !currentAgent?.id) return false;
     let signedPath = null;
