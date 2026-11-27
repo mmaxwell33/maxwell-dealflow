@@ -44,7 +44,7 @@ interface PipelineDeal {
 
 interface Agent {
   id: string;
-  full_name: string | null;
+  name: string | null;   // agents.name (there is no agents.full_name)
   email: string | null;
   phone: string | null;
 }
@@ -63,7 +63,7 @@ interface QueuedEmail {
 // ─── Email template helpers ───────────────────────────────────────────────────
 
 const sig = (agent: Agent) =>
-  `${agent.full_name || 'Maxwell Delali Midodzi'}
+  `${agent.name || 'Maxwell Delali Midodzi'}
 REALTOR® | eXp Realty
 Phone: ${agent.phone || '(709) 325-0545'} | Email: ${agent.email || 'Maxwell.Midodzi@exprealty.com'}
 eXp Realty, 33 Pippy PL, Suite 101, St. John's, NL A1B 3X2
@@ -405,9 +405,12 @@ serve(async (req) => {
 
   // ── 2. Load all agents ─────────────────────────────────────────────────────
   const agentIds = [...new Set(deals.map((d: PipelineDeal) => d.agent_id))];
-  const { data: agents } = await supabase
+  // agents.name, not full_name: asking for a missing column failed the whole
+  // query, so every email fell back to the hardcoded signature below.
+  const { data: agents, error: agentsErr } = await supabase
     .from('agents')
-    .select('id, full_name, email, phone');
+    .select('id, name, email, phone');
+  if (agentsErr) summary.errors.push(`agents: ${agentsErr.message}`);
 
   const agentMap = new Map<string, Agent>();
   for (const a of agents ?? []) agentMap.set(a.id, a as Agent);
@@ -415,7 +418,7 @@ serve(async (req) => {
   // ── 3. Process each active deal ────────────────────────────────────────────
   for (const deal of deals as PipelineDeal[]) {
     summary.processed++;
-    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
+    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, name: null, email: null, phone: null };
 
     const daysUntil = (dateStr: string | null): number | null => {
       if (!dateStr) return null;
@@ -519,7 +522,7 @@ serve(async (req) => {
     closeDate.setHours(0, 0, 0, 0);
     const daysSince = Math.round((today.getTime() - closeDate.getTime()) / 86_400_000);
     if (daysSince !== 7) continue;
-    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, full_name: null, email: null, phone: null };
+    const agent = agentMap.get(deal.agent_id) ?? { id: deal.agent_id, name: null, email: null, phone: null };
     const t = pick('post_closing_referral', deal, agent);
     const r = await queueEmail(supabase, deal.agent_id, deal.client_name!, deal.client_email!, deal.id, 'Post-Closing Referral', t.subject, t.body);
     r.queued ? summary.queued++ : r.error === 'duplicate' ? summary.skipped_duplicate++ : summary.errors.push(`deal ${deal.id}: ${r.error}`);
@@ -571,7 +574,7 @@ serve(async (req) => {
 
     if (!clientRow?.email) continue;
 
-    const agent = agentMap.get(clientRow.agent_id) ?? { id: clientRow.agent_id, full_name: null, email: null, phone: null };
+    const agent = agentMap.get(clientRow.agent_id) ?? { id: clientRow.agent_id, name: null, email: null, phone: null };
     const viewDateFmt = fmtDate(v.viewing_date);
     const fn = firstName(clientRow.full_name);
 
