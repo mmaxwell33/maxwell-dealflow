@@ -1855,47 +1855,9 @@ const Pipeline = {
   async generateChecklist(pipelineId, offer, client, acceptDate) {
     if (!currentAgent?.id || !pipelineId) return;
 
-    // Calculate relative due dates from acceptance date
-    const addDays = (base, n) => {
-      const d = new Date(base);
-      d.setDate(d.getDate() + n);
-      return d.toISOString().slice(0, 10);
-    };
-
-    const tasks = [
-      // Legal
-      { title: 'Retain a real estate lawyer / notary', category: 'Legal', due: addDays(acceptDate, 2) },
-      { title: 'Send accepted offer documents to lawyer', category: 'Legal', due: addDays(acceptDate, 3) },
-      { title: 'Confirm deposit payment to listing brokerage', category: 'Legal', due: addDays(acceptDate, 5) },
-      { title: 'Review lawyer\'s title search and insurance', category: 'Legal', due: addDays(acceptDate, 10) },
-      // Financing
-      { title: 'Confirm client has submitted mortgage application', category: 'Financing', due: addDays(acceptDate, 3) },
-      { title: 'Provide all required documents to mortgage lender', category: 'Financing', due: addDays(acceptDate, 5) },
-      { title: 'Confirm mortgage approval with lender', category: 'Financing', due: addDays(acceptDate, 8) },
-      { title: 'Ensure financing condition is waived or extended', category: 'Financing', due: offer.financing_date || addDays(acceptDate, 10) },
-      // Inspection
-      { title: 'Book home inspection appointment', category: 'Inspection', due: addDays(acceptDate, 3) },
-      { title: 'Attend home inspection with client', category: 'Inspection', due: addDays(acceptDate, 7) },
-      { title: 'Review inspection report and negotiate repairs if needed', category: 'Inspection', due: addDays(acceptDate, 9) },
-      { title: 'Ensure inspection condition is waived or resolved', category: 'Inspection', due: offer.inspection_date || addDays(acceptDate, 10) },
-      // Sale of the buyer's own home (Schedule A). Only when it is a condition.
-      ...(offer.sale_condition_date ? [
-        { title: "Ensure the sale-of-property condition is met or waived in writing", category: 'Legal', due: String(offer.sale_condition_date).slice(0,10) },
-      ] : []),
-      // Insurance & Utilities
-      { title: 'Remind client to arrange home insurance', category: 'General', due: addDays(acceptDate, 14) },
-      { title: 'Remind client to transfer utilities (hydro, water, gas, internet)', category: 'General', due: addDays(acceptDate, 21) },
-      // Moving
-      { title: 'Remind client to book a moving company', category: 'Moving', due: addDays(acceptDate, 14) },
-      { title: 'Confirm moving date and logistics with client', category: 'Moving', due: addDays(acceptDate, 28) },
-      // Walkthrough & Closing
-      { title: 'Schedule final walkthrough with client', category: 'General', due: offer.walkthrough_date || addDays(acceptDate, 28) },
-      { title: 'Conduct final walkthrough of the property', category: 'General', due: offer.walkthrough_date || addDays(acceptDate, 28) },
-      { title: 'Confirm all conditions have been met and waived', category: 'Legal', due: addDays(acceptDate, 12) },
-      { title: 'Confirm closing costs with lawyer (client must prepare bank draft)', category: 'Legal', due: offer.closing_date ? addDays(offer.closing_date, -3) : addDays(acceptDate, 25) },
-      { title: 'Coordinate key handover with listing agent', category: 'General', due: offer.closing_date || addDays(acceptDate, 30) },
-      { title: 'Post-closing: send congratulations and request Google review', category: 'General', due: offer.closing_date ? addDays(offer.closing_date, 3) : addDays(acceptDate, 33) },
-    ];
+    // The task rules live in js/dealchecklist.js (unit tested). Inspection
+    // tasks are left out when offer.inspection_skipped is set.
+    const tasks = DealChecklist.tasks(offer, acceptDate);
 
     const rows = tasks.map(t => ({
       agent_id: currentAgent.id,
@@ -4787,7 +4749,9 @@ const Pipeline = {
       financing_date: d.financing_date || null,
       inspection_date: d.inspection_date || null,
       walkthrough_date: d.walkthrough_date || null,
-      closing_date: d.closing_date || null
+      closing_date: d.closing_date || null,
+      sale_condition_date: d.sale_condition_date || null,
+      inspection_skipped: !!d.inspection_skipped
     };
     const client = { full_name: d.client_name, email: d.client_email };
     await Pipeline.generateChecklist(pipelineId, fakeOffer, client, d.acceptance_date || new Date().toISOString().slice(0,10));
