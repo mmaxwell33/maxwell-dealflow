@@ -85,7 +85,7 @@ const fmtDate = (iso: string) =>
 const templates = {
 
   financing_reminder_3d: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `⏰ Reminder: Financing Deadline in 3 Days — ${deal.property_address}`,
+    subject: `⏰ Reminder: Financing Deadline in 3 Days: ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
 Just a friendly reminder that your financing deadline for ${deal.property_address} is in 3 days (${fmtDate(deal.financing_deadline!)}).
@@ -96,18 +96,18 @@ ${sig(agent)}`,
   }),
 
   financing_reminder_1d: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `🚨 URGENT: Financing Deadline Tomorrow — ${deal.property_address}`,
+    subject: `🚨 URGENT: Financing Deadline Tomorrow: ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-IMPORTANT REMINDER — your financing deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.financing_deadline!)}).
+IMPORTANT REMINDER: your financing deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.financing_deadline!)}).
 
-Please confirm with your lender today that your mortgage is approved. If there are any issues, call me immediately — this is time-sensitive.
+Please confirm with your lender today that your mortgage is approved. If there are any issues, call me immediately, as this is time-sensitive.
 
 ${sig(agent)}`,
   }),
 
   inspection_reminder_3d: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `⏰ Reminder: Home Inspection Deadline in 3 Days — ${deal.property_address}`,
+    subject: `⏰ Reminder: Home Inspection Deadline in 3 Days: ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
 A quick reminder that your home inspection condition deadline for ${deal.property_address} is in 3 days (${fmtDate(deal.inspection_deadline!)}).
@@ -118,10 +118,10 @@ ${sig(agent)}`,
   }),
 
   inspection_reminder_1d: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `🚨 URGENT: Inspection Deadline Tomorrow — ${deal.property_address}`,
+    subject: `🚨 URGENT: Inspection Deadline Tomorrow: ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-IMPORTANT — your home inspection deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.inspection_deadline!)}).
+IMPORTANT: your home inspection deadline for ${deal.property_address} is TOMORROW (${fmtDate(deal.inspection_deadline!)}).
 
 Please ensure your inspection is complete and any concerns have been reviewed. Contact me right away if you need to discuss the results or next steps.
 
@@ -129,7 +129,7 @@ ${sig(agent)}`,
   }),
 
   walkthrough_reminder: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `🏠 Reminder: Final Walkthrough Tomorrow — ${deal.property_address}`,
+    subject: `🏠 Reminder: Final Walkthrough Tomorrow: ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
 Just a reminder that your final walkthrough is scheduled for TOMORROW at ${deal.property_address}.
@@ -146,10 +146,10 @@ ${sig(agent)}`,
   }),
 
   closing_day: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `🔑 Happy Closing Day! — ${deal.property_address}`,
+    subject: `🔑 Happy Closing Day! ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-Today is the big day — CLOSING DAY! 🎉🔑
+Today is the big day: CLOSING DAY! 🎉🔑
 
 Here's your closing day checklist:
 ✅ Bring valid government-issued photo ID
@@ -159,20 +159,20 @@ Here's your closing day checklist:
 
 After today, ${deal.property_address} is officially YOURS.
 
-It has been my absolute honour to help you through this journey. Congratulations on your new home! Please stay in touch — I'm always here for any real estate needs.
+It has been my absolute honour to help you through this journey. Congratulations on your new home! Please stay in touch. I'm always here for any real estate needs.
 
 ${sig(agent)}`,
   }),
 
   post_closing_referral: (deal: PipelineDeal, agent: Agent) => ({
-    subject: `🏡 How's the New Home? — ${deal.property_address}`,
+    subject: `🏡 How's the New Home? ${deal.property_address}`,
     body: `Hi ${firstName(deal.client_name)},
 
-It's been about a week since you moved into your new home at ${deal.property_address} — I hope you're settling in beautifully!
+It's been about a week since you moved into your new home at ${deal.property_address}, and I hope you're settling in beautifully!
 
 I just wanted to check in and say it was truly a pleasure working with you throughout this process.
 
-If you're happy with the experience, I'd be so grateful if you could take 2 minutes to leave me a Google Review — it helps other buyers find me and means the world to me:
+If you're happy with the experience, I'd be so grateful if you could take 2 minutes to leave me a Google Review. It helps other buyers find me and means the world to me:
 
 👉 https://g.page/r/ [your-google-review-link]
 
@@ -578,12 +578,12 @@ serve(async (req) => {
     const viewDateFmt = fmtDate(v.viewing_date);
     const fn = firstName(clientRow.full_name);
 
-    const subject = `How Did the Viewing Go? — ${v.property_address}`;
+    const subject = `How Did the Viewing Go? ${v.property_address}`;
     const body = `Hi ${fn},
 
 I hope you enjoyed viewing ${v.property_address} on ${viewDateFmt}!
 
-I'd love to hear your thoughts — your feedback helps me find the perfect home for you:
+I'd love to hear your thoughts. Your feedback helps me find the perfect home for you:
 
 🏠 Did the property meet your expectations?
 📐 Did the size and layout work for you?
@@ -684,10 +684,10 @@ ${sig(agent)}`;
       // Look up client name + property for context
       const { data: pipe } = await supabase.from('pipeline')
         .select('client_name, property_address').eq('id', s.pipeline_id).single();
-      const subj = `Quick reminder — your portal for ${pipe?.client_name || 'the deal'} on ${pipe?.property_address || ''}`;
+      const subj = `Quick reminder: your portal for ${pipe?.client_name || 'the deal'} on ${pipe?.property_address || ''}`;
       const body = `Hi ${first},
 
-Just circling back — I sent you a portal link 48 hours ago for ${pipe?.client_name || 'my client'}'s deal on ${pipe?.property_address || 'the property'}. No urgency, but it would help me if you could open it when you have a moment so we can keep things moving.
+Just circling back. I sent you a portal link 48 hours ago for ${pipe?.client_name || 'my client'}'s deal on ${pipe?.property_address || 'the property'}. No urgency, but it would help me if you could open it when you have a moment so we can keep things moving.
 
 Open your portal: ${portalUrl}
 
