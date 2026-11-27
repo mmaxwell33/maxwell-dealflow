@@ -4813,7 +4813,7 @@ const Pipeline = {
     const saved = JSON.parse(localStorage.getItem(`df-room-${id}`) || 'null');
     if (!saved) {
       const defaults = [
-        { name: currentAgent?.full_name || 'Maxwell', role: 'Agent', email: currentAgent?.email || '', phone: '' },
+        { name: currentAgent?.name || 'Maxwell Delali Midodzi', role: 'Agent', email: currentAgent?.email || '', phone: '' },
         { name: d.client_name || 'Buyer', role: 'Buyer', email: d.client_email || '', phone: '' }
       ];
       localStorage.setItem(`df-room-${id}`, JSON.stringify(defaults));
@@ -5605,7 +5605,7 @@ const Pipeline = {
       </tr>`;
     }).join('');
 
-    const agentName = currentAgent?.full_name || currentAgent?.name || 'Maxwell Midodzi';
+    const agentName = currentAgent?.name || 'Maxwell Delali Midodzi';  // agents.name; there is no full_name
     const agentEmail = currentAgent?.email || '';
     const agentPhone = currentAgent?.phone || '';
     const now = new Date().toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'});
