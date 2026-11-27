@@ -4762,7 +4762,7 @@ const Pipeline = {
   // ── TRANSACTION ROOM ──────────────────────────────────────────────────────
   _roomId: null,
 
-  openRoom(id) {
+  async openRoom(id) {
     const d = Pipeline.all.find(x => x.id === id);
     if (!d) return;
     Pipeline._roomId = id;
@@ -4773,15 +4773,13 @@ const Pipeline = {
     if (title) title.textContent = `🤝 Transaction Room — ${d.client_name || 'Deal'}`;
     if (sub)   sub.textContent   = `${d.property_address || ''} · $${Number(d.offer_amount||0).toLocaleString('en-CA')}`;
 
-    // Default parties if none saved yet
-    const saved = JSON.parse(localStorage.getItem(`df-room-${id}`) || 'null');
-    if (!saved) {
-      const defaults = [
-        { name: currentAgent?.name || 'Maxwell Delali Midodzi', role: 'Agent', email: currentAgent?.email || '', phone: '' },
-        { name: d.client_name || 'Buyer', role: 'Buyer', email: d.client_email || '', phone: '' }
-      ];
-      localStorage.setItem(`df-room-${id}`, JSON.stringify(defaults));
-    }
+    // Parties and document ticks are stored per deal in the database
+    // (js/dealroom.js, migration 126). Defaults are used when none are saved.
+    const defaults = [
+      { name: currentAgent?.name || 'Maxwell Delali Midodzi', role: 'Agent', email: currentAgent?.email || '', phone: '' },
+      { name: d.client_name || 'Buyer', role: 'Buyer', email: d.client_email || '', phone: '' }
+    ];
+    await DealRoom.load(id, defaults);
 
     Pipeline.roomTab('parties', document.querySelector('.room-tab'));
     Pipeline.renderParties();
@@ -4812,7 +4810,7 @@ const Pipeline = {
     const id = Pipeline._roomId;
     const el = document.getElementById('room-parties-list');
     if (!el || !id) return;
-    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
+    const parties = DealRoom.parties(id);
     const roleColors = { Agent:'var(--accent2)', Buyer:'var(--green)', 'Mortgage Broker':'var(--yellow)', 'Lawyer / Notary':'var(--purple)', 'Home Inspector':'var(--cyan)', 'Lender / Bank':'var(--orange, #f97316)', default:'var(--text2)' };
     el.innerHTML = parties.length ? parties.map((p, i) => `
       <div class="room-party-row">
@@ -4826,7 +4824,7 @@ const Pipeline = {
       </div>`).join('') : '<div style="color:var(--text2);font-size:13px;text-align:center;padding:16px;">No parties yet.</div>';
   },
 
-  addParty() {
+  async addParty() {
     const id = Pipeline._roomId;
     if (!id) return;
     const name  = document.getElementById('room-new-name')?.value.trim();
@@ -4834,20 +4832,16 @@ const Pipeline = {
     const email = document.getElementById('room-new-email')?.value.trim();
     const phone = document.getElementById('room-new-phone')?.value.trim();
     if (!name) { App.toast('⚠️ Enter a name'); return; }
-    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
-    parties.push({ name, role, email, phone });
-    localStorage.setItem(`df-room-${id}`, JSON.stringify(parties));
+    await DealRoom.addParty(id, { name, role, email, phone });
     ['room-new-name','room-new-email','room-new-phone'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
     Pipeline.renderParties();
     App.toast(`✅ ${name} added to room`);
   },
 
-  removeParty(idx) {
+  async removeParty(idx) {
     const id = Pipeline._roomId;
     if (!id) return;
-    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
-    parties.splice(idx, 1);
-    localStorage.setItem(`df-room-${id}`, JSON.stringify(parties));
+    await DealRoom.removeParty(id, idx);
     Pipeline.renderParties();
   },
 
@@ -4856,8 +4850,7 @@ const Pipeline = {
     if (!id) return;
     const d = Pipeline.all.find(x => x.id === id);
     if (!d) return;
-    const parties = JSON.parse(localStorage.getItem(`df-room-${id}`) || '[]');
-    const p = parties[idx];
+    const p = DealRoom.parties(id)[idx];
     if (!p || !p.email) { App.toast('WARN: This party has no email'); return; }
 
     const roleMap = {
@@ -5016,9 +5009,9 @@ const Pipeline = {
       }
     ];
 
-    // Flatten for index-based storage
+    // Ticks are stored by document name (js/dealroom.js); drawn by position here
     const ALL_DOCS = CATS.flatMap(c => c.docs);
-    const checked  = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
+    const checked  = DealRoom.checkedIndexes(id, ALL_DOCS);
     const reqTotal = ALL_DOCS.filter(d => d.req).length;
     const reqDone  = ALL_DOCS.filter((d, i) => d.req && checked.includes(i)).length;
     const allDone  = ALL_DOCS.filter((d, i) => checked.includes(i)).length;
@@ -5066,10 +5059,7 @@ const Pipeline = {
   toggleDoc(idx) {
     const id = Pipeline._roomId;
     if (!id) return;
-    const checked = JSON.parse(localStorage.getItem(`df-room-docs-${id}`) || '[]');
-    const pos = checked.indexOf(idx);
-    if (pos === -1) checked.push(idx); else checked.splice(pos, 1);
-    localStorage.setItem(`df-room-docs-${id}`, JSON.stringify(checked));
+    DealRoom.toggleDoc(id, idx);
     Pipeline.renderDocs();
   },
 
