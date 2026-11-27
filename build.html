@@ -319,8 +319,12 @@ async function init() {
 
   try {
     // Look up build token
-    const tokenRows = await fetch(SB_URL + `/rest/v1/build_tokens?token=eq.${encodeURIComponent(token)}&select=*,new_builds(*)`, {
-      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+    // Through build_token_load (migration 128): the build tables are no longer
+    // open to the public, so the page asks for exactly this one link.
+    const tokenRows = await fetch(SB_URL + '/rest/v1/rpc/build_token_load', {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_token: token })
     }).then(r => r.json());
 
     if (!tokenRows?.length || !tokenRows[0].active) { show('error'); return; }
